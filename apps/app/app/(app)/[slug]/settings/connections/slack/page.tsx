@@ -296,7 +296,7 @@ function MissingGrant({
 				<Icon icon={Warning} />
 				<AlertTitle>
 					{privateChannels
-						? "Comp AI cannot reach private channels"
+						? "Janus cannot reach private channels"
 						: `Slack held back ${missing.length} permission${missing.length === 1 ? "" : "s"}`}
 				</AlertTitle>
 				<AlertDescription>
