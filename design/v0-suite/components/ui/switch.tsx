@@ -1,0 +1,37 @@
+'use client'
+
+import { cn } from '@/lib/utils'
+
+export function Switch({
+  checked,
+  onCheckedChange,
+  className,
+  'aria-label': ariaLabel,
+}: {
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+  className?: string
+  'aria-label'?: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onCheckedChange(!checked)}
+      className={cn(
+        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none',
+        checked ? 'bg-primary' : 'bg-input',
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+          checked ? 'translate-x-4' : 'translate-x-0.5',
+        )}
+      />
+    </button>
+  )
+}
