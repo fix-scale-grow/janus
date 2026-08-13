@@ -175,6 +175,17 @@ enum DealStage {
   CLOSED_LOST
 }
 
+// Production pipeline for WON work (the trades "job" lifecycle). A deal only
+// enters production once it is CLOSED_WON; until scheduled its productionStage
+// is null (the Production board's "Unscheduled" intake column).
+enum ProductionStage {
+  SCHEDULED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETE
+  PAID
+}
+
 enum ActivityType {
   NOTE
   CALL
@@ -920,6 +931,9 @@ model Deal {
   closedAt          DateTime?
   closedReason      String?
 
+  productionStage          ProductionStage?
+  productionStageChangedAt DateTime?
+
   baseAmount   Decimal?  @db.Decimal(24, 4)
   baseCurrency String?
   fxRate       Decimal?  @db.Decimal(20, 10)
@@ -936,6 +950,7 @@ model Deal {
   @@index([companyId])
   @@index([ownerId])
   @@index([stage])
+  @@index([productionStage])
   @@index([expectedCloseDate])
   @@index([lastActivityAt])
   @@index([baseAmount])

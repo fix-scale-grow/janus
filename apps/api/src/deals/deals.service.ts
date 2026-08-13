@@ -51,6 +51,7 @@ import type {
 	DealDetachContactInput,
 	DealListInput,
 	DealUpdateInput,
+	SetProductionStageInput,
 	SetStageInput,
 } from "./deals.contracts";
 import { CLOSING_WINDOWS } from "./deals.contracts";
@@ -128,6 +129,7 @@ export class DealsService {
 						id: true,
 						name: true,
 						stage: true,
+						productionStage: true,
 						amount: true,
 						currency: true,
 						baseAmount: true,
@@ -194,6 +196,7 @@ export class DealsService {
 				name: true,
 				description: true,
 				stage: true,
+				productionStage: true,
 				stageChangedAt: true,
 				amount: true,
 				currency: true,
@@ -487,6 +490,59 @@ export class DealsService {
 		});
 
 		return { ...updated, changed: true };
+	}
+
+	/** Move a WON deal along the production pipeline (or back to Unscheduled with
+	 * `stage: null`). Guarded to won jobs only — the sales pipeline owns every
+	 * pre-win transition; production is strictly post-win work. */
+	async setProductionStage(
+		input: SetProductionStageInput,
+		actingUserId: string,
+	) {
+		const deal = await this.db.deal.findUnique({
+			where: { id: input.id },
+			select: { id: true, stage: true, productionStage: true, companyId: true },
+		});
+
+		if (!deal) {
+			throw new NotFoundException(`No deal with id ${input.id}.`);
+		}
+		if (deal.stage !== "CLOSED_WON") {
+			throw new BadRequestException(
+				"Only won jobs move through production — win the deal first.",
+			);
+		}
+		if (deal.productionStage === input.stage) {
+			return {
+				id: deal.id,
+				productionStage: deal.productionStage,
+				changed: false as const,
+			};
+		}
+
+		const now = new Date();
+		const updated = await this.db.deal.update({
+			where: { id: input.id },
+			data: { productionStage: input.stage, productionStageChangedAt: now },
+			select: { id: true, productionStage: true },
+		});
+		await this.db.activity.create({
+			data: {
+				type: ActivityType.STAGE_CHANGE,
+				subject: "Production stage changed",
+				occurredAt: now,
+				companyId: deal.companyId,
+				dealId: deal.id,
+				createdById: actingUserId,
+				meta: {
+					kind: "production",
+					from: deal.productionStage,
+					to: input.stage,
+				},
+			},
+		});
+
+		return { ...updated, changed: true as const };
 	}
 
 	async contactOptions(dealId: string) {

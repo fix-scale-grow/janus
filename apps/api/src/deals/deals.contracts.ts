@@ -1,4 +1,4 @@
-import { DealStage } from "@crm/db";
+import { DealStage, ProductionStage } from "@crm/db";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import { currencyCode } from "../currency/currency.contracts";
@@ -77,6 +77,19 @@ export const setStageInput = z.object({
 });
 
 export type SetStageInput = z.infer<typeof setStageInput>;
+
+const productionStageEnum = z.enum(
+	Object.values(ProductionStage) as [ProductionStage, ...ProductionStage[]],
+);
+
+/** Move a won job along the production pipeline. `stage: null` returns it to the
+ * Unscheduled intake column. Rejected by the service unless the deal is won. */
+export const setProductionStageInput = z.object({
+	id: z.string(),
+	stage: productionStageEnum.nullable(),
+});
+
+export type SetProductionStageInput = z.infer<typeof setProductionStageInput>;
 
 const dealContactRole = z
 	.string()

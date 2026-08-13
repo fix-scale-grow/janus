@@ -4,6 +4,7 @@ import Chat from "@carbon/icons-react/es/Chat";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
 import Partnership from "@carbon/icons-react/es/Partnership";
 import Settings from "@carbon/icons-react/es/Settings";
+import Tools from "@carbon/icons-react/es/Tools";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 
 /**
@@ -88,14 +89,15 @@ export const JANUS_NAV: JanusModule[] = [
 		icon: Settings,
 		source: "app/(app)/settings",
 	},
-	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{
 		title: "Production",
 		href: "/production",
 		match: "prefix",
-		status: "planned",
+		status: "live",
+		icon: Tools,
 		source: "app/(app)/production",
 	},
+	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{
 		title: "Schedule",
 		href: "/schedule",

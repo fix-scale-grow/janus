@@ -22,6 +22,7 @@ import {
 	dealIdInput,
 	dealListInput,
 	dealUpdateArgs,
+	setProductionStageInput,
 	setStageInput,
 } from "./deals.contracts";
 import { DealsService } from "./deals.service";
@@ -62,6 +63,14 @@ export class DealsRouter {
 		@Input() input: z.infer<typeof setStageInput>,
 	) {
 		return this.deals.setStage(input, ctx.user.id);
+	}
+
+	@Mutation({ input: setProductionStageInput })
+	async setProductionStage(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof setProductionStageInput>,
+	) {
+		return this.deals.setProductionStage(input, ctx.user.id);
 	}
 
 	@Query({ input: dealContactsInput })
