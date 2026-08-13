@@ -1,7 +1,9 @@
 "use client";
 
 import Add from "@carbon/icons-react/es/Add";
+import Chat from "@carbon/icons-react/es/Chat";
 import Close from "@carbon/icons-react/es/Close";
+import Phone from "@carbon/icons-react/es/Phone";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { CURRENCIES, normalizeCurrency } from "@crm/db/currency";
 import type { FieldValueJson } from "@crm/db/fields";
@@ -272,6 +274,8 @@ function DealOverview({ deal }: { deal: Deal }) {
 
 	return (
 		<DetailSheetBody>
+			<CustomerReach deal={deal} />
+
 			<DetailSheetSection title="Stage">
 				<StageStepper dealId={deal.id} stage={deal.stage} />
 
@@ -367,6 +371,53 @@ function DealOverview({ deal }: { deal: Deal }) {
 
 			<WhereItStands deal={deal} />
 		</DetailSheetBody>
+	);
+}
+
+function dialHref(phone: string) {
+	// Keep a leading + (country code) and digits; drop spaces, dashes, parens.
+	const cleaned = phone.replace(/[^\d+]/g, "");
+	return cleaned.startsWith("+")
+		? `+${cleaned.slice(1).replace(/\+/g, "")}`
+		: cleaned;
+}
+
+// Trades front door: the primary person to call/text on this job. Picks the
+// first contact that actually has a phone number (contacts arrive ordered by
+// first name), so a one-tap Call/Text always reaches a real number.
+function CustomerReach({ deal }: { deal: Deal }) {
+	const contact = deal.contacts.find(
+		(row) => row.phone && row.phone.trim().length > 0,
+	);
+
+	if (!contact?.phone) return null;
+
+	const dial = dialHref(contact.phone);
+	const name = contactName(contact);
+
+	return (
+		<DetailSheetSection title="Reach the customer">
+			<div className="flex flex-wrap items-center gap-2">
+				<div className="mr-1 min-w-0">
+					<p className="truncate text-sm font-medium text-foreground">{name}</p>
+					<p className="truncate text-xs text-muted-foreground tabular-nums">
+						{contact.phone}
+					</p>
+				</div>
+				<Button asChild variant="outline" size="sm">
+					<a href={`tel:${dial}`} aria-label={`Call ${name}`}>
+						<Icon icon={Phone} data-icon="inline-start" />
+						Call
+					</a>
+				</Button>
+				<Button asChild variant="outline" size="sm">
+					<a href={`sms:${dial}`} aria-label={`Text ${name}`}>
+						<Icon icon={Chat} data-icon="inline-start" />
+						Text
+					</a>
+				</Button>
+			</div>
+		</DetailSheetSection>
 	);
 }
 
