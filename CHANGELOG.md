@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.1](https://github.com/trycompai/crm/compare/v1.13.0...v1.13.1) (2026-08-13)
+
+
+### Refactors
+
+* clear anti-slop type assertions and conditional object spreads (CMP-81) ([#146](https://github.com/trycompai/crm/issues/146)) ([bfd4dad](https://github.com/trycompai/crm/commit/bfd4dadfd1df44566676902a2477bfa112ca1413))
+
+
+### Documentation
+
+* propose an i18n layer ([#143](https://github.com/trycompai/crm/issues/143)) ([64440c6](https://github.com/trycompai/crm/commit/64440c6827394af69659a1d0205574a6726868a8))
+
 ## [1.13.0](https://github.com/trycompai/crm/compare/v1.12.0...v1.13.0) (2026-08-12)
 
 
