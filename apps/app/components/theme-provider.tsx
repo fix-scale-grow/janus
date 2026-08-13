@@ -10,7 +10,9 @@ export function ThemeProvider({
 	return (
 		<NextThemesProvider
 			attribute="class"
-			defaultTheme="system"
+			// Janus is a bright, customer-themeable UI — not dark-SaaS (JANUS.md).
+			// Default to light; dark remains available for users who opt in.
+			defaultTheme="light"
 			enableSystem
 			disableTransitionOnChange
 			{...props}
