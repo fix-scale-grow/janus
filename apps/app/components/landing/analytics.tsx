@@ -1,43 +1,20 @@
 "use client";
 
-import {
-	POSTHOG_HOST,
-	POSTHOG_KEY,
-	POSTHOG_UI_HOST,
-} from "@crm/telemetry/project";
-import { useMountEffect } from "@crm/ui/hooks/use-mount-effect";
-import { analyticsAllowed } from "@/lib/analytics";
+// Janus fork: landing-page telemetry stripped. Upstream initialised posthog-js
+// in the browser and shipped CTA events to trycomp.ai's PostHog project. Both
+// exports are kept (same signatures, still mounted on the landing page and
+// called by the CTA buttons) but are now inert — no posthog-js import, no
+// network calls, nothing leaves the visitor's browser.
 
 export type CtaLocation = "hero" | "closing";
 
 export function LandingAnalytics() {
-	useMountEffect(() => {
-		if (!analyticsAllowed(window.location.hostname)) return;
-
-		import("posthog-js")
-			.then(({ default: posthog }) => {
-				posthog.init(POSTHOG_KEY, {
-					api_host: POSTHOG_HOST,
-					ui_host: POSTHOG_UI_HOST,
-					defaults: "2026-06-25",
-				});
-			})
-			.catch(() => {});
-	});
-
 	return null;
 }
 
 export function captureLanding(
-	event: "setup_prompt_copied" | "github_star_clicked",
-	location: CtaLocation,
+	_event: "setup_prompt_copied" | "github_star_clicked",
+	_location: CtaLocation,
 ): void {
-	if (typeof window === "undefined") return;
-	if (!analyticsAllowed(window.location.hostname)) return;
-
-	import("posthog-js")
-		.then(({ default: posthog }) => {
-			posthog.capture(event, { cta_location: location });
-		})
-		.catch(() => {});
+	// no-op
 }

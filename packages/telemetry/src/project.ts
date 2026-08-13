@@ -1,3 +1,8 @@
-export const POSTHOG_KEY = "phc_xKYTYbcX9bEB7sEaCpfZUCqV7HBxZw3QQVztuXf86Q9N";
-export const POSTHOG_HOST = "https://k.trycomp.ai";
-export const POSTHOG_UI_HOST = "https://us.posthog.com";
+// Janus fork: telemetry stripped. These constants previously pointed at
+// trycomp.ai's own PostHog project (host + write key) — a competitor's
+// analytics endpoint. Blanked so no upstream credentials live in Janus source
+// and no client can be initialised against them. Kept as exports only for
+// re-export compatibility via the package index.
+export const POSTHOG_KEY = "";
+export const POSTHOG_HOST = "";
+export const POSTHOG_UI_HOST = "";
