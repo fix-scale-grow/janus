@@ -12,6 +12,8 @@ import { brandThemeCss } from "@crm/ui/lib/brand-theme";
 export function BrandTheme({ brandColor }: { brandColor?: string | null }) {
 	const css = brandThemeCss(brandColor ?? process.env.JANUS_BRAND_COLOR);
 	if (!css) return null;
-	// biome-ignore lint/security/noDangerouslySetInnerHtml: static, validated token CSS
-	return <style id="janus-brand-theme" dangerouslySetInnerHTML={{ __html: css }} />;
+	return (
+		// biome-ignore lint/security/noDangerouslySetInnerHtml: static, validated token CSS
+		<style id="janus-brand-theme" dangerouslySetInnerHTML={{ __html: css }} />
+	);
 }
