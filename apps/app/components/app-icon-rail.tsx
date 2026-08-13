@@ -1,13 +1,6 @@
 "use client";
 
-import Building from "@carbon/icons-react/es/Building";
-import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
-import Chat from "@carbon/icons-react/es/Chat";
 import Close from "@carbon/icons-react/es/Close";
-import Dashboard from "@carbon/icons-react/es/Dashboard";
-import Partnership from "@carbon/icons-react/es/Partnership";
-import Settings from "@carbon/icons-react/es/Settings";
-import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
 import {
@@ -28,35 +21,13 @@ import { useMemo } from "react";
 import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-sidebar";
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
+import { JANUS_LIVE_NAV, type LiveNavItem } from "@/lib/janus-nav";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
-type RailItem = {
-	title: string;
-	href: string;
-	icon: CarbonIconType;
-	match: "exact" | "prefix";
-	related?: string[];
-};
+type RailItem = LiveNavItem;
 
-const ITEMS: RailItem[] = [
-	{ title: "Overview", href: "/", icon: Dashboard, match: "exact" },
-	{
-		title: "Chat",
-		href: "/chat",
-		icon: Chat,
-		match: "prefix",
-		related: ["/agents"],
-	},
-	{ title: "Companies", href: "/companies", icon: Building, match: "prefix" },
-	{
-		title: "Contacts",
-		href: "/contacts",
-		icon: UserMultiple,
-		match: "prefix",
-	},
-	{ title: "Deals", href: "/deals", icon: Partnership, match: "prefix" },
-	{ title: "Settings", href: "/settings", icon: Settings, match: "prefix" },
-];
+// Shell IA is defined once in `@/lib/janus-nav`; the rail renders the live modules.
+const ITEMS: RailItem[] = JANUS_LIVE_NAV;
 
 function isActive(item: RailItem, pathname: string): boolean {
 	return (
@@ -135,7 +106,7 @@ function MobileRailLink({
 				aria-current={active ? "page" : undefined}
 				onClick={onNavigate}
 				transitionTypes={[
-					item.title === "Chat" ? "nav-forward" : "nav-lateral",
+					item.title === "Janus AI" ? "nav-forward" : "nav-lateral",
 				]}
 			>
 				<Icon icon={item.icon} />
@@ -222,7 +193,7 @@ export function AppIconRail() {
 		[workspaceUrl],
 	);
 	const inChat = items.some(
-		(item) => item.title === "Chat" && isActive(item, pathname),
+		(item) => item.title === "Janus AI" && isActive(item, pathname),
 	);
 
 	return (
