@@ -38,6 +38,7 @@ import {
 	savingValue,
 } from "@/components/crm/inline-field";
 import { OwnerCell } from "@/components/crm/owner-cell";
+import { ProductionStageMenu } from "@/components/crm/production-stage-change";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { StageStepper } from "@/components/crm/stage-stepper";
 import { Timeline } from "@/components/crm/timeline/timeline";
@@ -295,6 +296,8 @@ function DealOverview({ deal }: { deal: Deal }) {
 				) : null}
 			</DetailSheetSection>
 
+			{deal.stage === "CLOSED_WON" ? <ProductionStatus deal={deal} /> : null}
+
 			<DetailSheetSection title="Details" action={<FieldsCog kind="deal" />}>
 				<DetailSheetProperties>
 					<InlineField
@@ -416,6 +419,26 @@ function CustomerReach({ deal }: { deal: Deal }) {
 						Text
 					</a>
 				</Button>
+			</div>
+		</DetailSheetSection>
+	);
+}
+
+// Won jobs move on to the shop floor. Surfacing the production stage here is the
+// record-sheet counterpart to the Production board's drag-drop, so a crew lead
+// opening a won job sees (and can change) where it stands in the build without
+// leaving the record. Only rendered for CLOSED_WON deals — production is
+// strictly post-win work, which the service also enforces.
+function ProductionStatus({ deal }: { deal: Deal }) {
+	return (
+		<DetailSheetSection title="Production">
+			<div className="flex flex-wrap items-center gap-2">
+				<ProductionStageMenu dealId={deal.id} stage={deal.productionStage} />
+				{deal.productionStage ? null : (
+					<span className="text-sm text-muted-foreground">
+						Not on the production board yet — set a stage to schedule the job.
+					</span>
+				)}
 			</div>
 		</DetailSheetSection>
 	);
