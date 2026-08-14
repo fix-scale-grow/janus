@@ -2,6 +2,7 @@ import Building from "@carbon/icons-react/es/Building";
 import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
 import Chat from "@carbon/icons-react/es/Chat";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
+import Mobile from "@carbon/icons-react/es/Mobile";
 import Partnership from "@carbon/icons-react/es/Partnership";
 import Settings from "@carbon/icons-react/es/Settings";
 import Tools from "@carbon/icons-react/es/Tools";
@@ -96,6 +97,14 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Tools,
 		source: "app/(app)/production",
+	},
+	{
+		title: "Field",
+		href: "/field",
+		match: "prefix",
+		status: "live",
+		icon: Mobile,
+		source: "app/field",
 	},
 	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{

@@ -42,6 +42,11 @@ export class DealsRouter {
 		return this.deals.byId(id);
 	}
 
+	@Query()
+	async fieldToday() {
+		return this.deals.fieldToday();
+	}
+
 	@Mutation({ input: dealCreateInput })
 	async create(@Input() input: z.infer<typeof dealCreateInput>) {
 		return this.deals.create(input);

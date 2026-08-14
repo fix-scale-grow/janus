@@ -57,6 +57,7 @@ import {
 	LocalDay,
 	LocalRelativeTime,
 } from "@/components/local-date-time";
+import { dialHref, reachableContact } from "@/lib/dial";
 import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -377,21 +378,11 @@ function DealOverview({ deal }: { deal: Deal }) {
 	);
 }
 
-function dialHref(phone: string) {
-	// Keep a leading + (country code) and digits; drop spaces, dashes, parens.
-	const cleaned = phone.replace(/[^\d+]/g, "");
-	return cleaned.startsWith("+")
-		? `+${cleaned.slice(1).replace(/\+/g, "")}`
-		: cleaned;
-}
-
 // Trades front door: the primary person to call/text on this job. Picks the
 // first contact that actually has a phone number (contacts arrive ordered by
 // first name), so a one-tap Call/Text always reaches a real number.
 function CustomerReach({ deal }: { deal: Deal }) {
-	const contact = deal.contacts.find(
-		(row) => row.phone && row.phone.trim().length > 0,
-	);
+	const contact = reachableContact(deal.contacts);
 
 	if (!contact?.phone) return null;
 

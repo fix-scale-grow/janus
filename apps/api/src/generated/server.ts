@@ -267,6 +267,8 @@ const appRouter = t.router({
     byId: publicProcedure
       .input(dealIdInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DealsRouter["byId"]>>),
+    fieldToday: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DealsRouter["fieldToday"]>>),
     create: publicProcedure
       .input(dealCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DealsRouter["create"]>>),

@@ -4,6 +4,7 @@ import {
 	type DealStage,
 	type Prisma,
 	Prisma as PrismaNamespace,
+	ProductionStage,
 } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
 import {
@@ -490,6 +491,64 @@ export class DealsService {
 		});
 
 		return { ...updated, changed: true };
+	}
+
+	/** Field Mode — a crew's active work list. Won jobs whose production stage is
+	 * one a crew is actively on (scheduled / in progress / on hold); COMPLETE and
+	 * PAID have left the shop floor and drop off. Ordered most-recently-moved
+	 * first so the job just touched sits on top. Each row carries the primary
+	 * reachable contact (first attached contact with a phone) so the mobile field
+	 * UI can one-tap Call without a second round-trip. Read-only. */
+	async fieldToday() {
+		const ACTIVE_PRODUCTION = [
+			ProductionStage.SCHEDULED,
+			ProductionStage.IN_PROGRESS,
+			ProductionStage.ON_HOLD,
+		];
+
+		const rows = await this.db.deal.findMany({
+			where: {
+				stage: "CLOSED_WON",
+				productionStage: { in: ACTIVE_PRODUCTION },
+			},
+			orderBy: [
+				{ productionStageChangedAt: { sort: "desc", nulls: "last" } },
+				{ createdAt: "desc" },
+			],
+			select: {
+				id: true,
+				name: true,
+				amount: true,
+				currency: true,
+				productionStage: true,
+				company: { select: COMPANY_SELECT },
+				contacts: {
+					select: { contact: { select: CONTACT_SELECT } },
+					orderBy: { contact: { firstName: "asc" } },
+				},
+			},
+		});
+
+		return rows.map(({ amount, contacts, ...row }) => {
+			// First attached contact with a usable phone is the one to call; fall
+			// back to the first contact so a nameless card never ships.
+			const withPhone = contacts.find(
+				(c) => c.contact.phone && c.contact.phone.trim().length > 0,
+			);
+			const reachable = (withPhone ?? contacts[0])?.contact ?? null;
+			return {
+				...row,
+				amountCents: toCents(amount),
+				contact: reachable
+					? {
+							id: reachable.id,
+							firstName: reachable.firstName,
+							lastName: reachable.lastName,
+							phone: reachable.phone,
+						}
+					: null,
+			};
+		});
 	}
 
 	/** Move a WON deal along the production pipeline (or back to Unscheduled with
