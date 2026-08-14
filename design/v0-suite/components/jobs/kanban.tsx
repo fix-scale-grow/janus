@@ -83,7 +83,7 @@ export function Kanban({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex h-full gap-3 overflow-x-auto px-4 pb-4 sm:px-6">
+      <div className="flex h-full gap-4 overflow-x-auto px-4 pb-8 sm:px-8">
         {stages.map((stage) => (
           <Column
             key={stage}
@@ -98,7 +98,7 @@ export function Kanban({
           <div className="flex w-72 shrink-0 flex-col">
             <button
               onClick={() => setLostOpen((o) => !o)}
-              className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               <span className="flex items-center gap-1.5">
                 {lostOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -107,7 +107,7 @@ export function Kanban({
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{(byStage['lost'] ?? []).length}</span>
             </button>
             {lostOpen && (
-              <div className="mt-2 flex flex-col gap-2 opacity-75">
+              <div className="mt-3 flex flex-col gap-3 opacity-75">
                 {(byStage['lost'] ?? []).map((j) => (
                   <JobCard key={j.id} job={j} board="sales" onOpen={onOpen} />
                 ))}
@@ -146,7 +146,7 @@ function Column({
 
   return (
     <div className="flex w-72 shrink-0 flex-col">
-      <div className="mb-2 rounded-lg border border-border bg-card px-3 py-2.5">
+      <div className="mb-3 rounded-lg border border-border bg-card px-4 py-3">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dot }} />
@@ -156,12 +156,12 @@ function Column({
             {jobs.length}
           </span>
         </div>
-        <p className="mt-0.5 pl-4.5 text-xs text-muted-foreground">{currency(total, true)}</p>
+        <p className="mt-1 pl-4.5 text-xs text-muted-foreground">{currency(total, true)}</p>
       </div>
       <div
         ref={setNodeRef}
         className={cn(
-          'flex min-h-24 flex-1 flex-col gap-2 rounded-lg p-1 transition-colors',
+          'flex min-h-24 flex-1 flex-col gap-3 rounded-lg p-1 transition-colors',
           isOver && 'bg-accent/60 ring-2 ring-primary/30',
         )}
       >

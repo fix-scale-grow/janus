@@ -72,13 +72,13 @@ export default function AutomationsPage() {
         description="Describe what you want in plain English. Janus builds and runs it — no flow charts."
       />
 
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-8 sm:px-8">
         <Card className="overflow-hidden p-0">
-          <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-3">
+          <div className="flex items-center gap-2 border-b border-border bg-secondary/50 px-6 py-4">
             <Sparkles className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold text-foreground">Tell Janus a new rule</span>
           </div>
-          <div className="p-4">
+          <div className="p-6">
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -133,9 +133,9 @@ export default function AutomationsPage() {
         />
 
         {tab === 'active' && (
-          <div className="grid gap-3">
+          <div className="grid gap-4">
             {automations.map((a) => (
-              <Card key={a.id} className={cn('p-4', !a.enabled && 'opacity-60')}>
+              <Card key={a.id} className={cn('p-6', !a.enabled && 'opacity-60')}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium leading-relaxed text-foreground">{a.sentence}</p>
@@ -178,11 +178,11 @@ export default function AutomationsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-2.5 font-medium">When</th>
-                    <th className="px-4 py-2.5 font-medium">Trigger</th>
-                    <th className="px-4 py-2.5 font-medium">Job</th>
-                    <th className="px-4 py-2.5 font-medium">Actions taken</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">When</th>
+                    <th className="px-4 py-3 font-medium">Trigger</th>
+                    <th className="px-4 py-3 font-medium">Job</th>
+                    <th className="px-4 py-3 font-medium">Actions taken</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -191,11 +191,11 @@ export default function AutomationsPage() {
                     const Icon = meta.icon
                     return (
                       <tr key={r.id} className="border-b border-border last:border-0 hover:bg-secondary/40">
-                        <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">{relativeTime(r.ranAt)}</td>
-                        <td className="px-4 py-2.5 font-medium text-foreground">{r.triggerLabel}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{r.jobLabel}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{r.actionsTaken.join(', ')}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="whitespace-nowrap px-4 py-4 text-muted-foreground">{relativeTime(r.ranAt)}</td>
+                        <td className="px-4 py-4 font-medium text-foreground">{r.triggerLabel}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{r.jobLabel}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{r.actionsTaken.join(', ')}</td>
+                        <td className="px-4 py-4">
                           <span className={cn('inline-flex items-center gap-1.5 font-medium', meta.className)}>
                             <Icon className="h-4 w-4" /> {meta.label}
                           </span>

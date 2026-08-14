@@ -35,7 +35,7 @@ export default function SettingsPage() {
     <div>
       <PageHeader title="Settings" description="Company profile, team, texting compliance, and integrations." />
 
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-8 sm:px-8">
         <Tabs
           value={tab}
           onChange={setTab}
@@ -48,35 +48,35 @@ export default function SettingsPage() {
         />
 
         {tab === 'company' && (
-          <Card className="max-w-2xl p-5">
+          <Card className="max-w-2xl p-6">
             <h2 className="text-sm font-semibold text-foreground">Company profile</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <Label htmlFor="cname">Company name</Label>
-                <Input id="cname" defaultValue="Summit Ridge Roofing" className="mt-1" />
+                <Input id="cname" defaultValue="Summit Ridge Roofing" className="mt-2" />
               </div>
               <div>
                 <Label htmlFor="cphone">Main phone</Label>
-                <Input id="cphone" defaultValue="(205) 555-8841" className="mt-1" />
+                <Input id="cphone" defaultValue="(205) 555-8841" className="mt-2" />
               </div>
               <div>
                 <Label htmlFor="cemail">Email</Label>
-                <Input id="cemail" defaultValue="office@summitridgeroofing.com" className="mt-1" />
+                <Input id="cemail" defaultValue="office@summitridgeroofing.com" className="mt-2" />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="caddr">Address</Label>
-                <Input id="caddr" defaultValue="1420 Montgomery Hwy, Birmingham, AL 35216" className="mt-1" />
+                <Input id="caddr" defaultValue="1420 Montgomery Hwy, Birmingham, AL 35216" className="mt-2" />
               </div>
               <div>
                 <Label htmlFor="clicense">License #</Label>
-                <Input id="clicense" defaultValue="AL-RC-88214" className="mt-1" />
+                <Input id="clicense" defaultValue="AL-RC-88214" className="mt-2" />
               </div>
               <div>
                 <Label htmlFor="ctax">Default tax rate</Label>
-                <Input id="ctax" defaultValue="9.0%" className="mt-1" />
+                <Input id="ctax" defaultValue="9.0%" className="mt-2" />
               </div>
             </div>
-            <div className="mt-5 flex justify-end">
+            <div className="mt-6 flex justify-end">
               <Button>Save changes</Button>
             </div>
           </Card>
@@ -84,7 +84,7 @@ export default function SettingsPage() {
 
         {tab === 'users' && (
           <Card className="overflow-hidden p-0">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
               <h2 className="text-sm font-semibold text-foreground">Team ({employees.length})</h2>
               <Button size="sm" variant="outline">Invite user</Button>
             </div>
@@ -92,28 +92,28 @@ export default function SettingsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-2.5 font-medium">Name</th>
-                    <th className="px-4 py-2.5 font-medium">Title</th>
-                    <th className="px-4 py-2.5 font-medium">Role</th>
-                    <th className="px-4 py-2.5 font-medium">Phone</th>
-                    <th className="px-4 py-2.5 font-medium">Email</th>
+                    <th className="px-4 py-3 font-medium">Name</th>
+                    <th className="px-4 py-3 font-medium">Title</th>
+                    <th className="px-4 py-3 font-medium">Role</th>
+                    <th className="px-4 py-3 font-medium">Phone</th>
+                    <th className="px-4 py-3 font-medium">Email</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map((e) => (
                     <tr key={e.id} className="border-b border-border last:border-0 hover:bg-secondary/40">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2.5">
+                      <td className="h-12 px-4 py-3">
+                        <div className="flex items-center gap-3">
                           <Avatar initials={e.initials} color={e.avatarColor} size="sm" />
                           <span className="font-medium text-foreground">{e.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{e.title}</td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-3 text-muted-foreground">{e.title}</td>
+                      <td className="px-4 py-3">
                         <Badge className={cn('capitalize', roleBadge[e.role])}>{e.role}</Badge>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">{e.phone}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{e.email}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{e.phone}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{e.email}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -123,19 +123,19 @@ export default function SettingsPage() {
         )}
 
         {tab === 'phone' && (
-          <div className="max-w-2xl space-y-4">
-            <Card className="p-5">
-              <div className="flex items-center justify-between">
+          <div className="max-w-2xl space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-sm font-semibold text-foreground">A2P 10DLC Registration</h2>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Carriers require business texting numbers to be registered. Janus handled this for you.
                   </p>
                 </div>
                 <Badge className="bg-success/10 text-success">Approved</Badge>
               </div>
 
-              <ol className="mt-5 space-y-4">
+              <ol className="mt-6 space-y-4">
                 {A2P_STEPS.map((step, i) => {
                   const done = i <= currentStep
                   return (
@@ -161,15 +161,15 @@ export default function SettingsPage() {
                 })}
               </ol>
 
-              <div className="mt-4 rounded-lg border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+              <div className="mt-6 rounded-lg border border-border bg-secondary/40 p-4 text-xs text-muted-foreground">
                 Registered number <span className="font-medium text-foreground">(205) 555-8841</span> · Brand ID{' '}
                 <span className="font-mono text-foreground">BXXXXX21</span> · Campaign{' '}
                 <span className="font-mono text-foreground">CXXXXX09</span> · Throughput 4,500 msg/day
               </div>
             </Card>
 
-            <Card className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3">
+            <Card className="flex items-center justify-between gap-4 p-6">
+              <div className="flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <PhoneCall className="h-5 w-5 text-primary" />
                 </div>
@@ -200,7 +200,7 @@ export default function SettingsPage() {
 
 function IntegrationCard({ name, desc, status }: { name: string; desc: string; status: 'connected' | 'available' }) {
   return (
-    <Card className="flex flex-col p-5">
+    <Card className="flex flex-col p-6">
       <div className="flex items-start justify-between">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-sm font-bold text-secondary-foreground">
           {name.slice(0, 2)}
@@ -211,8 +211,8 @@ function IntegrationCard({ name, desc, status }: { name: string; desc: string; s
           <Badge variant="secondary">Available</Badge>
         )}
       </div>
-      <h3 className="mt-3 text-sm font-semibold text-foreground">{name}</h3>
-      <p className="mt-1 flex-1 text-sm text-muted-foreground">{desc}</p>
+      <h3 className="mt-4 text-sm font-semibold text-foreground">{name}</h3>
+      <p className="mt-2 flex-1 text-sm text-muted-foreground">{desc}</p>
       <Button variant={status === 'connected' ? 'outline' : 'default'} size="sm" className="mt-4 self-start">
         {status === 'connected' ? 'Manage' : 'Connect'}
       </Button>

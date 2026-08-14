@@ -44,15 +44,15 @@ export default function JanusPage() {
   return (
     <div>
       <PageHeader
-        title="Janus AI"
-        description="Your AI office staff — here's everything it handled and anything that needs your call."
+        title="Activity"
+        description="Everything Janus handled, and anything that still needs your call."
       />
 
-      <div className="space-y-6 p-4 md:p-6">
+      <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-8 sm:px-8">
         {/* Waiting on you */}
         {pending.length > 0 && (
           <section aria-labelledby="waiting-heading">
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-warning" />
               <h2 id="waiting-heading" className="text-sm font-semibold text-foreground">
                 Waiting on you
@@ -62,9 +62,9 @@ export default function JanusPage() {
                 Only high-impact actions pause for approval. Everything else already shipped.
               </span>
             </div>
-            <div className="grid gap-3 lg:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-3">
               {pending.map((ap) => (
-                <Card key={ap.id} className="flex flex-col gap-3 border-warning/40 bg-warning/5 p-4">
+                <Card key={ap.id} className="flex flex-col gap-4 border-warning/40 bg-warning/5 p-6">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-foreground text-pretty">{ap.title}</p>
@@ -80,8 +80,8 @@ export default function JanusPage() {
                       </Badge>
                     ) : null}
                   </div>
-                  <div className="rounded-md border border-border bg-card p-3">
-                    <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <div className="rounded-md border border-border bg-card p-4">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                       Exactly what will happen
                     </p>
                     <p className="text-xs leading-relaxed text-foreground">{ap.preview}</p>
@@ -106,7 +106,7 @@ export default function JanusPage() {
         )}
 
         {/* Stats row */}
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-4 sm:grid-cols-3">
           <StatCard
             icon={<Phone className="h-4 w-4" />}
             label="Calls answered this week"
@@ -129,7 +129,7 @@ export default function JanusPage() {
 
         {/* Today feed */}
         <section aria-labelledby="today-heading">
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             <h2 id="today-heading" className="text-sm font-semibold text-foreground">
               Today
@@ -137,9 +137,9 @@ export default function JanusPage() {
             <span className="text-xs text-muted-foreground">Everything Janus did, newest first</span>
           </div>
 
-          <ol className="relative space-y-3 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-border">
+          <ol className="relative space-y-4 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-border">
             {activity.map((a) => (
-              <li key={a.id} className="relative flex gap-3">
+              <li key={a.id} className="relative flex gap-4">
                 <div
                   className={`z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${
                     a.reverted ? 'border-border bg-muted text-muted-foreground' : 'border-primary/30 bg-primary/10 text-primary'
@@ -147,8 +147,8 @@ export default function JanusPage() {
                 >
                   <AgentKindIcon kind={a.kind} className="h-4 w-4" />
                 </div>
-                <Card className="flex-1 p-3.5">
-                  <div className="flex items-start justify-between gap-3">
+                <Card className="flex-1 p-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p
                         className={`text-sm font-medium text-pretty ${
@@ -213,15 +213,15 @@ function StatCard({
   sub: string
 }) {
   return (
-    <Card className="p-4">
+    <Card className="p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
           {icon}
         </span>
         <span className="text-xs font-medium">{label}</span>
       </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground">{sub}</p>
+      <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
     </Card>
   )
 }

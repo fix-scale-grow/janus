@@ -16,7 +16,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   HardHat,
-  Sparkles,
+  Activity,
   PhoneCall,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,7 +24,7 @@ import { useData } from '@/src/lib/data/provider'
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/janus', label: 'Janus AI', icon: Sparkles },
+  { href: '/janus', label: 'Activity', icon: Activity },
   { href: '/sales', label: 'Sales', icon: TrendingUp },
   { href: '/production', label: 'Production', icon: Hammer },
   { href: '/schedule', label: 'Schedule', icon: CalendarDays },

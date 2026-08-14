@@ -8,7 +8,7 @@ import { currency, jobTypeLabels, shortDate } from '@/src/lib/format'
 import { daysInStage } from '@/src/lib/data/repositories'
 import type { Job } from '@/src/lib/data/types'
 import { cn } from '@/lib/utils'
-import { MapPin, CalendarDays, Clock } from 'lucide-react'
+import { MapPin, CalendarDays, Clock, Sparkles } from 'lucide-react'
 
 export function JobCard({
   job,
@@ -27,6 +27,7 @@ export function JobCard({
   const crew = job.crewName
   const days = daysInStage(job, now)
   const stale = days > 7 && board === 'sales' && job.salesStage !== 'approved'
+  const janusWorking = store.aiSuggestions.some((s) => s.jobId === job.id && s.status === 'open')
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: job.id,
@@ -53,7 +54,17 @@ export function JobCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold leading-tight text-foreground">{contact?.name}</p>
+        <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-tight text-foreground">
+          {janusWorking && (
+            <span
+              title="Janus is working this job"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
+            >
+              <Sparkles className="h-2.5 w-2.5" />
+            </span>
+          )}
+          <span className="truncate">{contact?.name}</span>
+        </p>
         <span className="shrink-0 text-sm font-semibold text-foreground">{currency(job.value, true)}</span>
       </div>
       <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -62,7 +73,7 @@ export function JobCard({
           {contact?.address}, {contact?.city}
         </span>
       </p>
-      <div className="mt-2 flex items-center gap-1.5">
+      <div className="mt-3 flex items-center gap-2">
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
           {jobTypeLabels[job.jobType]}
         </span>
@@ -70,7 +81,7 @@ export function JobCard({
           <span className="rounded bg-accent px-1.5 py-0.5 text-[11px] font-medium text-primary">{crew}</span>
         )}
       </div>
-      <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2">
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
         <span
           className={cn(
             'flex items-center gap-1 text-[11px] font-medium',

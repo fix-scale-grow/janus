@@ -63,7 +63,7 @@ export default function ContactsPage() {
   return (
     <div>
       <PageHeader title="Contacts" description={`${store.contacts.length} customers`} />
-      <div className="px-4 py-4 sm:px-6">
+      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8">
         <DataTable
           rows={store.contacts}
           columns={columns}
