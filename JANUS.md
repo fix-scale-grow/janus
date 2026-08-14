@@ -25,15 +25,24 @@ and the agent does the CRM work. Automations are TOLD, not built.
 | Told-not-built automations | `app/(app)/automations/` + `src/lib/automation-parser.ts` | Sentence → TRIGGER→ACTION chips; per-rule autonomy: Auto-run / Auto-run+evidence / Ask first |
 | Field voice | `components/agent/field-voice.tsx` | Hold-to-talk → parsed actions to confirm |
 
-## Phases (from the approved 8/5 plan)
+## Phases (from the approved 8/5 plan; 4a/4b/4c added 8/14 per Kyle)
 
 1. **Foundation** — fork ✅, rebrand, strip telemetry, theme tokens, port shell + boards + job detail
 2. **Front door** — chat + voice + confirm-before-save cards
 3. **Told-not-built automations** — parser → real scheduled tasks
 4. **Phone/SMS** — A2P 10DLC registered conversationally (see `a2p-registration` skill)
-5. **Reviews/GBP** — Review Gremlin integration
-6. **Agent-built landing pages** — reuse deploy-site pipeline
-7. **Platform layer** — control plane, instance-per-business, Stripe, impersonation admin
+   - **4a. Reminders** — SMS + email reminders to BOTH sides of a job: the client
+     (appointment confirmations, tech-on-the-way, estimate nudges, invoice chasing)
+     and the contractor/crew (job assignments, schedule changes, materials-arrived).
+     Rides the automations engine — reminders are told, not built.
+5. **Meta Ads integration** — connect the client's Meta ad account (per-client
+   revocable credentials, never partner-absorbed): lead-ads sync straight into the
+   sales board, CAPI conversion events fired when jobs close (job value as event
+   value), and per-campaign cost-per-job reporting in the dashboard. Reference:
+   `meta-api-docs` + `meta-ads` skills.
+6. **Reviews/GBP** — Review Gremlin integration
+7. **Agent-built landing pages** — reuse deploy-site pipeline
+8. **Platform layer** — control plane, instance-per-business, Stripe, impersonation admin
 
 ## Rules of the build
 
