@@ -56,6 +56,15 @@ describe("symbolCreateInput", () => {
 
 		expect(result.success).toBe(true);
 	});
+
+	it("rejects a symbol whose payload exceeds the byte cap", () => {
+		const result = symbolCreateInput.safeParse({
+			name: "Roof vent",
+			elements: [{ ...el("el-1"), customData: { blob: "x".repeat(600_000) } }],
+		});
+
+		expect(result.success).toBe(false);
+	});
 });
 
 describe("symbolUpdateInput", () => {

@@ -1,11 +1,20 @@
 import { DRAWINGS, excalidrawElement } from "@crm/drawings";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
+import { SYMBOLS } from "./symbols.config";
 
 export const symbolElements = z
 	.array(excalidrawElement)
 	.min(1)
-	.max(DRAWINGS.symbol.maxElements);
+	.max(DRAWINGS.symbol.maxElements)
+	.superRefine((elements, ctx) => {
+		if (Buffer.byteLength(JSON.stringify(elements)) > SYMBOLS.maxElementBytes) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "That symbol is too complex.",
+			});
+		}
+	});
 
 const dimensionFt = z.number().positive().max(999.99).nullish();
 
