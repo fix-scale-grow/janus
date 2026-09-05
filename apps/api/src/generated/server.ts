@@ -16,13 +16,13 @@ const publicProcedure = t.procedure;
 import { timelineInput, timelineCountsInput, myTasksInput, activityCreateInput, completeInput } from "../activities/activities.contracts";
 import { agentReviseInput, agentIdInput, agentSaveFileInput, agentHistoryInput, agentUpdateInput, agentDeployInput, agentRunNowInput, agentRetryRunInput, agentCancelRunInput } from "../agent/agents.contracts";
 import { companyListInput, companyIdInput, companyOptionsInput, companyCreateInput, companyUpdateArgs, companyBulkOwnerInput, companyBulkInput, setPrimaryContactInput } from "../companies/companies.contracts";
-import { contactListInput, contactIdInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkCompanyInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
+import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkCompanyInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
 import { conversationListInput, builderResourceSearchInput, conversationIdInput, conversationEventsInput, conversationSaveInput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, sharedConversationInput } from "../conversations/conversations.contracts";
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
-import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput } from "../estimates/estimates.contracts";
+import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput, estimateAssignContactInput, estimateSendInput } from "../estimates/estimates.contracts";
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
@@ -171,6 +171,9 @@ const appRouter = t.router({
     byId: publicProcedure
       .input(contactIdInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["byId"]>>),
+    options: publicProcedure
+      .input(contactOptionsInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["options"]>>),
     create: publicProcedure
       .input(contactCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["create"]>>),
@@ -382,7 +385,18 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["generateFromDrawing"]>>),
     resyncFromDrawing: publicProcedure
       .input(estimateIdInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["resyncFromDrawing"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["resyncFromDrawing"]>>),
+    assignContact: publicProcedure
+      .input(estimateAssignContactInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["assignContact"]>>),
+    document: publicProcedure
+      .input(estimateIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["document"]>>),
+    send: publicProcedure
+      .input(estimateSendInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["send"]>>),
+    mailerConfigured: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["mailerConfigured"]>>)
     }),
   fields: t.router({
     list: publicProcedure

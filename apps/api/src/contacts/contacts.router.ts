@@ -17,6 +17,7 @@ import {
 	contactCreateInput,
 	contactIdInput,
 	contactListInput,
+	contactOptionsInput,
 	contactUpdateArgs,
 	factDecisionInput,
 } from "./contacts.contracts";
@@ -37,6 +38,11 @@ export class ContactsRouter {
 	@Query({ input: contactIdInput })
 	async byId(@Input("id") id: string) {
 		return this.contacts.byId(id);
+	}
+
+	@Query({ input: contactOptionsInput })
+	async options(@Input("q") q: string) {
+		return this.contacts.options(q);
 	}
 
 	@Mutation({ input: contactCreateInput })

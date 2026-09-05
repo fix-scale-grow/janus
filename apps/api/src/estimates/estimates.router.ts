@@ -12,12 +12,14 @@ import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	estimateAddLineItemInput,
+	estimateAssignContactInput,
 	estimateCreateInput,
 	estimateGenerateFromDrawingInput,
 	estimateIdInput,
 	estimateLineItemIdInput,
 	estimateListInput,
 	estimateRenameInput,
+	estimateSendInput,
 	estimateSetStatusInput,
 	estimateSetTierInput,
 	estimateUpdateLineItemInput,
@@ -97,5 +99,27 @@ export class EstimatesRouter {
 	@Mutation({ input: estimateIdInput })
 	async resyncFromDrawing(@Input("id") id: string) {
 		return this.estimates.resyncFromDrawing(id);
+	}
+
+	@Mutation({ input: estimateAssignContactInput })
+	async assignContact(
+		@Input() input: z.infer<typeof estimateAssignContactInput>,
+	) {
+		return this.estimates.assignContact(input);
+	}
+
+	@Query({ input: estimateIdInput })
+	async document(@Input("id") id: string) {
+		return this.estimates.document(id);
+	}
+
+	@Mutation({ input: estimateSendInput })
+	async send(@Input() input: z.infer<typeof estimateSendInput>) {
+		return this.estimates.send(input);
+	}
+
+	@Query()
+	async mailerConfigured() {
+		return this.estimates.mailerConfigured();
 	}
 }

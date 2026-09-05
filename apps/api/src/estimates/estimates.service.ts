@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import {
 	measureSatellite,
@@ -11,19 +12,33 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
+import { ContactsService } from "../contacts/contacts.service";
 import { InjectDatabase } from "../database/database.constants";
+import { MailerService } from "../mailer/mailer.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
+import { renderEstimatePdf } from "./estimate-pdf";
 import type {
 	EstimateAddLineItemInput,
+	EstimateAssignContactInput,
 	EstimateCreateInput,
 	EstimateGenerateFromDrawingInput,
 	EstimateListInput,
 	EstimateRenameInput,
+	EstimateSendInput,
 	EstimateSetStatusInput,
 	EstimateSetTierInput,
 	EstimateUpdateLineItemInput,
 } from "./estimates.contracts";
 import { buildLineItems } from "./generate";
+
+const PDF_CONTACT_SELECT = {
+	firstName: true,
+	lastName: true,
+	email: true,
+	phone: true,
+} as const;
+
+const MAX_FILENAME_STEM = 80;
 
 const SORTABLE: Record<
 	string,
@@ -49,7 +64,11 @@ const LIST_SELECT = {
 
 @Injectable()
 export class EstimatesService {
-	constructor(@InjectDatabase() private readonly db: Db) {}
+	constructor(
+		@InjectDatabase() private readonly db: Db,
+		private readonly contacts: ContactsService,
+		private readonly mailer: MailerService,
+	) {}
 
 	async list(input: EstimateListInput) {
 		const where = this.buildWhere(input);
@@ -85,7 +104,12 @@ export class EstimatesService {
 	async byId(id: string) {
 		const row = await this.db.estimate.findUnique({
 			where: { id },
-			include: { lineItems: { orderBy: { sortOrder: "asc" } } },
+			include: {
+				lineItems: { orderBy: { sortOrder: "asc" } },
+				contact: {
+					select: { id: true, firstName: true, lastName: true, email: true },
+				},
+			},
 		});
 
 		if (!row) {
@@ -364,6 +388,153 @@ export class EstimatesService {
 		});
 
 		return { changed };
+	}
+
+	async assignContact(input: EstimateAssignContactInput) {
+		const estimate = await this.db.estimate.findUnique({
+			where: { id: input.id },
+			select: { id: true },
+		});
+		if (!estimate) {
+			throw new NotFoundException(`No estimate with id ${input.id}.`);
+		}
+
+		let contactId: string;
+
+		if (input.contactId) {
+			const contact = await this.db.contact.findUnique({
+				where: { id: input.contactId },
+				select: { id: true },
+			});
+			if (!contact) {
+				throw new NotFoundException(`No contact with id ${input.contactId}.`);
+			}
+			contactId = contact.id;
+		} else if (input.newContact) {
+			const [firstName, ...rest] = input.newContact.name.trim().split(/\s+/);
+			const created = await this.contacts.create({
+				firstName: firstName ?? input.newContact.name.trim(),
+				lastName: rest.length > 0 ? rest.join(" ") : undefined,
+				email: input.newContact.email,
+				phone: input.newContact.phone,
+			});
+			contactId = created.id;
+		} else {
+			throw new BadRequestException(
+				"Choose an existing contact, or add a new one.",
+			);
+		}
+
+		try {
+			return await this.db.estimate.update({
+				where: { id: input.id },
+				data: { contactId },
+				select: { id: true, contactId: true },
+			});
+		} catch (error) {
+			throw this.translate(error, input.id);
+		}
+	}
+
+	async document(id: string): Promise<{ filename: string; base64: string }> {
+		const estimate = await this.loadForPdf(id);
+		const workspaceName = await this.workspaceName();
+		const buffer = await renderEstimatePdf(estimate, workspaceName);
+
+		return {
+			filename: `${this.filenameStem(estimate.title)}.pdf`,
+			base64: buffer.toString("base64"),
+		};
+	}
+
+	async send(input: EstimateSendInput) {
+		if (!this.mailer.isConfigured()) {
+			throw new BadRequestException("Email is not configured on this install.");
+		}
+
+		const estimate = await this.loadForPdf(input.id);
+		const to = input.to ?? estimate.contact?.email ?? null;
+
+		if (!to) {
+			throw new BadRequestException(
+				"This estimate has nobody to send it to yet.",
+			);
+		}
+
+		const workspaceName = await this.workspaceName();
+		const buffer = await renderEstimatePdf(estimate, workspaceName);
+
+		await this.mailer.send({
+			to,
+			subject: input.subject,
+			text: input.message,
+			attachments: [
+				{
+					filename: `${this.filenameStem(estimate.title)}.pdf`,
+					content: buffer,
+					contentType: "application/pdf",
+				},
+			],
+		});
+
+		try {
+			return await this.db.estimate.update({
+				where: { id: input.id },
+				data: { status: "SENT" },
+				select: { id: true, status: true },
+			});
+		} catch (error) {
+			throw this.translate(error, input.id);
+		}
+	}
+
+	mailerConfigured(): boolean {
+		return this.mailer.isConfigured();
+	}
+
+	private async loadForPdf(id: string) {
+		const row = await this.db.estimate.findUnique({
+			where: { id },
+			include: {
+				lineItems: { orderBy: { sortOrder: "asc" } },
+				contact: { select: PDF_CONTACT_SELECT },
+			},
+		});
+
+		if (!row) {
+			throw new NotFoundException(`No estimate with id ${id}.`);
+		}
+
+		return {
+			...row,
+			lineItems: row.lineItems.map((item) => ({
+				name: item.name,
+				unit: item.unit,
+				quantity: Number(item.quantity),
+				areaLabel: item.areaLabel,
+				priceGoodCents: item.priceGoodCents,
+				priceBetterCents: item.priceBetterCents,
+				priceBestCents: item.priceBestCents,
+			})),
+		};
+	}
+
+	private async workspaceName(): Promise<string> {
+		const workspace = await this.db.organization.findUnique({
+			where: { id: WORKSPACE_ID },
+			select: { name: true },
+		});
+		return workspace?.name ?? DEFAULT_WORKSPACE_NAME;
+	}
+
+	private filenameStem(title: string): string {
+		const stem = title
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-+|-+$/g, "")
+			.slice(0, MAX_FILENAME_STEM);
+		return stem || "estimate";
 	}
 
 	private measureDrawing(scene: unknown, scale: unknown) {

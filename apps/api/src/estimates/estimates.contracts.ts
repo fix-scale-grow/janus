@@ -105,3 +105,32 @@ export const estimateGenerateFromDrawingInput = z.object({
 export type EstimateGenerateFromDrawingInput = z.infer<
 	typeof estimateGenerateFromDrawingInput
 >;
+
+export const estimateAssignContactInput = z
+	.object({
+		id: z.string().min(1),
+		contactId: z.string().min(1).optional(),
+		newContact: z
+			.object({
+				name: z.string().trim().min(1, "A contact needs a name."),
+				email: z.email("That is not an email address."),
+				phone: z.string().trim().optional(),
+			})
+			.optional(),
+	})
+	.refine((value) => Boolean(value.contactId) !== Boolean(value.newContact), {
+		message: "Choose an existing contact, or add a new one, not both.",
+	});
+
+export type EstimateAssignContactInput = z.infer<
+	typeof estimateAssignContactInput
+>;
+
+export const estimateSendInput = z.object({
+	id: z.string().min(1),
+	to: z.email("That is not an email address.").optional(),
+	subject: z.string().trim().min(1).max(200),
+	message: z.string().trim().min(1).max(5000),
+});
+
+export type EstimateSendInput = z.infer<typeof estimateSendInput>;

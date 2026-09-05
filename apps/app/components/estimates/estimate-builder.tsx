@@ -1,7 +1,9 @@
 "use client";
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
+import Download from "@carbon/icons-react/es/Download";
 import Money from "@carbon/icons-react/es/Money";
+import Send from "@carbon/icons-react/es/Send";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import {
@@ -53,7 +55,9 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AddLineItem } from "./add-line-item";
+import { AssignEstimateContact } from "./assign-estimate-contact";
 import { EstimateLineRow } from "./estimate-line-row";
+import { SendEstimateDialog } from "./send-estimate-dialog";
 
 export type EstimateDetail = RouterOutputs["estimates"]["byId"];
 export type EstimateLineItemRow = EstimateDetail["lineItems"][number];
@@ -156,6 +160,10 @@ export function EstimateBuilder({
 		initialData: initialEstimate,
 	});
 
+	const mailerConfigured = useQuery(
+		trpc.estimates.mailerConfigured.queryOptions(),
+	);
+
 	const data = estimate.data;
 	const tier = data.selectedTier;
 
@@ -164,6 +172,8 @@ export function EstimateBuilder({
 	const [resyncChanges, setResyncChanges] = useState<ResyncChange[] | null>(
 		null,
 	);
+	const [downloading, setDownloading] = useState(false);
+	const [sendOpen, setSendOpen] = useState(false);
 
 	const setQueryData = (
 		updater: (previous: EstimateDetail) => EstimateDetail,
@@ -233,6 +243,32 @@ export function EstimateBuilder({
 			return;
 		}
 		rename.mutate({ id: estimateId, title: next });
+	};
+
+	const downloadPdf = async () => {
+		setDownloading(true);
+		try {
+			const document = await queryClient.fetchQuery(
+				trpc.estimates.document.queryOptions({ id: estimateId }),
+			);
+			const bytes = Uint8Array.from(atob(document.base64), (char) =>
+				char.charCodeAt(0),
+			);
+			const url = URL.createObjectURL(
+				new Blob([bytes], { type: "application/pdf" }),
+			);
+			const anchor = window.document.createElement("a");
+			anchor.href = url;
+			anchor.download = document.filename;
+			anchor.click();
+			URL.revokeObjectURL(url);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Could not build the PDF.",
+			);
+		} finally {
+			setDownloading(false);
+		}
 	};
 
 	const groups = useMemo(
@@ -318,6 +354,25 @@ export function EstimateBuilder({
 							</Button>
 						</>
 					)}
+					<AssignEstimateContact
+						estimateId={estimateId}
+						contact={data.contact}
+					/>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={downloading}
+						onClick={downloadPdf}
+					>
+						<Icon icon={Download} data-icon="inline-start" />
+						Download PDF
+					</Button>
+					{mailerConfigured.data ? (
+						<Button size="sm" onClick={() => setSendOpen(true)}>
+							<Icon icon={Send} data-icon="inline-start" />
+							Send
+						</Button>
+					) : null}
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/estimates")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
@@ -427,6 +482,14 @@ export function EstimateBuilder({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<SendEstimateDialog
+				estimateId={estimateId}
+				title={data.title}
+				defaultTo={data.contact?.email ?? ""}
+				open={sendOpen}
+				onOpenChange={setSendOpen}
+			/>
 		</PageShell>
 	);
 }

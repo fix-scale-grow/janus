@@ -166,6 +166,25 @@ export class ContactsService {
 		};
 	}
 
+	async options(q: string) {
+		const term = q.trim();
+
+		return this.db.contact.findMany({
+			where: term
+				? {
+						OR: [
+							{ firstName: { contains: term, mode: "insensitive" } },
+							{ lastName: { contains: term, mode: "insensitive" } },
+							{ email: { contains: term, mode: "insensitive" } },
+						],
+					}
+				: {},
+			select: { id: true, firstName: true, lastName: true, email: true },
+			orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+			take: 100,
+		});
+	}
+
 	async byId(id: string) {
 		const contact = await this.db.contact.findUnique({
 			where: { id },

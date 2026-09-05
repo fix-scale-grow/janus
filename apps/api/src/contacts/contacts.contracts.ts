@@ -11,6 +11,12 @@ export const contactListInput = listInput.extend({
 
 export type ContactListInput = z.infer<typeof contactListInput>;
 
+export const contactOptionsInput = z.object({
+	q: z.string().default(""),
+});
+
+export type ContactOptionsInput = z.infer<typeof contactOptionsInput>;
+
 export const contactCreateInput = z.object({
 	firstName: z.string().trim().min(1, "A contact needs a first name."),
 	lastName: z.string().trim().optional(),
