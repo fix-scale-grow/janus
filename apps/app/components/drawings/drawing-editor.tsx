@@ -20,6 +20,7 @@ import type {
 import dynamic from "next/dynamic";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
+import { DrawingHistory } from "./drawing-history";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
@@ -82,7 +83,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [tool, setTool] = useQueryState("tool", toolParser);
 	const initialToolRef = useRef(tool);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
-	const { queueSave } = useDrawingAutosave(
+	const { queueSave, cancelPending } = useDrawingAutosave(
 		props.drawingId,
 		sceneRef,
 		scale,
@@ -252,6 +253,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		[queueSave],
 	);
 
+	const handleRestored = useCallback(() => {
+		cancelPending();
+		window.location.reload();
+	}, [cancelPending]);
+
 	const confirmScale = useCallback(
 		(feet: number) => {
 			if (!calibrationTarget) return;
@@ -279,6 +285,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							<TabsTrigger value="satellite">Satellite</TabsTrigger>
 						)}
 					</TabsList>
+
+					<DrawingHistory
+						drawingId={props.drawingId}
+						onRestored={handleRestored}
+					/>
 
 					{surface === "sketch" && (
 						<>

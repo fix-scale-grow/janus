@@ -83,5 +83,10 @@ export function useDrawingAutosave(
 		}, DRAWINGS.autosave.debounceMs);
 	}, [drawingId, sceneRef]);
 
-	return { queueSave, saving: saveScene.isPending };
+	const cancelPending = useCallback(() => {
+		if (timeoutRef.current) clearTimeout(timeoutRef.current);
+		timeoutRef.current = null;
+	}, []);
+
+	return { queueSave, cancelPending, saving: saveScene.isPending };
 }
