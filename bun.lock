@@ -107,6 +107,7 @@
         "sonner": "^2.0.7",
         "terra-draw": "^1.33.0",
         "terra-draw-maplibre-gl-adapter": "^1.4.1",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@crm/typescript-config": "workspace:*",

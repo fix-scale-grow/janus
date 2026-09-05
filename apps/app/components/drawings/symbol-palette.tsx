@@ -22,33 +22,41 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
-type SymbolRow = {
-	id: string;
-	name: string;
-	trade: string;
-	elements: unknown;
-	widthFt: unknown;
-	heightFt: unknown;
-	serviceId: string | null;
-	serviceName: string | null;
-	active: boolean;
-};
+const symbolDimensionFt = z.coerce.number().positive().nullable();
+
+const symbolRow = z.object({
+	id: z.string().min(1),
+	name: z.string().min(1),
+	trade: z.string().min(1),
+	elements: excalidrawElement.array(),
+	widthFt: symbolDimensionFt,
+	heightFt: symbolDimensionFt,
+	serviceId: z.string().min(1).nullable(),
+	serviceName: z.string().min(1).nullable(),
+	active: z.boolean(),
+});
+
+type SymbolRow = z.infer<typeof symbolRow>;
+
+function parseSymbolRows(value: unknown): SymbolRow[] {
+	if (!Array.isArray(value)) return [];
+	const rows: SymbolRow[] = [];
+	for (const item of value) {
+		const parsed = symbolRow.safeParse(item);
+		if (parsed.success) rows.push(parsed.data);
+	}
+	return rows;
+}
 
 export type SymbolPaletteProps = {
 	apiRef: { current: ExcalidrawImperativeAPI | null };
 	scale: DrawingScale | null;
 	queueSave: () => void;
 };
-
-const symbolElementList = excalidrawElement.array();
-
-function parseSymbolElements(value: unknown): ExcalidrawElement[] {
-	const parsed = symbolElementList.safeParse(value);
-	return parsed.success ? parsed.data : [];
-}
 
 function symbolPoints(element: ExcalidrawElement): [number, number][] {
 	if (element.points && element.points.length > 1) return element.points;
@@ -143,7 +151,7 @@ function SymbolThumbnail(props: { symbol: SymbolRow }) {
 		let cancelled = false;
 
 		const render = async () => {
-			const elements = parseSymbolElements(props.symbol.elements);
+			const elements = props.symbol.elements;
 			if (elements.length === 0) return;
 			const excalidrawModule = await import("@excalidraw/excalidraw");
 			const exportSvg = excalidrawModule.exportToSvg as unknown as (opts: {
@@ -200,7 +208,7 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 		}),
 	);
 
-	const rows = (list.data?.rows ?? []) as unknown as SymbolRow[];
+	const rows = useMemo(() => parseSymbolRows(list.data?.rows), [list.data]);
 
 	const grouped = useMemo(() => {
 		const byTrade = new Map<string, SymbolRow[]>();
@@ -216,7 +224,7 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 		async (symbol: SymbolRow) => {
 			const api = props.apiRef.current;
 			if (!api) return;
-			const authored = parseSymbolElements(symbol.elements);
+			const authored = symbol.elements;
 			if (authored.length === 0) return;
 
 			const {
@@ -235,14 +243,10 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 				appState,
 			);
 
-			const widthFt = symbol.widthFt !== null ? Number(symbol.widthFt) : null;
-			const heightFt =
-				symbol.heightFt !== null ? Number(symbol.heightFt) : null;
-
 			const positioned = scaleAndCenterElements(
 				remapGroupIds(authored),
 				props.scale,
-				{ widthFt, heightFt },
+				{ widthFt: symbol.widthFt, heightFt: symbol.heightFt },
 				center,
 			);
 
