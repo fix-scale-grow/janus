@@ -106,15 +106,19 @@ export class EstimatesService {
 	async create(input: EstimateCreateInput, userId: string) {
 		const currency = await this.currencyFor(input.dealId);
 
-		return this.db.estimate.create({
-			data: {
-				title: input.title ?? "Untitled estimate",
-				dealId: input.dealId,
-				contactId: input.contactId,
-				currency,
-				createdById: userId,
-			},
-		});
+		try {
+			return await this.db.estimate.create({
+				data: {
+					title: input.title ?? "Untitled estimate",
+					dealId: input.dealId,
+					contactId: input.contactId,
+					currency,
+					createdById: userId,
+				},
+			});
+		} catch (error) {
+			throw this.translate(error);
+		}
 	}
 
 	async rename(input: EstimateRenameInput) {
@@ -393,15 +397,17 @@ export class EstimatesService {
 		return where;
 	}
 
-	private translate(error: unknown, id: string): unknown {
+	private translate(error: unknown, id?: string): unknown {
 		if (error instanceof NotFoundException) {
 			return error;
 		}
-		if (
-			error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
-			error.code === "P2025"
-		) {
-			return new NotFoundException(`No estimate with id ${id}.`);
+		if (error instanceof PrismaNamespace.PrismaClientKnownRequestError) {
+			if (error.code === "P2025" && id) {
+				return new NotFoundException(`No estimate with id ${id}.`);
+			}
+			if (error.code === "P2003") {
+				return new BadRequestException("That record no longer exists.");
+			}
 		}
 		return error;
 	}
