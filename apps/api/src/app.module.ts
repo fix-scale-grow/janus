@@ -24,6 +24,7 @@ import { HealthModule } from "./health/health.module";
 import { LoggingModule } from "./logging/logging.module";
 import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
+import { MailerModule } from "./mailer/mailer.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
 import { SearchModule } from "./search/search.module";
 import { ServicesCatalogModule } from "./services-catalog/services-catalog.module";
@@ -68,6 +69,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		SearchModule,
 		ServicesCatalogModule,
 		SymbolsModule,
+		MailerModule,
 		MailboxModule,
 		GoogleModule,
 		MicrosoftModule,

@@ -17,6 +17,11 @@ export enum NodeEnv {
 	Test = "test",
 }
 
+export enum MailTransport {
+	Smtp = "smtp",
+	File = "file",
+}
+
 export class EnvironmentVariables {
 	@IsEnum(NodeEnv)
 	NODE_ENV: NodeEnv = NodeEnv.Development;
@@ -126,6 +131,41 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	CRM_TELEMETRY_DISABLED?: string;
+
+	@IsOptional()
+	@IsEnum(MailTransport)
+	MAIL_TRANSPORT?: MailTransport;
+
+	@IsOptional()
+	@IsString()
+	SMTP_HOST?: string;
+
+	@IsOptional()
+	@Type(() => Number)
+	@IsInt()
+	@Min(1)
+	@Max(65535)
+	SMTP_PORT = 587;
+
+	@IsOptional()
+	@IsString()
+	SMTP_SECURE?: string;
+
+	@IsOptional()
+	@IsString()
+	SMTP_USER?: string;
+
+	@IsOptional()
+	@IsString()
+	SMTP_PASS?: string;
+
+	@IsOptional()
+	@IsString()
+	MAIL_FROM?: string;
+
+	@IsOptional()
+	@IsString()
+	MAIL_OUTBOX_DIR?: string;
 }
 
 export function validateEnv(
