@@ -258,6 +258,12 @@ export class EstimatesService {
 		});
 		const drafts = buildLineItems(shapes, services);
 
+		if (drafts.length === 0) {
+			throw new BadRequestException(
+				"Nothing on this drawing can be priced yet.",
+			);
+		}
+
 		return this.db.$transaction(async (tx) => {
 			const estimate = await tx.estimate.create({
 				data: {
@@ -270,14 +276,12 @@ export class EstimatesService {
 				},
 			});
 
-			if (drafts.length > 0) {
-				await tx.estimateLineItem.createMany({
-					data: drafts.map((draft) => ({
-						estimateId: estimate.id,
-						...draft,
-					})),
-				});
-			}
+			await tx.estimateLineItem.createMany({
+				data: drafts.map((draft) => ({
+					estimateId: estimate.id,
+					...draft,
+				})),
+			});
 
 			return { id: estimate.id };
 		});

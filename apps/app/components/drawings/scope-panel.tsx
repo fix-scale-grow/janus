@@ -4,6 +4,7 @@ import {
 	type MeasuredShape,
 	PITCH_FACTORS,
 	type PitchKey,
+	quantityForUnit,
 	unitCompatibleWithKind,
 } from "@crm/drawings";
 import { Badge } from "@crm/ui/components/badge";
@@ -156,7 +157,9 @@ export function ScopePanel(props: ScopePanelProps) {
 					servicesBySymbol,
 				);
 				return (
-					service !== null && unitCompatibleWithKind(service.unit, shape.kind)
+					service !== null &&
+					unitCompatibleWithKind(service.unit, shape.kind) &&
+					quantityForUnit(service.unit, shape.quantity) !== null
 				);
 			}),
 		[props.shapes, servicesById, servicesBySymbol],
