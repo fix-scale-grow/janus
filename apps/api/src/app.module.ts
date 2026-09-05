@@ -21,6 +21,7 @@ import { EstimatesModule } from "./estimates/estimates.module";
 import { FieldsModule } from "./fields/fields.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
+import { InvoicesModule } from "./invoices/invoices.module";
 import { LoggingModule } from "./logging/logging.module";
 import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
@@ -63,6 +64,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		DrawingsModule,
 		EstimatesModule,
 		FieldsModule,
+		InvoicesModule,
 		ActivitiesModule,
 		AgentModule,
 		DashboardModule,
