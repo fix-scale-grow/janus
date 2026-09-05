@@ -22,6 +22,7 @@ import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } 
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
+import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput } from "../estimates/estimates.contracts";
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
@@ -40,6 +41,7 @@ import type { CurrencyRouter } from "../currency/currency.router";
 import type { DashboardRouter } from "../dashboard/dashboard.router";
 import type { DealsRouter } from "../deals/deals.router";
 import type { DrawingsRouter } from "../drawings/drawings.router";
+import type { EstimatesRouter } from "../estimates/estimates.router";
 import type { FieldsRouter } from "../fields/fields.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
@@ -341,6 +343,44 @@ const appRouter = t.router({
     setThumbnail: publicProcedure
       .input(drawingSetThumbnailInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["setThumbnail"]>>)
+    }),
+  estimates: t.router({
+    list: publicProcedure
+      .input(estimateListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["list"]>>),
+    byId: publicProcedure
+      .input(estimateIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["byId"]>>),
+    create: publicProcedure
+      .input(estimateCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["create"]>>),
+    rename: publicProcedure
+      .input(estimateRenameInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["rename"]>>),
+    setStatus: publicProcedure
+      .input(estimateSetStatusInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["setStatus"]>>),
+    setTier: publicProcedure
+      .input(estimateSetTierInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["setTier"]>>),
+    delete: publicProcedure
+      .input(estimateIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["delete"]>>),
+    addLineItem: publicProcedure
+      .input(estimateAddLineItemInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["addLineItem"]>>),
+    updateLineItem: publicProcedure
+      .input(estimateUpdateLineItemInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["updateLineItem"]>>),
+    removeLineItem: publicProcedure
+      .input(estimateLineItemIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["removeLineItem"]>>),
+    generateFromDrawing: publicProcedure
+      .input(estimateGenerateFromDrawingInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["generateFromDrawing"]>>),
+    resyncFromDrawing: publicProcedure
+      .input(estimateIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["resyncFromDrawing"]>>)
     }),
   fields: t.router({
     list: publicProcedure
