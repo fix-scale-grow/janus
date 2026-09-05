@@ -10,7 +10,7 @@ export const PITCH_FACTORS = {
 	"8/12": 1.202,
 	"9/12": 1.25,
 	"10/12": 1.302,
-	"12/12": Math.SQRT2,
+	"12/12": 1.414,
 } as const;
 
 export type PitchKey = keyof typeof PITCH_FACTORS;
