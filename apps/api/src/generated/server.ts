@@ -27,6 +27,7 @@ import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldU
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { projectListInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
@@ -48,6 +49,7 @@ import type { FieldsRouter } from "../fields/fields.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
+import type { ProjectsRouter } from "../projects/projects.router";
 import type { SearchRouter } from "../search/search.router";
 import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
 import type { SettingsRouter } from "../settings/settings.router";
@@ -507,6 +509,35 @@ const appRouter = t.router({
     setAutoCreate: publicProcedure
       .input(setOutlookAutoCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["setAutoCreate"]>>)
+    }),
+  projects: t.router({
+    list: publicProcedure
+      .input(projectListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["list"]>>),
+    byId: publicProcedure
+      .input(projectIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["byId"]>>),
+    create: publicProcedure
+      .input(projectCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["create"]>>),
+    update: publicProcedure
+      .input(projectUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["update"]>>),
+    remove: publicProcedure
+      .input(projectIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["remove"]>>),
+    taskCreate: publicProcedure
+      .input(taskCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskCreate"]>>),
+    taskUpdate: publicProcedure
+      .input(taskUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskUpdate"]>>),
+    taskMove: publicProcedure
+      .input(taskMoveInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskMove"]>>),
+    taskRemove: publicProcedure
+      .input(projectIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskRemove"]>>)
     }),
   search: t.router({
     quick: publicProcedure
