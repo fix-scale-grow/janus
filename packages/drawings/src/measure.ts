@@ -110,6 +110,22 @@ function shapePoints(element: ExcalidrawElement): [number, number][] {
 	];
 }
 
+function linearSymbolLengthFt(
+	element: ExcalidrawElement,
+	pixelsPerFoot: number,
+): number {
+	if (element.points && element.points.length > 1) {
+		const points = element.points.map(([px, py]): [number, number] => [
+			element.x + px,
+			element.y + py,
+		]);
+		return polylineLengthFt(points, pixelsPerFoot);
+	}
+	const w = element.width ?? 0;
+	const h = element.height ?? 0;
+	return Math.max(w, h) / pixelsPerFoot;
+}
+
 function scopeOf(element: ExcalidrawElement): ScopeCustomData | null {
 	if (!element.customData) return null;
 	const parsed = scopeCustomData.safeParse(element.customData);
@@ -196,7 +212,7 @@ export function measureScene(
 						? {
 								lengthFt:
 									Math.round(
-										((element.width ?? 0) / scale.pixelsPerFoot) * 100,
+										linearSymbolLengthFt(element, scale.pixelsPerFoot) * 100,
 									) / 100,
 							}
 						: null,

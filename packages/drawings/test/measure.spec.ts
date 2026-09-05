@@ -217,6 +217,68 @@ describe("measureScene", () => {
 			expect(measured[0]?.quantity).toBeNull();
 		});
 
+		it("measures a diagonal linear symbol by its true point length, not its horizontal extent", () => {
+			const scene = {
+				excalidraw: {
+					elements: [
+						{
+							id: "gutter-1",
+							type: "line",
+							x: 0,
+							y: 0,
+							width: 30,
+							height: 40,
+							points: [
+								[0, 0],
+								[30, 40],
+							] as [number, number][],
+							isDeleted: false,
+							customData: { symbol: "sym_gutter_run", linear: true },
+						},
+					],
+					appState: {},
+					files: {},
+				},
+				satellite: null,
+			};
+			const measured = measureScene(scene as never, {
+				pixelsPerFoot: 1,
+				referenceElementId: null,
+			});
+			expect(measured).toHaveLength(1);
+			expect(measured[0]?.kind).toBe("line");
+			expect(measured[0]?.quantity).toEqual({ lengthFt: 50 });
+		});
+
+		it("measures a linear symbol rectangle taller than wide by its longest side", () => {
+			const scene = {
+				excalidraw: {
+					elements: [
+						{
+							id: "gutter-1",
+							type: "line",
+							x: 0,
+							y: 0,
+							width: 20,
+							height: 80,
+							isDeleted: false,
+							customData: { symbol: "sym_gutter_run", linear: true },
+						},
+					],
+					appState: {},
+					files: {},
+				},
+				satellite: null,
+			};
+			const measured = measureScene(scene as never, {
+				pixelsPerFoot: 10,
+				referenceElementId: null,
+			});
+			expect(measured).toHaveLength(1);
+			expect(measured[0]?.kind).toBe("line");
+			expect(measured[0]?.quantity).toEqual({ lengthFt: 8 });
+		});
+
 		it("measures a promoted linear symbol (kind: line) via its live geometry, including after a resize", () => {
 			const gutterRun = (widthPx: number) => ({
 				id: "gutter-1",
