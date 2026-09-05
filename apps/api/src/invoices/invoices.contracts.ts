@@ -55,8 +55,8 @@ export const invoiceUpdateInput = z.object({
 	id: z.string().min(1),
 	data: z.object({
 		notes: z.string().trim().max(5000).nullable().optional(),
-		dueAt: z.date().nullable().optional(),
-		issuedAt: z.date().nullable().optional(),
+		dueAt: z.coerce.date().nullable().optional(),
+		issuedAt: z.coerce.date().nullable().optional(),
 		contactId: z.string().nullable().optional(),
 	}),
 });
