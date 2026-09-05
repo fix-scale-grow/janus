@@ -31,6 +31,7 @@ model User {
   factDecisions  ContactFact[]       @relation("FactDecider")
   conversations  AgentConversation[] @relation("ConversationOwner")
   fieldValues    FieldValue[]        @relation("FieldValueUser")
+  drawings       Drawing[]           @relation("DrawingCreator")
 
   createdAgentDefinitions AgentDefinition[]             @relation("AgentDefinitionCreator")
   createdAgentVersions    AgentVersion[]                @relation("AgentVersionCreator")
@@ -210,6 +211,12 @@ enum RecordSource {
   EMAIL
   CALENDAR
   TRACKING
+}
+
+enum DrawingBackground {
+  WHITEBOARD
+  IMAGE
+  SATELLITE
 }
 
 enum AgentConversationKind {
@@ -394,6 +401,7 @@ model Contact {
   fieldValues     FieldValue[]
   visitors        TrackedVisitor[]   @relation("VisitorContact")
   submissions     FormSubmission[]   @relation("SubmissionContact")
+  drawings        Drawing[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -944,6 +952,7 @@ model Deal {
   contacts    DealContact[]
   activities  Activity[]
   fieldValues FieldValue[]
+  drawings    Drawing[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -989,6 +998,42 @@ model DealContact {
   @@id([dealId, contactId])
   @@index([contactId])
   @@map("dealContact")
+}
+
+model Drawing {
+  id           String            @id @default(cuid())
+  title        String            @default("Untitled drawing")
+  background   DrawingBackground @default(WHITEBOARD)
+  scene        Json
+  scale        Json?
+  address      String?
+  thumbnailUrl String?
+  dealId       String?
+  deal         Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contactId    String?
+  contact      Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdById  String
+  createdBy    User              @relation("DrawingCreator", fields: [createdById], references: [id])
+  versions     DrawingVersion[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([dealId])
+  @@index([contactId])
+  @@index([updatedAt])
+  @@map("drawing")
+}
+
+model DrawingVersion {
+  id        String   @id @default(cuid())
+  drawingId String
+  drawing   Drawing  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  scene     Json
+  scale     Json?
+  createdAt DateTime @default(now())
+
+  @@index([drawingId, createdAt])
+  @@map("drawing_version")
 }
 
 enum FieldEntity {
