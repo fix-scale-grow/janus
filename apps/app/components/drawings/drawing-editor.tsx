@@ -80,6 +80,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	>(null);
 	const [surface, setSurface] = useState<Surface>("sketch");
 	const [tool, setTool] = useQueryState("tool", toolParser);
+	const initialToolRef = useRef(tool);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
 	const { queueSave } = useDrawingAutosave(
 		props.drawingId,
@@ -100,6 +101,14 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		elementId: string;
 		pixelLength: number;
 	} | null>(null);
+
+	const excalidrawApiRef = useCallback(
+		(api: ExcalidrawImperativeAPI) => {
+			apiRef.current = api;
+			if (tool === "freedraw") void setTool(null);
+		},
+		[tool, setTool],
+	);
 
 	const onChange = useCallback<OnChange>(
 		(elements, appState, files) => {
@@ -258,7 +267,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	);
 
 	return (
-		<div className="flex h-full flex-col">
+		<div className="flex h-full w-full min-w-0 flex-col">
 			<Tabs
 				onValueChange={(value) => setSurface(value as Surface)}
 				value={surface}
@@ -310,17 +319,16 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					className={surface === "sketch" ? "h-full min-h-0 flex-1" : "hidden"}
 				>
 					<Excalidraw
-						excalidrawAPI={(api) => {
-							apiRef.current = api;
-							if (tool === "freedraw") {
-								api.setActiveTool({ type: "freedraw" });
-								void setTool(null);
-							}
-						}}
+						excalidrawAPI={excalidrawApiRef}
 						initialData={
 							{
 								elements: props.initialScene.excalidraw.elements,
-								appState: props.initialScene.excalidraw.appState,
+								appState: {
+									...props.initialScene.excalidraw.appState,
+									...(initialToolRef.current === "freedraw"
+										? { activeTool: { type: "freedraw", customType: null } }
+										: {}),
+								},
 								files: props.initialScene.excalidraw.files,
 							} as unknown as ExcalidrawProps["initialData"]
 						}

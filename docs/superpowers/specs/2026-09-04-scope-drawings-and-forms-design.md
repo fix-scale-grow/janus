@@ -1,7 +1,7 @@
 # Janus: Scope Drawings, Quote-from-Drawing, and Website Forms — Design Spec
 
 **Date:** 2026-09-04
-**Status:** Approved in brainstorming with Kyle; ready for implementation planning
+**Status:** Approved in brainstorming with Kyle; ready for implementation planning. Phase A implemented 2026-09-05.
 **Goal:** Differentiate Janus from GHL-clone CRMs by making the job-site sketch itself the source of the estimate, and by closing the loop from a customer's website form to a triaged lead — JobNimbus-class capability with an agent-first front door.
 
 ## Scope

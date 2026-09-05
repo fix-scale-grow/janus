@@ -55,6 +55,8 @@ export function useDrawingAutosave(
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const saveSceneRef = useRef(saveScene);
+	saveSceneRef.current = saveScene;
 
 	useEffect(
 		() => () => {
@@ -67,7 +69,7 @@ export function useDrawingAutosave(
 		if (timeoutRef.current) clearTimeout(timeoutRef.current);
 		timeoutRef.current = setTimeout(() => {
 			const scene = sceneRef.current;
-			saveScene.mutate({
+			saveSceneRef.current.mutate({
 				id: drawingId,
 				scene: {
 					...scene,
@@ -79,7 +81,7 @@ export function useDrawingAutosave(
 				scale: scaleRef.current,
 			});
 		}, DRAWINGS.autosave.debounceMs);
-	}, [drawingId, saveScene, sceneRef]);
+	}, [drawingId, sceneRef]);
 
 	return { queueSave, saving: saveScene.isPending };
 }
