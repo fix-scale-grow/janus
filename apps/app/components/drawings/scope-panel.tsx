@@ -1,6 +1,8 @@
 "use client";
 
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
+import ChevronLeft from "@carbon/icons-react/es/ChevronLeft";
+import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import {
 	type MeasuredShape,
 	parseServiceModifier,
@@ -31,8 +33,25 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { RouterOutputs } from "@/lib/trpc/types";
+
+const OPEN_STORAGE_KEY = "janus.drawings.scopePanelOpen";
+
+function readStoredOpen(): boolean {
+	try {
+		const stored = window.localStorage.getItem(OPEN_STORAGE_KEY);
+		return stored === null ? true : stored === "1";
+	} catch {
+		return true;
+	}
+}
+
+function writeStoredOpen(open: boolean): void {
+	try {
+		window.localStorage.setItem(OPEN_STORAGE_KEY, open ? "1" : "0");
+	} catch {}
+}
 
 type ServiceRow = RouterOutputs["services"]["list"]["rows"][number];
 type SymbolRow = RouterOutputs["symbols"]["list"]["rows"][number];
@@ -190,6 +209,20 @@ function ScopeModifierField(props: {
 }
 
 export function ScopePanel(props: ScopePanelProps) {
+	const [open, setOpen] = useState(true);
+
+	useEffect(() => {
+		setOpen(readStoredOpen());
+	}, []);
+
+	const toggle = () => {
+		setOpen((prev) => {
+			const next = !prev;
+			writeStoredOpen(next);
+			return next;
+		});
+	};
+
 	const servicesById = useMemo(
 		() => new Map(props.services.map((service) => [service.id, service])),
 		[props.services],
@@ -232,125 +265,143 @@ export function ScopePanel(props: ScopePanelProps) {
 	);
 
 	return (
-		<div className="flex h-full w-72 shrink-0 flex-col gap-3 overflow-y-auto border-border border-l p-3">
-			<h2 className="font-heading text-sm font-medium">Scope</h2>
+		<div
+			className={`flex h-full shrink-0 flex-col border-border border-l transition-[width] duration-200 ease-in-out ${open ? "w-72" : "w-9"}`}
+		>
+			<div className="flex items-center justify-between gap-1 p-1.5">
+				{open && (
+					<h2 className="pl-1.5 font-heading text-sm font-medium">Scope</h2>
+				)}
+				<Button
+					aria-label={open ? "Collapse scope panel" : "Expand scope panel"}
+					onClick={toggle}
+					size="icon"
+					variant="ghost"
+				>
+					<Icon icon={open ? ChevronRight : ChevronLeft} />
+				</Button>
+			</div>
 
-			{props.shapes.length === 0 && (
-				<div className="flex flex-col gap-1">
-					<p className="text-muted-foreground text-xs">
-						Mark a shape to measure it.
-					</p>
-					<p className="text-muted-foreground text-xs">
-						Draw any shape with the line tool and Mark area to measure irregular
-						rooms.
-					</p>
-				</div>
-			)}
-
-			{props.shapes.map((shape) => {
-				const { service } = resolvedService(
-					shape,
-					servicesById,
-					symbolServiceIds,
-					servicesByLegacySymbol,
-				);
-				const modifier = service
-					? parseServiceModifier(service.modifier)
-					: null;
-
-				return (
-					<div
-						className="flex flex-col gap-2 rounded-lg border border-border p-2"
-						key={shape.scopeId}
-					>
-						<div className="flex items-center justify-between gap-2">
-							<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
-							<span className="text-muted-foreground text-xs">
-								{quantityLabel(shape) ?? "unmeasured — set scale"}
-							</span>
+			{open && (
+				<div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3 pt-0">
+					{props.shapes.length === 0 && (
+						<div className="flex flex-col gap-1">
+							<p className="text-muted-foreground text-xs">
+								Mark a shape to measure it.
+							</p>
+							<p className="text-muted-foreground text-xs">
+								Draw any shape with the line tool and Mark area to measure
+								irregular rooms.
+							</p>
 						</div>
+					)}
 
-						<Input
-							onChange={(event) =>
-								props.onUpdateShape(shape.scopeId, {
-									label: event.target.value || null,
-								})
-							}
-							placeholder="Label"
-							value={shape.label ?? ""}
-						/>
+					{props.shapes.map((shape) => {
+						const { service } = resolvedService(
+							shape,
+							servicesById,
+							symbolServiceIds,
+							servicesByLegacySymbol,
+						);
+						const modifier = service
+							? parseServiceModifier(service.modifier)
+							: null;
 
-						<ScopeServiceField
-							onUpdateShape={props.onUpdateShape}
-							servicesById={servicesById}
-							servicesByLegacySymbol={servicesByLegacySymbol}
-							symbolServiceIds={symbolServiceIds}
-							services={props.services}
-							shape={shape}
-						/>
+						return (
+							<div
+								className="flex flex-col gap-2 rounded-lg border border-border p-2"
+								key={shape.scopeId}
+							>
+								<div className="flex items-center justify-between gap-2">
+									<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
+									<span className="text-muted-foreground text-xs">
+										{quantityLabel(shape) ?? "unmeasured — set scale"}
+									</span>
+								</div>
 
-						{shape.kind === "area" && modifier && (
-							<ScopeModifierField
-								modifier={modifier}
-								onUpdateShape={props.onUpdateShape}
-								shape={shape}
-							/>
+								<Input
+									onChange={(event) =>
+										props.onUpdateShape(shape.scopeId, {
+											label: event.target.value || null,
+										})
+									}
+									placeholder="Label"
+									value={shape.label ?? ""}
+								/>
+
+								<ScopeServiceField
+									onUpdateShape={props.onUpdateShape}
+									servicesById={servicesById}
+									servicesByLegacySymbol={servicesByLegacySymbol}
+									symbolServiceIds={symbolServiceIds}
+									services={props.services}
+									shape={shape}
+								/>
+
+								{shape.kind === "area" && modifier && (
+									<ScopeModifierField
+										modifier={modifier}
+										onUpdateShape={props.onUpdateShape}
+										shape={shape}
+									/>
+								)}
+							</div>
+						);
+					})}
+
+					<div className="mt-auto flex gap-1.5 pt-1">
+						{props.hasEstimate ? (
+							<>
+								<Button
+									className="flex-1"
+									disabled={props.generating}
+									onClick={props.onOpenEstimate}
+								>
+									Open estimate
+								</Button>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button
+											disabled={!canGenerate || props.generating}
+											size="icon"
+											variant="outline"
+										>
+											<Icon icon={ChevronDown} />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="end">
+										<DropdownMenuItem
+											disabled={!canGenerate || props.generating}
+											onSelect={props.onGenerate}
+										>
+											Generate new estimate
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							</>
+						) : canGenerate ? (
+							<Button
+								className="w-full"
+								disabled={props.generating}
+								onClick={props.onGenerate}
+							>
+								Generate estimate
+							</Button>
+						) : (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<span className="block w-full">
+										<Button className="w-full" disabled>
+											Generate estimate
+										</Button>
+									</span>
+								</TooltipTrigger>
+								<TooltipContent>Tag shapes with services first.</TooltipContent>
+							</Tooltip>
 						)}
 					</div>
-				);
-			})}
-
-			<div className="mt-auto flex gap-1.5 pt-1">
-				{props.hasEstimate ? (
-					<>
-						<Button
-							className="flex-1"
-							disabled={props.generating}
-							onClick={props.onOpenEstimate}
-						>
-							Open estimate
-						</Button>
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									disabled={!canGenerate || props.generating}
-									size="icon"
-									variant="outline"
-								>
-									<Icon icon={ChevronDown} />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								<DropdownMenuItem
-									disabled={!canGenerate || props.generating}
-									onSelect={props.onGenerate}
-								>
-									Generate new estimate
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</>
-				) : canGenerate ? (
-					<Button
-						className="w-full"
-						disabled={props.generating}
-						onClick={props.onGenerate}
-					>
-						Generate estimate
-					</Button>
-				) : (
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<span className="block w-full">
-								<Button className="w-full" disabled>
-									Generate estimate
-								</Button>
-							</span>
-						</TooltipTrigger>
-						<TooltipContent>Tag shapes with services first.</TooltipContent>
-					</Tooltip>
-				)}
-			</div>
+				</div>
+			)}
 		</div>
 	);
 }
