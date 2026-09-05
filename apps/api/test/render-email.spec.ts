@@ -123,6 +123,35 @@ describe("renderEmailHtml", () => {
 		expect(html).toContain("padding:24px 32px");
 	});
 
+	it("escapes a merge value substituted into a text block's html, but keeps raw text output", () => {
+		const blocks: TemplateBlocks = [
+			{ kind: "text", html: "Hi {{contact.full_name}}, welcome." },
+		];
+		const hostileContext = {
+			"contact.full_name": "<img src=x onerror=alert(1)>",
+		};
+
+		const { html, text } = renderEmailHtml(blocks, hostileContext);
+
+		expect(html).not.toContain("<img");
+		expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+		expect(text).toContain("<img src=x onerror=alert(1)>");
+	});
+
+	it("attribute-escapes a hostile signing_link before it reaches the button href", () => {
+		const blocks: TemplateBlocks = [
+			{ kind: "button", label: "Review and sign" },
+		];
+		const hostileContext = {
+			signing_link: '"><script>alert(1)</script>',
+		};
+
+		const { html } = renderEmailHtml(blocks, hostileContext);
+
+		expect(html).not.toContain('href="">');
+		expect(html).toContain('href="&quot;>');
+	});
+
 	it("produces a plain-text variant with tags stripped", () => {
 		const blocks: TemplateBlocks = [
 			{ kind: "heading", text: "Hello there" },

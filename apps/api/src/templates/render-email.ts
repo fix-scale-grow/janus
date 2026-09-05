@@ -24,6 +24,19 @@ function escapeHtml(value: string): string {
 		.replace(/'/g, "&#39;");
 }
 
+function escapeAttribute(value: string): string {
+	return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+function applyMergeFieldsHtml(
+	input: string,
+	context: Record<string, string>,
+): string {
+	return input.replace(MERGE_TOKEN_PATTERN, (_, token: string) => {
+		return escapeHtml(context[token] ?? "");
+	});
+}
+
 function initialsFromBusinessName(context: Record<string, string>): string {
 	const businessName = context["business.name"] ?? "";
 	const words = businessName.trim().split(/\s+/).filter(Boolean);
@@ -49,14 +62,14 @@ function renderBlockHtml(
 			);
 		}
 		case "text": {
-			const html = applyMergeFields(block.html, context);
+			const html = applyMergeFieldsHtml(block.html, context);
 			return renderRow(
 				`<div style="font-size:14px;line-height:1.5;color:#333333;font-family:Arial,sans-serif;">${html}</div>`,
 			);
 		}
 		case "button": {
 			const label = escapeHtml(applyMergeFields(block.label, context));
-			const href = context.signing_link ?? "#";
+			const href = escapeAttribute(context.signing_link ?? "#");
 			return renderRow(
 				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:${BRAND_GREEN};border-radius:5px;" bgcolor="${BRAND_GREEN}"><a href="${href}" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a></td></tr></table>`,
 			);
@@ -90,7 +103,7 @@ function renderBlockText(
 		case "heading":
 			return applyMergeFields(block.text, context);
 		case "text":
-			return stripTags(applyMergeFields(block.html, context));
+			return applyMergeFields(stripTags(block.html), context);
 		case "button": {
 			const label = applyMergeFields(block.label, context);
 			const href = context.signing_link ?? "#";
