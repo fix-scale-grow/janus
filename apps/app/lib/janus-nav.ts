@@ -5,6 +5,7 @@ import Dashboard from "@carbon/icons-react/es/Dashboard";
 import Mobile from "@carbon/icons-react/es/Mobile";
 import Partnership from "@carbon/icons-react/es/Partnership";
 import PenFountain from "@carbon/icons-react/es/PenFountain";
+import Receipt from "@carbon/icons-react/es/Receipt";
 import Settings from "@carbon/icons-react/es/Settings";
 import Tools from "@carbon/icons-react/es/Tools";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
@@ -115,6 +116,14 @@ export const JANUS_NAV: JanusModule[] = [
 		icon: PenFountain,
 		source: "app/(app)/drawings",
 	},
+	{
+		title: "Estimates",
+		href: "/estimates",
+		match: "prefix",
+		status: "live",
+		icon: Receipt,
+		source: "app/(app)/estimates",
+	},
 	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{
 		title: "Schedule",
@@ -129,13 +138,6 @@ export const JANUS_NAV: JanusModule[] = [
 		match: "prefix",
 		status: "planned",
 		source: "app/(app)/inbox",
-	},
-	{
-		title: "Estimates",
-		href: "/estimates",
-		match: "prefix",
-		status: "planned",
-		source: "app/(app)/estimates",
 	},
 	{
 		title: "Invoices",

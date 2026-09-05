@@ -25,6 +25,8 @@ import {
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { EstimatesTable } from "@/app/(app)/[slug]/estimates/estimates-table";
+import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-button";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
@@ -168,6 +170,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "drawings",
 					label: "Drawings",
 					content: <DealDrawings deal={deal} />,
+				},
+				{
+					value: "estimates",
+					label: "Estimates",
+					content: <DealEstimates deal={deal} />,
 				},
 				{
 					value: "agent",
@@ -509,6 +516,19 @@ function DealDrawings({ deal }: { deal: Deal }) {
 				action={<NewDrawingMenu dealId={deal.id} size="sm" />}
 			>
 				<DrawingGrid dealId={deal.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function DealEstimates({ deal }: { deal: Deal }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Estimates"
+				action={<NewEstimateButton dealId={deal.id} size="sm" />}
+			>
+				<EstimatesTable dealId={deal.id} />
 			</DetailSheetSection>
 		</DetailSheetBody>
 	);
