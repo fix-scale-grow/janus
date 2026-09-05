@@ -21,6 +21,7 @@ import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
 import { ScaleDialog } from "./scale-dialog";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
+import { useBackgroundImage } from "./use-background-image";
 import { useDrawingAutosave } from "./use-drawing-autosave";
 import { useDrawingThumbnail } from "./use-drawing-thumbnail";
 import { useScopedShapes } from "./use-scoped-shapes";
@@ -80,6 +81,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		},
 	);
 	const shapes = useScopedShapes(sceneRef, scale);
+	const { inputRef, openFilePicker, handleFileChange } = useBackgroundImage(
+		apiRef,
+		queueSave,
+	);
 
 	const [calibrating, setCalibrating] = useState(false);
 	const [calibrationTarget, setCalibrationTarget] = useState<{
@@ -251,6 +256,16 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				<Button onClick={addPin} variant="outline">
 					Pin
 				</Button>
+				<Button onClick={openFilePicker} variant="outline">
+					Set background photo
+				</Button>
+				<input
+					accept="image/*"
+					className="hidden"
+					onChange={handleFileChange}
+					ref={inputRef}
+					type="file"
+				/>
 				{calibrating && (
 					<span className="text-muted-foreground text-xs">
 						Select a line to calibrate.

@@ -21,4 +21,5 @@ export const DRAWINGS = {
 	unattachedNudgeDays: 3,
 	scopePanel: { recomputeMs: 500 },
 	pin: { sizePx: 24 },
+	backgroundImage: { maxDimensionPx: 2_400, jpegQuality: 0.85 },
 } as const;
