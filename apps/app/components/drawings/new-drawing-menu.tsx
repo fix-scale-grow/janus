@@ -17,6 +17,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { toast } from "sonner";
+import { maptilerApiKey } from "@/lib/env";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -30,10 +31,9 @@ type MenuItem = {
 	tool?: "freedraw";
 };
 
-const ITEMS: MenuItem[] = [
+const BASE_ITEMS: MenuItem[] = [
 	{ label: "Whiteboard", icon: Draw, background: "WHITEBOARD" },
 	{ label: "From photo", icon: Image, background: "IMAGE" },
-	{ label: "Satellite", icon: Satellite, background: "SATELLITE" },
 	{
 		label: "Quick note",
 		icon: PenFountain,
@@ -41,6 +41,12 @@ const ITEMS: MenuItem[] = [
 		tool: "freedraw",
 	},
 ];
+
+const SATELLITE_ITEM: MenuItem = {
+	label: "Satellite",
+	icon: Satellite,
+	background: "SATELLITE",
+};
 
 export function NewDrawingMenu({
 	dealId,
@@ -56,6 +62,10 @@ export function NewDrawingMenu({
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
 	const pendingTool = useRef<"freedraw" | null>(null);
+
+	const items = maptilerApiKey()
+		? [...BASE_ITEMS.slice(0, 2), SATELLITE_ITEM, ...BASE_ITEMS.slice(2)]
+		: BASE_ITEMS;
 
 	const create = useMutation(
 		trpc.drawings.create.mutationOptions({
@@ -84,7 +94,7 @@ export function NewDrawingMenu({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="min-w-48">
-				{ITEMS.map((item) => (
+				{items.map((item) => (
 					<DropdownMenuItem
 						key={item.label}
 						disabled={create.isPending}

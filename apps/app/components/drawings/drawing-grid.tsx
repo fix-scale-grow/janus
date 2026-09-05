@@ -399,7 +399,7 @@ function DeleteDrawingDialog({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete {title}?</AlertDialogTitle>
 					<AlertDialogDescription>
-						Its versions and thumbnail go too. This cannot be undone.
+						Its version history goes too. This cannot be undone.
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 
