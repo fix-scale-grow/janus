@@ -34,8 +34,10 @@ export default function DealsPage({
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<DealsViewSwitch />
-					<CreateDealSheet />
+					<Suspense fallback={null}>
+						<DealsViewSwitch />
+						<CreateDealSheet />
+					</Suspense>
 				</PageShellActions>
 			</PageShellHeader>
 

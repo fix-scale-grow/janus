@@ -34,7 +34,9 @@ export default function CompaniesPage({
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<CreateCompanySheet />
+					<Suspense fallback={null}>
+						<CreateCompanySheet />
+					</Suspense>
 				</PageShellActions>
 			</PageShellHeader>
 

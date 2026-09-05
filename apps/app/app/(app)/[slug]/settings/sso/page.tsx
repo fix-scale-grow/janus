@@ -36,7 +36,9 @@ export default function SsoSettingsPage({
 				</PageShellHeading>
 
 				<PageShellActions>
-					<AddSsoProviderSheet />
+					<Suspense fallback={null}>
+						<AddSsoProviderSheet />
+					</Suspense>
 				</PageShellActions>
 			</PageShellHeader>
 

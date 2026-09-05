@@ -32,7 +32,9 @@ export default function ContactsPage({
 					<PageShellDescription>Everyone in the pipeline.</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<CreateContactSheet />
+					<Suspense fallback={null}>
+						<CreateContactSheet />
+					</Suspense>
 				</PageShellActions>
 			</PageShellHeader>
 
