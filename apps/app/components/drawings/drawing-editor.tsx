@@ -47,7 +47,22 @@ import { useScopedShapes } from "./use-scoped-shapes";
 const toolParser = parseAsStringLiteral(["freedraw"] as const);
 
 const Excalidraw = dynamic(
-	async () => (await import("@excalidraw/excalidraw")).Excalidraw,
+	async () => {
+		const { Excalidraw: ExcalidrawComponent, MainMenu } = await import(
+			"@excalidraw/excalidraw"
+		);
+		return function JanusExcalidraw(exProps: ExcalidrawProps) {
+			return (
+				<ExcalidrawComponent {...exProps}>
+					<MainMenu>
+						<MainMenu.DefaultItems.Export />
+						<MainMenu.DefaultItems.ChangeCanvasBackground />
+						<MainMenu.DefaultItems.ClearCanvas />
+					</MainMenu>
+				</ExcalidrawComponent>
+			);
+		};
+	},
 	{ ssr: false },
 );
 
@@ -499,7 +514,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							: "hidden"
 					}
 				>
-					<style>{`.janus-drawing-canvas .default-sidebar-trigger { display: none; }`}</style>
+					<style>{`
+						.janus-drawing-canvas .default-sidebar-trigger { display: none; }
+						.excalidraw-modal-container .HelpDialog__header { display: none; }
+					`}</style>
 					<Excalidraw
 						excalidrawAPI={excalidrawApiRef}
 						initialData={
