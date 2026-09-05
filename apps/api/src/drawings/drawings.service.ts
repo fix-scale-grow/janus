@@ -83,6 +83,14 @@ export class DrawingsService {
 				address: input.address,
 				createdById: userId,
 			},
+			select: {
+				id: true,
+				title: true,
+				background: true,
+				dealId: true,
+				contactId: true,
+				address: true,
+			},
 		});
 	}
 

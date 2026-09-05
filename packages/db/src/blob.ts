@@ -61,6 +61,29 @@ export async function mirror(
 	}
 }
 
+export async function putBytes(
+	bytes: Buffer,
+	key: string,
+	contentType: string,
+): Promise<string | null> {
+	if (!blobEnabled()) return null;
+
+	try {
+		const { put } = await import("@vercel/blob");
+
+		const blob = await put(key, bytes, {
+			access: "public",
+			contentType,
+			addRandomSuffix: false,
+			allowOverwrite: true,
+		});
+
+		return blob.url;
+	} catch {
+		return null;
+	}
+}
+
 async function readCapped(response: Response): Promise<Buffer | null> {
 	const declared = Number(response.headers.get("content-length"));
 	if (Number.isFinite(declared) && declared > MAX_BYTES) {

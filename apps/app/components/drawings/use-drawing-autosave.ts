@@ -38,6 +38,7 @@ export function useDrawingAutosave(
 	drawingId: string,
 	sceneRef: { current: DrawingScene },
 	scale: DrawingScale | null,
+	onSaved?: () => void,
 ) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -47,7 +48,10 @@ export function useDrawingAutosave(
 
 	const saveScene = useMutation(
 		trpc.drawings.saveScene.mutationOptions({
-			onSuccess: () => cache.drawing(drawingId),
+			onSuccess: () => {
+				cache.drawing(drawingId);
+				onSaved?.();
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);

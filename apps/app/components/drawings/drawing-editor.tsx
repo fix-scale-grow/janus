@@ -17,11 +17,15 @@ import type {
 	ExcalidrawProps,
 } from "@excalidraw/excalidraw/types";
 import dynamic from "next/dynamic";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
 import { ScaleDialog } from "./scale-dialog";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
 import { useDrawingAutosave } from "./use-drawing-autosave";
+import { useDrawingThumbnail } from "./use-drawing-thumbnail";
 import { useScopedShapes } from "./use-scoped-shapes";
+
+const toolParser = parseAsStringLiteral(["freedraw"] as const);
 
 const Excalidraw = dynamic(
 	async () => (await import("@excalidraw/excalidraw")).Excalidraw,
@@ -65,7 +69,16 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [scale, setScale] = useState(props.initialScale);
 	const sceneRef = useRef(props.initialScene);
 	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-	const { queueSave } = useDrawingAutosave(props.drawingId, sceneRef, scale);
+	const [tool, setTool] = useQueryState("tool", toolParser);
+	const captureThumbnail = useDrawingThumbnail(props.drawingId);
+	const { queueSave } = useDrawingAutosave(
+		props.drawingId,
+		sceneRef,
+		scale,
+		() => {
+			if (apiRef.current) void captureThumbnail(apiRef.current);
+		},
+	);
 	const shapes = useScopedShapes(sceneRef, scale);
 
 	const [calibrating, setCalibrating] = useState(false);
@@ -250,6 +263,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					<Excalidraw
 						excalidrawAPI={(api) => {
 							apiRef.current = api;
+							if (tool === "freedraw") {
+								api.setActiveTool({ type: "freedraw" });
+								void setTool(null);
+							}
 						}}
 						initialData={
 							{

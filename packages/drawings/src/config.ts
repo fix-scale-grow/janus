@@ -17,7 +17,7 @@ export type PitchKey = keyof typeof PITCH_FACTORS;
 
 export const DRAWINGS = {
 	autosave: { debounceMs: 2_000, versionEveryMs: 5 * 60_000 },
-	thumbnail: { width: 640 },
+	thumbnail: { width: 640, minIntervalMs: 60_000, maxBytes: 2 * 1024 * 1024 },
 	unattachedNudgeDays: 3,
 	scopePanel: { recomputeMs: 500 },
 	pin: { sizePx: 24 },

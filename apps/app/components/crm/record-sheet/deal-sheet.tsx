@@ -52,6 +52,8 @@ import {
 	DetailSheetStats,
 	type DetailSheetTab,
 } from "@/components/detail-sheet";
+import { DrawingGrid } from "@/components/drawings/drawing-grid";
+import { NewDrawingMenu } from "@/components/drawings/new-drawing-menu";
 import {
 	LocalDateTime,
 	LocalDay,
@@ -161,6 +163,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "activity",
 					label: "Activity",
 					content: <Timeline anchor={{ dealId: deal.id }} />,
+				},
+				{
+					value: "drawings",
+					label: "Drawings",
+					content: <DealDrawings deal={deal} />,
 				},
 				{
 					value: "agent",
@@ -491,6 +498,19 @@ function WhereItStands({ deal }: { deal: Deal }) {
 				</DetailSheetProperty>
 			</DetailSheetProperties>
 		</DetailSheetSection>
+	);
+}
+
+function DealDrawings({ deal }: { deal: Deal }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Drawings"
+				action={<NewDrawingMenu dealId={deal.id} size="sm" />}
+			>
+				<DrawingGrid dealId={deal.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
 	);
 }
 
