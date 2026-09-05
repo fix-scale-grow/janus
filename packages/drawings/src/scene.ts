@@ -15,7 +15,7 @@ export const scopeCustomData = z.object({
 export type ScopeCustomData = z.infer<typeof scopeCustomData>;
 
 export const symbolPinCustomData = z
-	.object({ symbol: z.string().min(1) })
+	.object({ symbol: z.string().min(1), linear: z.boolean().optional() })
 	.loose();
 
 export type SymbolPinCustomData = z.infer<typeof symbolPinCustomData>;

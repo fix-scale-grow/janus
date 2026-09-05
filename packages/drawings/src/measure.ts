@@ -184,7 +184,24 @@ export function measureScene(
 			});
 		} else {
 			const symbolParsed = symbolPinCustomData.safeParse(element.customData);
-			if (symbolParsed.success) {
+			if (symbolParsed.success && symbolParsed.data.linear) {
+				out.push({
+					scopeId: element.id,
+					kind: "line",
+					serviceId: null,
+					label: null,
+					pitch: null,
+					symbol: symbolParsed.data.symbol,
+					quantity: scale
+						? {
+								lengthFt:
+									Math.round(
+										((element.width ?? 0) / scale.pixelsPerFoot) * 100,
+									) / 100,
+							}
+						: null,
+				});
+			} else if (symbolParsed.success) {
 				out.push({
 					scopeId: element.id,
 					kind: "pin",

@@ -160,5 +160,90 @@ describe("measureScene", () => {
 			expect(measured[0]?.symbol).toBe("janus-roofing-roof-vent");
 			expect(measured[0]?.quantity).toEqual({ count: 1 });
 		});
+
+		it("measures a linear symbol as a length when a scale is set", () => {
+			const scene = {
+				excalidraw: {
+					elements: [
+						{
+							id: "gutter-1",
+							type: "line",
+							x: 0,
+							y: 0,
+							width: 100,
+							height: 0,
+							isDeleted: false,
+							customData: { symbol: "sym_gutter_run", linear: true },
+						},
+					],
+					appState: {},
+					files: {},
+				},
+				satellite: null,
+			};
+			const measured = measureScene(scene as never, {
+				pixelsPerFoot: 10,
+				referenceElementId: null,
+			});
+			expect(measured).toHaveLength(1);
+			expect(measured[0]?.kind).toBe("line");
+			expect(measured[0]?.symbol).toBe("sym_gutter_run");
+			expect(measured[0]?.quantity).toEqual({ lengthFt: 10 });
+		});
+
+		it("returns a null quantity for a linear symbol with no scale set", () => {
+			const scene = {
+				excalidraw: {
+					elements: [
+						{
+							id: "gutter-1",
+							type: "line",
+							x: 0,
+							y: 0,
+							width: 100,
+							height: 0,
+							isDeleted: false,
+							customData: { symbol: "sym_gutter_run", linear: true },
+						},
+					],
+					appState: {},
+					files: {},
+				},
+				satellite: null,
+			};
+			const measured = measureScene(scene as never, null);
+			expect(measured).toHaveLength(1);
+			expect(measured[0]?.kind).toBe("line");
+			expect(measured[0]?.quantity).toBeNull();
+		});
+
+		it("leaves a non-linear symbol pin unchanged", () => {
+			const scene = {
+				excalidraw: {
+					elements: [
+						{
+							id: "vent-1",
+							type: "ellipse",
+							x: 0,
+							y: 0,
+							width: 40,
+							height: 40,
+							isDeleted: false,
+							customData: { symbol: "sym_roof_vent" },
+						},
+					],
+					appState: {},
+					files: {},
+				},
+				satellite: null,
+			};
+			const measured = measureScene(scene as never, {
+				pixelsPerFoot: 10,
+				referenceElementId: null,
+			});
+			expect(measured).toHaveLength(1);
+			expect(measured[0]?.kind).toBe("pin");
+			expect(measured[0]?.quantity).toEqual({ count: 1 });
+		});
 	});
 });

@@ -56,6 +56,7 @@ export type SymbolPaletteProps = {
 	apiRef: { current: ExcalidrawImperativeAPI | null };
 	scale: DrawingScale | null;
 	queueSave: () => void;
+	services: { id: string; unit: string }[];
 };
 
 function symbolPoints(element: ExcalidrawElement): [number, number][] {
@@ -210,6 +211,11 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 
 	const rows = useMemo(() => parseSymbolRows(list.data?.rows), [list.data]);
 
+	const serviceUnitById = useMemo(
+		() => new Map(props.services.map((service) => [service.id, service.unit])),
+		[props.services],
+	);
+
 	const grouped = useMemo(() => {
 		const byTrade = new Map<string, SymbolRow[]>();
 		for (const row of rows) {
@@ -256,8 +262,15 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 			const [first, ...rest] = inserted;
 			if (!first) return;
 
+			const unit = symbol.serviceId
+				? serviceUnitById.get(symbol.serviceId)
+				: undefined;
 			const stampedFirst = newElementWith(first, {
-				customData: { ...first.customData, symbol: symbol.id },
+				customData: {
+					...first.customData,
+					symbol: symbol.id,
+					...(unit === "PER_LINEAR_FT" ? { linear: true } : {}),
+				},
 			});
 
 			api.updateScene({
@@ -267,7 +280,7 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 			props.queueSave();
 			setOpen(false);
 		},
-		[props.apiRef, props.scale, props.queueSave],
+		[props.apiRef, props.scale, props.queueSave, serviceUnitById],
 	);
 
 	return (

@@ -424,6 +424,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 								apiRef={apiRef}
 								queueSave={queueSave}
 								scale={scale}
+								services={services.data?.rows ?? []}
 							/>
 							<Button onClick={openFilePicker} variant="outline">
 								Set background photo
