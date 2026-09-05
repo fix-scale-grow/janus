@@ -1,0 +1,22 @@
+{
+	"name": "@crm/drawings",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit",
+		"lint": "biome check .",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@crm/typescript-config": "workspace:*",
+		"@types/node": "^24.10.1",
+		"typescript": "5.9.2"
+	}
+}
