@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { renderEstimatePdf } from "../src/estimates/estimate-pdf";
+import { renderEstimatePdf, tierTotals } from "../src/estimates/estimate-pdf";
 
 function fixture() {
 	return {
@@ -60,26 +60,11 @@ describe("renderEstimatePdf", () => {
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
 	});
 
-	it("matches per-line rounding for each tier total", async () => {
-		const estimate = fixture();
+	it("computes tier totals matching hand-computed literals", () => {
+		const totals = tierTotals(fixture().lineItems);
 
-		const expected = {
-			GOOD: 0,
-			BETTER: 0,
-			BEST: 0,
-		};
-
-		for (const item of estimate.lineItems) {
-			expected.GOOD += Math.round(item.quantity * item.priceGoodCents);
-			expected.BETTER += Math.round(item.quantity * item.priceBetterCents);
-			expected.BEST += Math.round(item.quantity * item.priceBestCents);
-		}
-
-		expect(expected.GOOD).toBe(141550);
-		expect(expected.BETTER).toBe(157650);
-		expect(expected.BEST).toBe(173750);
-
-		const buffer = await renderEstimatePdf(estimate, "Acme Roofing");
-		expect(buffer.length).toBeGreaterThan(0);
+		expect(totals.GOOD).toBe(141550);
+		expect(totals.BETTER).toBe(157650);
+		expect(totals.BEST).toBe(173750);
 	});
 });

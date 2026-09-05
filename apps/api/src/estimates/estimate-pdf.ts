@@ -75,7 +75,7 @@ function formatCents(cents: number, currency: string): string {
 	}
 }
 
-function tierTotals(
+export function tierTotals(
 	lineItems: EstimatePdfLineItem[],
 ): Record<EstimateTier, number> {
 	const totals: Record<EstimateTier, number> = {

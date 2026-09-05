@@ -464,7 +464,7 @@ export class EstimatesService {
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderEstimatePdf(estimate, workspaceName);
 
-		await this.mailer.send({
+		const result = await this.mailer.send({
 			to,
 			subject: input.subject,
 			text: input.message,
@@ -476,6 +476,12 @@ export class EstimatesService {
 				},
 			],
 		});
+
+		if (!result.delivered) {
+			throw new BadRequestException(
+				"The email could not be sent. Check the mail configuration and try again.",
+			);
+		}
 
 		try {
 			return await this.db.estimate.update({
