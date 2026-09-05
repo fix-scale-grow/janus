@@ -47,6 +47,26 @@ export function formatMoney(cents: number, currency = "usd"): string {
 	}).format(cents / 100);
 }
 
+const currencySymbols = new Map<string, string>();
+
+export function currencySymbol(currency = "usd"): string {
+	const code = displayCurrencyCode(currency);
+	const cached = currencySymbols.get(code);
+	if (cached !== undefined) return cached;
+
+	const symbol =
+		new Intl.NumberFormat(undefined, {
+			style: "currency",
+			currency: code,
+			currencyDisplay: "narrowSymbol",
+		})
+			.formatToParts(0)
+			.find((part) => part.type === "currency")?.value ?? code;
+
+	currencySymbols.set(code, symbol);
+	return symbol;
+}
+
 export function formatMoneyCompact(cents: number, currency = "usd"): string {
 	return new Intl.NumberFormat(undefined, {
 		style: "currency",

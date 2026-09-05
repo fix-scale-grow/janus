@@ -12,7 +12,7 @@ import {
 } from "@crm/ui/components/input-group";
 import { SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { formatMoney } from "@crm/ui/lib/format";
+import { currencySymbol, formatMoney } from "@crm/ui/lib/format";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -71,6 +71,7 @@ export function EstimateLineRow({
 	const priceField = TIER_PRICE_FIELD[tier];
 	const priceCents = item[priceField];
 	const itemQuantity = Number(item.quantity);
+	const symbol = currencySymbol(currency);
 
 	const [name, setName] = useState(item.name);
 	const [quantity, setQuantity] = useState(itemQuantity.toFixed(2));
@@ -160,7 +161,7 @@ export function EstimateLineRow({
 			<TableCell className="px-3 py-2">
 				<InputGroup>
 					<InputGroupAddon>
-						<InputGroupText>$</InputGroupText>
+						<InputGroupText>{symbol}</InputGroupText>
 					</InputGroupAddon>
 					<InputGroupInput
 						inputMode="decimal"
