@@ -37,7 +37,9 @@ export default function DrawingsPage({
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<NewDrawingMenu />
+					<Suspense fallback={null}>
+						<NewDrawingMenu />
+					</Suspense>
 				</PageShellActions>
 			</PageShellHeader>
 
