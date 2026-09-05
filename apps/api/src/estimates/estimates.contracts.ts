@@ -12,6 +12,11 @@ const tierEnum = z.enum(
 
 const cents = z.number().int().min(0).max(99_999_999);
 
+const quantity = z
+	.number()
+	.min(0)
+	.max(9_999_999.99, "That quantity is too large.");
+
 export const estimateListInput = listInput.extend({
 	dealId: z.string().optional(),
 	status: statusEnum.optional(),
@@ -60,7 +65,7 @@ export const estimateAddLineItemInput = z
 		unit: z
 			.enum(["PER_SQUARE", "PER_LINEAR_FT", "PER_EACH", "FLAT"])
 			.optional(),
-		quantity: z.number().min(0).default(1),
+		quantity: quantity.default(1),
 		areaLabel: z.string().trim().max(120).optional(),
 	})
 	.refine((value) => value.serviceId || (value.name && value.unit), {
@@ -71,7 +76,7 @@ export type EstimateAddLineItemInput = z.infer<typeof estimateAddLineItemInput>;
 
 export const estimateUpdateLineItemFields = z.object({
 	name: z.string().trim().min(1).max(200).optional(),
-	quantity: z.number().min(0).optional(),
+	quantity: quantity.optional(),
 	priceGoodCents: cents.optional(),
 	priceBetterCents: cents.optional(),
 	priceBestCents: cents.optional(),

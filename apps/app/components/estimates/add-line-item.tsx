@@ -45,11 +45,15 @@ const UNIT_LABELS: Record<ServiceUnit, string> = {
 
 const UNIT_OPTIONS = Object.entries(UNIT_LABELS) as [ServiceUnit, string][];
 
+const MAX_QUANTITY = 9_999_999.99;
+
 function parseQuantity(value: string): number | undefined {
 	const trimmed = value.trim();
 	if (!trimmed) return 1;
 	const parsed = Number.parseFloat(trimmed);
-	if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+	if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_QUANTITY) {
+		return undefined;
+	}
 	return Math.round(parsed * 100) / 100;
 }
 
@@ -101,7 +105,7 @@ export function AddLineItem({
 		}
 		const quantity = parseQuantity(custom.quantity);
 		if (quantity === undefined) {
-			toast.error("Quantity has to be a number, zero or more.");
+			toast.error("Quantity has to be zero or more, and not too large.");
 			return;
 		}
 		add.mutate({ estimateId, name, unit: custom.unit, quantity });
