@@ -21,6 +21,7 @@ export const DRAWINGS = {
 	unattachedNudgeDays: 3,
 	scopePanel: { recomputeMs: 500 },
 	pin: { sizePx: 24 },
+	limits: { maxSceneBytes: 8_000_000, maxVersions: 50 },
 	backgroundImage: { maxDimensionPx: 2_400, jpegQuality: 0.85 },
 	satellite: {
 		fallbackCenter: [-98.5795, 39.8283] as [number, number],

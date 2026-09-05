@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { emptyScene, parseDrawingScale, parseDrawingScene } from "../src/index";
+import {
+	DRAWINGS,
+	emptyScene,
+	isSceneTooLarge,
+	parseDrawingScale,
+	parseDrawingScene,
+	sceneByteLength,
+} from "../src/index";
 
 describe("parseDrawingScene", () => {
 	it("round-trips an empty scene", () => {
@@ -33,6 +40,24 @@ describe("parseDrawingScene", () => {
 		expect(
 			(scene.excalidraw.elements[0] as Record<string, unknown>).strokeColor,
 		).toBe("#000");
+	});
+});
+
+describe("isSceneTooLarge", () => {
+	it("allows an empty scene", () => {
+		expect(isSceneTooLarge(emptyScene())).toBe(false);
+	});
+
+	it("counts UTF-8 bytes, not characters", () => {
+		const scene = { note: "☃".repeat(3) };
+		expect(sceneByteLength(scene)).toBeGreaterThan(
+			JSON.stringify(scene).length,
+		);
+	});
+
+	it("rejects a scene past the byte limit", () => {
+		const scene = { note: "a".repeat(DRAWINGS.limits.maxSceneBytes) };
+		expect(isSceneTooLarge(scene)).toBe(true);
 	});
 });
 

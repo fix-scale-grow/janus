@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PITCH_FACTORS } from "./config";
+import { DRAWINGS, PITCH_FACTORS } from "./config";
 
 const pitchKey = z.enum(Object.keys(PITCH_FACTORS) as [string, ...string[]]);
 
@@ -91,4 +91,12 @@ export function emptyScene(): DrawingScene {
 		excalidraw: { elements: [], appState: {}, files: {} },
 		satellite: null,
 	};
+}
+
+export function sceneByteLength(scene: unknown): number {
+	return new TextEncoder().encode(JSON.stringify(scene)).length;
+}
+
+export function isSceneTooLarge(scene: unknown): boolean {
+	return sceneByteLength(scene) > DRAWINGS.limits.maxSceneBytes;
 }

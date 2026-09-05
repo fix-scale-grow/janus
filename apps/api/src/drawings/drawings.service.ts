@@ -2,10 +2,15 @@ import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import {
 	DRAWINGS,
 	emptyScene,
+	isSceneTooLarge,
 	parseDrawingScale,
 	parseDrawingScene,
 } from "@crm/drawings";
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+	Injectable,
+	NotFoundException,
+	PayloadTooLargeException,
+} from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate } from "../trpc/list-input";
 import type {
@@ -95,6 +100,12 @@ export class DrawingsService {
 	}
 
 	async saveScene(input: DrawingSaveSceneInput) {
+		if (isSceneTooLarge(input.scene)) {
+			throw new PayloadTooLargeException(
+				`Scene exceeds the ${DRAWINGS.limits.maxSceneBytes} byte limit.`,
+			);
+		}
+
 		const latest = await this.db.drawingVersion.findFirst({
 			where: { drawingId: input.id },
 			orderBy: { createdAt: "desc" },
@@ -106,8 +117,8 @@ export class DrawingsService {
 				DRAWINGS.autosave.versionEveryMs;
 
 		try {
-			const [updated] = await this.db.$transaction([
-				this.db.drawing.update({
+			return await this.db.$transaction(async (tx) => {
+				const updated = await tx.drawing.update({
 					where: { id: input.id },
 					data: {
 						scene: input.scene as Prisma.InputJsonValue,
@@ -116,23 +127,24 @@ export class DrawingsService {
 							| undefined,
 					},
 					select: { updatedAt: true },
-				}),
-				...(needsVersion
-					? [
-							this.db.drawingVersion.create({
-								data: {
-									drawingId: input.id,
-									scene: input.scene as Prisma.InputJsonValue,
-									scale: (input.scale ?? undefined) as
-										| Prisma.InputJsonValue
-										| undefined,
-								},
-							}),
-						]
-					: []),
-			]);
+				});
 
-			return updated;
+				if (needsVersion) {
+					await tx.drawingVersion.create({
+						data: {
+							drawingId: input.id,
+							scene: input.scene as Prisma.InputJsonValue,
+							scale: (input.scale ?? undefined) as
+								| Prisma.InputJsonValue
+								| undefined,
+						},
+					});
+
+					await this.pruneVersions(tx, input.id);
+				}
+
+				return updated;
+			});
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -226,6 +238,8 @@ export class DrawingsService {
 					},
 				});
 
+				await this.pruneVersions(tx, input.id);
+
 				return {
 					...updated,
 					scene: parseDrawingScene(updated.scene),
@@ -247,6 +261,24 @@ export class DrawingsService {
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
+	}
+
+	private async pruneVersions(
+		tx: Prisma.TransactionClient,
+		drawingId: string,
+	): Promise<void> {
+		const stale = await tx.drawingVersion.findMany({
+			where: { drawingId },
+			orderBy: { createdAt: "desc" },
+			skip: DRAWINGS.limits.maxVersions,
+			select: { id: true },
+		});
+
+		if (stale.length === 0) return;
+
+		await tx.drawingVersion.deleteMany({
+			where: { id: { in: stale.map((version) => version.id) } },
+		});
 	}
 
 	private buildWhere(input: DrawingListInput): Prisma.DrawingWhereInput {
