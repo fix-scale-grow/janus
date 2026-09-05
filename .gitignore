@@ -46,3 +46,6 @@ yarn-error.log*
 # eve build output
 .eve
 .output
+
+# Superpowers launcher and dev scripts
+/.superpowers/
