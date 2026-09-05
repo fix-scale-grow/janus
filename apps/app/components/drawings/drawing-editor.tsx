@@ -96,7 +96,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [tool, setTool] = useQueryState("tool", toolParser);
 	const initialToolRef = useRef(tool);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
-	const { queueSave, cancelPending } = useDrawingAutosave(
+	const { queueSave, cancelPending, flushPending } = useDrawingAutosave(
 		props.drawingId,
 		sceneRef,
 		scale,
@@ -539,9 +539,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 				<ScopePanel
 					generating={generateEstimate.isPending}
-					onGenerate={() =>
-						generateEstimate.mutate({ drawingId: props.drawingId })
-					}
+					onGenerate={async () => {
+						await flushPending();
+						generateEstimate.mutate({ drawingId: props.drawingId });
+					}}
 					onUpdateShape={updateShape}
 					services={services.data?.rows ?? []}
 					shapes={shapes}

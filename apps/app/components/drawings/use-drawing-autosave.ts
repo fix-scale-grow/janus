@@ -43,6 +43,7 @@ export function useDrawingAutosave(
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const inFlightRef = useRef<Promise<unknown> | null>(null);
 	const scaleRef = useRef(scale);
 	scaleRef.current = scale;
 
@@ -65,28 +66,59 @@ export function useDrawingAutosave(
 		[],
 	);
 
+	const buildInput = useCallback(() => {
+		const scene = sceneRef.current;
+		return {
+			id: drawingId,
+			scene: {
+				...scene,
+				excalidraw: {
+					...scene.excalidraw,
+					appState: stripAppState(scene.excalidraw.appState),
+				},
+			},
+			scale: scaleRef.current,
+		};
+	}, [drawingId, sceneRef]);
+
+	const runSave = useCallback(() => {
+		const save = saveSceneRef.current.mutateAsync(buildInput()).catch(() => {
+			return;
+		});
+		inFlightRef.current = save;
+		void save.finally(() => {
+			if (inFlightRef.current === save) inFlightRef.current = null;
+		});
+		return save;
+	}, [buildInput]);
+
 	const queueSave = useCallback(() => {
 		if (timeoutRef.current) clearTimeout(timeoutRef.current);
 		timeoutRef.current = setTimeout(() => {
-			const scene = sceneRef.current;
-			saveSceneRef.current.mutate({
-				id: drawingId,
-				scene: {
-					...scene,
-					excalidraw: {
-						...scene.excalidraw,
-						appState: stripAppState(scene.excalidraw.appState),
-					},
-				},
-				scale: scaleRef.current,
-			});
+			timeoutRef.current = null;
+			runSave();
 		}, DRAWINGS.autosave.debounceMs);
-	}, [drawingId, sceneRef]);
+	}, [runSave]);
 
 	const cancelPending = useCallback(() => {
 		if (timeoutRef.current) clearTimeout(timeoutRef.current);
 		timeoutRef.current = null;
 	}, []);
 
-	return { queueSave, cancelPending, saving: saveScene.isPending };
+	const flushPending = useCallback(async () => {
+		const hadPending = timeoutRef.current !== null;
+		cancelPending();
+		if (hadPending) {
+			await runSave();
+			return;
+		}
+		if (inFlightRef.current) await inFlightRef.current;
+	}, [cancelPending, runSave]);
+
+	return {
+		queueSave,
+		cancelPending,
+		flushPending,
+		saving: saveScene.isPending,
+	};
 }
