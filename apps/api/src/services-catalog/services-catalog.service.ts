@@ -1,13 +1,28 @@
 import { type Db, Prisma as PrismaNamespace } from "@crm/db";
+import { parseServiceModifier, type ServiceModifier } from "@crm/drawings";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate } from "../trpc/list-input";
-import { ROOFING_SEED } from "./roofing-seed";
+import { PITCH_MODIFIED_SERVICE_NAMES, ROOFING_SEED } from "./roofing-seed";
 import type {
 	ServiceCreateInput,
 	ServiceListInput,
 	ServiceUpdateInput,
 } from "./services-catalog.contracts";
+
+function toJsonModifier(modifier: ServiceModifier | null | undefined) {
+	if (modifier === undefined) return undefined;
+	if (modifier === null) return PrismaNamespace.JsonNull;
+	return modifier;
+}
+
+type ServiceRecord = { modifier: unknown } & Record<string, unknown>;
+
+function presentService<T extends ServiceRecord>(
+	row: T,
+): Omit<T, "modifier"> & { modifier: ServiceModifier | null } {
+	return { ...row, modifier: parseServiceModifier(row.modifier) };
+}
 
 @Injectable()
 export class ServicesCatalogService {
@@ -27,7 +42,7 @@ export class ServicesCatalogService {
 			this.db.service.count({ where }),
 		]);
 
-		return { rows, total, facetCounts: {} };
+		return { rows: rows.map(presentService), total, facetCounts: {} };
 	}
 
 	async byId(id: string) {
@@ -37,19 +52,26 @@ export class ServicesCatalogService {
 			throw new NotFoundException(`No service with id ${id}.`);
 		}
 
-		return row;
+		return presentService(row);
 	}
 
 	async create(input: ServiceCreateInput) {
-		return this.db.service.create({ data: input });
+		const row = await this.db.service.create({
+			data: { ...input, modifier: toJsonModifier(input.modifier) },
+		});
+		return presentService(row);
 	}
 
 	async update(input: ServiceUpdateInput) {
 		try {
-			return await this.db.service.update({
+			const row = await this.db.service.update({
 				where: { id: input.id },
-				data: input.data,
+				data: {
+					...input.data,
+					modifier: toJsonModifier(input.data.modifier),
+				},
 			});
+			return presentService(row);
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -67,13 +89,15 @@ export class ServicesCatalogService {
 	}
 
 	async seedRoofing() {
-		const existing = await this.db.service.findMany({ select: { name: true } });
-		const existingNames = new Set(
-			existing.map((row) => row.name.toLowerCase()),
+		const existing = await this.db.service.findMany({
+			select: { id: true, name: true, modifier: true },
+		});
+		const existingByName = new Map(
+			existing.map((row) => [row.name.toLowerCase(), row]),
 		);
 
 		const candidates = ROOFING_SEED.filter(
-			(seed) => !existingNames.has(seed.name.toLowerCase()),
+			(seed) => !existingByName.has(seed.name.toLowerCase()),
 		);
 
 		let created = 0;
@@ -81,7 +105,12 @@ export class ServicesCatalogService {
 		for (const seed of candidates) {
 			try {
 				await this.db.service.create({
-					data: { ...seed, trade: "roofing", active: true },
+					data: {
+						...seed,
+						trade: "roofing",
+						active: true,
+						modifier: toJsonModifier(seed.modifier),
+					},
 				});
 				created += 1;
 			} catch (error) {
@@ -92,13 +121,29 @@ export class ServicesCatalogService {
 				) {
 					const { symbolId: _symbolId, ...withoutSymbol } = seed;
 					await this.db.service.create({
-						data: { ...withoutSymbol, trade: "roofing", active: true },
+						data: {
+							...withoutSymbol,
+							trade: "roofing",
+							active: true,
+							modifier: toJsonModifier(withoutSymbol.modifier),
+						},
 					});
 					created += 1;
 					continue;
 				}
 				throw error;
 			}
+		}
+
+		for (const name of PITCH_MODIFIED_SERVICE_NAMES) {
+			const row = existingByName.get(name.toLowerCase());
+			if (!row || row.modifier !== null) continue;
+			const seed = ROOFING_SEED.find((candidate) => candidate.name === name);
+			if (!seed?.modifier) continue;
+			await this.db.service.update({
+				where: { id: row.id },
+				data: { modifier: seed.modifier },
+			});
 		}
 
 		return { created };

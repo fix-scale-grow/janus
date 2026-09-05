@@ -97,6 +97,102 @@ describe("measureScene", () => {
 		);
 	});
 
+	it("applies an adj factor to area shapes", () => {
+		const scene = {
+			excalidraw: {
+				elements: [
+					{
+						id: "r1",
+						type: "rectangle",
+						x: 0,
+						y: 0,
+						width: 1000,
+						height: 1000,
+						angle: 0,
+						isDeleted: false,
+						customData: {
+							scopeId: "s1",
+							kind: "area",
+							adj: { name: "6/12", factor: 1.118 },
+						},
+					},
+				],
+				appState: {},
+				files: {},
+			},
+			satellite: null,
+		};
+		const measured = measureScene(scene as never, {
+			pixelsPerFoot: 10,
+			referenceElementId: null,
+		});
+		const q = measured[0]?.quantity;
+		expect(q && "areaSqFt" in q ? q.areaSqFt : 0).toBeCloseTo(10000 * 1.118);
+	});
+
+	it("prefers adj over a legacy pitch when both are present", () => {
+		const scene = {
+			excalidraw: {
+				elements: [
+					{
+						id: "r1",
+						type: "rectangle",
+						x: 0,
+						y: 0,
+						width: 1000,
+						height: 1000,
+						angle: 0,
+						isDeleted: false,
+						customData: {
+							scopeId: "s1",
+							kind: "area",
+							pitch: "6/12",
+							adj: { name: "flat", factor: 1 },
+						},
+					},
+				],
+				appState: {},
+				files: {},
+			},
+			satellite: null,
+		};
+		const measured = measureScene(scene as never, {
+			pixelsPerFoot: 10,
+			referenceElementId: null,
+		});
+		const q = measured[0]?.quantity;
+		expect(q && "areaSqFt" in q ? q.areaSqFt : 0).toBeCloseTo(10000);
+	});
+
+	it("applies no factor when neither adj nor pitch are set", () => {
+		const scene = {
+			excalidraw: {
+				elements: [
+					{
+						id: "r1",
+						type: "rectangle",
+						x: 0,
+						y: 0,
+						width: 1000,
+						height: 1000,
+						angle: 0,
+						isDeleted: false,
+						customData: { scopeId: "s1", kind: "area" },
+					},
+				],
+				appState: {},
+				files: {},
+			},
+			satellite: null,
+		};
+		const measured = measureScene(scene as never, {
+			pixelsPerFoot: 10,
+			referenceElementId: null,
+		});
+		const q = measured[0]?.quantity;
+		expect(q && "areaSqFt" in q ? q.areaSqFt : 0).toBeCloseTo(10000);
+	});
+
 	it("counts pins per service", () => {
 		const pin = (id: string) => ({
 			id,

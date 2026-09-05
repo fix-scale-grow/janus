@@ -3,12 +3,39 @@ import { DRAWINGS, PITCH_FACTORS } from "./config";
 
 const pitchKey = z.enum(Object.keys(PITCH_FACTORS) as [string, ...string[]]);
 
+export const serviceModifierOption = z.object({
+	name: z.string().trim().min(1).max(40),
+	factor: z.number().positive().max(10),
+});
+
+export type ServiceModifierOption = z.infer<typeof serviceModifierOption>;
+
+export const serviceModifier = z.object({
+	label: z.string().trim().min(1).max(40),
+	options: z.array(serviceModifierOption).min(1).max(24),
+});
+
+export type ServiceModifier = z.infer<typeof serviceModifier>;
+
+export function parseServiceModifier(value: unknown): ServiceModifier | null {
+	if (value === null || value === undefined) return null;
+	return serviceModifier.parse(value);
+}
+
+export const shapeAdjustment = z.object({
+	name: z.string().min(1),
+	factor: z.number().positive(),
+});
+
+export type ShapeAdjustment = z.infer<typeof shapeAdjustment>;
+
 export const scopeCustomData = z.object({
 	scopeId: z.string().min(1),
 	kind: z.enum(["area", "line", "pin"]),
 	serviceId: z.string().min(1).nullish(),
 	label: z.string().max(120).nullish(),
 	pitch: pitchKey.nullish(),
+	adj: shapeAdjustment.nullish(),
 	symbol: z.string().min(1).nullish(),
 	linear: z.boolean().optional(),
 });

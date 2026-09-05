@@ -5,6 +5,7 @@ import {
 	type ExcalidrawElement,
 	type SatelliteFeature,
 	type ScopeCustomData,
+	type ShapeAdjustment,
 	scopeCustomData,
 	symbolPinCustomData,
 } from "./scene";
@@ -15,6 +16,7 @@ export type ScopedShape = {
 	serviceId: string | null;
 	label: string | null;
 	pitch: PitchKey | null;
+	adj?: ShapeAdjustment | null;
 	symbol: string | null;
 };
 
@@ -132,6 +134,12 @@ function scopeOf(element: ExcalidrawElement): ScopeCustomData | null {
 	return parsed.success ? parsed.data : null;
 }
 
+function areaFactor(scope: ScopeCustomData): number {
+	if (scope.adj) return scope.adj.factor;
+	if (scope.pitch) return PITCH_FACTORS[scope.pitch as PitchKey];
+	return 1;
+}
+
 function measureElement(
 	element: ExcalidrawElement,
 	scope: ScopeCustomData,
@@ -143,8 +151,8 @@ function measureElement(
 	if (scope.kind === "line") {
 		return { lengthFt: polylineLengthFt(points, scale.pixelsPerFoot) };
 	}
-	const factor = scope.pitch ? PITCH_FACTORS[scope.pitch as PitchKey] : 1;
-	const areaSqFt = polygonAreaSqFt(points, scale.pixelsPerFoot) * factor;
+	const areaSqFt =
+		polygonAreaSqFt(points, scale.pixelsPerFoot) * areaFactor(scope);
 	return { areaSqFt, squares: areaSqFt / SQFT_PER_SQUARE };
 }
 
@@ -156,8 +164,7 @@ function measureSatelliteFeature(
 	if ("lengthFt" in feature.measured) {
 		return { lengthFt: feature.measured.lengthFt };
 	}
-	const factor = scope.pitch ? PITCH_FACTORS[scope.pitch as PitchKey] : 1;
-	const areaSqFt = feature.measured.areaSqFt * factor;
+	const areaSqFt = feature.measured.areaSqFt * areaFactor(scope);
 	return { areaSqFt, squares: areaSqFt / SQFT_PER_SQUARE };
 }
 
@@ -173,6 +180,7 @@ export function measureSatellite(
 			serviceId: feature.scope.serviceId ?? null,
 			label: feature.scope.label ?? null,
 			pitch: (feature.scope.pitch as PitchKey | undefined) ?? null,
+			adj: feature.scope.adj ?? null,
 			symbol: null,
 			quantity: measureSatelliteFeature(feature, feature.scope),
 		});
@@ -195,6 +203,7 @@ export function measureScene(
 				serviceId: scope.serviceId ?? null,
 				label: scope.label ?? null,
 				pitch: (scope.pitch as PitchKey | undefined) ?? null,
+				adj: scope.adj ?? null,
 				symbol: scope.symbol ?? null,
 				quantity: measureElement(element, scope, scale),
 			});
@@ -207,6 +216,7 @@ export function measureScene(
 					serviceId: null,
 					label: null,
 					pitch: null,
+					adj: null,
 					symbol: symbolParsed.data.symbol,
 					quantity: scale
 						? {
@@ -224,6 +234,7 @@ export function measureScene(
 					serviceId: null,
 					label: null,
 					pitch: null,
+					adj: null,
 					symbol: symbolParsed.data.symbol,
 					quantity: { count: 1 },
 				});

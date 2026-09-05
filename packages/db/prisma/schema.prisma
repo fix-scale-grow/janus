@@ -1073,6 +1073,7 @@ model Service {
   costCents       Int?
   priceGoodCents  Int?
   priceBestCents  Int?
+  modifier        Json?
   symbolId        String?     @unique
   active          Boolean     @default(true)
   lineItems       EstimateLineItem[]

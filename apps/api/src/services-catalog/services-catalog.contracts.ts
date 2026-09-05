@@ -1,4 +1,6 @@
 import { ServiceUnit } from "@crm/db";
+import type { ServiceModifier } from "@crm/drawings";
+import { serviceModifier } from "@crm/drawings";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
 
@@ -8,6 +10,9 @@ const unitEnum = z.enum(
 
 const cents = z.number().int().min(0).max(99_999_999);
 
+const modifierField: z.ZodOptional<z.ZodNullable<z.ZodType<ServiceModifier>>> =
+	serviceModifier.nullish();
+
 export const serviceFields = z.object({
 	name: z.string().trim().min(1, "A service needs a name.").max(200),
 	trade: z.string().trim().min(1).max(60).default("roofing"),
@@ -16,6 +21,7 @@ export const serviceFields = z.object({
 	costCents: cents.nullish(),
 	priceGoodCents: cents.nullish(),
 	priceBestCents: cents.nullish(),
+	modifier: modifierField,
 	symbolId: z.string().trim().min(1).max(120).nullish(),
 	active: z.boolean().default(true),
 });

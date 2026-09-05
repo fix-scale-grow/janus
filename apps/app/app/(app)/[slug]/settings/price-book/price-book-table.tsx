@@ -2,6 +2,8 @@
 
 import Add from "@carbon/icons-react/es/Add";
 import Money from "@carbon/icons-react/es/Money";
+import TrashCan from "@carbon/icons-react/es/TrashCan";
+import { parseServiceModifier, type ServiceModifier } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
 import {
 	Card,
@@ -92,6 +94,34 @@ function parseRequiredCents(value: string): number | undefined {
 	return Math.round(parsed * 100);
 }
 
+function buildModifier(
+	enabled: boolean,
+	label: string,
+	options: ModifierOptionForm[],
+): { modifier: ServiceModifier | null } | { error: string } {
+	if (!enabled) return { modifier: null };
+	const trimmedLabel = label.trim();
+	if (!trimmedLabel) return { error: "The adjustment needs a label." };
+
+	const parsedOptions: { name: string; factor: number }[] = [];
+	for (const option of options) {
+		const name = option.name.trim();
+		if (!name) continue;
+		const factor = Number.parseFloat(option.factor);
+		if (!Number.isFinite(factor) || factor <= 0 || factor > 10) {
+			return {
+				error: `"${name}" needs a factor greater than 0 and at most 10.`,
+			};
+		}
+		parsedOptions.push({ name, factor });
+	}
+	if (parsedOptions.length === 0) {
+		return { error: "Add at least one option to the adjustment." };
+	}
+
+	return { modifier: { label: trimmedLabel, options: parsedOptions } };
+}
+
 function parseOptionalCents(value: string): number | null | undefined {
 	const trimmed = value.trim();
 	if (!trimmed) return null;
@@ -99,6 +129,8 @@ function parseOptionalCents(value: string): number | null | undefined {
 	if (!Number.isFinite(parsed) || parsed < 0) return undefined;
 	return Math.round(parsed * 100);
 }
+
+type ModifierOptionForm = { id: string; name: string; factor: string };
 
 type ServiceFormValues = {
 	name: string;
@@ -109,6 +141,9 @@ type ServiceFormValues = {
 	priceBest: string;
 	symbolId: string;
 	active: boolean;
+	modifierEnabled: boolean;
+	modifierLabel: string;
+	modifierOptions: ModifierOptionForm[];
 };
 
 function emptyForm(): ServiceFormValues {
@@ -121,10 +156,14 @@ function emptyForm(): ServiceFormValues {
 		priceBest: "",
 		symbolId: "",
 		active: true,
+		modifierEnabled: false,
+		modifierLabel: "",
+		modifierOptions: [],
 	};
 }
 
 function formFromRow(row: ServiceRow): ServiceFormValues {
+	const modifier = parseServiceModifier(row.modifier);
 	return {
 		name: row.name,
 		trade: row.trade,
@@ -134,6 +173,15 @@ function formFromRow(row: ServiceRow): ServiceFormValues {
 		priceBest: centsToDollars(row.priceBestCents),
 		symbolId: row.symbolId ?? "",
 		active: row.active,
+		modifierEnabled: modifier !== null,
+		modifierLabel: modifier?.label ?? "",
+		modifierOptions: modifier
+			? modifier.options.map((option) => ({
+					id: crypto.randomUUID(),
+					name: option.name,
+					factor: String(option.factor),
+				}))
+			: [],
 	};
 }
 
@@ -297,6 +345,8 @@ function ServiceDialog({
 	const bestId = useId();
 	const symbolId = useId();
 	const activeId = useId();
+	const modifierEnabledId = useId();
+	const modifierLabelId = useId();
 
 	const create = useMutation(
 		trpc.services.create.mutationOptions({
@@ -357,6 +407,16 @@ function ServiceDialog({
 			return;
 		}
 
+		const modifierResult = buildModifier(
+			values.modifierEnabled,
+			values.modifierLabel,
+			values.modifierOptions,
+		);
+		if ("error" in modifierResult) {
+			toast.error(modifierResult.error);
+			return;
+		}
+
 		const data = {
 			name: values.name.trim(),
 			trade: values.trade.trim() || "roofing",
@@ -364,6 +424,7 @@ function ServiceDialog({
 			unitPriceCents,
 			priceGoodCents,
 			priceBestCents,
+			modifier: modifierResult.modifier,
 			symbolId: values.symbolId.trim() || null,
 			active: values.active,
 		};
@@ -505,6 +566,115 @@ function ServiceDialog({
 							}
 						/>
 					</Field>
+
+					<Field orientation="horizontal">
+						<FieldLabel htmlFor={modifierEnabledId}>
+							Measurement adjustment
+						</FieldLabel>
+						<Switch
+							id={modifierEnabledId}
+							checked={values.modifierEnabled}
+							onCheckedChange={(modifierEnabled) =>
+								setValues((prev) => ({ ...prev, modifierEnabled }))
+							}
+						/>
+					</Field>
+
+					{values.modifierEnabled && (
+						<div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+							<Field>
+								<FieldLabel htmlFor={modifierLabelId}>
+									Adjustment label
+								</FieldLabel>
+								<Input
+									id={modifierLabelId}
+									placeholder="Pitch"
+									value={values.modifierLabel}
+									onChange={(event) =>
+										setValues((prev) => ({
+											...prev,
+											modifierLabel: event.target.value,
+										}))
+									}
+								/>
+							</Field>
+
+							<div className="flex flex-col gap-1.5">
+								{values.modifierOptions.map((option) => (
+									<div className="flex items-center gap-1.5" key={option.id}>
+										<Input
+											aria-label="Option name"
+											className="flex-1"
+											placeholder="6/12"
+											value={option.name}
+											onChange={(event) =>
+												setValues((prev) => ({
+													...prev,
+													modifierOptions: prev.modifierOptions.map((row) =>
+														row.id === option.id
+															? { ...row, name: event.target.value }
+															: row,
+													),
+												}))
+											}
+										/>
+										<Input
+											aria-label="Option factor"
+											className="w-24"
+											inputMode="decimal"
+											placeholder="1.118"
+											value={option.factor}
+											onChange={(event) =>
+												setValues((prev) => ({
+													...prev,
+													modifierOptions: prev.modifierOptions.map((row) =>
+														row.id === option.id
+															? { ...row, factor: event.target.value }
+															: row,
+													),
+												}))
+											}
+										/>
+										<Button
+											aria-label="Remove option"
+											onClick={() =>
+												setValues((prev) => ({
+													...prev,
+													modifierOptions: prev.modifierOptions.filter(
+														(row) => row.id !== option.id,
+													),
+												}))
+											}
+											size="icon"
+											type="button"
+											variant="ghost"
+										>
+											<Icon icon={TrashCan} />
+										</Button>
+									</div>
+								))}
+							</div>
+
+							<Button
+								className="self-start"
+								onClick={() =>
+									setValues((prev) => ({
+										...prev,
+										modifierOptions: [
+											...prev.modifierOptions,
+											{ id: crypto.randomUUID(), name: "", factor: "" },
+										],
+									}))
+								}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<Icon icon={Add} data-icon="inline-start" />
+								Add option
+							</Button>
+						</div>
+					)}
 
 					<Field orientation="horizontal">
 						<FieldLabel htmlFor={activeId}>Active</FieldLabel>

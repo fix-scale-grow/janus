@@ -5,8 +5,10 @@ import {
 	isSceneTooLarge,
 	parseDrawingScale,
 	parseDrawingScene,
+	parseServiceModifier,
 	promoteSymbolPinCustomData,
 	sceneByteLength,
+	serviceModifier,
 } from "../src/index";
 
 describe("parseDrawingScene", () => {
@@ -70,6 +72,40 @@ describe("parseDrawingScale", () => {
 	it("rejects a zero scale", () => {
 		expect(() =>
 			parseDrawingScale({ pixelsPerFoot: 0, referenceElementId: null }),
+		).toThrow();
+	});
+
+});
+
+describe("serviceModifier", () => {
+	it("parses a pitch-shaped modifier", () => {
+		const modifier = parseServiceModifier({
+			label: "Pitch",
+			options: [
+				{ name: "flat", factor: 1 },
+				{ name: "6/12", factor: 1.118 },
+			],
+		});
+		expect(modifier?.label).toBe("Pitch");
+		expect(modifier?.options).toHaveLength(2);
+	});
+
+	it("returns null for null", () => {
+		expect(parseServiceModifier(null)).toBeNull();
+	});
+
+	it("rejects an option with a non-positive factor", () => {
+		expect(() =>
+			serviceModifier.parse({
+				label: "Pitch",
+				options: [{ name: "flat", factor: 0 }],
+			}),
+		).toThrow();
+	});
+
+	it("rejects an empty options list", () => {
+		expect(() =>
+			serviceModifier.parse({ label: "Pitch", options: [] }),
 		).toThrow();
 	});
 });

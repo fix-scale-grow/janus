@@ -3,9 +3,10 @@
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import {
 	type MeasuredShape,
-	PITCH_FACTORS,
-	type PitchKey,
+	parseServiceModifier,
 	quantityForUnit,
+	type ServiceModifier,
+	type ShapeAdjustment,
 	unitCompatibleWithKind,
 } from "@crm/drawings";
 import { Badge } from "@crm/ui/components/badge";
@@ -38,7 +39,7 @@ type SymbolRow = RouterOutputs["symbols"]["list"]["rows"][number];
 
 export type ScopeShapeUpdate = {
 	label?: string | null;
-	pitch?: PitchKey | null;
+	adj?: ShapeAdjustment | null;
 	serviceId?: string | null;
 };
 
@@ -153,6 +154,41 @@ function ScopeServiceField(props: {
 	);
 }
 
+function ScopeModifierField(props: {
+	shape: MeasuredShape;
+	modifier: ServiceModifier;
+	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
+}) {
+	const { shape, modifier } = props;
+	const selectedName = shape.adj?.name ?? shape.pitch ?? undefined;
+
+	return (
+		<Select
+			onValueChange={(name) => {
+				const option = modifier.options.find(
+					(candidate) => candidate.name === name,
+				);
+				if (!option) return;
+				props.onUpdateShape(shape.scopeId, {
+					adj: { name: option.name, factor: option.factor },
+				});
+			}}
+			value={selectedName}
+		>
+			<SelectTrigger className="w-full">
+				<SelectValue placeholder={modifier.label} />
+			</SelectTrigger>
+			<SelectContent>
+				{modifier.options.map((option) => (
+					<SelectItem key={option.name} value={option.name}>
+						{option.name}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
+	);
+}
+
 export function ScopePanel(props: ScopePanelProps) {
 	const servicesById = useMemo(
 		() => new Map(props.services.map((service) => [service.id, service])),
@@ -211,60 +247,58 @@ export function ScopePanel(props: ScopePanelProps) {
 				</div>
 			)}
 
-			{props.shapes.map((shape) => (
-				<div
-					className="flex flex-col gap-2 rounded-lg border border-border p-2"
-					key={shape.scopeId}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
-						<span className="text-muted-foreground text-xs">
-							{quantityLabel(shape) ?? "unmeasured — set scale"}
-						</span>
-					</div>
+			{props.shapes.map((shape) => {
+				const { service } = resolvedService(
+					shape,
+					servicesById,
+					symbolServiceIds,
+					servicesByLegacySymbol,
+				);
+				const modifier = service
+					? parseServiceModifier(service.modifier)
+					: null;
 
-					<Input
-						onChange={(event) =>
-							props.onUpdateShape(shape.scopeId, {
-								label: event.target.value || null,
-							})
-						}
-						placeholder="Label"
-						value={shape.label ?? ""}
-					/>
+				return (
+					<div
+						className="flex flex-col gap-2 rounded-lg border border-border p-2"
+						key={shape.scopeId}
+					>
+						<div className="flex items-center justify-between gap-2">
+							<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
+							<span className="text-muted-foreground text-xs">
+								{quantityLabel(shape) ?? "unmeasured — set scale"}
+							</span>
+						</div>
 
-					<ScopeServiceField
-						onUpdateShape={props.onUpdateShape}
-						servicesById={servicesById}
-						servicesByLegacySymbol={servicesByLegacySymbol}
-						symbolServiceIds={symbolServiceIds}
-						services={props.services}
-						shape={shape}
-					/>
-
-					{shape.kind === "area" && (
-						<Select
-							onValueChange={(value) =>
+						<Input
+							onChange={(event) =>
 								props.onUpdateShape(shape.scopeId, {
-									pitch: value as PitchKey,
+									label: event.target.value || null,
 								})
 							}
-							value={shape.pitch ?? undefined}
-						>
-							<SelectTrigger className="w-full">
-								<SelectValue placeholder="Pitch" />
-							</SelectTrigger>
-							<SelectContent>
-								{Object.keys(PITCH_FACTORS).map((pitch) => (
-									<SelectItem key={pitch} value={pitch}>
-										{pitch}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
-				</div>
-			))}
+							placeholder="Label"
+							value={shape.label ?? ""}
+						/>
+
+						<ScopeServiceField
+							onUpdateShape={props.onUpdateShape}
+							servicesById={servicesById}
+							servicesByLegacySymbol={servicesByLegacySymbol}
+							symbolServiceIds={symbolServiceIds}
+							services={props.services}
+							shape={shape}
+						/>
+
+						{shape.kind === "area" && modifier && (
+							<ScopeModifierField
+								modifier={modifier}
+								onUpdateShape={props.onUpdateShape}
+								shape={shape}
+							/>
+						)}
+					</div>
+				);
+			})}
 
 			<div className="mt-auto flex gap-1.5 pt-1">
 				{props.hasEstimate ? (
