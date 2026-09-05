@@ -67,7 +67,7 @@ export const contractSendInput = z.object({
 export type ContractSendInput = z.infer<typeof contractSendInput>;
 
 export const contractSigningTokenInput = z.object({
-	token: z.string().min(1),
+	token: z.string().min(1).max(CONTRACTS.signingToken.maxLength),
 });
 
 export type ContractSigningTokenInput = z.infer<
@@ -77,20 +77,42 @@ export type ContractSigningTokenInput = z.infer<
 const SIGNER_NAME_MAX_LENGTH = 120;
 const TYPED_SIGNATURE_MAX_LENGTH = 120;
 
+function isPngDataUrl(signatureData: string): boolean {
+	if (!signatureData.startsWith(CONTRACTS.signature.drawnPrefix)) {
+		return false;
+	}
+
+	const encoded = signatureData.slice(CONTRACTS.signature.drawnPrefix.length);
+
+	let decoded: Buffer;
+	try {
+		decoded = Buffer.from(encoded, "base64");
+	} catch {
+		return false;
+	}
+
+	const magic = CONTRACTS.signature.pngMagicBytes;
+	if (decoded.length < magic.length) {
+		return false;
+	}
+
+	return magic.every((byte, index) => decoded[index] === byte);
+}
+
 export const contractSignInput = z
 	.object({
-		token: z.string().min(1),
+		token: z.string().min(1).max(CONTRACTS.signingToken.maxLength),
 		signerName: z.string().trim().min(1).max(SIGNER_NAME_MAX_LENGTH),
 		signatureKind: z.enum(["typed", "drawn"]),
 		signatureData: z.string().min(1),
 	})
 	.superRefine((data, ctx) => {
 		if (data.signatureKind === "drawn") {
-			if (!data.signatureData.startsWith(CONTRACTS.signature.drawnPrefix)) {
+			if (!isPngDataUrl(data.signatureData)) {
 				ctx.addIssue({
 					code: "custom",
 					path: ["signatureData"],
-					message: "A drawn signature must be a PNG image.",
+					message: "A drawn signature must be a valid PNG image.",
 				});
 			}
 			if (data.signatureData.length > CONTRACTS.signature.drawnMaxChars) {

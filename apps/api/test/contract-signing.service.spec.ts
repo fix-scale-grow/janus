@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
 import { ConflictException, NotFoundException } from "@nestjs/common";
-import { contractSignInput } from "../src/contracts/contracts.contracts";
+import {
+	contractSignInput,
+	contractSigningTokenInput,
+} from "../src/contracts/contracts.contracts";
 import { ContractsService } from "../src/contracts/contracts.service";
 import type { MailerService } from "../src/mailer/mailer.service";
 import type { MergeContextService } from "../src/templates/merge-context.service";
@@ -12,7 +15,10 @@ const CONTRACT_BODY_BLOCKS = [
 	{ kind: "text", html: "Body for {{contact.full_name}}." },
 ];
 
-const DRAWN_SIGNATURE = "data:image/png;base64,abc123";
+const DRAWN_SIGNATURE =
+	"data:image/png;base64,iVBORw0KGgpmYWtlLXJlc3Qtb2YtcG5nLWRhdGE=";
+const CORRUPT_DRAWN_SIGNATURE =
+	"data:image/png;base64,bm90LWEtcmVhbC1wbmctcGF5bG9hZC1hdC1hbGw=";
 
 function fakeTemplates() {
 	return {
@@ -135,6 +141,19 @@ function fakeDb(
 				row = { ...row, ...data } as FakeContract;
 				return applySelect(row, select);
 			},
+			updateMany: async ({
+				where,
+				data,
+			}: {
+				where: { id: string; status: string };
+				data: Record<string, unknown>;
+			}) => {
+				if (where.id !== row.id || where.status !== row.status) {
+					return { count: 0 };
+				}
+				row = { ...row, ...data } as FakeContract;
+				return { count: 1 };
+			},
 		},
 		member: {
 			findFirst: async () =>
@@ -206,6 +225,24 @@ describe("ContractsService.bySigningToken", () => {
 		const result = await service.bySigningToken("valid-token");
 
 		expect(result.expired).toBe(false);
+	});
+
+	it("throws Conflict instead of a 500 when the stored body is malformed", async () => {
+		const { service } = makeService(baseContract({ body: { not: "blocks" } }));
+
+		await expect(service.bySigningToken("valid-token")).rejects.toBeInstanceOf(
+			ConflictException,
+		);
+	});
+});
+
+describe("contractSigningTokenInput", () => {
+	it("rejects a token longer than the configured maximum", () => {
+		const result = contractSigningTokenInput.safeParse({
+			token: "a".repeat(129),
+		});
+
+		expect(result.success).toBe(false);
 	});
 });
 
@@ -299,6 +336,28 @@ describe("ContractsService.sign", () => {
 		expect(result.success).toBe(false);
 	});
 
+	it("rejects a drawn signature whose payload is not a real PNG", () => {
+		const result = contractSignInput.safeParse({
+			token: "valid-token",
+			signerName: "Jane Doe",
+			signatureKind: "drawn",
+			signatureData: CORRUPT_DRAWN_SIGNATURE,
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects a token longer than the configured maximum", () => {
+		const result = contractSignInput.safeParse({
+			token: "a".repeat(129),
+			signerName: "Jane Doe",
+			signatureKind: "typed",
+			signatureData: "Jane Doe",
+		});
+
+		expect(result.success).toBe(false);
+	});
+
 	it("rejects a drawn signature larger than the configured cap", () => {
 		const oversized = `data:image/png;base64,${"a".repeat(600_000)}`;
 		const result = contractSignInput.safeParse({
@@ -382,5 +441,47 @@ describe("ContractsService.sign", () => {
 
 		expect(result.status).toBe("SIGNED");
 		expect(getRow().status).toBe("SIGNED");
+	});
+
+	it("throws Conflict instead of double-writing when two signs race", async () => {
+		const contract = baseContract();
+		let updateCalled = false;
+
+		const db = {
+			contract: {
+				findUnique: async () => contract,
+				updateMany: async () => {
+					updateCalled = true;
+					return { count: 0 };
+				},
+			},
+			member: {
+				findFirst: async () => ({ user: { email: "owner@example.com" } }),
+			},
+			organization: {
+				findUnique: async () => ({ name: "Acme Roofing" }),
+			},
+		} as unknown as Db;
+
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(),
+		);
+
+		await expect(
+			service.sign({
+				token: "valid-token",
+				signerName: "Jane Doe",
+				signatureKind: "typed",
+				signatureData: "Jane Doe",
+			}),
+		).rejects.toMatchObject({
+			constructor: ConflictException,
+			message: expect.stringContaining("already"),
+		});
+
+		expect(updateCalled).toBe(true);
 	});
 });

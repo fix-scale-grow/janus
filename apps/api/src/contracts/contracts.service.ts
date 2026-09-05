@@ -1,6 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { appUrl, DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
-import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import {
+	type ContractStatus,
+	type Db,
+	type Prisma,
+	Prisma as PrismaNamespace,
+} from "@crm/db";
 import {
 	BadRequestException,
 	ConflictException,
@@ -403,10 +408,12 @@ export class ContractsService {
 			contractId: contract.id,
 		});
 
-		const { html } = renderEmailHtml(
-			parseTemplateBlocks(contract.body),
-			context,
-		);
+		let html: string;
+		try {
+			({ html } = renderEmailHtml(parseTemplateBlocks(contract.body), context));
+		} catch {
+			throw new ConflictException("This contract can no longer be signed.");
+		}
 
 		return {
 			title: contract.title,
@@ -446,10 +453,10 @@ export class ContractsService {
 
 		const signedAt = new Date();
 
-		let updated: { status: (typeof contract)["status"]; signedAt: Date | null };
+		let result: { count: number };
 		try {
-			updated = await this.db.contract.update({
-				where: { id: contract.id },
+			result = await this.db.contract.updateMany({
+				where: { id: contract.id, status: "SENT" },
 				data: {
 					signerName: input.signerName,
 					signatureKind: input.signatureKind,
@@ -457,10 +464,13 @@ export class ContractsService {
 					signedAt,
 					status: "SIGNED",
 				},
-				select: { status: true, signedAt: true },
 			});
 		} catch (error) {
 			throw this.translate(error, contract.id);
+		}
+
+		if (result.count === 0) {
+			throw new ConflictException("This contract has already been signed.");
 		}
 
 		await this.emailSignedCopy(contract, {
@@ -470,7 +480,7 @@ export class ContractsService {
 			signedAt,
 		});
 
-		return { status: updated.status, signedAt: updated.signedAt };
+		return { status: "SIGNED" as ContractStatus, signedAt };
 	}
 
 	mailerConfigured(): boolean {
