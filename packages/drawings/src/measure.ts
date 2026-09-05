@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { PITCH_FACTORS, type PitchKey, SQFT_PER_SQUARE } from "./config";
 import {
 	type DrawingScale,
@@ -7,6 +6,7 @@ import {
 	type SatelliteFeature,
 	type ScopeCustomData,
 	scopeCustomData,
+	symbolPinCustomData,
 } from "./scene";
 
 export type ScopedShape = {
@@ -27,10 +27,24 @@ export type MeasuredShape = ScopedShape & {
 	quantity: MeasuredQuantity | null;
 };
 
-const symbolPin = z.object({ symbol: z.string().min(1) }).loose();
+export type ServiceUnitLike =
+	| "PER_SQUARE"
+	| "PER_LINEAR_FT"
+	| "PER_EACH"
+	| "FLAT";
+
+export function unitCompatibleWithKind(
+	unit: ServiceUnitLike,
+	kind: ScopedShape["kind"],
+): boolean {
+	if (unit === "FLAT") return true;
+	if (kind === "area") return unit === "PER_SQUARE";
+	if (kind === "line") return unit === "PER_LINEAR_FT";
+	return unit === "PER_EACH";
+}
 
 export function quantityForUnit(
-	unit: "PER_SQUARE" | "PER_LINEAR_FT" | "PER_EACH" | "FLAT",
+	unit: ServiceUnitLike,
 	q: MeasuredQuantity | null,
 ): number | null {
 	if (unit === "FLAT") return 1;
@@ -169,7 +183,7 @@ export function measureScene(
 				quantity: measureElement(element, scope, scale),
 			});
 		} else {
-			const symbolParsed = symbolPin.safeParse(element.customData);
+			const symbolParsed = symbolPinCustomData.safeParse(element.customData);
 			if (symbolParsed.success) {
 				out.push({
 					scopeId: element.id,

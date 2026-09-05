@@ -4,6 +4,7 @@ import {
 	type MeasuredShape,
 	PITCH_FACTORS,
 	type PitchKey,
+	unitCompatibleWithKind,
 } from "@crm/drawings";
 import { Badge } from "@crm/ui/components/badge";
 import { Input } from "@crm/ui/components/input";
@@ -15,14 +16,19 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { useMemo } from "react";
+import type { RouterOutputs } from "@/lib/trpc/types";
+
+type ServiceRow = RouterOutputs["services"]["list"]["rows"][number];
 
 export type ScopeShapeUpdate = {
 	label?: string | null;
 	pitch?: PitchKey | null;
+	serviceId?: string | null;
 };
 
 export type ScopePanelProps = {
 	shapes: MeasuredShape[];
+	services: ServiceRow[];
 	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
 };
 
@@ -43,35 +49,107 @@ function kindLabel(kind: MeasuredShape["kind"]): string {
 	return "Pin";
 }
 
-export function ScopePanel(props: ScopePanelProps) {
-	const pinCount = useMemo(
-		() =>
-			props.shapes.reduce((total, shape) => {
-				if (shape.kind !== "pin" || !shape.quantity) return total;
-				return total + ("count" in shape.quantity ? shape.quantity.count : 0);
-			}, 0),
-		[props.shapes],
+function resolvedService(
+	shape: MeasuredShape,
+	servicesById: Map<string, ServiceRow>,
+	servicesBySymbol: Map<string, ServiceRow>,
+): { service: ServiceRow | null; auto: boolean } {
+	if (shape.serviceId) {
+		return { service: servicesById.get(shape.serviceId) ?? null, auto: false };
+	}
+	if (shape.symbol) {
+		return { service: servicesBySymbol.get(shape.symbol) ?? null, auto: true };
+	}
+	return { service: null, auto: false };
+}
+
+function ScopeServiceField(props: {
+	shape: MeasuredShape;
+	services: ServiceRow[];
+	servicesById: Map<string, ServiceRow>;
+	servicesBySymbol: Map<string, ServiceRow>;
+	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
+}) {
+	const { shape, servicesById, servicesBySymbol } = props;
+	const { service, auto } = resolvedService(
+		shape,
+		servicesById,
+		servicesBySymbol,
 	);
-	const rows = props.shapes.filter((shape) => shape.kind !== "pin");
+	const compatible = props.services.filter(
+		(candidate) =>
+			unitCompatibleWithKind(candidate.unit, shape.kind) ||
+			candidate.id === shape.serviceId,
+	);
+	const mismatched = service
+		? !unitCompatibleWithKind(service.unit, shape.kind)
+		: false;
+
+	return (
+		<div className="flex flex-col gap-1">
+			{auto && service && (
+				<div className="flex items-center gap-1.5 text-xs">
+					<span>{service.name}</span>
+					<Badge variant="secondary">auto</Badge>
+				</div>
+			)}
+			<Select
+				onValueChange={(value) =>
+					props.onUpdateShape(shape.scopeId, { serviceId: value })
+				}
+				value={service && !auto ? service.id : undefined}
+			>
+				<SelectTrigger className="w-full">
+					<SelectValue
+						placeholder={auto && service ? "Override service" : "No service"}
+					/>
+				</SelectTrigger>
+				<SelectContent>
+					{compatible.map((candidate) => (
+						<SelectItem key={candidate.id} value={candidate.id}>
+							{candidate.name}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+			{!service && (
+				<span className="text-muted-foreground text-xs">no service</span>
+			)}
+			{service && mismatched && (
+				<span className="text-destructive text-xs">
+					won't price — unit mismatch
+				</span>
+			)}
+		</div>
+	);
+}
+
+export function ScopePanel(props: ScopePanelProps) {
+	const servicesById = useMemo(
+		() => new Map(props.services.map((service) => [service.id, service])),
+		[props.services],
+	);
+	const servicesBySymbol = useMemo(
+		() =>
+			new Map(
+				props.services
+					.filter((service) => service.symbolId)
+					.map((service) => [service.symbolId as string, service]),
+			),
+		[props.services],
+	);
 
 	return (
 		<div className="flex h-full w-72 shrink-0 flex-col gap-3 overflow-y-auto border-border border-l p-3">
 			<h2 className="font-heading text-sm font-medium">Scope</h2>
 
-			{rows.length === 0 && pinCount === 0 && (
+			{props.shapes.length === 0 && (
 				<p className="text-muted-foreground text-xs">
 					Mark a shape to measure it.
 				</p>
 			)}
 
-			{pinCount > 0 && (
-				<div className="flex items-center justify-between rounded-md border border-border p-2 text-xs">
-					<span>Pins</span>
-					<span className="text-muted-foreground">{pinCount}</span>
-				</div>
-			)}
-
-			{rows.map((shape) => (
+			{props.shapes.map((shape) => (
 				<div
 					className="flex flex-col gap-2 rounded-lg border border-border p-2"
 					key={shape.scopeId}
@@ -91,6 +169,14 @@ export function ScopePanel(props: ScopePanelProps) {
 						}
 						placeholder="Label"
 						value={shape.label ?? ""}
+					/>
+
+					<ScopeServiceField
+						onUpdateShape={props.onUpdateShape}
+						servicesById={servicesById}
+						servicesBySymbol={servicesBySymbol}
+						services={props.services}
+						shape={shape}
 					/>
 
 					{shape.kind === "area" && (

@@ -11,6 +11,7 @@ import {
 	polylineLengthFt,
 	type ScopeCustomData,
 	scopeCustomData,
+	symbolPinCustomData,
 } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
@@ -21,9 +22,11 @@ import type {
 	LibraryItems,
 	LibraryItems_anyVersion,
 } from "@excalidraw/excalidraw/types";
+import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTRPC } from "@/lib/trpc/client";
 import { DrawingHistory } from "./drawing-history";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
@@ -101,6 +104,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const { inputRef, openFilePicker, handleFileChange } = useBackgroundImage(
 		apiRef,
 		queueSave,
+	);
+	const trpc = useTRPC();
+	const services = useQuery(
+		trpc.services.list.queryOptions({ active: true, pageSize: 100 }),
 	);
 
 	const [calibrating, setCalibrating] = useState(false);
@@ -297,12 +304,13 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			);
 			const elements = api.getSceneElements().map((element) => {
 				if (!selectedIds.includes(element.id)) return element;
+				const existingScope = scopeCustomData.safeParse(element.customData);
 				const customData: ScopeCustomData = {
-					scopeId: crypto.randomUUID(),
+					...(existingScope.success ? existingScope.data : null),
+					scopeId: existingScope.success
+						? existingScope.data.scopeId
+						: crypto.randomUUID(),
 					kind,
-					serviceId: null,
-					label: null,
-					pitch: null,
 				};
 				return newElementWith(element, {
 					customData: { ...element.customData, ...customData },
@@ -377,10 +385,24 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			);
 			const elements = api.getSceneElements().map((element) => {
 				const parsed = scopeCustomData.safeParse(element.customData);
-				if (!parsed.success || parsed.data.scopeId !== scopeId) return element;
-				return newElementWith(element, {
-					customData: { ...parsed.data, ...update },
-				});
+				if (parsed.success && parsed.data.scopeId === scopeId) {
+					return newElementWith(element, {
+						customData: { ...parsed.data, ...update },
+					});
+				}
+				if (parsed.success || element.id !== scopeId) return element;
+				const symbolParsed = symbolPinCustomData.safeParse(element.customData);
+				if (!symbolParsed.success) return element;
+				const customData: ScopeCustomData = {
+					scopeId: element.id,
+					kind: "pin",
+					serviceId: null,
+					label: null,
+					pitch: null,
+					symbol: symbolParsed.data.symbol,
+					...update,
+				};
+				return newElementWith(element, { customData });
 			});
 			api.updateScene({
 				elements,
@@ -499,7 +521,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					/>
 				)}
 
-				<ScopePanel onUpdateShape={updateShape} shapes={shapes} />
+				<ScopePanel
+					onUpdateShape={updateShape}
+					services={services.data?.rows ?? []}
+					shapes={shapes}
+				/>
 			</div>
 
 			<ScaleDialog

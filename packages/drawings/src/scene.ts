@@ -14,6 +14,12 @@ export const scopeCustomData = z.object({
 
 export type ScopeCustomData = z.infer<typeof scopeCustomData>;
 
+export const symbolPinCustomData = z
+	.object({ symbol: z.string().min(1) })
+	.loose();
+
+export type SymbolPinCustomData = z.infer<typeof symbolPinCustomData>;
+
 export const excalidrawElement = z
 	.object({
 		id: z.string(),
