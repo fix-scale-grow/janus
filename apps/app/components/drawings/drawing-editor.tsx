@@ -533,6 +533,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				>
 					<style>{`
 						.janus-drawing-canvas .default-sidebar-trigger { display: none; }
+						.janus-drawing-canvas .App-toolbar__extra-tools-trigger { display: none; }
 						.excalidraw-modal-container .HelpDialog__header { display: none; }
 					`}</style>
 					<Excalidraw
