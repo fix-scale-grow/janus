@@ -25,6 +25,7 @@ import {
 import { parseAsString, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { usePanScroll } from "@/components/board/use-pan-scroll";
 import { CompanyCell } from "@/components/crm/company-cell";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
@@ -86,6 +87,7 @@ function moveRowStage(
  * `DealStageMenu` stays as the keyboard-accessible path to the same mutation.
  */
 export function DealsBoard() {
+	const { ref: panRef, handlers: panHandlers } = usePanScroll<HTMLDivElement>();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const cache = useCrmCache();
@@ -176,7 +178,11 @@ export function DealsBoard() {
 			onDragEnd={handleDragEnd}
 			onDragCancel={() => setActiveId(null)}
 		>
-			<div className="flex h-full min-h-0 gap-3 overflow-x-auto pb-4">
+			<div
+				ref={panRef}
+				{...panHandlers}
+				className="flex min-h-0 flex-1 cursor-grab gap-3 overflow-x-auto pb-4 active:cursor-grabbing"
+			>
 				{DEAL_STAGE_OPTIONS.map((option) => (
 					<BoardColumn
 						key={option.value}
@@ -215,7 +221,7 @@ function BoardColumn({
 	const total = rows.reduce((sum, row) => sum + (row.baseAmountCents ?? 0), 0);
 
 	return (
-		<div className="flex w-72 shrink-0 flex-col">
+		<div className="flex w-72 min-h-0 shrink-0 flex-col">
 			<div className="mb-2 rounded-lg border border-border bg-card px-3 py-2.5">
 				<div className="flex items-center justify-between">
 					<span className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -236,7 +242,7 @@ function BoardColumn({
 			<div
 				ref={setNodeRef}
 				className={cn(
-					"flex min-h-24 flex-1 flex-col gap-2 rounded-lg p-1 transition-colors",
+					"flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg p-1 transition-colors",
 					isOver && "bg-accent/60 ring-2 ring-primary/30",
 				)}
 			>
@@ -280,6 +286,7 @@ function DraggableDealCard({
 		<div
 			ref={setNodeRef}
 			{...listeners}
+			data-board-drag=""
 			style={{
 				transform: CSS.Translate.toString(transform),
 				opacity: isDragging ? 0.4 : 1,
