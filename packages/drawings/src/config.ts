@@ -23,6 +23,8 @@ export const DRAWINGS = {
 	pin: { sizePx: 24 },
 	library: {
 		storageKey: "janus.drawings.library",
+		seededFlagKey: "janus.drawings.librarySeeded",
+		seedUrl: "/libraries/janus-roofing.excalidrawlib",
 		allowedHostSuffixes: ["excalidraw.com"],
 	},
 	limits: { maxSceneBytes: 8_000_000, maxVersions: 50 },

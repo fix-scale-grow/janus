@@ -197,9 +197,47 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			window.history.replaceState({}, "", url.toString());
 		};
 
-		void loadPersistedLibrary().then(() => {
-			if (!cancelled) void installLibraryFromUrl();
-		});
+		const seedTradeLibrary = async () => {
+			try {
+				if (window.localStorage.getItem(DRAWINGS.library.seededFlagKey)) {
+					return;
+				}
+			} catch {
+				return;
+			}
+			const response = await fetch(DRAWINGS.library.seedUrl);
+			if (!response.ok) return;
+			let libraryItems: LibraryItems;
+			try {
+				const { restoreLibraryItems } = await import("@excalidraw/excalidraw");
+				const raw = parseLibraryFileItems(await response.json());
+				libraryItems = restoreLibraryItems(
+					raw as unknown as LibraryItems_anyVersion,
+					"published",
+				);
+			} catch {
+				return;
+			}
+			if (cancelled) return;
+			await excalidrawApi.updateLibrary({
+				libraryItems,
+				merge: true,
+				openLibraryMenu: false,
+			});
+			try {
+				window.localStorage.setItem(DRAWINGS.library.seededFlagKey, "1");
+			} catch {
+				return;
+			}
+		};
+
+		void loadPersistedLibrary()
+			.then(() => {
+				if (!cancelled) return seedTradeLibrary();
+			})
+			.then(() => {
+				if (!cancelled) void installLibraryFromUrl();
+			});
 
 		const onHashChange = () => {
 			void installLibraryFromUrl();
