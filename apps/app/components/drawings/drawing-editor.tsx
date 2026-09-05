@@ -106,6 +106,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [scale, setScale] = useState(props.initialScale);
 	const sceneRef = useRef(props.initialScene);
 	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+	const getSceneVersionRef = useRef<
+		((elements: readonly ExcalidrawElement[]) => number) | null
+	>(null);
+	const lastQueuedVersionRef = useRef<number | null>(null);
 	const satelliteUpdateRef = useRef<
 		((scopeId: string, update: ScopeShapeUpdate) => void) | null
 	>(null);
@@ -167,6 +171,16 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		},
 		[tool, setTool],
 	);
+
+	useEffect(() => {
+		let cancelled = false;
+		void import("@excalidraw/excalidraw").then(({ getSceneVersion }) => {
+			if (!cancelled) getSceneVersionRef.current = getSceneVersion;
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!excalidrawApi) return;
@@ -238,7 +252,13 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					files,
 				} as unknown as DrawingScene["excalidraw"],
 			};
-			queueSave();
+
+			const getVersion = getSceneVersionRef.current;
+			const version = getVersion ? getVersion(elements) : null;
+			if (version === null || version !== lastQueuedVersionRef.current) {
+				lastQueuedVersionRef.current = version;
+				queueSave();
+			}
 
 			if (calibrating) {
 				const selectedIds = Object.keys(appState.selectedElementIds).filter(
