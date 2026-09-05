@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import {
 	BadRequestException,
@@ -5,18 +6,28 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import { MailerService } from "../mailer/mailer.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
 import { agingBucket, linesFromEstimate } from "./invoice-logic";
+import { renderInvoicePdf } from "./invoice-pdf";
 import { INVOICES } from "./invoices.config";
 import type {
 	InvoiceAddLineItemInput,
 	InvoiceCreateFromEstimateInput,
 	InvoiceCreateInput,
 	InvoiceListInput,
+	InvoiceSendInput,
 	InvoiceSetStatusInput,
 	InvoiceUpdateInput,
 	InvoiceUpdateLineItemInput,
 } from "./invoices.contracts";
+
+const PDF_CONTACT_SELECT = {
+	firstName: true,
+	lastName: true,
+	email: true,
+	phone: true,
+} as const;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -65,7 +76,10 @@ function lineItemsTotalCents(
 
 @Injectable()
 export class InvoicesService {
-	constructor(@InjectDatabase() private readonly db: Db) {}
+	constructor(
+		@InjectDatabase() private readonly db: Db,
+		private readonly mailer: MailerService,
+	) {}
 
 	async list(input: InvoiceListInput) {
 		const where = this.buildWhere(input);
@@ -84,13 +98,17 @@ export class InvoicesService {
 		]);
 
 		return {
-			rows: rows.map(({ contact, deal, lineItems, ...row }) => ({
-				...row,
-				contactName: contactName(contact),
-				dealName: deal?.name ?? null,
-				totalCents: lineItemsTotalCents(lineItems),
-				aging: agingBucket(row.dueAt, row.status, now),
-			})),
+			rows: rows.map(
+				({ contact, deal, lineItems, dueAt, updatedAt, ...row }) => ({
+					...row,
+					contactName: contactName(contact),
+					dealName: deal?.name ?? null,
+					totalCents: lineItemsTotalCents(lineItems),
+					aging: agingBucket(dueAt, row.status, now),
+					dueAt: dueAt?.toISOString() ?? null,
+					updatedAt: updatedAt.toISOString(),
+				}),
+			),
 			total,
 			facetCounts: {},
 		};
@@ -112,6 +130,11 @@ export class InvoicesService {
 			...row,
 			totalCents: lineItemsTotalCents(row.lineItems),
 			aging: agingBucket(row.dueAt, row.status, new Date()),
+			issuedAt: row.issuedAt?.toISOString() ?? null,
+			dueAt: row.dueAt?.toISOString() ?? null,
+			paidAt: row.paidAt?.toISOString() ?? null,
+			createdAt: row.createdAt.toISOString(),
+			updatedAt: row.updatedAt.toISOString(),
 		};
 	}
 
@@ -287,6 +310,100 @@ export class InvoicesService {
 		} catch (error) {
 			throw this.translate(error, id);
 		}
+	}
+
+	async document(id: string): Promise<{ filename: string; base64: string }> {
+		const invoice = await this.loadForPdf(id);
+		const workspaceName = await this.workspaceName();
+		const buffer = await renderInvoicePdf(invoice, workspaceName);
+
+		return {
+			filename: `invoice-${invoice.number}.pdf`,
+			base64: buffer.toString("base64"),
+		};
+	}
+
+	async send(input: InvoiceSendInput) {
+		if (!this.mailer.isConfigured()) {
+			throw new BadRequestException("Email is not configured on this install.");
+		}
+
+		const invoice = await this.loadForPdf(input.id);
+		const to = input.to ?? invoice.contact?.email ?? null;
+
+		if (!to) {
+			throw new BadRequestException(
+				"This invoice has nobody to send it to yet.",
+			);
+		}
+
+		const workspaceName = await this.workspaceName();
+		const buffer = await renderInvoicePdf(invoice, workspaceName);
+
+		const result = await this.mailer.send({
+			to,
+			subject: input.subject,
+			text: input.message,
+			attachments: [
+				{
+					filename: `invoice-${invoice.number}.pdf`,
+					content: buffer,
+					contentType: "application/pdf",
+				},
+			],
+		});
+
+		if (!result.delivered) {
+			throw new BadRequestException(
+				"The email could not be sent. Check the mail configuration and try again.",
+			);
+		}
+
+		try {
+			return await this.db.invoice.update({
+				where: { id: input.id },
+				data: {
+					status: "SENT",
+					issuedAt: invoice.issuedAt ?? new Date(),
+				},
+				select: { id: true, status: true, issuedAt: true },
+			});
+		} catch (error) {
+			throw this.translate(error, input.id);
+		}
+	}
+
+	private async loadForPdf(id: string) {
+		const row = await this.db.invoice.findUnique({
+			where: { id },
+			include: {
+				lineItems: { orderBy: { sortOrder: "asc" } },
+				contact: { select: PDF_CONTACT_SELECT },
+			},
+		});
+
+		if (!row) {
+			throw new NotFoundException(`No invoice with id ${id}.`);
+		}
+
+		return {
+			...row,
+			lineItems: row.lineItems.map((item) => ({
+				name: item.name,
+				unit: item.unit,
+				quantity: Number(item.quantity),
+				areaLabel: item.areaLabel,
+				priceCents: item.priceCents,
+			})),
+		};
+	}
+
+	private async workspaceName(): Promise<string> {
+		const workspace = await this.db.organization.findUnique({
+			where: { id: WORKSPACE_ID },
+			select: { name: true },
+		});
+		return workspace?.name ?? DEFAULT_WORKSPACE_NAME;
 	}
 
 	private async currencyFor(dealId: string | undefined): Promise<string> {

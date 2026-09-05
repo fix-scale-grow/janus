@@ -13,56 +13,52 @@ import { Field, FieldLabel } from "@crm/ui/components/field";
 import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
-import { useMutation } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
-import { useCrmCache } from "@/lib/trpc/cache";
-import { useTRPC } from "@/lib/trpc/client";
 
-const DEFAULT_MESSAGE =
-	"Hi,\n\nPlease find your estimate attached. Let us know if you have any questions.\n\nThanks!";
+export type SendDocumentMutation = {
+	mutate: (input: {
+		id: string;
+		to: string;
+		subject: string;
+		message: string;
+	}) => void;
+	isPending: boolean;
+};
 
-export function SendEstimateDialog({
-	estimateId,
-	title,
+export function SendDocumentDialog({
+	documentId,
+	entityLabel,
+	defaultSubject,
 	defaultTo,
+	defaultMessage,
 	open,
 	onOpenChange,
+	mutation,
 }: {
-	estimateId: string;
-	title: string;
+	documentId: string;
+	entityLabel: string;
+	defaultSubject: string;
 	defaultTo: string;
+	defaultMessage: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	mutation: SendDocumentMutation;
 }) {
-	const trpc = useTRPC();
-	const cache = useCrmCache();
-
 	const toId = useId();
 	const subjectId = useId();
 	const messageId = useId();
 
 	const [to, setTo] = useState(defaultTo);
-	const [subject, setSubject] = useState(`Estimate — ${title}`);
-	const [message, setMessage] = useState(DEFAULT_MESSAGE);
+	const [subject, setSubject] = useState(defaultSubject);
+	const [message, setMessage] = useState(defaultMessage);
 
 	useEffect(() => {
 		if (!open) return;
 		setTo(defaultTo);
-		setSubject(`Estimate — ${title}`);
-		setMessage(DEFAULT_MESSAGE);
-	}, [open, defaultTo, title]);
-
-	const send = useMutation(
-		trpc.estimates.send.mutationOptions({
-			onSuccess: async () => {
-				await cache.estimate(estimateId, { settle: "record" });
-				toast.success("Estimate sent.");
-				onOpenChange(false);
-			},
-			onError: (error) => toast.error(error.message),
-		}),
-	);
+		setSubject(defaultSubject);
+		setMessage(defaultMessage);
+	}, [open, defaultTo, defaultSubject, defaultMessage]);
 
 	const submit = () => {
 		const trimmedTo = to.trim();
@@ -70,7 +66,7 @@ export function SendEstimateDialog({
 		const trimmedMessage = message.trim();
 
 		if (!trimmedTo) {
-			toast.error("Enter who this estimate goes to.");
+			toast.error(`Enter who this ${entityLabel} goes to.`);
 			return;
 		}
 		if (!trimmedSubject) {
@@ -82,8 +78,8 @@ export function SendEstimateDialog({
 			return;
 		}
 
-		send.mutate({
-			id: estimateId,
+		mutation.mutate({
+			id: documentId,
 			to: trimmedTo,
 			subject: trimmedSubject,
 			message: trimmedMessage,
@@ -94,7 +90,7 @@ export function SendEstimateDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Send estimate</DialogTitle>
+					<DialogTitle>Send {entityLabel}</DialogTitle>
 					<DialogDescription>
 						This emails the PDF as an attachment. Nothing sends until you press
 						Send.
@@ -134,13 +130,13 @@ export function SendEstimateDialog({
 					<Button
 						variant="ghost"
 						onClick={() => onOpenChange(false)}
-						disabled={send.isPending}
+						disabled={mutation.isPending}
 					>
 						Cancel
 					</Button>
-					<Button onClick={submit} disabled={send.isPending}>
-						{send.isPending ? <Spinner /> : null}
-						Send estimate
+					<Button onClick={submit} disabled={mutation.isPending}>
+						{mutation.isPending ? <Spinner /> : null}
+						Send {entityLabel}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

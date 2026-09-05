@@ -44,6 +44,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import {
 	PageShell,
 	PageShellActions,
@@ -59,7 +60,9 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AddLineItem } from "./add-line-item";
 import { AssignEstimateContact } from "./assign-estimate-contact";
 import { EstimateLineRow } from "./estimate-line-row";
-import { SendEstimateDialog } from "./send-estimate-dialog";
+
+const DEFAULT_SEND_MESSAGE =
+	"Hi,\n\nPlease find your estimate attached. Let us know if you have any questions.\n\nThanks!";
 
 export type EstimateDetail = RouterOutputs["estimates"]["byId"];
 export type EstimateLineItemRow = EstimateDetail["lineItems"][number];
@@ -220,6 +223,17 @@ export function EstimateBuilder({
 				}));
 			},
 			onSuccess: () => void cache.estimate(estimateId, { settle: "record" }),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const sendEstimate = useMutation(
+		trpc.estimates.send.mutationOptions({
+			onSuccess: async () => {
+				await cache.estimate(estimateId, { settle: "record" });
+				toast.success("Estimate sent.");
+				setSendOpen(false);
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
@@ -508,12 +522,15 @@ export function EstimateBuilder({
 				</DialogContent>
 			</Dialog>
 
-			<SendEstimateDialog
-				estimateId={estimateId}
-				title={data.title}
+			<SendDocumentDialog
+				documentId={estimateId}
+				entityLabel="estimate"
+				defaultSubject={`Estimate — ${data.title}`}
 				defaultTo={data.contact?.email ?? ""}
+				defaultMessage={DEFAULT_SEND_MESSAGE}
 				open={sendOpen}
 				onOpenChange={setSendOpen}
+				mutation={sendEstimate}
 			/>
 		</PageShell>
 	);

@@ -1,4 +1,3 @@
-import type { EstimateTier } from "@crm/db";
 import * as ReactPdf from "@react-pdf/renderer";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
@@ -11,30 +10,29 @@ const renderToBuffer = (
 	}
 ).renderToBuffer;
 
-export type EstimatePdfLineItem = {
+export type InvoicePdfLineItem = {
 	name: string;
 	unit: string;
 	quantity: number;
 	areaLabel: string | null;
-	priceGoodCents: number;
-	priceBetterCents: number;
-	priceBestCents: number;
+	priceCents: number;
 };
 
-export type EstimatePdfContact = {
+export type InvoicePdfContact = {
 	firstName: string;
 	lastName: string | null;
 	email: string | null;
 	phone: string | null;
 };
 
-export type EstimatePdfEstimate = {
-	title: string;
+export type InvoicePdfInvoice = {
+	number: number;
 	currency: string;
-	selectedTier: EstimateTier;
-	createdAt: Date;
-	lineItems: EstimatePdfLineItem[];
-	contact: EstimatePdfContact | null;
+	issuedAt: Date | null;
+	dueAt: Date | null;
+	notes: string | null;
+	lineItems: InvoicePdfLineItem[];
+	contact: InvoicePdfContact | null;
 };
 
 const GENERAL_GROUP = "General";
@@ -46,46 +44,18 @@ const UNIT_LABELS: Record<string, string> = {
 	FLAT: "flat",
 };
 
-const TIER_PRICE_FIELD: Record<
-	EstimateTier,
-	"priceGoodCents" | "priceBetterCents" | "priceBestCents"
-> = {
-	GOOD: "priceGoodCents",
-	BETTER: "priceBetterCents",
-	BEST: "priceBestCents",
-};
-
-const TIER_LABEL: Record<EstimateTier, string> = {
-	GOOD: "Good",
-	BETTER: "Better",
-	BEST: "Best",
-};
-
-const TIER_ORDER: EstimateTier[] = ["GOOD", "BETTER", "BEST"];
-
-export function tierTotals(
-	lineItems: EstimatePdfLineItem[],
-): Record<EstimateTier, number> {
-	const totals: Record<EstimateTier, number> = {
-		GOOD: 0,
-		BETTER: 0,
-		BEST: 0,
-	};
-
-	for (const item of lineItems) {
-		for (const tier of TIER_ORDER) {
-			totals[tier] += Math.round(item.quantity * item[TIER_PRICE_FIELD[tier]]);
-		}
-	}
-
-	return totals;
+export function invoiceTotalCents(lineItems: InvoicePdfLineItem[]): number {
+	return lineItems.reduce(
+		(sum, item) => sum + Math.round(item.quantity * item.priceCents),
+		0,
+	);
 }
 
 function groupByArea(
-	lineItems: EstimatePdfLineItem[],
-): [string, EstimatePdfLineItem[]][] {
-	const groups = new Map<string, EstimatePdfLineItem[]>();
-	const general: EstimatePdfLineItem[] = [];
+	lineItems: InvoicePdfLineItem[],
+): [string, InvoicePdfLineItem[]][] {
+	const groups = new Map<string, InvoicePdfLineItem[]>();
+	const general: InvoicePdfLineItem[] = [];
 
 	for (const item of lineItems) {
 		if (!item.areaLabel) {
@@ -121,7 +91,7 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontFamily: "Helvetica-Bold",
 	},
-	estimateLabel: {
+	invoiceLabel: {
 		fontSize: 10,
 		color: "#666666",
 		textAlign: "right",
@@ -131,7 +101,7 @@ const styles = StyleSheet.create({
 		fontFamily: "Helvetica-Bold",
 		marginBottom: 4,
 	},
-	date: {
+	dates: {
 		fontSize: 10,
 		color: "#666666",
 		marginBottom: 16,
@@ -179,35 +149,45 @@ const styles = StyleSheet.create({
 		fontFamily: "Helvetica-Bold",
 		color: "#666666",
 	},
-	optionsStrip: {
+	totalDueRow: {
 		flexDirection: "row",
-		justifyContent: "center",
-		gap: 16,
+		justifyContent: "flex-end",
+		alignItems: "baseline",
+		gap: 12,
 		marginTop: 28,
 		paddingTop: 12,
 		borderTopWidth: 1,
 		borderTopColor: "#cccccc",
 	},
-	optionItem: {
-		fontSize: 10,
-	},
-	optionItemSelected: {
-		fontSize: 10,
+	totalDueLabel: {
+		fontSize: 12,
 		fontFamily: "Helvetica-Bold",
+	},
+	totalDueValue: {
+		fontSize: 16,
+		fontFamily: "Helvetica-Bold",
+	},
+	notes: {
+		marginTop: 20,
+	},
+	notesLabel: {
+		fontSize: 9,
+		fontFamily: "Helvetica-Bold",
+		color: "#666666",
+		marginBottom: 4,
 	},
 });
 
-function contactName(contact: EstimatePdfContact): string {
+function contactName(contact: InvoicePdfContact): string {
 	return [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 }
 
-export async function renderEstimatePdf(
-	estimate: EstimatePdfEstimate,
+export async function renderInvoicePdf(
+	invoice: InvoicePdfInvoice,
 	workspaceName: string,
 ): Promise<Buffer> {
-	const totals = tierTotals(estimate.lineItems);
-	const priceField = TIER_PRICE_FIELD[estimate.selectedTier];
-	const groups = groupByArea(estimate.lineItems);
+	const total = invoiceTotalCents(invoice.lineItems);
+	const groups = groupByArea(invoice.lineItems);
 
 	const rows = groups.map(([areaLabel, items]) =>
 		createElement(
@@ -260,14 +240,14 @@ export async function renderEstimatePdf(
 					createElement(
 						Text,
 						{ style: styles.colUnitPrice },
-						formatCents(item[priceField], estimate.currency),
+						formatCents(item.priceCents, invoice.currency),
 					),
 					createElement(
 						Text,
 						{ style: styles.colTotal },
 						formatCents(
-							Math.round(item.quantity * item[priceField]),
-							estimate.currency,
+							Math.round(item.quantity * item.priceCents),
+							invoice.currency,
 						),
 					),
 				),
@@ -275,42 +255,49 @@ export async function renderEstimatePdf(
 		),
 	);
 
-	const optionsStrip = createElement(
+	const totalDueRow = createElement(
 		View,
-		{ style: styles.optionsStrip },
-		...TIER_ORDER.map((tier) =>
-			createElement(
-				Text,
-				{
-					key: tier,
-					style:
-						tier === estimate.selectedTier
-							? styles.optionItemSelected
-							: styles.optionItem,
-				},
-				`${TIER_LABEL[tier]} ${formatCents(totals[tier], estimate.currency)}`,
-			),
+		{ style: styles.totalDueRow },
+		createElement(Text, { style: styles.totalDueLabel }, "Total due"),
+		createElement(
+			Text,
+			{ style: styles.totalDueValue },
+			formatCents(total, invoice.currency),
 		),
 	);
 
-	const contactBlock = estimate.contact
+	const contactBlock = invoice.contact
 		? createElement(
 				View,
 				{ style: styles.contactBlock },
-				createElement(Text, { style: styles.contactLabel }, "Prepared for"),
+				createElement(Text, { style: styles.contactLabel }, "Billed to"),
 				createElement(
 					Text,
 					{ style: styles.contactName },
-					contactName(estimate.contact),
+					contactName(invoice.contact),
 				),
-				estimate.contact.email
-					? createElement(Text, {}, estimate.contact.email)
+				invoice.contact.email
+					? createElement(Text, {}, invoice.contact.email)
 					: null,
-				estimate.contact.phone
-					? createElement(Text, {}, estimate.contact.phone)
+				invoice.contact.phone
+					? createElement(Text, {}, invoice.contact.phone)
 					: null,
 			)
 		: null;
+
+	const notesBlock = invoice.notes
+		? createElement(
+				View,
+				{ style: styles.notes },
+				createElement(Text, { style: styles.notesLabel }, "Notes"),
+				createElement(Text, {}, invoice.notes),
+			)
+		: null;
+
+	const dateParts = [
+		invoice.issuedAt ? `Issued ${invoice.issuedAt.toLocaleDateString()}` : null,
+		invoice.dueAt ? `Due ${invoice.dueAt.toLocaleDateString()}` : null,
+	].filter(Boolean);
 
 	const document = createElement(
 		Document,
@@ -322,17 +309,20 @@ export async function renderEstimatePdf(
 				View,
 				{ style: styles.header },
 				createElement(Text, { style: styles.workspaceName }, workspaceName),
-				createElement(Text, { style: styles.estimateLabel }, "Estimate"),
+				createElement(Text, { style: styles.invoiceLabel }, "Invoice"),
 			),
-			createElement(Text, { style: styles.title }, estimate.title),
 			createElement(
 				Text,
-				{ style: styles.date },
-				estimate.createdAt.toLocaleDateString(),
+				{ style: styles.title },
+				`Invoice #${invoice.number}`,
 			),
+			dateParts.length > 0
+				? createElement(Text, { style: styles.dates }, dateParts.join("  •  "))
+				: null,
 			contactBlock,
 			...rows,
-			optionsStrip,
+			totalDueRow,
+			notesBlock,
 		),
 	);
 

@@ -17,6 +17,7 @@ import {
 	invoiceIdInput,
 	invoiceLineItemIdInput,
 	invoiceListInput,
+	invoiceSendInput,
 	invoiceSetStatusInput,
 	invoiceUpdateInput,
 	invoiceUpdateLineItemInput,
@@ -91,5 +92,15 @@ export class InvoicesRouter {
 	@Mutation({ input: invoiceLineItemIdInput })
 	async removeLineItem(@Input("id") id: string) {
 		return this.invoices.removeLineItem(id);
+	}
+
+	@Query({ input: invoiceIdInput })
+	async document(@Input("id") id: string) {
+		return this.invoices.document(id);
+	}
+
+	@Mutation({ input: invoiceSendInput })
+	async send(@Input() input: z.infer<typeof invoiceSendInput>) {
+		return this.invoices.send(input);
 	}
 }

@@ -2,6 +2,8 @@
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
+import Download from "@carbon/icons-react/es/Download";
+import Send from "@carbon/icons-react/es/Send";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import { DatePicker } from "@crm/ui/components/date-picker";
@@ -32,6 +34,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import {
 	PageShell,
 	PageShellActions,
@@ -47,6 +50,9 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AddInvoiceLineItem } from "./add-invoice-line-item";
 import { AssignInvoiceContact } from "./assign-invoice-contact";
 import { InvoiceLineRow } from "./invoice-line-row";
+
+const DEFAULT_SEND_MESSAGE =
+	"Hi,\n\nPlease find your invoice attached. Let us know if you have any questions.\n\nThanks!";
 
 export type InvoiceDetailData = RouterOutputs["invoices"]["byId"];
 export type InvoiceLineItemRow = InvoiceDetailData["lineItems"][number];
@@ -127,10 +133,22 @@ export function InvoiceDetail({
 		initialData: initialInvoice,
 	});
 
+	const mailerConfigured = useQuery(
+		trpc.estimates.mailerConfigured.queryOptions(),
+	);
+
 	const data = invoice.data;
+
+	const contact = useQuery({
+		...trpc.contacts.byId.queryOptions({ id: data.contactId ?? "" }),
+		enabled: Boolean(data.contactId),
+	});
 
 	const [notes, setNotes] = useState(data.notes ?? "");
 	useEffect(() => setNotes(data.notes ?? ""), [data.notes]);
+
+	const [downloading, setDownloading] = useState(false);
+	const [sendOpen, setSendOpen] = useState(false);
 
 	const setQueryData = (
 		updater: (previous: InvoiceDetailData) => InvoiceDetailData,
@@ -165,6 +183,43 @@ export function InvoiceDetail({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+
+	const sendInvoice = useMutation(
+		trpc.invoices.send.mutationOptions({
+			onSuccess: async () => {
+				await cache.invoice(invoiceId, { settle: "record" });
+				toast.success("Invoice sent.");
+				setSendOpen(false);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const downloadPdf = async () => {
+		setDownloading(true);
+		try {
+			const document = await queryClient.fetchQuery(
+				trpc.invoices.document.queryOptions({ id: invoiceId }),
+			);
+			const bytes = Uint8Array.from(atob(document.base64), (char) =>
+				char.charCodeAt(0),
+			);
+			const url = URL.createObjectURL(
+				new Blob([bytes], { type: "application/pdf" }),
+			);
+			const anchor = window.document.createElement("a");
+			anchor.href = url;
+			anchor.download = document.filename;
+			anchor.click();
+			URL.revokeObjectURL(url);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Could not build the PDF.",
+			);
+		} finally {
+			setDownloading(false);
+		}
+	};
 
 	const commitNotes = () => {
 		const next = notes.trim();
@@ -229,6 +284,21 @@ export function InvoiceDetail({
 						invoiceId={invoiceId}
 						contactId={data.contactId}
 					/>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={downloading}
+						onClick={downloadPdf}
+					>
+						<Icon icon={Download} data-icon="inline-start" />
+						Download PDF
+					</Button>
+					{mailerConfigured.data ? (
+						<Button size="sm" onClick={() => setSendOpen(true)}>
+							<Icon icon={Send} data-icon="inline-start" />
+							Send
+						</Button>
+					) : null}
 					{data.status === "DRAFT" || data.status === "SENT" ? (
 						<Button
 							variant={data.status === "SENT" ? "default" : "outline"}
@@ -330,6 +400,17 @@ export function InvoiceDetail({
 					</div>
 				</div>
 			</PageShellContent>
+
+			<SendDocumentDialog
+				documentId={invoiceId}
+				entityLabel="invoice"
+				defaultSubject={`Invoice #${data.number}`}
+				defaultTo={contact.data?.email ?? ""}
+				defaultMessage={DEFAULT_SEND_MESSAGE}
+				open={sendOpen}
+				onOpenChange={setSendOpen}
+				mutation={sendInvoice}
+			/>
 		</PageShell>
 	);
 }
