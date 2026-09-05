@@ -32,7 +32,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-roof-vent"
+					}
 				},
 				{
 					"id": "roof-vent-el-3",
@@ -58,7 +61,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-roof-vent"
+					}
 				}
 			]
 		},
@@ -92,7 +98,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-ridge-vent"
+					}
 				},
 				{
 					"id": "ridge-vent-el-5",
@@ -133,7 +142,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-ridge-vent"
+					}
 				}
 			]
 		},
@@ -167,7 +179,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-skylight"
+					}
 				},
 				{
 					"id": "skylight-el-7",
@@ -208,7 +223,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-skylight"
+					}
 				},
 				{
 					"id": "skylight-el-8",
@@ -249,7 +267,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-skylight"
+					}
 				}
 			]
 		},
@@ -283,7 +304,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-chimney"
+					}
 				},
 				{
 					"id": "chimney-el-10",
@@ -309,7 +333,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-chimney"
+					}
 				}
 			]
 		},
@@ -366,7 +393,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-pipe-boot"
+					}
 				},
 				{
 					"id": "pipe-boot-el-12",
@@ -392,7 +422,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-pipe-boot"
+					}
 				}
 			]
 		},
@@ -441,7 +474,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-gutter-run"
+					}
 				},
 				{
 					"id": "gutter-run-el-14",
@@ -482,7 +518,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-gutter-run"
+					}
 				},
 				{
 					"id": "gutter-run-el-15",
@@ -523,7 +562,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-gutter-run"
+					}
 				}
 			]
 		},
@@ -576,7 +618,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-downspout"
+					}
 				}
 			]
 		},
@@ -629,7 +674,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-drip-edge"
+					}
 				}
 			]
 		},
@@ -663,7 +711,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-window"
+					}
 				},
 				{
 					"id": "window-el-19",
@@ -704,7 +755,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-window"
+					}
 				},
 				{
 					"id": "window-el-20",
@@ -745,7 +799,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-window"
+					}
 				}
 			]
 		},
@@ -779,7 +836,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-door"
+					}
 				},
 				{
 					"id": "door-el-22",
@@ -820,7 +880,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-door"
+					}
 				}
 			]
 		},
@@ -854,7 +917,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-ac-unit"
+					}
 				},
 				{
 					"id": "ac-unit-el-24",
@@ -880,7 +946,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-ac-unit"
+					}
 				},
 				{
 					"id": "ac-unit-el-25",
@@ -921,7 +990,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-ac-unit"
+					}
 				},
 				{
 					"id": "ac-unit-el-26",
@@ -962,7 +1034,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-ac-unit"
+					}
 				}
 			]
 		},
@@ -1011,7 +1086,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-electrical-mast"
+					}
 				},
 				{
 					"id": "electrical-mast-el-28",
@@ -1037,7 +1115,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-electrical-mast"
+					}
 				},
 				{
 					"id": "electrical-mast-el-29",
@@ -1086,7 +1167,10 @@
 					"link": null,
 					"locked": false,
 					"isDeleted": false,
-					"version": 1
+					"version": 1,
+					"customData": {
+						"symbol": "janus-roofing-electrical-mast"
+					}
 				}
 			]
 		}

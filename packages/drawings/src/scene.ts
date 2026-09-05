@@ -9,6 +9,7 @@ export const scopeCustomData = z.object({
 	serviceId: z.string().min(1).nullish(),
 	label: z.string().max(120).nullish(),
 	pitch: pitchKey.nullish(),
+	symbol: z.string().min(1).nullish(),
 });
 
 export type ScopeCustomData = z.infer<typeof scopeCustomData>;

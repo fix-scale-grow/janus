@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { PITCH_FACTORS, type PitchKey, SQFT_PER_SQUARE } from "./config";
 import {
 	type DrawingScale,
@@ -14,6 +15,7 @@ export type ScopedShape = {
 	serviceId: string | null;
 	label: string | null;
 	pitch: PitchKey | null;
+	symbol: string | null;
 };
 
 export type MeasuredQuantity =
@@ -24,6 +26,35 @@ export type MeasuredQuantity =
 export type MeasuredShape = ScopedShape & {
 	quantity: MeasuredQuantity | null;
 };
+
+const symbolPin = z.object({ symbol: z.string().min(1) }).loose();
+
+export function quantityForUnit(
+	unit: "PER_SQUARE" | "PER_LINEAR_FT" | "PER_EACH" | "FLAT",
+	q: MeasuredQuantity | null,
+): number | null {
+	if (unit === "FLAT") return 1;
+	if (!q) return null;
+	if (unit === "PER_SQUARE") {
+		if ("squares" in q) {
+			return Math.round(q.squares * 100) / 100;
+		}
+		return null;
+	}
+	if (unit === "PER_LINEAR_FT") {
+		if ("lengthFt" in q) {
+			return Math.round(q.lengthFt * 100) / 100;
+		}
+		return null;
+	}
+	if (unit === "PER_EACH") {
+		if ("count" in q) {
+			return q.count;
+		}
+		return null;
+	}
+	return null;
+}
 
 export function polygonAreaSqFt(
 	points: [number, number][],
@@ -112,6 +143,7 @@ export function measureSatellite(
 			serviceId: feature.scope.serviceId ?? null,
 			label: feature.scope.label ?? null,
 			pitch: (feature.scope.pitch as PitchKey | undefined) ?? null,
+			symbol: null,
 			quantity: measureSatelliteFeature(feature, feature.scope),
 		});
 	}
@@ -126,15 +158,30 @@ export function measureScene(
 	for (const element of scene.excalidraw.elements) {
 		if (element.isDeleted) continue;
 		const scope = scopeOf(element);
-		if (!scope) continue;
-		out.push({
-			scopeId: scope.scopeId,
-			kind: scope.kind,
-			serviceId: scope.serviceId ?? null,
-			label: scope.label ?? null,
-			pitch: (scope.pitch as PitchKey | undefined) ?? null,
-			quantity: measureElement(element, scope, scale),
-		});
+		if (scope) {
+			out.push({
+				scopeId: scope.scopeId,
+				kind: scope.kind,
+				serviceId: scope.serviceId ?? null,
+				label: scope.label ?? null,
+				pitch: (scope.pitch as PitchKey | undefined) ?? null,
+				symbol: scope.symbol ?? null,
+				quantity: measureElement(element, scope, scale),
+			});
+		} else {
+			const symbolParsed = symbolPin.safeParse(element.customData);
+			if (symbolParsed.success) {
+				out.push({
+					scopeId: element.id,
+					kind: "pin",
+					serviceId: null,
+					label: null,
+					pitch: null,
+					symbol: symbolParsed.data.symbol,
+					quantity: { count: 1 },
+				});
+			}
+		}
 	}
 	return out;
 }

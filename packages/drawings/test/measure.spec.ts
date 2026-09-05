@@ -121,4 +121,44 @@ describe("measureScene", () => {
 		expect(measured).toHaveLength(2);
 		expect(measured[0]?.quantity).toEqual({ count: 1 });
 	});
+
+	describe("symbol pins", () => {
+		it("treats a placed library symbol as a pin keyed by element id", () => {
+			const scene = {
+				excalidraw: {
+					elements: [
+						{
+							id: "el-1",
+							type: "ellipse",
+							x: 0,
+							y: 0,
+							width: 40,
+							height: 40,
+							isDeleted: false,
+							customData: { symbol: "janus-roofing-roof-vent" },
+						},
+						{
+							id: "el-2",
+							type: "ellipse",
+							x: 90,
+							y: 0,
+							width: 40,
+							height: 40,
+							isDeleted: false,
+							customData: { symbol: "janus-roofing-roof-vent" },
+						},
+					],
+					appState: {},
+					files: {},
+				},
+				satellite: null,
+			};
+			const measured = measureScene(scene as never, null);
+			expect(measured).toHaveLength(2);
+			expect(measured[0]?.kind).toBe("pin");
+			expect(measured[0]?.scopeId).toBe("el-1");
+			expect(measured[0]?.symbol).toBe("janus-roofing-roof-vent");
+			expect(measured[0]?.quantity).toEqual({ count: 1 });
+		});
+	});
 });
