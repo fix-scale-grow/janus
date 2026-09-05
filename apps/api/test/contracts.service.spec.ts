@@ -95,6 +95,19 @@ function baseContract(overrides: Partial<FakeContract> = {}): FakeContract {
 	};
 }
 
+function applySelect<T extends Record<string, unknown>>(
+	row: T,
+	select?: Record<string, unknown>,
+): Partial<T> {
+	if (!select) return row;
+
+	const result: Partial<T> = {};
+	for (const key of Object.keys(select)) {
+		if (key in row) result[key as keyof T] = row[key as keyof T];
+	}
+	return result;
+}
+
 function fakeDb(initial: FakeContract) {
 	let row = initial;
 	const estimates = new Map<
@@ -108,14 +121,27 @@ function fakeDb(initial: FakeContract) {
 				estimates.get(where.id) ?? null,
 		},
 		contract: {
-			findUnique: async () => row,
-			create: async ({ data }: { data: Record<string, unknown> }) => {
+			findUnique: async (args: { select?: Record<string, unknown> } = {}) =>
+				applySelect(row, args.select),
+			create: async ({
+				data,
+				select,
+			}: {
+				data: Record<string, unknown>;
+				select?: Record<string, unknown>;
+			}) => {
 				row = { ...row, ...data } as FakeContract;
-				return row;
+				return applySelect(row, select);
 			},
-			update: async ({ data }: { data: Record<string, unknown> }) => {
+			update: async ({
+				data,
+				select,
+			}: {
+				data: Record<string, unknown>;
+				select?: Record<string, unknown>;
+			}) => {
 				row = { ...row, ...data } as FakeContract;
-				return row;
+				return applySelect(row, select);
 			},
 			delete: async () => {
 				return { id: row.id, title: row.title };
@@ -139,6 +165,33 @@ function fakeDb(initial: FakeContract) {
 		) => estimates.set(id, estimate),
 	};
 }
+
+describe("ContractsService.byId", () => {
+	it("never returns signingToken or signatureData", async () => {
+		const { db } = fakeDb(
+			baseContract({
+				status: "SENT",
+				signingToken: "secret-token-value",
+				signatureKind: "drawn",
+				signatureData: "data:image/png;base64,abc123",
+				signerName: "Jane Doe",
+				signedAt: new Date("2026-02-01T00:00:00Z"),
+			}),
+		);
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(true),
+		);
+
+		const result = await service.byId("contract1");
+
+		expect("signingToken" in result).toBe(false);
+		expect("signatureData" in result).toBe(false);
+		expect(result.signerName).toBe("Jane Doe");
+	});
+});
 
 describe("ContractsService.createFromEstimate", () => {
 	it("snapshots the contract body and links deal/contact/estimate", async () => {
@@ -197,6 +250,8 @@ describe("ContractsService.send", () => {
 		expect(result.status).toBe("SENT");
 		expect(getRow().signingToken).toHaveLength(43);
 		expect(getRow().sentTo).toBe("jane@example.com");
+		expect("signingToken" in result).toBe(false);
+		expect("signatureData" in result).toBe(false);
 	});
 
 	it("rotates the token on a resend while already SENT", async () => {

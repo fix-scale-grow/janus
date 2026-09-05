@@ -41,6 +41,29 @@ const LIST_SELECT = {
 	contact: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 
+const DETAIL_SELECT = {
+	id: true,
+	number: true,
+	title: true,
+	status: true,
+	body: true,
+	dealId: true,
+	contactId: true,
+	estimateId: true,
+	invoiceId: true,
+	createdAt: true,
+	updatedAt: true,
+	sentAt: true,
+	sentTo: true,
+	tokenExpiresAt: true,
+	signedAt: true,
+	signerName: true,
+	signatureKind: true,
+	estimate: { select: { id: true, title: true } },
+	invoice: { select: { id: true, number: true } },
+	contact: { select: { id: true, firstName: true, lastName: true } },
+} as const;
+
 const SORTABLE: Record<
 	string,
 	(dir: Prisma.SortOrder) => Prisma.ContractOrderByWithRelationInput[]
@@ -95,7 +118,15 @@ export class ContractsService {
 	}
 
 	async byId(id: string) {
-		const row = await this.loadOrThrow(id);
+		const row = await this.db.contract.findUnique({
+			where: { id },
+			select: DETAIL_SELECT,
+		});
+
+		if (!row) {
+			throw new NotFoundException(`No contract with id ${id}.`);
+		}
+
 		return { ...row, body: parseTemplateBlocks(row.body) };
 	}
 
@@ -123,6 +154,7 @@ export class ContractsService {
 				body,
 				createdById: userId,
 			},
+			select: DETAIL_SELECT,
 		});
 	}
 
@@ -137,6 +169,7 @@ export class ContractsService {
 				body,
 				createdById: userId,
 			},
+			select: DETAIL_SELECT,
 		});
 	}
 
@@ -168,6 +201,7 @@ export class ContractsService {
 						? { contactId: input.data.contactId }
 						: {}),
 				},
+				select: DETAIL_SELECT,
 			});
 		} catch (error) {
 			throw this.translate(error, input.id);
@@ -249,6 +283,7 @@ export class ContractsService {
 					signingToken: token,
 					tokenExpiresAt,
 				},
+				select: DETAIL_SELECT,
 			});
 		} catch (error) {
 			throw this.translate(error, input.id);
@@ -266,7 +301,7 @@ export class ContractsService {
 			return await this.db.contract.update({
 				where: { id },
 				data: { status: "VOID" },
-				select: { id: true, status: true },
+				select: DETAIL_SELECT,
 			});
 		} catch (error) {
 			throw this.translate(error, id);
