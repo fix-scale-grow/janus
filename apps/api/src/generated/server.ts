@@ -33,6 +33,7 @@ import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.co
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput } from "../symbols/symbols.contracts";
+import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, templateSendTestInput } from "../templates/templates.contracts";
 import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, companyActivityInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
@@ -56,6 +57,7 @@ import type { SettingsRouter } from "../settings/settings.router";
 import type { SlackRouter } from "../slack/slack.router";
 import type { SsoRouter } from "../sso/sso.router";
 import type { SymbolsRouter } from "../symbols/symbols.router";
+import type { TemplatesRouter } from "../templates/templates.router";
 import type { TrackingRouter } from "../tracking/tracking.router";
 import type { UsersRouter } from "../users/users.router";
 import type { WorkspaceRouter } from "../workspace/workspace.router";
@@ -629,6 +631,24 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["delete"]>>),
     seedRoofing: publicProcedure
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["seedRoofing"]>>)
+    }),
+  templates: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["list"]>>),
+    byPurpose: publicProcedure
+      .input(templateByPurposeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["byPurpose"]>>),
+    update: publicProcedure
+      .input(templateUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["update"]>>),
+    preview: publicProcedure
+      .input(templatePreviewInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["preview"]>>),
+    sendTest: publicProcedure
+      .input(templateSendTestInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["sendTest"]>>),
+    mailerConfigured: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["mailerConfigured"]>>)
     }),
   tracking: t.router({
     settings: publicProcedure
