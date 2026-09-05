@@ -217,6 +217,48 @@ describe("measureScene", () => {
 			expect(measured[0]?.quantity).toBeNull();
 		});
 
+		it("measures a promoted linear symbol (kind: line) via its live geometry, including after a resize", () => {
+			const gutterRun = (widthPx: number) => ({
+				id: "gutter-1",
+				type: "line" as const,
+				x: 0,
+				y: 0,
+				width: widthPx,
+				height: 0,
+				points: [
+					[0, 0],
+					[widthPx, 0],
+				] as [number, number][],
+				isDeleted: false,
+				customData: {
+					scopeId: "gutter-1",
+					kind: "line",
+					symbol: "sym_gutter_run",
+					linear: true,
+				},
+			});
+			const scale = { pixelsPerFoot: 10, referenceElementId: null };
+
+			const original = measureScene(
+				{
+					excalidraw: { elements: [gutterRun(100)], appState: {}, files: {} },
+					satellite: null,
+				} as never,
+				scale,
+			);
+			expect(original[0]?.symbol).toBe("sym_gutter_run");
+			expect(original[0]?.quantity).toEqual({ lengthFt: 10 });
+
+			const resized = measureScene(
+				{
+					excalidraw: { elements: [gutterRun(200)], appState: {}, files: {} },
+					satellite: null,
+				} as never,
+				scale,
+			);
+			expect(resized[0]?.quantity).toEqual({ lengthFt: 20 });
+		});
+
 		it("leaves a non-linear symbol pin unchanged", () => {
 			const scene = {
 				excalidraw: {

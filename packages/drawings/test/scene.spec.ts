@@ -5,6 +5,7 @@ import {
 	isSceneTooLarge,
 	parseDrawingScale,
 	parseDrawingScene,
+	promoteSymbolPinCustomData,
 	sceneByteLength,
 } from "../src/index";
 
@@ -70,5 +71,27 @@ describe("parseDrawingScale", () => {
 		expect(() =>
 			parseDrawingScale({ pixelsPerFoot: 0, referenceElementId: null }),
 		).toThrow();
+	});
+});
+
+describe("promoteSymbolPinCustomData", () => {
+	it("promotes a linear symbol pin to a line-kind scope, keeping linear", () => {
+		const scope = promoteSymbolPinCustomData(
+			{ symbol: "sym_gutter_run", linear: true },
+			"el-1",
+		);
+		expect(scope.kind).toBe("line");
+		expect(scope.symbol).toBe("sym_gutter_run");
+		expect(scope.linear).toBe(true);
+	});
+
+	it("promotes a non-linear symbol pin to a pin-kind scope, without linear", () => {
+		const scope = promoteSymbolPinCustomData(
+			{ symbol: "sym_roof_vent" },
+			"el-2",
+		);
+		expect(scope.kind).toBe("pin");
+		expect(scope.symbol).toBe("sym_roof_vent");
+		expect(scope.linear).toBeUndefined();
 	});
 });

@@ -20,7 +20,7 @@ import {
 } from "@crm/ui/components/popover";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -42,14 +42,22 @@ const symbolRow = z.object({
 
 type SymbolRow = z.infer<typeof symbolRow>;
 
-function parseSymbolRows(value: unknown): SymbolRow[] {
-	if (!Array.isArray(value)) return [];
+function parseSymbolRows(value: unknown): {
+	rows: SymbolRow[];
+	failed: number;
+} {
+	if (!Array.isArray(value)) return { rows: [], failed: 0 };
 	const rows: SymbolRow[] = [];
+	let failed = 0;
 	for (const item of value) {
 		const parsed = symbolRow.safeParse(item);
-		if (parsed.success) rows.push(parsed.data);
+		if (parsed.success) {
+			rows.push(parsed.data);
+		} else {
+			failed += 1;
+		}
 	}
-	return rows;
+	return { rows, failed };
 }
 
 export type SymbolPaletteProps = {
@@ -209,7 +217,20 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 		}),
 	);
 
-	const rows = useMemo(() => parseSymbolRows(list.data?.rows), [list.data]);
+	const { rows, failed } = useMemo(
+		() => parseSymbolRows(list.data?.rows),
+		[list.data],
+	);
+
+	const reportedFailureRef = useRef(0);
+	useEffect(() => {
+		if (failed > 0 && failed !== reportedFailureRef.current) {
+			toast.error(
+				`${failed} symbol${failed === 1 ? "" : "s"} could not be read.`,
+			);
+		}
+		reportedFailureRef.current = failed;
+	}, [failed]);
 
 	const serviceUnitById = useMemo(
 		() => new Map(props.services.map((service) => [service.id, service.unit])),

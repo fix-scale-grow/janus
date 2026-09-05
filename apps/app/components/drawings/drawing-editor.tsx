@@ -8,6 +8,7 @@ import {
 	type DrawingScene,
 	parseLibraryFileItems,
 	polylineLengthFt,
+	promoteSymbolPinCustomData,
 	type ScopeCustomData,
 	scopeCustomData,
 	symbolPinCustomData,
@@ -349,12 +350,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				const symbolParsed = symbolPinCustomData.safeParse(element.customData);
 				if (!symbolParsed.success) return element;
 				const customData: ScopeCustomData = {
-					scopeId: element.id,
-					kind: "pin",
-					serviceId: null,
-					label: null,
-					pitch: null,
-					symbol: symbolParsed.data.symbol,
+					...promoteSymbolPinCustomData(symbolParsed.data, element.id),
 					...update,
 				};
 				return newElementWith(element, { customData });

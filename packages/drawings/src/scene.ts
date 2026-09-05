@@ -10,6 +10,7 @@ export const scopeCustomData = z.object({
 	label: z.string().max(120).nullish(),
 	pitch: pitchKey.nullish(),
 	symbol: z.string().min(1).nullish(),
+	linear: z.boolean().optional(),
 });
 
 export type ScopeCustomData = z.infer<typeof scopeCustomData>;
@@ -19,6 +20,21 @@ export const symbolPinCustomData = z
 	.loose();
 
 export type SymbolPinCustomData = z.infer<typeof symbolPinCustomData>;
+
+export function promoteSymbolPinCustomData(
+	symbol: SymbolPinCustomData,
+	elementId: string,
+): ScopeCustomData {
+	return {
+		scopeId: elementId,
+		kind: symbol.linear ? "line" : "pin",
+		serviceId: null,
+		label: null,
+		pitch: null,
+		symbol: symbol.symbol,
+		...(symbol.linear ? { linear: true } : {}),
+	};
+}
 
 export const excalidrawElement = z
 	.object({
