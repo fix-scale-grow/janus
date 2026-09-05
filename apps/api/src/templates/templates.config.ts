@@ -12,6 +12,13 @@ export const TEMPLATE_BLOCKS = {
 	spacer: { minHeight: 4, maxHeight: 96 },
 } as const;
 
+export const EMAIL_RENDER = {
+	tableWidth: 600,
+	cellPadding: "24px 32px",
+	brandGreen: "#006b4f",
+	logoSize: 44,
+} as const;
+
 export const MERGE_FIELDS = {
 	contact: ["contact.full_name", "contact.first_name", "contact.email"],
 	business: ["business.name", "business.phone", "sender.name"],
