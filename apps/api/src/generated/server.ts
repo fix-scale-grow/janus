@@ -30,6 +30,7 @@ import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInpu
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
+import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput } from "../symbols/symbols.contracts";
 import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, companyActivityInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
@@ -50,6 +51,7 @@ import type { ServicesCatalogRouter } from "../services-catalog/services-catalog
 import type { SettingsRouter } from "../settings/settings.router";
 import type { SlackRouter } from "../slack/slack.router";
 import type { SsoRouter } from "../sso/sso.router";
+import type { SymbolsRouter } from "../symbols/symbols.router";
 import type { TrackingRouter } from "../tracking/tracking.router";
 import type { UsersRouter } from "../users/users.router";
 import type { WorkspaceRouter } from "../workspace/workspace.router";
@@ -520,6 +522,25 @@ const appRouter = t.router({
     remove: publicProcedure
       .input(deleteSsoProviderInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SsoRouter["remove"]>>)
+    }),
+  symbols: t.router({
+    list: publicProcedure
+      .input(symbolListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["list"]>>),
+    byId: publicProcedure
+      .input(symbolIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["byId"]>>),
+    create: publicProcedure
+      .input(symbolCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["create"]>>),
+    update: publicProcedure
+      .input(symbolUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["update"]>>),
+    delete: publicProcedure
+      .input(symbolIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["delete"]>>),
+    seedRoofing: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["seedRoofing"]>>)
     }),
   tracking: t.router({
     settings: publicProcedure

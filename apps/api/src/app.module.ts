@@ -30,6 +30,7 @@ import { ServicesCatalogModule } from "./services-catalog/services-catalog.modul
 import { SettingsModule } from "./settings/settings.module";
 import { SlackModule } from "./slack/slack.module";
 import { SsoModule } from "./sso/sso.module";
+import { SymbolsModule } from "./symbols/symbols.module";
 import { SyncModule } from "./sync/sync.module";
 import { TelemetryModule } from "./telemetry/telemetry.module";
 import { TrackingModule } from "./tracking/tracking.module";
@@ -66,6 +67,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		DashboardModule,
 		SearchModule,
 		ServicesCatalogModule,
+		SymbolsModule,
 		MailboxModule,
 		GoogleModule,
 		MicrosoftModule,
