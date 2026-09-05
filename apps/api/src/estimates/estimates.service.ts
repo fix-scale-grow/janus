@@ -156,6 +156,14 @@ export class EstimatesService {
 	}
 
 	async addLineItem(input: EstimateAddLineItemInput) {
+		const estimate = await this.db.estimate.findUnique({
+			where: { id: input.estimateId },
+			select: { id: true },
+		});
+		if (!estimate) {
+			throw new NotFoundException(`No estimate with id ${input.estimateId}.`);
+		}
+
 		if (input.serviceId) {
 			const service = await this.db.service.findUnique({
 				where: { id: input.serviceId },

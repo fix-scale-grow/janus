@@ -84,7 +84,7 @@ export function buildLineItems(
 		);
 		if (quantity === null) continue;
 
-		if (service.unit === "PER_EACH" && shape.symbol) {
+		if (service.unit === "PER_EACH" && !shape.serviceId && shape.symbol) {
 			const existing = aggregated.get(service.id);
 			if (existing) {
 				existing.quantity += quantity;

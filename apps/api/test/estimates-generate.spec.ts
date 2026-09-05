@@ -63,6 +63,34 @@ describe("buildLineItems", () => {
 		expect(items[0]?.scopeId).toBeNull();
 	});
 
+	it("keeps its own line when a shape has both serviceId and symbol set", () => {
+		const items = buildLineItems(
+			[
+				{
+					scopeId: "p1",
+					kind: "pin",
+					serviceId: "s9",
+					label: null,
+					pitch: null,
+					symbol: "janus-roofing-roof-vent",
+					quantity: { count: 1 },
+				},
+			],
+			[
+				svc({
+					id: "s9",
+					name: "Roof vent",
+					unit: "PER_EACH",
+					unitPriceCents: 7500,
+					symbolId: "janus-roofing-roof-vent",
+				}),
+			],
+		);
+		expect(items).toHaveLength(1);
+		expect(items[0]?.quantity).toBe(1);
+		expect(items[0]?.scopeId).toBe("p1");
+	});
+
 	it("uses good/best variants when the service has them", () => {
 		const items = buildLineItems(
 			[
