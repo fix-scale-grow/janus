@@ -19,6 +19,7 @@ const quantity = z
 
 export const estimateListInput = listInput.extend({
 	dealId: z.string().optional(),
+	drawingId: z.string().optional(),
 	status: statusEnum.optional(),
 });
 

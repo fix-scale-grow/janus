@@ -386,6 +386,7 @@ export class EstimatesService {
 	private buildWhere(input: EstimateListInput): Prisma.EstimateWhereInput {
 		const where: Prisma.EstimateWhereInput = {
 			...(input.dealId ? { dealId: input.dealId } : {}),
+			...(input.drawingId ? { drawingId: input.drawingId } : {}),
 			...(input.status ? { status: input.status } : {}),
 		};
 

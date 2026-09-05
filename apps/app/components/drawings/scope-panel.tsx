@@ -1,5 +1,6 @@
 "use client";
 
+import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import {
 	type MeasuredShape,
 	PITCH_FACTORS,
@@ -9,6 +10,13 @@ import {
 } from "@crm/drawings";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@crm/ui/components/dropdown-menu";
+import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import {
 	Select,
@@ -38,7 +46,9 @@ export type ScopePanelProps = {
 	services: ServiceRow[];
 	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
 	onGenerate: () => void;
+	onOpenEstimate: () => void;
 	generating: boolean;
+	hasEstimate: boolean;
 };
 
 function quantityLabel(shape: MeasuredShape): string | null {
@@ -229,8 +239,37 @@ export function ScopePanel(props: ScopePanelProps) {
 				</div>
 			))}
 
-			<div className="mt-auto pt-1">
-				{canGenerate ? (
+			<div className="mt-auto flex gap-1.5 pt-1">
+				{props.hasEstimate ? (
+					<>
+						<Button
+							className="flex-1"
+							disabled={props.generating}
+							onClick={props.onOpenEstimate}
+						>
+							Open estimate
+						</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									disabled={!canGenerate || props.generating}
+									size="icon"
+									variant="outline"
+								>
+									<Icon icon={ChevronDown} />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									disabled={!canGenerate || props.generating}
+									onSelect={props.onGenerate}
+								>
+									Generate new estimate
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</>
+				) : canGenerate ? (
 					<Button
 						className="w-full"
 						disabled={props.generating}

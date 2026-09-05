@@ -116,6 +116,13 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const services = useQuery(
 		trpc.services.list.queryOptions({ active: true, pageSize: 100 }),
 	);
+	const drawingEstimates = useQuery(
+		trpc.estimates.list.queryOptions({
+			drawingId: props.drawingId,
+			pageSize: 5,
+		}),
+	);
+	const newestEstimateId = drawingEstimates.data?.rows[0]?.id ?? null;
 	const generateEstimate = useMutation(
 		trpc.estimates.generateFromDrawing.mutationOptions({
 			onSuccess: (result) => {
@@ -539,9 +546,14 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 				<ScopePanel
 					generating={generateEstimate.isPending}
+					hasEstimate={newestEstimateId !== null}
 					onGenerate={async () => {
 						await flushPending();
 						generateEstimate.mutate({ drawingId: props.drawingId });
+					}}
+					onOpenEstimate={() => {
+						if (!newestEstimateId) return;
+						router.push(workspaceUrl(`/estimates/${newestEstimateId}`));
 					}}
 					onUpdateShape={updateShape}
 					services={services.data?.rows ?? []}
