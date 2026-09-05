@@ -120,9 +120,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const services = useQuery(
 		trpc.services.list.queryOptions({ active: true, pageSize: 100 }),
 	);
-	const symbols = useQuery(
-		trpc.symbols.list.queryOptions({ active: true, pageSize: 100 }),
-	);
+	const symbols = useQuery(trpc.symbols.list.queryOptions({ pageSize: 100 }));
 	const drawingEstimates = useQuery(
 		trpc.estimates.list.queryOptions({
 			drawingId: props.drawingId,
