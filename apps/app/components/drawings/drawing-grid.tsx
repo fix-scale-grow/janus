@@ -213,7 +213,7 @@ function DrawingCard({ row }: { row: DrawingRow }) {
 
 	return (
 		<div className="group relative flex flex-col gap-2 rounded-lg border bg-card p-2">
-			<div className="aspect-square w-full overflow-hidden rounded-md bg-muted">
+			<div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted">
 				{row.thumbnailUrl ? (
 					<Image
 						src={row.thumbnailUrl}
