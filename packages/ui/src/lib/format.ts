@@ -24,11 +24,16 @@ function fractionDigits(code: string): number {
 	const cached = currencyDigits.get(code);
 	if (cached !== undefined) return cached;
 
-	const digits =
-		new Intl.NumberFormat("en-US", {
-			style: "currency",
-			currency: code,
-		}).resolvedOptions().maximumFractionDigits ?? 2;
+	let digits = 2;
+	try {
+		digits =
+			new Intl.NumberFormat("en-US", {
+				style: "currency",
+				currency: code,
+			}).resolvedOptions().maximumFractionDigits ?? 2;
+	} catch {
+		digits = 2;
+	}
 
 	currencyDigits.set(code, digits);
 	return digits;
@@ -39,12 +44,16 @@ export function formatMoney(cents: number, currency = "usd"): string {
 	const whole = cents % 100 === 0;
 	const digits = fractionDigits(code);
 
-	return new Intl.NumberFormat(undefined, {
-		style: "currency",
-		currency: code,
-		minimumFractionDigits: whole ? 0 : Math.min(2, digits),
-		maximumFractionDigits: whole ? 0 : digits,
-	}).format(cents / 100);
+	try {
+		return new Intl.NumberFormat(undefined, {
+			style: "currency",
+			currency: code,
+			minimumFractionDigits: whole ? 0 : Math.min(2, digits),
+			maximumFractionDigits: whole ? 0 : digits,
+		}).format(cents / 100);
+	} catch {
+		return `${code} ${(cents / 100).toFixed(whole ? 0 : 2)}`;
+	}
 }
 
 const currencySymbols = new Map<string, string>();
@@ -54,26 +63,37 @@ export function currencySymbol(currency = "usd"): string {
 	const cached = currencySymbols.get(code);
 	if (cached !== undefined) return cached;
 
-	const symbol =
-		new Intl.NumberFormat(undefined, {
-			style: "currency",
-			currency: code,
-			currencyDisplay: "narrowSymbol",
-		})
-			.formatToParts(0)
-			.find((part) => part.type === "currency")?.value ?? code;
+	let symbol = code;
+	try {
+		symbol =
+			new Intl.NumberFormat(undefined, {
+				style: "currency",
+				currency: code,
+				currencyDisplay: "narrowSymbol",
+			})
+				.formatToParts(0)
+				.find((part) => part.type === "currency")?.value ?? code;
+	} catch {
+		symbol = code;
+	}
 
 	currencySymbols.set(code, symbol);
 	return symbol;
 }
 
 export function formatMoneyCompact(cents: number, currency = "usd"): string {
-	return new Intl.NumberFormat(undefined, {
-		style: "currency",
-		currency: displayCurrencyCode(currency),
-		notation: "compact",
-		maximumFractionDigits: cents % 100_000 === 0 ? 0 : 1,
-	}).format(cents / 100);
+	const code = displayCurrencyCode(currency);
+
+	try {
+		return new Intl.NumberFormat(undefined, {
+			style: "currency",
+			currency: code,
+			notation: "compact",
+			maximumFractionDigits: cents % 100_000 === 0 ? 0 : 1,
+		}).format(cents / 100);
+	} catch {
+		return `${code} ${(cents / 100).toFixed(0)}`;
+	}
 }
 
 export function formatPercent(rate: number): string {
