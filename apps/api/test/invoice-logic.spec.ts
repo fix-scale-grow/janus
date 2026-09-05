@@ -44,7 +44,7 @@ describe("agingBucket", () => {
 		expect(agingBucket(dueAt, "SENT", NOW)).toBe("current");
 	});
 
-	it("is overdue at exactly the due instant", () => {
+	it("is due soon at exactly the due instant", () => {
 		expect(agingBucket(NOW, "SENT", NOW)).toBe("due_soon");
 	});
 });

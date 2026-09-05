@@ -503,7 +503,7 @@ function SymbolDialog({
 					<AlertDialogHeader>
 						<AlertDialogTitle>Delete {row?.name}?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Placed copies keep working. This only removes it from the palette.
+							Placed copies keep their measurements, but lose automatic pricing.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 
