@@ -19,4 +19,6 @@ export const DRAWINGS = {
 	autosave: { debounceMs: 2_000, versionEveryMs: 5 * 60_000 },
 	thumbnail: { width: 640 },
 	unattachedNudgeDays: 3,
+	scopePanel: { recomputeMs: 500 },
+	pin: { sizePx: 24 },
 } as const;
