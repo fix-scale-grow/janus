@@ -12,7 +12,7 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
-import { paginate } from "../trpc/list-input";
+import { paginate, resolveOrderBy } from "../trpc/list-input";
 import type {
 	EstimateAddLineItemInput,
 	EstimateCreateInput,
@@ -24,6 +24,15 @@ import type {
 	EstimateUpdateLineItemInput,
 } from "./estimates.contracts";
 import { buildLineItems } from "./generate";
+
+const SORTABLE: Record<
+	string,
+	(dir: Prisma.SortOrder) => Prisma.EstimateOrderByWithRelationInput[]
+> = {
+	title: (dir) => [{ title: dir }],
+	status: (dir) => [{ status: dir }],
+	updatedAt: (dir) => [{ updatedAt: dir }],
+};
 
 const LIST_SELECT = {
 	id: true,
@@ -49,7 +58,7 @@ export class EstimatesService {
 		const [rows, total] = await Promise.all([
 			this.db.estimate.findMany({
 				where,
-				orderBy: { updatedAt: "desc" },
+				orderBy: resolveOrderBy(input, SORTABLE, [{ updatedAt: "desc" }]),
 				skip,
 				take,
 				select: LIST_SELECT,

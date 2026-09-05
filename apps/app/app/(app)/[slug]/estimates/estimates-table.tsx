@@ -129,7 +129,6 @@ function PageEstimatesTable() {
 		{
 			id: "total",
 			header: "Total",
-			sortable: true,
 			align: "right",
 			width: "w-[16%]",
 			cell: (row) => (
