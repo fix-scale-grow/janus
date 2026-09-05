@@ -21,6 +21,7 @@ import { conversationListInput, builderResourceSearchInput, conversationIdInput,
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
+import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
@@ -37,6 +38,7 @@ import type { ConversationsRouter } from "../conversations/conversations.router"
 import type { CurrencyRouter } from "../currency/currency.router";
 import type { DashboardRouter } from "../dashboard/dashboard.router";
 import type { DealsRouter } from "../deals/deals.router";
+import type { DrawingsRouter } from "../drawings/drawings.router";
 import type { FieldsRouter } from "../fields/fields.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
@@ -305,6 +307,38 @@ const appRouter = t.router({
     bulkDelete: publicProcedure
       .input(dealBulkInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DealsRouter["bulkDelete"]>>)
+    }),
+  drawings: t.router({
+    list: publicProcedure
+      .input(drawingListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["list"]>>),
+    byId: publicProcedure
+      .input(drawingIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["byId"]>>),
+    create: publicProcedure
+      .input(drawingCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["create"]>>),
+    saveScene: publicProcedure
+      .input(drawingSaveSceneInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["saveScene"]>>),
+    rename: publicProcedure
+      .input(drawingRenameInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["rename"]>>),
+    attach: publicProcedure
+      .input(drawingAttachInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["attach"]>>),
+    delete: publicProcedure
+      .input(drawingIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["delete"]>>),
+    versions: publicProcedure
+      .input(drawingIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["versions"]>>),
+    restoreVersion: publicProcedure
+      .input(drawingRestoreVersionInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["restoreVersion"]>>),
+    setThumbnail: publicProcedure
+      .input(drawingSetThumbnailInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["setThumbnail"]>>)
     }),
   fields: t.router({
     list: publicProcedure

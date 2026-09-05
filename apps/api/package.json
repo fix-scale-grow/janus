@@ -25,6 +25,7 @@
 	"dependencies": {
 		"@crm/auth": "workspace:*",
 		"@crm/db": "workspace:*",
+		"@crm/drawings": "workspace:*",
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",
 		"@crm/validation": "workspace:*",
