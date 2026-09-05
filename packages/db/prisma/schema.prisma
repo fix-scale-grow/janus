@@ -51,6 +51,9 @@ model User {
   estimates Estimate[] @relation("EstimateCreator")
   invoices  Invoice[]  @relation("InvoiceCreator")
 
+  createdProjects Project[]     @relation("ProjectCreator")
+  projectTasks    ProjectTask[] @relation("ProjectTaskAssignee")
+
   @@unique([email])
   @@map("user")
 }
@@ -960,6 +963,7 @@ model Deal {
   drawings    Drawing[]
   estimates   Estimate[]
   invoices    Invoice[]
+  projects    Project[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -1202,6 +1206,57 @@ model InvoiceLineItem {
 
   @@index([invoiceId, sortOrder])
   @@map("invoice_line_item")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETE
+}
+
+enum ProjectTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  goal        String?
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime
+  goalDate    DateTime?
+  dealId      String
+  deal        Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
+  tasks       ProjectTask[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([dealId])
+  @@index([status])
+  @@index([updatedAt])
+  @@map("project")
+}
+
+model ProjectTask {
+  id         String            @id @default(cuid())
+  projectId  String
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  note       String?
+  day        DateTime?
+  status     ProjectTaskStatus @default(TODO)
+  sortOrder  Int               @default(0)
+  assigneeId String?
+  assignee   User?             @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([projectId, day])
+  @@map("project_task")
 }
 
 enum FieldEntity {
