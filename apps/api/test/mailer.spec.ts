@@ -122,4 +122,38 @@ describe("MailerService file transport", () => {
 			{ filename: "escape.txt", bytes: content.byteLength },
 		]);
 	});
+
+	it("caps a very long filename to a filesystem-safe length", async () => {
+		const outboxDir = await tempOutboxDir();
+		const mailer = new MailerService({
+			transport: "file",
+			outboxDir,
+			from: "Janus <estimates@example.com>",
+		});
+
+		const content = Buffer.from("long name bytes");
+		const longName = `${"a".repeat(500)}.txt`;
+
+		const result = await mailer.send({
+			to: "customer@example.com",
+			subject: "Long filename test",
+			text: "See attached.",
+			attachments: [{ filename: longName, content }],
+		});
+
+		expect(result.delivered).toBe(true);
+
+		const entries = await readdir(outboxDir);
+		const sendDir = join(outboxDir, entries[0] ?? "");
+		const sendDirEntries = await readdir(sendDir);
+
+		const writtenFilename = sendDirEntries.find(
+			(name) => name !== "envelope.json",
+		);
+		expect(writtenFilename).toBeDefined();
+		expect(writtenFilename?.length).toBeLessThanOrEqual(110);
+
+		const writtenBytes = await readFile(join(sendDir, writtenFilename ?? ""));
+		expect(writtenBytes.equals(content)).toBe(true);
+	});
 });

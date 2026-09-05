@@ -150,6 +150,8 @@ function slugify(subject: string): string {
 	return slug || "message";
 }
 
+const MAX_STEM_LENGTH = 100;
+
 function safeFilename(filename: string): string {
 	const base = basename(filename);
 	const ext = extname(base).slice(1).toLowerCase();
@@ -158,7 +160,8 @@ function safeFilename(filename: string): string {
 	const stem = stemSource
 		.toLowerCase()
 		.replace(/[^a-z0-9-_]+/g, "-")
-		.replace(/^-+|-+$/g, "");
+		.replace(/^-+|-+$/g, "")
+		.slice(0, MAX_STEM_LENGTH);
 
 	const safeExt = /^[a-z0-9]{1,8}$/.test(ext) ? ext : "";
 
