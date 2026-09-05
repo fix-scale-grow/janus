@@ -2,6 +2,41 @@ import { BadRequestException } from "@nestjs/common";
 import { z } from "zod";
 import { TEMPLATE_BLOCKS } from "./templates.config";
 
+function decodeHrefEntities(value: string): string {
+	return value
+		.replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+			String.fromCharCode(Number.parseInt(hex, 16)),
+		)
+		.replace(/&#(\d+);/g, (_, dec: string) =>
+			String.fromCharCode(Number.parseInt(dec, 10)),
+		)
+		.replace(/&amp;/gi, "&")
+		.replace(/&colon;/gi, ":")
+		.replace(/&lt;/gi, "<")
+		.replace(/&gt;/gi, ">")
+		.replace(/&quot;/gi, '"')
+		.replace(/&apos;/gi, "'");
+}
+
+function stripControlCharacters(value: string): string {
+	let result = "";
+	for (const char of value) {
+		const code = char.charCodeAt(0);
+		if (code > 0x20 && code !== 0x7f) result += char;
+	}
+	return result;
+}
+
+function isAllowedHref(href: string): boolean {
+	const normalized = stripControlCharacters(
+		decodeHrefEntities(href),
+	).toLowerCase();
+
+	return TEMPLATE_BLOCKS.text.allowedHrefSchemes.some((scheme) =>
+		normalized.startsWith(scheme),
+	);
+}
+
 function sanitizeHtml(html: string): string {
 	const withoutScripts = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
 
@@ -22,7 +57,7 @@ function sanitizeHtml(html: string): string {
 					/href\s*=\s*"([^"]*)"|href\s*=\s*'([^']*)'/i,
 				);
 				const href = hrefMatch ? (hrefMatch[1] ?? hrefMatch[2]) : undefined;
-				if (href && !/^\s*javascript:/i.test(href)) {
+				if (href && isAllowedHref(href)) {
 					return `<a href="${href}">`;
 				}
 				return "<a>";

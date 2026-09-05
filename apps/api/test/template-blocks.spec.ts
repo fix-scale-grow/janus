@@ -137,6 +137,90 @@ describe("templateBlocksSchema", () => {
 			}
 		}
 	});
+
+	it("strips a javascript: href hidden with a tab inside the scheme", () => {
+		const result = templateBlocksSchema.safeParse([
+			{ kind: "text", html: '<a href="java\tscript:alert(1)">Link</a>' },
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).not.toContain("href=");
+			}
+		}
+	});
+
+	it("strips a javascript: href hidden with a newline inside the scheme", () => {
+		const result = templateBlocksSchema.safeParse([
+			{ kind: "text", html: '<a href="java\nscript:alert(1)">Link</a>' },
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).not.toContain("href=");
+			}
+		}
+	});
+
+	it("strips a javascript: href hidden with decimal HTML entities", () => {
+		const result = templateBlocksSchema.safeParse([
+			{ kind: "text", html: '<a href="&#106;avascript&#58;alert(1)">Link</a>' },
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).not.toContain("href=");
+			}
+		}
+	});
+
+	it("strips a javascript: href hidden with hex HTML entities", () => {
+		const result = templateBlocksSchema.safeParse([
+			{ kind: "text", html: '<a href="javascript&#x3A;alert(1)">Link</a>' },
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).not.toContain("href=");
+			}
+		}
+	});
+
+	it("keeps a plain https href", () => {
+		const result = templateBlocksSchema.safeParse([
+			{ kind: "text", html: '<a href="https://example.com/path">Link</a>' },
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).toContain('<a href="https://example.com/path">');
+			}
+		}
+	});
+
+	it("keeps a plain mailto href", () => {
+		const result = templateBlocksSchema.safeParse([
+			{ kind: "text", html: '<a href="mailto:jane@example.com">Link</a>' },
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).toContain('<a href="mailto:jane@example.com">');
+			}
+		}
+	});
 });
 
 describe("parseTemplateBlocks", () => {

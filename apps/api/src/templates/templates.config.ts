@@ -6,6 +6,7 @@ export const TEMPLATE_BLOCKS = {
 	text: {
 		maxHtmlLength: 8000,
 		allowedTags: ["b", "i", "strong", "em", "br", "a", "span"],
+		allowedHrefSchemes: ["http:", "https:", "mailto:"],
 	},
 	button: { maxLabelLength: 80 },
 	spacer: { minHeight: 4, maxHeight: 96 },
