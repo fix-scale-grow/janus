@@ -180,9 +180,15 @@ export function ScopePanel(props: ScopePanelProps) {
 			<h2 className="font-heading text-sm font-medium">Scope</h2>
 
 			{props.shapes.length === 0 && (
-				<p className="text-muted-foreground text-xs">
-					Mark a shape to measure it.
-				</p>
+				<div className="flex flex-col gap-1">
+					<p className="text-muted-foreground text-xs">
+						Mark a shape to measure it.
+					</p>
+					<p className="text-muted-foreground text-xs">
+						Draw any shape with the line tool and Mark area to measure irregular
+						rooms.
+					</p>
+				</div>
 			)}
 
 			{props.shapes.map((shape) => (
