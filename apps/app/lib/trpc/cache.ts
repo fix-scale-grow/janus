@@ -22,6 +22,7 @@ export type CrmCache = {
 	drawing(id?: string, options?: Options): Promise<void>;
 	estimate(id?: string, options?: Options): Promise<void>;
 	service(id?: string, options?: Options): Promise<void>;
+	symbol(id?: string, options?: Options): Promise<void>;
 	fields(entity?: RecordKind, options?: Options): Promise<void>;
 	fieldCoverage(id?: string, options?: Options): Promise<void>;
 	removed(record: RemovedRecord): Promise<void>;
@@ -217,6 +218,17 @@ export function useCrmCache(): CrmCache {
 						: trpc.services.byId.queryKey(),
 				],
 				[trpc.services.list.queryKey()],
+				options,
+			),
+
+		symbol: (id, options) =>
+			run(
+				[
+					id
+						? trpc.symbols.byId.queryKey({ id })
+						: trpc.symbols.byId.queryKey(),
+				],
+				[trpc.symbols.list.queryKey()],
 				options,
 			),
 

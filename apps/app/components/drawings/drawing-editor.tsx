@@ -7,7 +7,6 @@ import {
 	type DrawingScale,
 	type DrawingScene,
 	parseLibraryFileItems,
-	parseStoredLibraryItems,
 	polylineLengthFt,
 	type ScopeCustomData,
 	scopeCustomData,
@@ -35,6 +34,7 @@ import { DrawingHistory } from "./drawing-history";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
+import { SymbolPalette } from "./symbol-palette";
 import { useBackgroundImage } from "./use-background-image";
 import { useDrawingAutosave } from "./use-drawing-autosave";
 import { useDrawingThumbnail } from "./use-drawing-thumbnail";
@@ -116,6 +116,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const services = useQuery(
 		trpc.services.list.queryOptions({ active: true, pageSize: 100 }),
 	);
+	const symbols = useQuery(
+		trpc.symbols.list.queryOptions({ active: true, pageSize: 100 }),
+	);
 	const drawingEstimates = useQuery(
 		trpc.estimates.list.queryOptions({
 			drawingId: props.drawingId,
@@ -148,41 +151,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		[tool, setTool],
 	);
 
-	const onLibraryChange = useCallback((libraryItems: LibraryItems) => {
-		try {
-			window.localStorage.setItem(
-				DRAWINGS.library.storageKey,
-				JSON.stringify(libraryItems),
-			);
-		} catch {
-			return;
-		}
-	}, []);
-
 	useEffect(() => {
 		if (!excalidrawApi) return;
 
 		let cancelled = false;
-
-		const loadPersistedLibrary = async () => {
-			let stored: unknown[] | null = null;
-			try {
-				const raw = window.localStorage.getItem(DRAWINGS.library.storageKey);
-				stored = raw ? parseStoredLibraryItems(JSON.parse(raw)) : null;
-			} catch {
-				stored = null;
-			}
-			if (stored && stored.length > 0 && !cancelled) {
-				const { restoreLibraryItems } = await import("@excalidraw/excalidraw");
-				await excalidrawApi.updateLibrary({
-					libraryItems: restoreLibraryItems(
-						stored as unknown as LibraryItems_anyVersion,
-						"unpublished",
-					),
-					merge: true,
-				});
-			}
-		};
 
 		const installLibraryFromUrl = async () => {
 			const { parseLibraryTokensFromUrl, restoreLibraryItems } = await import(
@@ -227,47 +199,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			window.history.replaceState({}, "", url.toString());
 		};
 
-		const seedTradeLibrary = async () => {
-			try {
-				if (window.localStorage.getItem(DRAWINGS.library.seededFlagKey)) {
-					return;
-				}
-			} catch {
-				return;
-			}
-			const response = await fetch(DRAWINGS.library.seedUrl);
-			if (!response.ok) return;
-			let libraryItems: LibraryItems;
-			try {
-				const { restoreLibraryItems } = await import("@excalidraw/excalidraw");
-				const raw = parseLibraryFileItems(await response.json());
-				libraryItems = restoreLibraryItems(
-					raw as unknown as LibraryItems_anyVersion,
-					"published",
-				);
-			} catch {
-				return;
-			}
-			if (cancelled) return;
-			await excalidrawApi.updateLibrary({
-				libraryItems,
-				merge: true,
-				openLibraryMenu: false,
-			});
-			try {
-				window.localStorage.setItem(DRAWINGS.library.seededFlagKey, "1");
-			} catch {
-				return;
-			}
-		};
-
-		void loadPersistedLibrary()
-			.then(() => {
-				if (!cancelled) return seedTradeLibrary();
-			})
-			.then(() => {
-				if (!cancelled) void installLibraryFromUrl();
-			});
+		void installLibraryFromUrl();
 
 		const onHashChange = () => {
 			void installLibraryFromUrl();
@@ -488,6 +420,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							<Button onClick={addPin} variant="outline">
 								Pin
 							</Button>
+							<SymbolPalette
+								apiRef={apiRef}
+								queueSave={queueSave}
+								scale={scale}
+							/>
 							<Button onClick={openFilePicker} variant="outline">
 								Set background photo
 							</Button>
@@ -510,14 +447,15 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 			<div className="flex min-h-0 flex-1">
 				<div
-					className={surface === "sketch" ? "h-full min-h-0 flex-1" : "hidden"}
+					className={
+						surface === "sketch"
+							? "janus-drawing-canvas h-full min-h-0 flex-1"
+							: "hidden"
+					}
 				>
+					<style>{`.janus-drawing-canvas .default-sidebar-trigger { display: none; }`}</style>
 					<Excalidraw
 						excalidrawAPI={excalidrawApiRef}
-						libraryReturnUrl={
-							typeof window !== "undefined" ? window.location.href : undefined
-						}
-						onLibraryChange={onLibraryChange}
 						initialData={
 							{
 								elements: props.initialScene.excalidraw.elements,
@@ -558,6 +496,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					onUpdateShape={updateShape}
 					services={services.data?.rows ?? []}
 					shapes={shapes}
+					symbols={symbols.data?.rows ?? []}
 				/>
 			</div>
 

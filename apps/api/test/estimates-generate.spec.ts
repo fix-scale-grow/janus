@@ -110,6 +110,63 @@ describe("buildLineItems", () => {
 		expect(items[0]?.priceBestCents).toBe(9500);
 	});
 
+	it("resolves a symbol DB id through the symbols table first", () => {
+		const items = buildLineItems(
+			[
+				{
+					scopeId: "p1",
+					kind: "pin",
+					serviceId: null,
+					label: null,
+					pitch: null,
+					symbol: "sym_roof_vent",
+					quantity: { count: 1 },
+				},
+			],
+			[
+				svc({
+					id: "s9",
+					name: "Roof vent",
+					unit: "PER_EACH",
+					unitPriceCents: 7500,
+					symbolId: null,
+				}),
+			],
+			[{ id: "sym_roof_vent", serviceId: "s9" }],
+		);
+		expect(items).toHaveLength(1);
+		expect(items[0]?.serviceId).toBe("s9");
+		expect(items[0]?.quantity).toBe(1);
+	});
+
+	it("still resolves the legacy Service.symbolId path when no symbols table match exists", () => {
+		const items = buildLineItems(
+			[
+				{
+					scopeId: "p1",
+					kind: "pin",
+					serviceId: null,
+					label: null,
+					pitch: null,
+					symbol: "janus-roofing-roof-vent",
+					quantity: { count: 1 },
+				},
+			],
+			[
+				svc({
+					id: "s9",
+					name: "Roof vent",
+					unit: "PER_EACH",
+					unitPriceCents: 7500,
+					symbolId: "janus-roofing-roof-vent",
+				}),
+			],
+			[{ id: "sym_other", serviceId: "s1" }],
+		);
+		expect(items).toHaveLength(1);
+		expect(items[0]?.serviceId).toBe("s9");
+	});
+
 	it("skips untagged shapes and unit mismatches", () => {
 		const items = buildLineItems(
 			[

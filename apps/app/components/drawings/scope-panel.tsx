@@ -34,6 +34,7 @@ import { useMemo } from "react";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
 type ServiceRow = RouterOutputs["services"]["list"]["rows"][number];
+type SymbolRow = RouterOutputs["symbols"]["list"]["rows"][number];
 
 export type ScopeShapeUpdate = {
 	label?: string | null;
@@ -44,6 +45,7 @@ export type ScopeShapeUpdate = {
 export type ScopePanelProps = {
 	shapes: MeasuredShape[];
 	services: ServiceRow[];
+	symbols: SymbolRow[];
 	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
 	onGenerate: () => void;
 	onOpenEstimate: () => void;
@@ -71,13 +73,18 @@ function kindLabel(kind: MeasuredShape["kind"]): string {
 function resolvedService(
 	shape: MeasuredShape,
 	servicesById: Map<string, ServiceRow>,
-	servicesBySymbol: Map<string, ServiceRow>,
+	symbolServiceIds: Map<string, string>,
+	servicesByLegacySymbol: Map<string, ServiceRow>,
 ): { service: ServiceRow | null; auto: boolean } {
 	if (shape.serviceId) {
 		return { service: servicesById.get(shape.serviceId) ?? null, auto: false };
 	}
 	if (shape.symbol) {
-		return { service: servicesBySymbol.get(shape.symbol) ?? null, auto: true };
+		const registeredServiceId = symbolServiceIds.get(shape.symbol);
+		const service = registeredServiceId
+			? (servicesById.get(registeredServiceId) ?? null)
+			: (servicesByLegacySymbol.get(shape.symbol) ?? null);
+		return { service, auto: true };
 	}
 	return { service: null, auto: false };
 }
@@ -86,14 +93,17 @@ function ScopeServiceField(props: {
 	shape: MeasuredShape;
 	services: ServiceRow[];
 	servicesById: Map<string, ServiceRow>;
-	servicesBySymbol: Map<string, ServiceRow>;
+	symbolServiceIds: Map<string, string>;
+	servicesByLegacySymbol: Map<string, ServiceRow>;
 	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
 }) {
-	const { shape, servicesById, servicesBySymbol } = props;
+	const { shape, servicesById, symbolServiceIds, servicesByLegacySymbol } =
+		props;
 	const { service, auto } = resolvedService(
 		shape,
 		servicesById,
-		servicesBySymbol,
+		symbolServiceIds,
+		servicesByLegacySymbol,
 	);
 	const compatible = props.services.filter(
 		(candidate) =>
@@ -148,7 +158,7 @@ export function ScopePanel(props: ScopePanelProps) {
 		() => new Map(props.services.map((service) => [service.id, service])),
 		[props.services],
 	);
-	const servicesBySymbol = useMemo(
+	const servicesByLegacySymbol = useMemo(
 		() =>
 			new Map(
 				props.services
@@ -157,6 +167,15 @@ export function ScopePanel(props: ScopePanelProps) {
 			),
 		[props.services],
 	);
+	const symbolServiceIds = useMemo(
+		() =>
+			new Map(
+				props.symbols
+					.filter((symbol) => symbol.serviceId)
+					.map((symbol) => [symbol.id, symbol.serviceId as string]),
+			),
+		[props.symbols],
+	);
 
 	const canGenerate = useMemo(
 		() =>
@@ -164,7 +183,8 @@ export function ScopePanel(props: ScopePanelProps) {
 				const { service } = resolvedService(
 					shape,
 					servicesById,
-					servicesBySymbol,
+					symbolServiceIds,
+					servicesByLegacySymbol,
 				);
 				return (
 					service !== null &&
@@ -172,7 +192,7 @@ export function ScopePanel(props: ScopePanelProps) {
 					quantityForUnit(service.unit, shape.quantity) !== null
 				);
 			}),
-		[props.shapes, servicesById, servicesBySymbol],
+		[props.shapes, servicesById, symbolServiceIds, servicesByLegacySymbol],
 	);
 
 	return (
@@ -216,7 +236,8 @@ export function ScopePanel(props: ScopePanelProps) {
 					<ScopeServiceField
 						onUpdateShape={props.onUpdateShape}
 						servicesById={servicesById}
-						servicesBySymbol={servicesBySymbol}
+						servicesByLegacySymbol={servicesByLegacySymbol}
+						symbolServiceIds={symbolServiceIds}
 						services={props.services}
 						shape={shape}
 					/>

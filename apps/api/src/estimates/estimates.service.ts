@@ -266,10 +266,11 @@ export class EstimatesService {
 		}
 
 		const shapes = this.measureDrawing(drawing.scene, drawing.scale);
-		const services = await this.db.service.findMany({
-			where: { active: true },
-		});
-		const drafts = buildLineItems(shapes, services);
+		const [services, symbols] = await Promise.all([
+			this.db.service.findMany({ where: { active: true } }),
+			this.db.symbol.findMany({ select: { id: true, serviceId: true } }),
+		]);
+		const drafts = buildLineItems(shapes, services, symbols);
 
 		if (drafts.length === 0) {
 			throw new BadRequestException(

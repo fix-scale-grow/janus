@@ -12,6 +12,11 @@ export type ServiceLike = {
 	symbolId: string | null;
 };
 
+export type SymbolLike = {
+	id: string;
+	serviceId: string | null;
+};
+
 export type LineItemDraft = {
 	serviceId: string;
 	name: string;
@@ -29,12 +34,17 @@ function resolveService(
 	shape: MeasuredShape,
 	byId: Map<string, ServiceLike>,
 	bySymbolId: Map<string, ServiceLike>,
+	byRegisteredSymbolId: Map<string, ServiceLike>,
 ): ServiceLike | null {
 	if (shape.serviceId) {
 		return byId.get(shape.serviceId) ?? null;
 	}
 	if (shape.symbol) {
-		return bySymbolId.get(shape.symbol) ?? null;
+		return (
+			byRegisteredSymbolId.get(shape.symbol) ??
+			bySymbolId.get(shape.symbol) ??
+			null
+		);
 	}
 	return null;
 }
@@ -63,6 +73,7 @@ function draftFor(
 export function buildLineItems(
 	shapes: MeasuredShape[],
 	services: ServiceLike[],
+	symbols: SymbolLike[] = [],
 ): LineItemDraft[] {
 	const byId = new Map(services.map((service) => [service.id, service]));
 	const bySymbolId = new Map(
@@ -70,12 +81,23 @@ export function buildLineItems(
 			.filter((service) => service.symbolId)
 			.map((service) => [service.symbolId as string, service]),
 	);
+	const byRegisteredSymbolId = new Map<string, ServiceLike>();
+	for (const symbol of symbols) {
+		if (!symbol.serviceId) continue;
+		const service = byId.get(symbol.serviceId);
+		if (service) byRegisteredSymbolId.set(symbol.id, service);
+	}
 
 	const items: LineItemDraft[] = [];
 	const aggregated = new Map<string, LineItemDraft>();
 
 	for (const shape of shapes) {
-		const service = resolveService(shape, byId, bySymbolId);
+		const service = resolveService(
+			shape,
+			byId,
+			bySymbolId,
+			byRegisteredSymbolId,
+		);
 		if (!service) continue;
 
 		const quantity = quantityForUnit(
