@@ -64,9 +64,18 @@ export type DrawingRestoreVersionInput = z.infer<
 	typeof drawingRestoreVersionInput
 >;
 
+export const drawingThumbnailUrl = z
+	.string()
+	.min(1)
+	.refine(
+		(value) =>
+			value.startsWith("/") || z.string().url().safeParse(value).success,
+		"Must be an absolute URL or a path starting with /.",
+	);
+
 export const drawingSetThumbnailInput = z.object({
 	id: z.string().min(1),
-	thumbnailUrl: z.string().url(),
+	thumbnailUrl: drawingThumbnailUrl,
 });
 
 export type DrawingSetThumbnailInput = z.infer<typeof drawingSetThumbnailInput>;

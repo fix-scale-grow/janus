@@ -33,6 +33,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Local runtime data (e.g. drawing thumbnails on disk)
+/data/
+
 # Misc
 .DS_Store
 *.pem
