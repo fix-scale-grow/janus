@@ -76,14 +76,20 @@ export function LocalRelativeTime({ date }: { date: string }) {
 	);
 }
 
-export function LocalDay({ date }: { date: string }) {
+export function LocalDay({
+	date,
+	options = LOCAL_DAY_OPTIONS,
+}: {
+	date: string;
+	options?: Intl.DateTimeFormatOptions;
+}) {
 	const day = date.slice(0, 10);
 	return (
 		<LocalTime
 			kind="day"
 			date={day}
-			options={LOCAL_DAY_OPTIONS}
-			fallback={getDateTimeFormatter(LOCAL_DAY_OPTIONS).format(dayDate(day))}
+			options={options}
+			fallback={getDateTimeFormatter(options).format(dayDate(day))}
 		/>
 	);
 }
