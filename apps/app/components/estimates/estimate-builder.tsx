@@ -5,6 +5,14 @@ import Money from "@carbon/icons-react/es/Money";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@crm/ui/components/dialog";
+import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
@@ -51,6 +59,9 @@ export type EstimateDetail = RouterOutputs["estimates"]["byId"];
 export type EstimateLineItemRow = EstimateDetail["lineItems"][number];
 export type EstimateTier = EstimateDetail["selectedTier"];
 export type EstimateStatusValue = EstimateDetail["status"];
+
+type ResyncChange =
+	RouterOutputs["estimates"]["resyncFromDrawing"]["changed"][number];
 
 const TIER_LABEL: Record<EstimateTier, string> = {
 	GOOD: "Good",
@@ -150,6 +161,9 @@ export function EstimateBuilder({
 
 	const [editingTitle, setEditingTitle] = useState(false);
 	const [titleDraft, setTitleDraft] = useState(data.title);
+	const [resyncChanges, setResyncChanges] = useState<ResyncChange[] | null>(
+		null,
+	);
 
 	const setQueryData = (
 		updater: (previous: EstimateDetail) => EstimateDetail,
@@ -193,6 +207,20 @@ export function EstimateBuilder({
 				}));
 			},
 			onSuccess: () => void cache.estimate(estimateId, { settle: "record" }),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const resync = useMutation(
+		trpc.estimates.resyncFromDrawing.mutationOptions({
+			onSuccess: async (result) => {
+				await cache.estimate(estimateId, { settle: "record" });
+				if (result.changed.length === 0) {
+					toast.success("Quantities already match.");
+					return;
+				}
+				setResyncChanges(result.changed);
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
@@ -273,6 +301,23 @@ export function EstimateBuilder({
 							))}
 						</SelectContent>
 					</Select>
+					{data.drawingId && (
+						<>
+							<Button variant="outline" size="sm" asChild>
+								<Link href={workspaceUrl(`/drawings/${data.drawingId}`)}>
+									View drawing
+								</Link>
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={resync.isPending}
+								onClick={() => resync.mutate({ id: estimateId })}
+							>
+								Re-sync from drawing
+							</Button>
+						</>
+					)}
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/estimates")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
@@ -356,6 +401,32 @@ export function EstimateBuilder({
 					</div>
 				</div>
 			</PageShellContent>
+
+			<Dialog
+				open={resyncChanges !== null}
+				onOpenChange={(open) => {
+					if (!open) setResyncChanges(null);
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Quantities updated</DialogTitle>
+						<DialogDescription>
+							The drawing changed since this estimate was generated.
+						</DialogDescription>
+					</DialogHeader>
+					<ul className="flex flex-col gap-1 text-sm">
+						{resyncChanges?.map((change) => (
+							<li key={change.lineItemId}>
+								{change.name}: {change.oldQuantity} → {change.newQuantity}
+							</li>
+						))}
+					</ul>
+					<DialogFooter>
+						<Button onClick={() => setResyncChanges(null)}>Done</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</PageShell>
 	);
 }

@@ -22,11 +22,15 @@ import type {
 	LibraryItems,
 	LibraryItems_anyVersion,
 } from "@excalidraw/excalidraw/types";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { DrawingHistory } from "./drawing-history";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
@@ -106,8 +110,20 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		queueSave,
 	);
 	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const router = useRouter();
+	const workspaceUrl = useWorkspaceUrl();
 	const services = useQuery(
 		trpc.services.list.queryOptions({ active: true, pageSize: 100 }),
+	);
+	const generateEstimate = useMutation(
+		trpc.estimates.generateFromDrawing.mutationOptions({
+			onSuccess: (result) => {
+				void cache.estimate(result.id);
+				router.push(workspaceUrl(`/estimates/${result.id}`));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
 	);
 
 	const [calibrating, setCalibrating] = useState(false);
@@ -522,6 +538,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				)}
 
 				<ScopePanel
+					generating={generateEstimate.isPending}
+					onGenerate={() =>
+						generateEstimate.mutate({ drawingId: props.drawingId })
+					}
 					onUpdateShape={updateShape}
 					services={services.data?.rows ?? []}
 					shapes={shapes}

@@ -7,6 +7,7 @@ import {
 	unitCompatibleWithKind,
 } from "@crm/drawings";
 import { Badge } from "@crm/ui/components/badge";
+import { Button } from "@crm/ui/components/button";
 import { Input } from "@crm/ui/components/input";
 import {
 	Select,
@@ -15,6 +16,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@crm/ui/components/tooltip";
 import { useMemo } from "react";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
@@ -30,6 +36,8 @@ export type ScopePanelProps = {
 	shapes: MeasuredShape[];
 	services: ServiceRow[];
 	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
+	onGenerate: () => void;
+	generating: boolean;
 };
 
 function quantityLabel(shape: MeasuredShape): string | null {
@@ -139,6 +147,21 @@ export function ScopePanel(props: ScopePanelProps) {
 		[props.services],
 	);
 
+	const canGenerate = useMemo(
+		() =>
+			props.shapes.some((shape) => {
+				const { service } = resolvedService(
+					shape,
+					servicesById,
+					servicesBySymbol,
+				);
+				return (
+					service !== null && unitCompatibleWithKind(service.unit, shape.kind)
+				);
+			}),
+		[props.shapes, servicesById, servicesBySymbol],
+	);
+
 	return (
 		<div className="flex h-full w-72 shrink-0 flex-col gap-3 overflow-y-auto border-border border-l p-3">
 			<h2 className="font-heading text-sm font-medium">Scope</h2>
@@ -202,6 +225,29 @@ export function ScopePanel(props: ScopePanelProps) {
 					)}
 				</div>
 			))}
+
+			<div className="mt-auto pt-1">
+				{canGenerate ? (
+					<Button
+						className="w-full"
+						disabled={props.generating}
+						onClick={props.onGenerate}
+					>
+						Generate estimate
+					</Button>
+				) : (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<span className="block w-full">
+								<Button className="w-full" disabled>
+									Generate estimate
+								</Button>
+							</span>
+						</TooltipTrigger>
+						<TooltipContent>Tag shapes with services first.</TooltipContent>
+					</Tooltip>
+				)}
+			</div>
 		</div>
 	);
 }
