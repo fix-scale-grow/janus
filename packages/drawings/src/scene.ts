@@ -139,6 +139,7 @@ export type DrawingScene = z.infer<typeof drawingScene>;
 export const drawingScale = z.object({
 	pixelsPerFoot: z.number().positive(),
 	referenceElementId: z.string().nullable().default(null),
+	gridFt: z.number().positive().nullish(),
 });
 
 export type DrawingScale = z.infer<typeof drawingScale>;

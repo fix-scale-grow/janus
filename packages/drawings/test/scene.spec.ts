@@ -75,6 +75,24 @@ describe("parseDrawingScale", () => {
 		).toThrow();
 	});
 
+	it("accepts an optional gridFt", () => {
+		const scale = parseDrawingScale({
+			pixelsPerFoot: 10,
+			referenceElementId: null,
+			gridFt: 5,
+		});
+		expect(scale?.gridFt).toBe(5);
+	});
+
+	it("rejects a zero gridFt", () => {
+		expect(() =>
+			parseDrawingScale({
+				pixelsPerFoot: 10,
+				referenceElementId: null,
+				gridFt: 0,
+			}),
+		).toThrow();
+	});
 });
 
 describe("serviceModifier", () => {

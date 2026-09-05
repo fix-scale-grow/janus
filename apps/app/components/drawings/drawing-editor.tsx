@@ -431,18 +431,35 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	}, [cancelPending]);
 
 	const confirmScale = useCallback(
-		(feet: number) => {
+		(feet: number, gridFt: number | null) => {
 			if (!calibrationTarget) return;
 			const pixelsPerFoot = calibrationTarget.pixelLength / feet;
 			setScale({
 				pixelsPerFoot,
 				referenceElementId: calibrationTarget.elementId,
+				gridFt,
 			});
 			setCalibrationTarget(null);
 			queueSave();
 		},
 		[calibrationTarget, queueSave],
 	);
+
+	useEffect(() => {
+		const api = excalidrawApi;
+		if (!api) return;
+		if (scale?.gridFt) {
+			const gridSize = Math.max(
+				1,
+				Math.round(scale.pixelsPerFoot * scale.gridFt),
+			);
+			api.updateScene({
+				appState: { gridModeEnabled: true, gridSize, gridStep: gridSize },
+			});
+		} else {
+			api.updateScene({ appState: { gridModeEnabled: false } });
+		}
+	}, [scale, excalidrawApi]);
 
 	return (
 		<div className="flex h-full w-full min-w-0 flex-col">
