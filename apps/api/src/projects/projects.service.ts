@@ -26,6 +26,11 @@ const SORTABLE: Record<
 	updatedAt: (dir) => [{ updatedAt: dir }],
 };
 
+function sameDay(a: Date | null, b: Date | null): boolean {
+	if (a === null || b === null) return a === b;
+	return a.getTime() === b.getTime();
+}
+
 const LIST_SELECT = {
 	id: true,
 	name: true,
@@ -203,7 +208,7 @@ export class ProjectsService {
 		return this.db.$transaction(async (tx) => {
 			const task = await tx.projectTask.findUnique({
 				where: { id: input.id },
-				select: { id: true, projectId: true },
+				select: { id: true, projectId: true, day: true },
 			});
 			if (!task) {
 				throw new NotFoundException(`No task with id ${input.id}.`);
@@ -243,6 +248,29 @@ export class ProjectsService {
 						}),
 					),
 			);
+
+			if (!sameDay(task.day, input.day)) {
+				const orphaned = await tx.projectTask.findMany({
+					where: {
+						projectId: task.projectId,
+						day: task.day,
+						id: { not: task.id },
+					},
+					orderBy: { sortOrder: "asc" },
+					select: { id: true, sortOrder: true },
+				});
+
+				await Promise.all(
+					orphaned
+						.filter((sibling, sortOrder) => sibling.sortOrder !== sortOrder)
+						.map((sibling) =>
+							tx.projectTask.update({
+								where: { id: sibling.id },
+								data: { sortOrder: orphaned.indexOf(sibling) },
+							}),
+						),
+				);
+			}
 
 			return tx.projectTask.findUniqueOrThrow({ where: { id: task.id } });
 		});
