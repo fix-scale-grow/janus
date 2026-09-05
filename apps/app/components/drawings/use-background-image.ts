@@ -3,10 +3,18 @@
 import { DRAWINGS } from "@crm/drawings";
 import type { FileId } from "@excalidraw/excalidraw/element/types";
 import type {
+	BinaryFileData,
 	DataURL,
 	ExcalidrawImperativeAPI,
 } from "@excalidraw/excalidraw/types";
 import { useCallback, useRef } from "react";
+
+function sourceMimeType(fileType: string): BinaryFileData["mimeType"] {
+	if (fileType.startsWith("image/")) {
+		return fileType as BinaryFileData["mimeType"];
+	}
+	return "image/png";
+}
 
 function readAsDataUrl(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -26,19 +34,27 @@ function loadImage(dataURL: string): Promise<HTMLImageElement> {
 	});
 }
 
-function downscale(image: HTMLImageElement, maxDimensionPx: number): string {
+function downscale(
+	image: HTMLImageElement,
+	maxDimensionPx: number,
+	jpegQuality: number,
+): { dataURL: string; reencoded: boolean } {
 	const largest = Math.max(image.naturalWidth, image.naturalHeight);
-	if (largest <= maxDimensionPx) return image.src;
+	if (largest <= maxDimensionPx)
+		return { dataURL: image.src, reencoded: false };
 
 	const scale = maxDimensionPx / largest;
 	const canvas = document.createElement("canvas");
 	canvas.width = Math.round(image.naturalWidth * scale);
 	canvas.height = Math.round(image.naturalHeight * scale);
 	const context = canvas.getContext("2d");
-	if (!context) return image.src;
+	if (!context) return { dataURL: image.src, reencoded: false };
 
 	context.drawImage(image, 0, 0, canvas.width, canvas.height);
-	return canvas.toDataURL("image/jpeg", DRAWINGS.backgroundImage.jpegQuality);
+	return {
+		dataURL: canvas.toDataURL("image/jpeg", jpegQuality),
+		reencoded: true,
+	};
 }
 
 export function useBackgroundImage(
@@ -60,12 +76,13 @@ export function useBackgroundImage(
 
 			const rawDataUrl = await readAsDataUrl(file);
 			const rawImage = await loadImage(rawDataUrl);
-			const dataURL = downscale(
+			const { dataURL, reencoded } = downscale(
 				rawImage,
 				DRAWINGS.backgroundImage.maxDimensionPx,
+				DRAWINGS.backgroundImage.jpegQuality,
 			);
-			const image =
-				dataURL === rawDataUrl ? rawImage : await loadImage(dataURL);
+			const image = reencoded ? await loadImage(dataURL) : rawImage;
+			const mimeType = reencoded ? "image/jpeg" : sourceMimeType(file.type);
 
 			const {
 				CaptureUpdateAction,
@@ -92,7 +109,7 @@ export function useBackgroundImage(
 				{
 					id: fileId,
 					dataURL: dataURL as DataURL,
-					mimeType: file.type === "image/png" ? "image/png" : "image/jpeg",
+					mimeType,
 					created: Date.now(),
 				},
 			]);
