@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { createTransport } from "nodemailer";
 import type { MailerConfig } from "./mailer.config";
@@ -68,7 +68,7 @@ export class MailerService {
 				text: input.text,
 				html: input.html,
 				attachments: input.attachments?.map((attachment) => ({
-					filename: attachment.filename,
+					filename: safeFilename(attachment.filename),
 					content: attachment.content,
 					contentType: attachment.contentType,
 				})),
@@ -98,8 +98,13 @@ export class MailerService {
 
 			const attachments = input.attachments ?? [];
 
+			const safeAttachments = attachments.map((attachment) => ({
+				filename: safeFilename(attachment.filename),
+				content: attachment.content,
+			}));
+
 			await Promise.all(
-				attachments.map((attachment) =>
+				safeAttachments.map((attachment) =>
 					writeFile(join(dir, attachment.filename), attachment.content),
 				),
 			);
@@ -113,7 +118,7 @@ export class MailerService {
 						subject: input.subject,
 						text: input.text,
 						html: input.html ?? null,
-						attachments: attachments.map((attachment) => ({
+						attachments: safeAttachments.map((attachment) => ({
 							filename: attachment.filename,
 							bytes: attachment.content.byteLength,
 						})),
@@ -143,4 +148,21 @@ function slugify(subject: string): string {
 		.replace(/^-+|-+$/g, "");
 
 	return slug || "message";
+}
+
+function safeFilename(filename: string): string {
+	const base = basename(filename);
+	const ext = extname(base).slice(1).toLowerCase();
+	const stemSource = ext ? base.slice(0, -(ext.length + 1)) : base;
+
+	const stem = stemSource
+		.toLowerCase()
+		.replace(/[^a-z0-9-_]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+
+	const safeExt = /^[a-z0-9]{1,8}$/.test(ext) ? ext : "";
+
+	if (!stem && !safeExt) return "attachment.bin";
+	if (!stem) return `attachment.${safeExt}`;
+	return safeExt ? `${stem}.${safeExt}` : stem;
 }

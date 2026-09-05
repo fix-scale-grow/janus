@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { MailerService } from "../src/mailer/mailer.service";
 
 const dirs: string[] = [];
@@ -79,5 +79,47 @@ describe("MailerService file transport", () => {
 
 		const writtenBytes = await readFile(join(sendDir, "estimate.pdf"));
 		expect(writtenBytes.equals(content)).toBe(true);
+	});
+
+	it("sanitizes a path-traversal filename to stay inside the per-send dir", async () => {
+		const outboxDir = await tempOutboxDir();
+		const mailer = new MailerService({
+			transport: "file",
+			outboxDir,
+			from: "Janus <estimates@example.com>",
+		});
+
+		const content = Buffer.from("evil bytes");
+
+		const result = await mailer.send({
+			to: "customer@example.com",
+			subject: "Escape test",
+			text: "See attached.",
+			attachments: [{ filename: "../../escape.txt", content }],
+		});
+
+		expect(result.delivered).toBe(true);
+
+		const entries = await readdir(outboxDir);
+		expect(entries).toHaveLength(1);
+
+		const sendDir = join(outboxDir, entries[0] ?? "");
+		const sendDirEntries = await readdir(sendDir);
+
+		expect(sendDirEntries.sort()).toEqual(["envelope.json", "escape.txt"]);
+
+		const outsideEntries = await readdir(dirname(outboxDir));
+		expect(outsideEntries).not.toContain("escape.txt");
+
+		const writtenBytes = await readFile(join(sendDir, "escape.txt"));
+		expect(writtenBytes.equals(content)).toBe(true);
+
+		const envelopeRaw = await readFile(join(sendDir, "envelope.json"), "utf8");
+		const envelope = JSON.parse(envelopeRaw) as {
+			attachments: { filename: string; bytes: number }[];
+		};
+		expect(envelope.attachments).toEqual([
+			{ filename: "escape.txt", bytes: content.byteLength },
+		]);
 	});
 });
