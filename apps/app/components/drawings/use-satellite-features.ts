@@ -170,7 +170,9 @@ export function useSatelliteFeatures(
 			let cancelled = false;
 
 			(async () => {
-				const { Map: MaplibreMap } = await import("maplibre-gl");
+				const { Map: MaplibreMap, setWorkerUrl } = await import("maplibre-gl");
+				setWorkerUrl("/vendor/maplibre-gl/maplibre-gl-worker.mjs");
+				if (cancelled) return;
 				const saved = sceneRef.current.satellite;
 				const center = saved?.center ?? DRAWINGS.satellite.fallbackCenter;
 				const zoom = saved?.zoom ?? DRAWINGS.satellite.fallbackZoom;

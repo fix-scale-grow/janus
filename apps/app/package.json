@@ -9,7 +9,8 @@
 		"typegen": "next typegen",
 		"check-types": "tsc --noEmit",
 		"test": "bun test",
-		"lint": "biome check ."
+		"lint": "biome check .",
+		"postinstall": "node scripts/sync-maplibre-worker.mjs"
 	},
 	"dependencies": {
 		"@carbon/icons-react": "^11.82.0",

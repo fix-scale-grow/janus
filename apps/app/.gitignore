@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# synced from node_modules/maplibre-gl by scripts/sync-maplibre-worker.mjs
+/public/vendor/maplibre-gl/
+
 # production
 /build
 
