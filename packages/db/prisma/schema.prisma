@@ -50,6 +50,7 @@ model User {
 
   estimates Estimate[] @relation("EstimateCreator")
   invoices  Invoice[]  @relation("InvoiceCreator")
+  contracts Contract[] @relation("ContractCreator")
 
   createdProjects Project[]     @relation("ProjectCreator")
   projectTasks    ProjectTask[] @relation("ProjectTaskAssignee")
@@ -410,6 +411,7 @@ model Contact {
   drawings        Drawing[]
   estimates       Estimate[]
   invoices        Invoice[]
+  contracts       Contract[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -964,6 +966,7 @@ model Deal {
   estimates   Estimate[]
   invoices    Invoice[]
   projects    Project[]
+  contracts   Contract[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -1106,6 +1109,7 @@ model Estimate {
   createdBy    User               @relation("EstimateCreator", fields: [createdById], references: [id])
   lineItems    EstimateLineItem[]
   invoices     Invoice[]
+  contracts    Contract[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -1181,6 +1185,7 @@ model Invoice {
   createdById String
   createdBy   User              @relation("InvoiceCreator", fields: [createdById], references: [id])
   lineItems   InvoiceLineItem[]
+  contracts   Contract[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -1800,4 +1805,71 @@ model SsoProvider {
 
   @@unique([providerId])
   @@map("ssoProvider")
+}
+
+enum TemplateType {
+  EMAIL
+  CONTRACT
+}
+
+enum TemplatePurpose {
+  ESTIMATE_SEND
+  INVOICE_SEND
+  CONTRACT_SEND
+  CONTRACT_BODY
+}
+
+model Template {
+  id          String          @id @default(cuid())
+  name        String
+  type        TemplateType
+  purpose     TemplatePurpose @unique
+  subject     String?
+  blocks      Json
+  updatedById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("template")
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  VOID
+}
+
+model Contract {
+  id             String         @id @default(cuid())
+  number         Int            @unique @default(autoincrement())
+  title          String
+  status         ContractStatus @default(DRAFT)
+  body           Json
+  dealId         String?
+  deal           Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  estimateId     String?
+  estimate       Estimate?      @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  invoiceId      String?
+  invoice        Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdById    String
+  createdBy      User           @relation("ContractCreator", fields: [createdById], references: [id])
+  sentAt         DateTime?
+  sentTo         String?
+  signedAt       DateTime?
+  signerName     String?
+  signatureKind  String?
+  signatureData  String?
+  signingToken   String?        @unique
+  tokenExpiresAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([dealId])
+  @@index([contactId])
+  @@index([estimateId])
+  @@index([status])
+  @@map("contract")
 }
