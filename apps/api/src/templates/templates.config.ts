@@ -60,11 +60,10 @@ const estimateSendBlocks: TemplateBlocks = [
 		kind: "text",
 		html: "Hi {{contact.first_name}}, thanks for the chance to work with {{business.name}}. Your estimate {{estimate.title}} for {{estimate.total}} is attached as a PDF.",
 	},
-	{ kind: "button", label: "View estimate" },
 	{ kind: "divider" },
 	{
 		kind: "text",
-		html: "{{personal_note}}<br>{{sender.name}}, {{business.name}}",
+		html: "{{personal_note}}<br>Reply to this email with any questions.<br>{{sender.name}}, {{business.name}}",
 	},
 ];
 
@@ -75,11 +74,10 @@ const invoiceSendBlocks: TemplateBlocks = [
 		kind: "text",
 		html: "Hi {{contact.first_name}}, here is invoice {{invoice.number}} from {{business.name}} for {{invoice.total}}, due {{invoice.due_date}}. Your invoice is attached as a PDF.",
 	},
-	{ kind: "button", label: "View invoice" },
 	{ kind: "divider" },
 	{
 		kind: "text",
-		html: "{{personal_note}}<br>{{sender.name}}, {{business.name}}",
+		html: "{{personal_note}}<br>Reply to this email with any questions.<br>{{sender.name}}, {{business.name}}",
 	},
 ];
 
@@ -94,7 +92,7 @@ const contractSendBlocks: TemplateBlocks = [
 	{ kind: "divider" },
 	{
 		kind: "text",
-		html: "If the button does not work, open this link: {{signing_link}}. {{personal_note}}<br>{{sender.name}}, {{business.name}}",
+		html: "If the button does not work, open this link: {{signing_link}}. {{personal_note}}<br>Reply to this email with any questions.<br>{{sender.name}}, {{business.name}}",
 	},
 ];
 
