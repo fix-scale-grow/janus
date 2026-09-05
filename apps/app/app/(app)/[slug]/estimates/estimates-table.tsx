@@ -38,6 +38,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { TableCell } from "@crm/ui/components/table";
+import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -79,13 +80,6 @@ const STATUS_VARIANT: Record<
 	ACCEPTED: "outline",
 	DECLINED: "destructive",
 };
-
-function formatDollars(cents: number): string {
-	return `$${(cents / 100).toLocaleString(undefined, {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	})}`;
-}
 
 function StatusBadge({ status }: { status: EstimateRow["status"] }) {
 	return <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>;
@@ -140,7 +134,7 @@ function PageEstimatesTable() {
 			width: "w-[16%]",
 			cell: (row) => (
 				<span className="tabular-nums">
-					{formatDollars(row.totalBetterCents)}
+					{formatMoney(row.totalBetterCents, row.currency)}
 				</span>
 			),
 		},
@@ -267,7 +261,7 @@ function EmbeddedEstimatesTable({ dealId }: { dealId: string }) {
 						<StatusBadge status={row.status} />
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right tabular-nums">
-						{formatDollars(row.totalBetterCents)}
+						{formatMoney(row.totalBetterCents, row.currency)}
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right text-muted-foreground">
 						<LocalRelativeTime date={row.updatedAt} />
