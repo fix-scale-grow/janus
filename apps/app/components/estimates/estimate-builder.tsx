@@ -53,6 +53,7 @@ import {
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
+import { StartProjectDialog } from "@/components/projects/start-project-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -412,6 +413,7 @@ export function EstimateBuilder({
 						<Icon icon={CurrencyDollar} data-icon="inline-start" />
 						Convert to invoice
 					</Button>
+					{data.dealId ? <EstimateProjectAction dealId={data.dealId} /> : null}
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/estimates")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
@@ -533,5 +535,46 @@ export function EstimateBuilder({
 				mutation={sendEstimate}
 			/>
 		</PageShell>
+	);
+}
+
+function EstimateProjectAction({ dealId }: { dealId: string }) {
+	const trpc = useTRPC();
+	const workspaceUrl = useWorkspaceUrl();
+
+	const deal = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
+	const activeProject = useQuery(
+		trpc.projects.list.queryOptions({
+			dealId,
+			status: "ACTIVE",
+			pageSize: 1,
+			sort: "updatedAt",
+			dir: "desc",
+		}),
+	);
+
+	const project = activeProject.data?.rows[0];
+
+	if (project) {
+		return (
+			<Button variant="outline" size="sm" asChild>
+				<Link href={workspaceUrl(`/projects/${project.id}`)}>Project</Link>
+			</Button>
+		);
+	}
+
+	if (!deal.data) return null;
+
+	return (
+		<StartProjectDialog
+			dealId={dealId}
+			dealName={deal.data.name}
+			expectedCloseDate={deal.data.expectedCloseDate}
+			trigger={
+				<Button variant="outline" size="sm">
+					Start project
+				</Button>
+			}
+		/>
 	);
 }
