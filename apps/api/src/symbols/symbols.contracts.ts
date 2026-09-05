@@ -1,8 +1,11 @@
-import { excalidrawElement } from "@crm/drawings";
+import { DRAWINGS, excalidrawElement } from "@crm/drawings";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
 
-export const symbolElements = z.array(excalidrawElement).min(1).max(50);
+export const symbolElements = z
+	.array(excalidrawElement)
+	.min(1)
+	.max(DRAWINGS.symbol.maxElements);
 
 const dimensionFt = z.number().positive().max(999.99).nullish();
 
