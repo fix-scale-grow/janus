@@ -85,9 +85,15 @@ function StatusBadge({ status }: { status: EstimateRow["status"] }) {
 	return <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>;
 }
 
-export function EstimatesTable({ dealId }: { dealId?: string } = {}) {
-	return dealId ? (
-		<EmbeddedEstimatesTable dealId={dealId} />
+export function EstimatesTable({
+	dealId,
+	contactId,
+}: {
+	dealId?: string;
+	contactId?: string;
+} = {}) {
+	return dealId || contactId ? (
+		<EmbeddedEstimatesTable dealId={dealId} contactId={contactId} />
 	) : (
 		<PageEstimatesTable />
 	);
@@ -193,7 +199,13 @@ function PageEstimatesTable() {
 	);
 }
 
-function EmbeddedEstimatesTable({ dealId }: { dealId: string }) {
+function EmbeddedEstimatesTable({
+	dealId,
+	contactId,
+}: {
+	dealId?: string;
+	contactId?: string;
+}) {
 	const trpc = useTRPC();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
@@ -206,6 +218,7 @@ function EmbeddedEstimatesTable({ dealId }: { dealId: string }) {
 			page: 1,
 			pageSize: 50,
 			dealId,
+			contactId,
 		}),
 		placeholderData: (previous) => previous,
 	});

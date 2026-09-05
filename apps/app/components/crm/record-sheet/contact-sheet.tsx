@@ -23,6 +23,10 @@ import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { EstimatesTable } from "@/app/(app)/[slug]/estimates/estimates-table";
+import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-button";
+import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
+import { NewInvoiceButton } from "@/app/(app)/[slug]/invoices/new-invoice-button";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
@@ -51,6 +55,8 @@ import {
 	DetailSheetStats,
 	type DetailSheetTab,
 } from "@/components/detail-sheet";
+import { DrawingGrid } from "@/components/drawings/drawing-grid";
+import { NewDrawingMenu } from "@/components/drawings/new-drawing-menu";
 import { LocalDateTime, LocalRelativeDate } from "@/components/local-date-time";
 import { factsByField } from "@/lib/contact-facts";
 import { ENRICHMENT_POLL_MS, isEnriching } from "@/lib/enrichment-status";
@@ -129,6 +135,21 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 					value: "activity",
 					label: "Activity",
 					content: <Timeline anchor={{ contactId: contact.id }} />,
+				},
+				{
+					value: "drawings",
+					label: "Drawings",
+					content: <ContactDrawings contact={contact} />,
+				},
+				{
+					value: "estimates",
+					label: "Estimates",
+					content: <ContactEstimates contact={contact} />,
+				},
+				{
+					value: "invoices",
+					label: "Invoices",
+					content: <ContactInvoices contact={contact} />,
 				},
 				{
 					value: "agent",
@@ -586,6 +607,45 @@ function Colleagues({
 				</button>
 			))}
 		</span>
+	);
+}
+
+function ContactDrawings({ contact }: { contact: Contact }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Drawings"
+				action={<NewDrawingMenu contactId={contact.id} size="sm" />}
+			>
+				<DrawingGrid contactId={contact.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function ContactEstimates({ contact }: { contact: Contact }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Estimates"
+				action={<NewEstimateButton contactId={contact.id} size="sm" />}
+			>
+				<EstimatesTable contactId={contact.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function ContactInvoices({ contact }: { contact: Contact }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Invoices"
+				action={<NewInvoiceButton contactId={contact.id} size="sm" />}
+			>
+				<InvoicesTable contactId={contact.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
 	);
 }
 

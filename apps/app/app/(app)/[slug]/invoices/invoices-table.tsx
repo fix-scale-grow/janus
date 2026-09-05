@@ -100,9 +100,15 @@ function AgingBadge({ aging }: { aging: InvoiceRow["aging"] }) {
 	);
 }
 
-export function InvoicesTable({ dealId }: { dealId?: string } = {}) {
-	return dealId ? (
-		<EmbeddedInvoicesTable dealId={dealId} />
+export function InvoicesTable({
+	dealId,
+	contactId,
+}: {
+	dealId?: string;
+	contactId?: string;
+} = {}) {
+	return dealId || contactId ? (
+		<EmbeddedInvoicesTable dealId={dealId} contactId={contactId} />
 	) : (
 		<PageInvoicesTable />
 	);
@@ -229,7 +235,13 @@ function PageInvoicesTable() {
 	);
 }
 
-function EmbeddedInvoicesTable({ dealId }: { dealId: string }) {
+function EmbeddedInvoicesTable({
+	dealId,
+	contactId,
+}: {
+	dealId?: string;
+	contactId?: string;
+}) {
 	const trpc = useTRPC();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
@@ -242,6 +254,7 @@ function EmbeddedInvoicesTable({ dealId }: { dealId: string }) {
 			page: 1,
 			pageSize: 50,
 			dealId,
+			contactId,
 		}),
 		placeholderData: (previous) => previous,
 	});
