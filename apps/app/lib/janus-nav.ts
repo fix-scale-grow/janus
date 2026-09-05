@@ -4,6 +4,7 @@ import Chat from "@carbon/icons-react/es/Chat";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
 import Mobile from "@carbon/icons-react/es/Mobile";
 import Partnership from "@carbon/icons-react/es/Partnership";
+import PenFountain from "@carbon/icons-react/es/PenFountain";
 import Settings from "@carbon/icons-react/es/Settings";
 import Tools from "@carbon/icons-react/es/Tools";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
@@ -105,6 +106,14 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Mobile,
 		source: "app/field",
+	},
+	{
+		title: "Drawings",
+		href: "/drawings",
+		match: "prefix",
+		status: "live",
+		icon: PenFountain,
+		source: "app/(app)/drawings",
 	},
 	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{
