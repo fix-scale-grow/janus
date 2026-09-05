@@ -25,6 +25,7 @@ import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneI
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
@@ -43,6 +44,7 @@ import type { FieldsRouter } from "../fields/fields.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
 import type { SearchRouter } from "../search/search.router";
+import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
 import type { SettingsRouter } from "../settings/settings.router";
 import type { SlackRouter } from "../slack/slack.router";
 import type { SsoRouter } from "../sso/sso.router";
@@ -411,6 +413,25 @@ const appRouter = t.router({
     quick: publicProcedure
       .input(z.object({ q: z.string().default("") }))
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SearchRouter["quick"]>>)
+    }),
+  services: t.router({
+    list: publicProcedure
+      .input(serviceListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ServicesCatalogRouter["list"]>>),
+    byId: publicProcedure
+      .input(serviceIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ServicesCatalogRouter["byId"]>>),
+    create: publicProcedure
+      .input(serviceCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ServicesCatalogRouter["create"]>>),
+    update: publicProcedure
+      .input(serviceUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ServicesCatalogRouter["update"]>>),
+    delete: publicProcedure
+      .input(serviceIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ServicesCatalogRouter["delete"]>>),
+    seedRoofing: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ServicesCatalogRouter["seedRoofing"]>>)
     }),
   settings: t.router({
     agentModel: publicProcedure
