@@ -6,6 +6,8 @@ import {
 	DRAWINGS,
 	type DrawingScale,
 	type DrawingScene,
+	parseLibraryFileItems,
+	parseStoredLibraryItems,
 	polylineLengthFt,
 	type ScopeCustomData,
 	scopeCustomData,
@@ -16,10 +18,12 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type {
 	ExcalidrawImperativeAPI,
 	ExcalidrawProps,
+	LibraryItems,
+	LibraryItems_anyVersion,
 } from "@excalidraw/excalidraw/types";
 import dynamic from "next/dynamic";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DrawingHistory } from "./drawing-history";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
@@ -80,6 +84,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		((scopeId: string, update: ScopeShapeUpdate) => void) | null
 	>(null);
 	const [surface, setSurface] = useState<Surface>("sketch");
+	const [excalidrawApi, setExcalidrawApi] =
+		useState<ExcalidrawImperativeAPI | null>(null);
 	const [tool, setTool] = useQueryState("tool", toolParser);
 	const initialToolRef = useRef(tool);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
@@ -106,10 +112,104 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const excalidrawApiRef = useCallback(
 		(api: ExcalidrawImperativeAPI) => {
 			apiRef.current = api;
+			setExcalidrawApi(api);
 			if (tool === "freedraw") void setTool(null);
 		},
 		[tool, setTool],
 	);
+
+	const onLibraryChange = useCallback((libraryItems: LibraryItems) => {
+		try {
+			window.localStorage.setItem(
+				DRAWINGS.library.storageKey,
+				JSON.stringify(libraryItems),
+			);
+		} catch {
+			return;
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!excalidrawApi) return;
+
+		let cancelled = false;
+
+		const loadPersistedLibrary = async () => {
+			let stored: unknown[] | null = null;
+			try {
+				const raw = window.localStorage.getItem(DRAWINGS.library.storageKey);
+				stored = raw ? parseStoredLibraryItems(JSON.parse(raw)) : null;
+			} catch {
+				stored = null;
+			}
+			if (stored && stored.length > 0 && !cancelled) {
+				const { restoreLibraryItems } = await import("@excalidraw/excalidraw");
+				await excalidrawApi.updateLibrary({
+					libraryItems: restoreLibraryItems(
+						stored as unknown as LibraryItems_anyVersion,
+						"unpublished",
+					),
+					merge: true,
+				});
+			}
+		};
+
+		const installLibraryFromUrl = async () => {
+			const { parseLibraryTokensFromUrl, restoreLibraryItems } = await import(
+				"@excalidraw/excalidraw"
+			);
+			const tokens = parseLibraryTokensFromUrl();
+			if (!tokens) return;
+			let libraryUrl: URL;
+			try {
+				libraryUrl = new URL(tokens.libraryUrl);
+			} catch {
+				return;
+			}
+			if (
+				libraryUrl.protocol !== "https:" ||
+				!DRAWINGS.library.allowedHostSuffixes.some((suffix) =>
+					libraryUrl.hostname.endsWith(suffix),
+				)
+			) {
+				return;
+			}
+			const response = await fetch(tokens.libraryUrl);
+			if (!response.ok) return;
+			let libraryItems: LibraryItems;
+			try {
+				const raw = parseLibraryFileItems(await response.json());
+				libraryItems = restoreLibraryItems(
+					raw as unknown as LibraryItems_anyVersion,
+					"unpublished",
+				);
+			} catch {
+				return;
+			}
+			if (cancelled) return;
+			await excalidrawApi.updateLibrary({
+				libraryItems,
+				merge: true,
+				openLibraryMenu: true,
+			});
+			const url = new URL(window.location.href);
+			url.hash = "";
+			window.history.replaceState({}, "", url.toString());
+		};
+
+		void loadPersistedLibrary().then(() => {
+			if (!cancelled) void installLibraryFromUrl();
+		});
+
+		const onHashChange = () => {
+			void installLibraryFromUrl();
+		};
+		window.addEventListener("hashchange", onHashChange);
+		return () => {
+			cancelled = true;
+			window.removeEventListener("hashchange", onHashChange);
+		};
+	}, [excalidrawApi]);
 
 	const onChange = useCallback<OnChange>(
 		(elements, appState, files) => {
@@ -331,6 +431,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				>
 					<Excalidraw
 						excalidrawAPI={excalidrawApiRef}
+						libraryReturnUrl={
+							typeof window !== "undefined" ? window.location.href : undefined
+						}
+						onLibraryChange={onLibraryChange}
 						initialData={
 							{
 								elements: props.initialScene.excalidraw.elements,

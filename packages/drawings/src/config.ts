@@ -21,6 +21,10 @@ export const DRAWINGS = {
 	unattachedNudgeDays: 3,
 	scopePanel: { recomputeMs: 500 },
 	pin: { sizePx: 24 },
+	library: {
+		storageKey: "janus.drawings.library",
+		allowedHostSuffixes: ["excalidraw.com"],
+	},
 	limits: { maxSceneBytes: 8_000_000, maxVersions: 50 },
 	backgroundImage: { maxDimensionPx: 2_400, jpegQuality: 0.85 },
 	satellite: {

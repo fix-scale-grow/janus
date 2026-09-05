@@ -38,6 +38,22 @@ export const excalidrawSceneData = z.object({
 
 export type ExcalidrawSceneData = z.infer<typeof excalidrawSceneData>;
 
+export const libraryFileEnvelope = z
+	.object({
+		libraryItems: z.array(z.unknown()).optional(),
+		library: z.array(z.unknown()).optional(),
+	})
+	.loose();
+
+export function parseLibraryFileItems(value: unknown): unknown[] {
+	const parsed = libraryFileEnvelope.parse(value);
+	return parsed.libraryItems ?? parsed.library ?? [];
+}
+
+export function parseStoredLibraryItems(value: unknown): unknown[] {
+	return z.array(z.unknown()).parse(value);
+}
+
 export const satelliteMeasured = z
 	.object({ areaSqFt: z.number() })
 	.or(z.object({ lengthFt: z.number() }))
