@@ -10,6 +10,7 @@ import { AppCacheModule } from "./cache/cache.module";
 import { CompaniesModule } from "./companies/companies.module";
 import { validateEnv } from "./config/env.validation";
 import { ContactsModule } from "./contacts/contacts.module";
+import { ContractsModule } from "./contracts/contracts.module";
 import { ConversationsModule } from "./conversations/conversations.module";
 import { CrmModule } from "./crm/crm.module";
 import { CurrencyModule } from "./currency/currency.module";
@@ -60,6 +61,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		UsersModule,
 		CompaniesModule,
 		ContactsModule,
+		ContractsModule,
 		ConversationsModule,
 		CurrencyModule,
 		DealsModule,
