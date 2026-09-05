@@ -43,7 +43,7 @@ const STATUS_OPTIONS: { value: Project["status"]; label: string }[] = [
 
 function todayUtc(): number {
 	const now = new Date();
-	return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+	return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 function countdown(goalDate: string | null): string | null {
@@ -77,10 +77,10 @@ export function ProjectHeader({ id }: { id: string }) {
 
 	const remove = useMutation(
 		trpc.projects.remove.mutationOptions({
-			onSuccess: async (deleted) => {
+			onSuccess: (deleted) => {
 				toast.success(`${deleted.name || "The project"} was deleted.`);
-				await cache.project(id);
 				router.push(workspaceUrl("/projects"));
+				void cache.project(id);
 			},
 			onError: (error) => toast.error(error.message),
 		}),

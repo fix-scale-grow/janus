@@ -10,6 +10,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import {
+	normalizeProjectStatus,
 	type ProjectStatusFilter,
 	projectsSearchParams,
 } from "./projects-search-params";
@@ -27,7 +28,7 @@ export function ProjectsTable() {
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
 	const { query, input } = useTableQuery(projectsSearchParams);
-	const status = input.status as ProjectStatusFilter;
+	const status = normalizeProjectStatus(input.status);
 
 	const projects = useQuery({
 		...trpc.projects.list.queryOptions({

@@ -13,7 +13,7 @@ import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import {
-	type ProjectStatusFilter,
+	normalizeProjectStatus,
 	projectsSearchParams,
 } from "./projects-search-params";
 import { ProjectsTable } from "./projects-table";
@@ -56,7 +56,7 @@ async function Projects({
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
 	const input = projectsSearchParams.toInput(values);
-	const status = input.status as ProjectStatusFilter;
+	const status = normalizeProjectStatus(input.status);
 	await queryClient.prefetchQuery(
 		trpc.projects.list.queryOptions({
 			...input,
