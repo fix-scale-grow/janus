@@ -54,33 +54,20 @@ import { Spinner } from "@crm/ui/components/spinner";
 import { Switch } from "@crm/ui/components/switch";
 import { TableCell } from "@crm/ui/components/table";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+import type { z } from "zod";
+import { parseSymbolRowsWith, symbolRowBase } from "@/lib/symbol-rows";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
-const symbolRow = z.object({
-	id: z.string().min(1),
-	name: z.string().min(1),
-	trade: z.string().min(1),
-	widthFt: z.coerce.number().positive().nullable(),
-	heightFt: z.coerce.number().positive().nullable(),
-	serviceId: z.string().min(1).nullable(),
-	serviceName: z.string().min(1).nullable(),
-	active: z.boolean(),
-});
+type SymbolRow = z.infer<typeof symbolRowBase>;
 
-type SymbolRow = z.infer<typeof symbolRow>;
-
-function parseSymbolRows(value: unknown): SymbolRow[] {
-	if (!Array.isArray(value)) return [];
-	const rows: SymbolRow[] = [];
-	for (const item of value) {
-		const parsed = symbolRow.safeParse(item);
-		if (parsed.success) rows.push(parsed.data);
-	}
-	return rows;
+function parseSymbolRows(value: unknown): {
+	rows: SymbolRow[];
+	failed: number;
+} {
+	return parseSymbolRowsWith(symbolRowBase, value);
 }
 
 function reportError(error: { message: string }) {
@@ -179,10 +166,21 @@ export function SymbolsTable() {
 		}),
 	);
 
-	const rows = useMemo(
+	const { rows, failed } = useMemo(
 		() => parseSymbolRows(symbols.data?.rows),
 		[symbols.data],
 	);
+
+	const reportedFailureRef = useRef(0);
+	useEffect(() => {
+		if (failed > 0 && failed !== reportedFailureRef.current) {
+			toast.error(
+				`${failed} symbol${failed === 1 ? "" : "s"} could not be read.`,
+			);
+		}
+		reportedFailureRef.current = failed;
+	}, [failed]);
+
 	const serviceOptions = services.data?.rows ?? [];
 
 	return (

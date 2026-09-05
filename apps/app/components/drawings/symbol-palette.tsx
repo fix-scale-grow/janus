@@ -22,22 +22,13 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+import type { z } from "zod";
+import { parseSymbolRowsWith, symbolRowBase } from "@/lib/symbol-rows";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
-const symbolDimensionFt = z.coerce.number().positive().nullable();
-
-const symbolRow = z.object({
-	id: z.string().min(1),
-	name: z.string().min(1),
-	trade: z.string().min(1),
+const symbolRow = symbolRowBase.extend({
 	elements: excalidrawElement.array(),
-	widthFt: symbolDimensionFt,
-	heightFt: symbolDimensionFt,
-	serviceId: z.string().min(1).nullable(),
-	serviceName: z.string().min(1).nullable(),
-	active: z.boolean(),
 });
 
 type SymbolRow = z.infer<typeof symbolRow>;
@@ -46,18 +37,7 @@ function parseSymbolRows(value: unknown): {
 	rows: SymbolRow[];
 	failed: number;
 } {
-	if (!Array.isArray(value)) return { rows: [], failed: 0 };
-	const rows: SymbolRow[] = [];
-	let failed = 0;
-	for (const item of value) {
-		const parsed = symbolRow.safeParse(item);
-		if (parsed.success) {
-			rows.push(parsed.data);
-		} else {
-			failed += 1;
-		}
-	}
-	return { rows, failed };
+	return parseSymbolRowsWith(symbolRow, value);
 }
 
 export type SymbolPaletteProps = {
