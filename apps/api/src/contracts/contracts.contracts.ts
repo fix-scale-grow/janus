@@ -2,6 +2,7 @@ import { ContractStatus } from "@crm/db";
 import { z } from "zod";
 import { templateBlocksSchema } from "../templates/template-blocks";
 import { listInput } from "../trpc/list-input";
+import { CONTRACTS } from "./contracts.config";
 
 const statusEnum = z.enum(
 	Object.values(ContractStatus) as [ContractStatus, ...ContractStatus[]],
@@ -64,3 +65,51 @@ export const contractSendInput = z.object({
 });
 
 export type ContractSendInput = z.infer<typeof contractSendInput>;
+
+export const contractSigningTokenInput = z.object({
+	token: z.string().min(1),
+});
+
+export type ContractSigningTokenInput = z.infer<
+	typeof contractSigningTokenInput
+>;
+
+const SIGNER_NAME_MAX_LENGTH = 120;
+const TYPED_SIGNATURE_MAX_LENGTH = 120;
+
+export const contractSignInput = z
+	.object({
+		token: z.string().min(1),
+		signerName: z.string().trim().min(1).max(SIGNER_NAME_MAX_LENGTH),
+		signatureKind: z.enum(["typed", "drawn"]),
+		signatureData: z.string().min(1),
+	})
+	.superRefine((data, ctx) => {
+		if (data.signatureKind === "drawn") {
+			if (!data.signatureData.startsWith(CONTRACTS.signature.drawnPrefix)) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["signatureData"],
+					message: "A drawn signature must be a PNG image.",
+				});
+			}
+			if (data.signatureData.length > CONTRACTS.signature.drawnMaxChars) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["signatureData"],
+					message: "The signature image is too large.",
+				});
+			}
+			return;
+		}
+
+		if (data.signatureData.length > TYPED_SIGNATURE_MAX_LENGTH) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["signatureData"],
+				message: "A typed signature must be 120 characters or fewer.",
+			});
+		}
+	});
+
+export type ContractSignInput = z.infer<typeof contractSignInput>;

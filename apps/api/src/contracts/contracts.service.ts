@@ -5,6 +5,7 @@ import {
 	BadRequestException,
 	ConflictException,
 	Injectable,
+	Logger,
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
@@ -21,6 +22,7 @@ import type {
 	ContractCreateInput,
 	ContractListInput,
 	ContractSendInput,
+	ContractSignInput,
 	ContractUpdateInput,
 } from "./contracts.contracts";
 
@@ -64,6 +66,22 @@ const DETAIL_SELECT = {
 	contact: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 
+const SIGNING_TOKEN_SELECT = {
+	id: true,
+	number: true,
+	title: true,
+	status: true,
+	body: true,
+	dealId: true,
+	contactId: true,
+	estimateId: true,
+	invoiceId: true,
+	signedAt: true,
+	signerName: true,
+	tokenExpiresAt: true,
+	contact: { select: { firstName: true, lastName: true } },
+} as const;
+
 const SORTABLE: Record<
 	string,
 	(dir: Prisma.SortOrder) => Prisma.ContractOrderByWithRelationInput[]
@@ -83,6 +101,8 @@ function contactName(contact: {
 
 @Injectable()
 export class ContractsService {
+	private readonly logger = new Logger(ContractsService.name);
+
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly templates: TemplatesService,
@@ -365,6 +385,94 @@ export class ContractsService {
 		};
 	}
 
+	async bySigningToken(token: string) {
+		const contract = await this.db.contract.findUnique({
+			where: { signingToken: token },
+			select: SIGNING_TOKEN_SELECT,
+		});
+
+		if (!contract) {
+			throw new NotFoundException("This signing link is not valid.");
+		}
+
+		const context = await this.mergeContext.resolve({
+			contactId: contract.contactId ?? undefined,
+			dealId: contract.dealId ?? undefined,
+			estimateId: contract.estimateId ?? undefined,
+			invoiceId: contract.invoiceId ?? undefined,
+			contractId: contract.id,
+		});
+
+		const { html } = renderEmailHtml(
+			parseTemplateBlocks(contract.body),
+			context,
+		);
+
+		return {
+			title: contract.title,
+			number: contract.number,
+			businessName: context["business.name"] ?? DEFAULT_WORKSPACE_NAME,
+			contactName: contract.contact ? contactName(contract.contact) : "",
+			bodyHtml: html,
+			status: contract.status,
+			signedAt: contract.signedAt,
+			signerName: contract.signerName,
+			expired:
+				contract.tokenExpiresAt !== null &&
+				contract.tokenExpiresAt < new Date(),
+		};
+	}
+
+	async sign(input: ContractSignInput) {
+		const contract = await this.db.contract.findUnique({
+			where: { signingToken: input.token },
+		});
+
+		if (!contract) {
+			throw new NotFoundException("This signing link is not valid.");
+		}
+
+		if (contract.status === "SIGNED") {
+			throw new ConflictException("This contract has already been signed.");
+		}
+
+		if (contract.status === "VOID" || contract.status === "DRAFT") {
+			throw new ConflictException("This contract can no longer be signed.");
+		}
+
+		if (!contract.tokenExpiresAt || contract.tokenExpiresAt < new Date()) {
+			throw new ConflictException("This signing link has expired.");
+		}
+
+		const signedAt = new Date();
+
+		let updated: { status: (typeof contract)["status"]; signedAt: Date | null };
+		try {
+			updated = await this.db.contract.update({
+				where: { id: contract.id },
+				data: {
+					signerName: input.signerName,
+					signatureKind: input.signatureKind,
+					signatureData: input.signatureData,
+					signedAt,
+					status: "SIGNED",
+				},
+				select: { status: true, signedAt: true },
+			});
+		} catch (error) {
+			throw this.translate(error, contract.id);
+		}
+
+		await this.emailSignedCopy(contract, {
+			kind: input.signatureKind,
+			data: input.signatureData,
+			signerName: input.signerName,
+			signedAt,
+		});
+
+		return { status: updated.status, signedAt: updated.signedAt };
+	}
+
 	mailerConfigured(): boolean {
 		return this.mailer.isConfigured();
 	}
@@ -384,6 +492,92 @@ export class ContractsService {
 		}
 
 		return row;
+	}
+
+	private async ownerEmail(): Promise<string | null> {
+		const owner = await this.db.member.findFirst({
+			where: { organizationId: WORKSPACE_ID, role: "owner" },
+			orderBy: { createdAt: "asc" },
+			select: { user: { select: { email: true } } },
+		});
+
+		return owner?.user.email ?? null;
+	}
+
+	private async emailSignedCopy(
+		contract: {
+			id: string;
+			title: string;
+			number: number;
+			body: unknown;
+			dealId: string | null;
+			contactId: string | null;
+			estimateId: string | null;
+			invoiceId: string | null;
+			sentTo: string | null;
+		},
+		signature: {
+			kind: "typed" | "drawn";
+			data: string;
+			signerName: string;
+			signedAt: Date;
+		},
+	): Promise<void> {
+		try {
+			const context = await this.mergeContext.resolve({
+				contactId: contract.contactId ?? undefined,
+				dealId: contract.dealId ?? undefined,
+				estimateId: contract.estimateId ?? undefined,
+				invoiceId: contract.invoiceId ?? undefined,
+				contractId: contract.id,
+			});
+
+			const buffer = await renderContractPdf(
+				{
+					title: contract.title,
+					number: contract.number,
+					bodyHtmlBlocks: parseTemplateBlocks(contract.body),
+					context,
+					signature,
+				},
+				context["business.name"] ?? DEFAULT_WORKSPACE_NAME,
+			);
+
+			const recipients = new Set<string>();
+			if (contract.sentTo) recipients.add(contract.sentTo);
+			const owner = await this.ownerEmail();
+			if (owner) recipients.add(owner);
+
+			for (const to of recipients) {
+				const result = await this.mailer.send({
+					to,
+					subject: `Signed: ${contract.title}`,
+					text: `${signature.signerName} signed "${contract.title}".`,
+					attachments: [
+						{
+							filename: `${this.filenameStem(contract.title)}.pdf`,
+							content: buffer,
+							contentType: "application/pdf",
+						},
+					],
+				});
+
+				if (!result.delivered) {
+					this.logger.error({
+						message: "Signed contract email was not delivered",
+						contractId: contract.id,
+					});
+				}
+			}
+		} catch (error) {
+			this.logger.error(
+				{
+					message: "Signed contract email failed",
+					contractId: contract.id,
+				},
+				error instanceof Error ? error.stack : undefined,
+			);
+		}
 	}
 
 	private async workspaceName(): Promise<string> {

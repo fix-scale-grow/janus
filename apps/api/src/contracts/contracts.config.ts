@@ -5,5 +5,6 @@ export const CONTRACTS = {
 	},
 	signature: {
 		drawnMaxChars: 500_000,
+		drawnPrefix: "data:image/png;base64,",
 	},
 } as const;
