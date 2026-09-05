@@ -27,6 +27,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { EstimatesTable } from "@/app/(app)/[slug]/estimates/estimates-table";
 import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-button";
+import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
+import { NewInvoiceButton } from "@/app/(app)/[slug]/invoices/new-invoice-button";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
@@ -175,6 +177,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "estimates",
 					label: "Estimates",
 					content: <DealEstimates deal={deal} />,
+				},
+				{
+					value: "invoices",
+					label: "Invoices",
+					content: <DealInvoices deal={deal} />,
 				},
 				{
 					value: "agent",
@@ -529,6 +536,19 @@ function DealEstimates({ deal }: { deal: Deal }) {
 				action={<NewEstimateButton dealId={deal.id} size="sm" />}
 			>
 				<EstimatesTable dealId={deal.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function DealInvoices({ deal }: { deal: Deal }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Invoices"
+				action={<NewInvoiceButton dealId={deal.id} size="sm" />}
+			>
+				<InvoicesTable dealId={deal.id} />
 			</DetailSheetSection>
 		</DetailSheetBody>
 	);

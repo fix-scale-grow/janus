@@ -1,6 +1,7 @@
 import Building from "@carbon/icons-react/es/Building";
 import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
 import Chat from "@carbon/icons-react/es/Chat";
+import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
 import Mobile from "@carbon/icons-react/es/Mobile";
 import Partnership from "@carbon/icons-react/es/Partnership";
@@ -124,6 +125,14 @@ export const JANUS_NAV: JanusModule[] = [
 		icon: Receipt,
 		source: "app/(app)/estimates",
 	},
+	{
+		title: "Invoices",
+		href: "/invoices",
+		match: "prefix",
+		status: "live",
+		icon: CurrencyDollar,
+		source: "app/(app)/invoices",
+	},
 	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{
 		title: "Schedule",
@@ -138,13 +147,6 @@ export const JANUS_NAV: JanusModule[] = [
 		match: "prefix",
 		status: "planned",
 		source: "app/(app)/inbox",
-	},
-	{
-		title: "Invoices",
-		href: "/invoices",
-		match: "prefix",
-		status: "planned",
-		source: "app/(app)/invoices",
 	},
 	{
 		title: "Automations",

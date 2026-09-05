@@ -1,6 +1,7 @@
 "use client";
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
+import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Download from "@carbon/icons-react/es/Download";
 import Money from "@carbon/icons-react/es/Money";
 import Send from "@carbon/icons-react/es/Send";
@@ -40,6 +41,7 @@ import { formatMoney } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -153,6 +155,7 @@ export function EstimateBuilder({
 	const cache = useCrmCache();
 	const queryClient = useQueryClient();
 	const workspaceUrl = useWorkspaceUrl();
+	const router = useRouter();
 	const titleId = useId();
 
 	const estimate = useQuery({
@@ -230,6 +233,19 @@ export function EstimateBuilder({
 					return;
 				}
 				setResyncChanges(result.changed);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const convertToInvoice = useMutation(
+		trpc.invoices.createFromEstimate.mutationOptions({
+			onSuccess: async (invoice) => {
+				await Promise.all([
+					cache.invoice(invoice.id),
+					cache.estimate(estimateId),
+				]);
+				router.push(workspaceUrl(`/invoices/${invoice.id}`));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -373,6 +389,15 @@ export function EstimateBuilder({
 							Send
 						</Button>
 					) : null}
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={convertToInvoice.isPending}
+						onClick={() => convertToInvoice.mutate({ estimateId, tier })}
+					>
+						<Icon icon={CurrencyDollar} data-icon="inline-start" />
+						Convert to invoice
+					</Button>
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/estimates")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
