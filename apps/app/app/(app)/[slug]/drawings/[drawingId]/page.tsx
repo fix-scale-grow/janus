@@ -2,6 +2,7 @@ import { parseDrawingScale, parseDrawingScene } from "@crm/drawings";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DrawingEditor } from "@/components/drawings/drawing-editor";
+import { maptilerApiKey } from "@/lib/env";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { nullIfMissing } from "../../(agent-builder)/missing-record";
 
@@ -29,6 +30,7 @@ export default async function DrawingPage({
 			address={row.address}
 			initialScene={parseDrawingScene(row.scene)}
 			initialScale={parseDrawingScale(row.scale)}
+			maptilerApiKey={maptilerApiKey()}
 		/>
 	);
 }

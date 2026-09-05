@@ -38,10 +38,18 @@ export const excalidrawSceneData = z.object({
 
 export type ExcalidrawSceneData = z.infer<typeof excalidrawSceneData>;
 
+export const satelliteMeasured = z
+	.object({ areaSqFt: z.number() })
+	.or(z.object({ lengthFt: z.number() }))
+	.nullable();
+
+export type SatelliteMeasured = z.infer<typeof satelliteMeasured>;
+
 export const satelliteFeature = z.object({
 	id: z.string(),
 	kind: z.enum(["area", "line"]),
 	coordinates: z.array(z.tuple([z.number(), z.number()])),
+	measured: satelliteMeasured,
 	scope: scopeCustomData.nullable(),
 });
 

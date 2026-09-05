@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
 
 	env: {
 		NEXT_PUBLIC_API_URL: apiUrl,
+		NEXT_PUBLIC_MAPTILER_API_KEY:
+			process.env.NEXT_PUBLIC_MAPTILER_API_KEY ?? "",
 	},
 
 	transpilePackages: ["@crm/auth", "@crm/db", "@crm/telemetry", "@crm/ui"],

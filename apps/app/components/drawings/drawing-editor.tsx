@@ -11,6 +11,7 @@ import {
 	scopeCustomData,
 } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
+import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type {
 	ExcalidrawImperativeAPI,
@@ -19,6 +20,7 @@ import type {
 import dynamic from "next/dynamic";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useRef, useState } from "react";
+import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
 import { useBackgroundImage } from "./use-background-image";
@@ -45,7 +47,10 @@ export type DrawingEditorProps = {
 	address: string | null;
 	initialScene: DrawingScene;
 	initialScale: DrawingScale | null;
+	maptilerApiKey: string | null;
 };
+
+type Surface = "sketch" | "satellite";
 
 function elementPoints(element: ExcalidrawElement): [number, number][] {
 	if ("points" in element && element.points.length > 1) {
@@ -70,6 +75,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [scale, setScale] = useState(props.initialScale);
 	const sceneRef = useRef(props.initialScene);
 	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+	const satelliteUpdateRef = useRef<
+		((scopeId: string, update: ScopeShapeUpdate) => void) | null
+	>(null);
+	const [surface, setSurface] = useState<Surface>("sketch");
 	const [tool, setTool] = useQueryState("tool", toolParser);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
 	const { queueSave } = useDrawingAutosave(
@@ -206,6 +215,13 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	const updateShape = useCallback(
 		async (scopeId: string, update: ScopeShapeUpdate) => {
+			const inSatellite = sceneRef.current.satellite?.features.some(
+				(feature) => feature.scope?.scopeId === scopeId,
+			);
+			if (inSatellite) {
+				satelliteUpdateRef.current?.(scopeId, update);
+				return;
+			}
 			const api = apiRef.current;
 			if (!api) return;
 			const { CaptureUpdateAction, newElementWith } = await import(
@@ -243,38 +259,56 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex items-center gap-2 border-border border-b p-2">
-				<Button onClick={() => setCalibrating(true)} variant="outline">
-					Set scale
-				</Button>
-				<Button onClick={() => stampSelection("area")} variant="outline">
-					Mark area
-				</Button>
-				<Button onClick={() => stampSelection("line")} variant="outline">
-					Mark line
-				</Button>
-				<Button onClick={addPin} variant="outline">
-					Pin
-				</Button>
-				<Button onClick={openFilePicker} variant="outline">
-					Set background photo
-				</Button>
-				<input
-					accept="image/*"
-					className="hidden"
-					onChange={handleFileChange}
-					ref={inputRef}
-					type="file"
-				/>
-				{calibrating && (
-					<span className="text-muted-foreground text-xs">
-						Select a line to calibrate.
-					</span>
-				)}
-			</div>
+			<Tabs
+				onValueChange={(value) => setSurface(value as Surface)}
+				value={surface}
+			>
+				<div className="flex items-center gap-2 border-border border-b p-2">
+					<TabsList>
+						<TabsTrigger value="sketch">Sketch</TabsTrigger>
+						{props.maptilerApiKey && (
+							<TabsTrigger value="satellite">Satellite</TabsTrigger>
+						)}
+					</TabsList>
+
+					{surface === "sketch" && (
+						<>
+							<Button onClick={() => setCalibrating(true)} variant="outline">
+								Set scale
+							</Button>
+							<Button onClick={() => stampSelection("area")} variant="outline">
+								Mark area
+							</Button>
+							<Button onClick={() => stampSelection("line")} variant="outline">
+								Mark line
+							</Button>
+							<Button onClick={addPin} variant="outline">
+								Pin
+							</Button>
+							<Button onClick={openFilePicker} variant="outline">
+								Set background photo
+							</Button>
+							<input
+								accept="image/*"
+								className="hidden"
+								onChange={handleFileChange}
+								ref={inputRef}
+								type="file"
+							/>
+							{calibrating && (
+								<span className="text-muted-foreground text-xs">
+									Select a line to calibrate.
+								</span>
+							)}
+						</>
+					)}
+				</div>
+			</Tabs>
 
 			<div className="flex min-h-0 flex-1">
-				<div className="h-full min-h-0 flex-1">
+				<div
+					className={surface === "sketch" ? "h-full min-h-0 flex-1" : "hidden"}
+				>
 					<Excalidraw
 						excalidrawAPI={(api) => {
 							apiRef.current = api;
@@ -293,6 +327,16 @@ export function DrawingEditor(props: DrawingEditorProps) {
 						onChange={onChange}
 					/>
 				</div>
+
+				{surface === "satellite" && props.maptilerApiKey && (
+					<SatelliteCanvas
+						address={props.address}
+						apiKey={props.maptilerApiKey}
+						queueSave={queueSave}
+						sceneRef={sceneRef}
+						updateShapeRef={satelliteUpdateRef}
+					/>
+				)}
 
 				<ScopePanel onUpdateShape={updateShape} shapes={shapes} />
 			</div>

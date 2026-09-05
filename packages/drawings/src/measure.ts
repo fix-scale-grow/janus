@@ -3,6 +3,7 @@ import {
 	type DrawingScale,
 	type DrawingScene,
 	type ExcalidrawElement,
+	type SatelliteFeature,
 	type ScopeCustomData,
 	scopeCustomData,
 } from "./scene";
@@ -84,6 +85,37 @@ function measureElement(
 	const factor = scope.pitch ? PITCH_FACTORS[scope.pitch as PitchKey] : 1;
 	const areaSqFt = polygonAreaSqFt(points, scale.pixelsPerFoot) * factor;
 	return { areaSqFt, squares: areaSqFt / SQFT_PER_SQUARE };
+}
+
+function measureSatelliteFeature(
+	feature: SatelliteFeature,
+	scope: ScopeCustomData,
+): MeasuredQuantity | null {
+	if (!feature.measured) return null;
+	if ("lengthFt" in feature.measured) {
+		return { lengthFt: feature.measured.lengthFt };
+	}
+	const factor = scope.pitch ? PITCH_FACTORS[scope.pitch as PitchKey] : 1;
+	const areaSqFt = feature.measured.areaSqFt * factor;
+	return { areaSqFt, squares: areaSqFt / SQFT_PER_SQUARE };
+}
+
+export function measureSatellite(
+	features: SatelliteFeature[],
+): MeasuredShape[] {
+	const out: MeasuredShape[] = [];
+	for (const feature of features) {
+		if (!feature.scope) continue;
+		out.push({
+			scopeId: feature.scope.scopeId,
+			kind: feature.scope.kind,
+			serviceId: feature.scope.serviceId ?? null,
+			label: feature.scope.label ?? null,
+			pitch: (feature.scope.pitch as PitchKey | undefined) ?? null,
+			quantity: measureSatelliteFeature(feature, feature.scope),
+		});
+	}
+	return out;
 }
 
 export function measureScene(

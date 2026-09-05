@@ -22,4 +22,14 @@ export const DRAWINGS = {
 	scopePanel: { recomputeMs: 500 },
 	pin: { sizePx: 24 },
 	backgroundImage: { maxDimensionPx: 2_400, jpegQuality: 0.85 },
+	satellite: {
+		fallbackCenter: [-98.5795, 39.8283] as [number, number],
+		fallbackZoom: 4,
+		addressZoom: 19,
+		moveThrottleMs: 1_000,
+		mapStyleBaseUrl: "https://api.maptiler.com/maps/hybrid/style.json",
+		geocodeBaseUrl: "https://api.maptiler.com/geocoding",
+		sqftPerSqm: 10.7639,
+		metersPerFoot: 3.28084,
+	},
 } as const;
