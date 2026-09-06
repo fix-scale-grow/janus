@@ -55,7 +55,6 @@ export const STATIC_MERGE_FIELD_GROUPS: StaticMergeFieldGroup[] = [
 		label: "Business",
 		fields: [
 			{ token: "business.name", label: "Business name" },
-			{ token: "business.phone", label: "Business phone" },
 			{ token: "sender.name", label: "Sender name" },
 		],
 	},

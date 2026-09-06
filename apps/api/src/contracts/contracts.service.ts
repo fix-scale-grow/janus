@@ -244,7 +244,7 @@ export class ContractsService {
 		}
 	}
 
-	async send(input: ContractSendInput) {
+	async send(input: ContractSendInput, senderName?: string) {
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -280,6 +280,7 @@ export class ContractsService {
 			estimateId: contract.estimateId ?? undefined,
 			invoiceId: contract.invoiceId ?? undefined,
 			contractId: contract.id,
+			senderName,
 			signingLink,
 			personalNote: input.personalNote,
 		});

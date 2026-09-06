@@ -82,6 +82,8 @@ export class TemplatesService {
 			}
 		}
 
+		registry.set("business.phone", "Business phone");
+
 		return registry;
 	}
 
@@ -132,7 +134,7 @@ export class TemplatesService {
 		}
 	}
 
-	async preview(input: TemplatePreviewInput) {
+	async preview(input: TemplatePreviewInput, senderName?: string) {
 		const hasRefs = Boolean(
 			input.contactId || input.dealId || input.estimateId || input.invoiceId,
 		);
@@ -143,6 +145,7 @@ export class TemplatesService {
 					dealId: input.dealId,
 					estimateId: input.estimateId,
 					invoiceId: input.invoiceId,
+					senderName,
 				})
 			: SAMPLE_MERGE_CONTEXT;
 
@@ -157,7 +160,11 @@ export class TemplatesService {
 
 		const registry = await this.mergeRegistry();
 		const tokens = collectTokens(template.subject ?? "", blocks);
-		const missing = missingMerges(tokens, context, registry);
+		const missing = missingMerges(tokens, context, registry).filter((entry) => {
+			if (entry.token === "signing_link") return false;
+			if (entry.token === "sender.name" && senderName) return false;
+			return true;
+		});
 
 		return { subject, html, missing };
 	}
@@ -172,18 +179,29 @@ export class TemplatesService {
 
 		const registry = await this.mergeRegistry();
 		const tokens = collectTokens(template.subject ?? "", blocks);
-		const missing = missingMerges(tokens, SAMPLE_MERGE_CONTEXT, registry);
 
-		if (missing.length > 0) {
+		const sampleContext: Record<string, string> = { ...SAMPLE_MERGE_CONTEXT };
+		for (const token of tokens) {
+			if (sampleContext[token] !== undefined) continue;
+			const label = registry.get(token);
+			if (label !== undefined) sampleContext[token] = label;
+		}
+
+		const missing = missingMerges(tokens, sampleContext, registry);
+		const unknownLabels = missing
+			.filter((entry) => entry.reason === "unknown")
+			.map((entry) => entry.label);
+
+		if (unknownLabels.length > 0) {
 			throw new BadRequestException(
-				`Missing for this test send: ${missing.map((entry) => entry.label).join(", ")}`,
+				`No longer exists — remove from the template: ${unknownLabels.join(", ")}`,
 			);
 		}
 
 		const subject = template.subject
-			? applyMergeFields(template.subject, SAMPLE_MERGE_CONTEXT)
+			? applyMergeFields(template.subject, sampleContext)
 			: "";
-		const { html, text } = renderEmailHtml(blocks, SAMPLE_MERGE_CONTEXT);
+		const { html, text } = renderEmailHtml(blocks, sampleContext);
 
 		const result = await this.mailer.send({
 			to: input.to,
