@@ -1,21 +1,12 @@
-# HOLD — do not apply until merge
+This migration is APPLIED to the shared dev database as of 2026-09-06.
 
-This migration drops the `company` and `companyEnrichment` tables, every
-`companyId` column, index and foreign key across contact, deal,
-agentConversation, agentTask, fieldValue, activity, emailThread and
-calendarEvent, the contact social columns (`linkedinUrl`, `twitterUrl`,
-`githubUrl`), and the `COMPANY` member of `FieldEntity`. Peer branches still
-read these tables through code that has not merged this phase's removal, so
-running it now breaks their sessions against the shared dev database.
+The hold failed: `packages/db/scripts/prepare-dev.ts` runs `prisma migrate
+deploy` unconditionally on every `bun run dev`, so the first dev-stack start
+on this branch applied the drops. Peer branches that still query company
+tables break at runtime against this database until they rebase onto this
+branch. A fresh install is unaffected: the migration chain is consistent.
 
-Apply only when every branch touching Company has merged and no surviving
-code path reads a company table or column. At that point, from
-`packages/db`:
-
-```
-bunx prisma db execute --file prisma/migrations/20260906020000_drop_companies/migration.sql
-bunx prisma migrate resolve --applied 20260906020000_drop_companies
-```
-
-`prisma migrate status` shows this migration pending until then. That is
-expected, not a bug.
+Lesson for the next staged migration: a committed migration cannot be held
+on a shared database while `prepare-dev.ts` auto-deploys. Stage held DDL
+outside `prisma/migrations/` (or add a hold-list guard to prepare-dev)
+instead.
