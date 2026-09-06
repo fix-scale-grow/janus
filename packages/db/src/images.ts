@@ -1,14 +1,5 @@
 export const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 
-export const COMPANY_IMAGE_FIELDS = [
-	"logoUrl",
-	"logoDarkUrl",
-	"iconUrl",
-	"iconDarkUrl",
-] as const;
-
-export type CompanyImageField = (typeof COMPANY_IMAGE_FIELDS)[number];
-
 const OPTIMIZABLE = new Set(["jpg", "jpeg", "png", "webp", "avif", "gif"]);
 
 export function isMirrored(url: string | null | undefined): boolean {
