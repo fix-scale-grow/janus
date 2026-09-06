@@ -56,6 +56,20 @@ export const SAVE = "Save changes";
 export const ARCHIVE = "Archive";
 export const FILL_REST = "Fill the rest";
 
+export const MERGE_TAG_LABEL = "Merge tag";
+export const MERGE_TAG_HELP = "Drop this into a template to pull in the value.";
+export const COPY_MERGE_TAG = "Copy";
+export const COPIED = "Copied";
+
+const MERGE_TAG_NAMESPACE: Record<FieldEntity, string> = {
+	CONTACT: "contact",
+	DEAL: "deal",
+};
+
+export function mergeTagFor(entity: FieldEntity, key: string): string {
+	return `{{${MERGE_TAG_NAMESPACE[entity]}.field.${key}}}`;
+}
+
 const SHEET_PLACEMENT: Record<FieldEntity, string> = {
 	CONTACT: "Show on the contact sheet",
 	DEAL: "Show on the deal sheet",

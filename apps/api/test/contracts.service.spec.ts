@@ -14,7 +14,7 @@ const CONTRACT_BODY_BLOCKS: TemplateBlock[] = [
 
 const CONTRACT_SEND_BLOCKS: TemplateBlock[] = [
 	{ kind: "heading", text: "Please sign" },
-	{ kind: "text", html: "Sign here: {{signing_link}}" },
+	{ kind: "text", html: "Sign here: {{signing_link}}, from {{sender.name}}" },
 ];
 
 function fakeTemplates() {
@@ -33,12 +33,23 @@ function fakeTemplates() {
 				blocks: CONTRACT_SEND_BLOCKS,
 			};
 		},
+		mergeRegistry: async () =>
+			new Map([
+				["contract.title", "Contract title"],
+				["contact.full_name", "Full name"],
+				["signing_link", "Signing link"],
+				["sender.name", "Sender name"],
+			]),
 	} as unknown as TemplatesService;
 }
 
 function fakeMergeContext() {
 	return {
-		resolve: async () => ({ "contract.title": "A contract" }),
+		resolve: async (refs: { senderName?: string }) => ({
+			"contract.title": "A contract",
+			signing_link: "https://app.example.com/sign/abc123",
+			...(refs.senderName ? { "sender.name": refs.senderName } : {}),
+		}),
 	} as unknown as MergeContextService;
 }
 
@@ -377,13 +388,31 @@ describe("ContractsService.send", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.send({ id: "contract1" });
+		const result = await service.send({ id: "contract1" }, "Alex Rivera");
 
 		expect(result.status).toBe("SENT");
 		expect(getRow().signingToken).toHaveLength(43);
 		expect(getRow().sentTo).toBe("jane@example.com");
 		expect("signingToken" in result).toBe(false);
 		expect("signatureData" in result).toBe(false);
+	});
+
+	it("resolves the stock template's sender.name token from the threaded sender name", async () => {
+		const { db, getRow } = fakeDb(baseContract());
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(true),
+		);
+
+		await expect(service.send({ id: "contract1" })).rejects.toBeInstanceOf(
+			BadRequestException,
+		);
+
+		const result = await service.send({ id: "contract1" }, "Alex Rivera");
+		expect(result.status).toBe("SENT");
+		expect(getRow().status).toBe("SENT");
 	});
 
 	it("rotates the token on a resend while already SENT", async () => {
@@ -397,7 +426,7 @@ describe("ContractsService.send", () => {
 			fakeMailer(true),
 		);
 
-		await service.send({ id: "contract1" });
+		await service.send({ id: "contract1" }, "Alex Rivera");
 
 		expect(getRow().signingToken).not.toBe("old-token");
 		expect(getRow().signingToken).toHaveLength(43);
@@ -412,9 +441,9 @@ describe("ContractsService.send", () => {
 			fakeMailer(true, false),
 		);
 
-		await expect(service.send({ id: "contract1" })).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
+		await expect(
+			service.send({ id: "contract1" }, "Alex Rivera"),
+		).rejects.toBeInstanceOf(BadRequestException);
 		expect(getRow().status).toBe("DRAFT");
 	});
 });

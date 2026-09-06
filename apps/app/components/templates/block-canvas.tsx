@@ -27,6 +27,7 @@ import {
 	fieldChipBeside,
 	insertFieldChip,
 	insertPlainText,
+	type MergeFieldLabels,
 	rangeWithin,
 	serializeBlockHtml,
 	serializeBlockText,
@@ -57,10 +58,12 @@ const EDITABLE = "min-h-5 w-full whitespace-pre-wrap break-words outline-none";
 export function BlockCanvas({
 	blocks,
 	onChange,
+	labels,
 	ref,
 }: {
 	blocks: EditorBlock[];
 	onChange: (next: EditorBlock[]) => void;
+	labels: MergeFieldLabels;
 	ref?: Ref<BlockCanvasHandle>;
 }) {
 	const nodes = useRef(new Map<string, HTMLElement>());
@@ -117,7 +120,12 @@ export function BlockCanvas({
 		const node = nodes.current.get(id);
 		if (!node) return false;
 
-		insertFieldChip(node, active?.id === id ? active.range : null, token);
+		insertFieldChip(
+			node,
+			active?.id === id ? active.range : null,
+			token,
+			labels,
+		);
 		rememberRange(id, node);
 		commit(id, node);
 		return true;
@@ -187,6 +195,7 @@ export function BlockCanvas({
 							</div>
 							<BlockBody
 								row={row}
+								labels={labels}
 								register={register}
 								onRange={rememberRange}
 								onCommit={commit}
@@ -204,12 +213,14 @@ export function BlockCanvas({
 
 function BlockBody({
 	row,
+	labels,
 	register,
 	onRange,
 	onCommit,
 	onLabel,
 }: {
 	row: EditorBlock;
+	labels: MergeFieldLabels;
 	register: (id: string) => (node: HTMLElement | null) => void;
 	onRange: (id: string, node: HTMLElement) => void;
 	onCommit: (id: string, node: HTMLElement) => void;
@@ -221,7 +232,7 @@ function BlockBody({
 				<EditableBlock
 					id={row.id}
 					kind="heading"
-					initial={toEditorText(row.block.text)}
+					initial={toEditorText(row.block.text, labels)}
 					className="font-semibold text-base"
 					register={register}
 					onRange={onRange}
@@ -233,7 +244,7 @@ function BlockBody({
 				<EditableBlock
 					id={row.id}
 					kind="text"
-					initial={toEditorHtml(row.block.html)}
+					initial={toEditorHtml(row.block.html, labels)}
 					className="text-sm"
 					register={register}
 					onRange={onRange}

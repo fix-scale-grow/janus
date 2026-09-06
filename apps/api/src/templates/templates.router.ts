@@ -44,8 +44,11 @@ export class TemplatesRouter {
 	}
 
 	@Query({ input: templatePreviewInput })
-	async preview(@Input() input: z.infer<typeof templatePreviewInput>) {
-		return this.templates.preview(input);
+	async preview(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof templatePreviewInput>,
+	) {
+		return this.templates.preview(input, ctx.user.name);
 	}
 
 	@Mutation({ input: templateSendTestInput })
@@ -56,5 +59,10 @@ export class TemplatesRouter {
 	@Query()
 	async mailerConfigured() {
 		return this.templates.mailerConfigured();
+	}
+
+	@Query()
+	async mergeFields() {
+		return this.templates.mergeFields();
 	}
 }

@@ -40,6 +40,7 @@ import {
 	createTemplateBlock,
 	parseTemplateBlocks,
 	type TemplateBlockKind,
+	useMergeFields,
 } from "./merge-fields";
 import { TEMPLATE_LABELS } from "./template-labels";
 import { TemplatePreview } from "./template-preview";
@@ -69,6 +70,17 @@ export function TemplateEditor({
 
 	const canvas = useRef<BlockCanvasHandle>(null);
 	const nextId = useRef(0);
+
+	const mergeFields = useMergeFields();
+	const labels = useMemo(
+		() =>
+			Object.fromEntries(
+				mergeFields.groups.flatMap((group) =>
+					group.fields.map((field) => [field.token, field.label]),
+				),
+			),
+		[mergeFields.groups],
+	);
 
 	const rawBlocks = (template as unknown as { blocks: unknown }).blocks;
 	const initialBlocks = useMemo(
@@ -193,23 +205,32 @@ export function TemplateEditor({
 			<PageShellContent>
 				{mode === "edit" ? (
 					rows ? (
-						<div className="flex flex-col gap-4">
-							{template.subject === null ? null : (
-								<Field>
-									<FieldLabel htmlFor={subjectId}>Subject</FieldLabel>
-									<Input
-										id={subjectId}
-										value={subject}
-										onChange={(event) => setSubject(event.target.value)}
+						mergeFields.isLoading && !mergeFields.isError ? (
+							<Spinner />
+						) : (
+							<div className="flex flex-col gap-4">
+								{template.subject === null ? null : (
+									<Field>
+										<FieldLabel htmlFor={subjectId}>Subject</FieldLabel>
+										<Input
+											id={subjectId}
+											value={subject}
+											onChange={(event) => setSubject(event.target.value)}
+										/>
+									</Field>
+								)}
+								<div className="grid gap-4 md:grid-cols-[220px_1fr_260px]">
+									<BlockPalette purpose={purpose} onAdd={addBlock} />
+									<BlockCanvas
+										ref={canvas}
+										blocks={rows}
+										onChange={setRows}
+										labels={labels}
 									/>
-								</Field>
-							)}
-							<div className="grid gap-4 md:grid-cols-[220px_1fr_260px]">
-								<BlockPalette purpose={purpose} onAdd={addBlock} />
-								<BlockCanvas ref={canvas} blocks={rows} onChange={setRows} />
-								<FieldSidebar onInsert={insertField} />
+									<FieldSidebar onInsert={insertField} />
+								</div>
 							</div>
-						</div>
+						)
 					) : (
 						<div className="rounded-lg border p-4 text-muted-foreground text-sm">
 							This template's blocks could not be read.

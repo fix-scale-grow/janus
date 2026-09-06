@@ -1,7 +1,7 @@
 import type { TemplateBlocks } from "./template-blocks";
 import { EMAIL_RENDER } from "./templates.config";
 
-const MERGE_TOKEN_PATTERN = /{{\s*([\w.]+)\s*}}/g;
+export const MERGE_TOKEN_PATTERN = /{{\s*([\w.]+)\s*}}/g;
 
 const { tableWidth: TABLE_WIDTH, cellPadding: CELL_PADDING } = EMAIL_RENDER;
 const { brandGreen: BRAND_GREEN, logoSize: LOGO_SIZE } = EMAIL_RENDER;

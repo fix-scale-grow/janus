@@ -2,11 +2,17 @@ import type { Db } from "@crm/db";
 import { Prisma as PrismaNamespace } from "@crm/db";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import { FieldsService } from "../fields/fields.service";
 import { MailerService } from "../mailer/mailer.service";
 import { MergeContextService } from "./merge-context.service";
+import { collectTokens, missingMerges } from "./merge-guard";
 import { applyMergeFields, renderEmailHtml } from "./render-email";
 import { parseTemplateBlocks } from "./template-blocks";
-import { DEFAULT_TEMPLATES, SAMPLE_MERGE_CONTEXT } from "./templates.config";
+import {
+	DEFAULT_TEMPLATES,
+	SAMPLE_MERGE_CONTEXT,
+	STATIC_MERGE_FIELD_GROUPS,
+} from "./templates.config";
 import type {
 	TemplateByPurposeInput,
 	TemplatePreviewInput,
@@ -30,10 +36,55 @@ export class TemplatesService {
 		@InjectDatabase() private readonly db: Db,
 		private readonly mergeContext: MergeContextService,
 		private readonly mailer: MailerService,
+		private readonly fields: FieldsService,
 	) {}
 
 	async list() {
 		return this.db.template.findMany({ select: LIST_SELECT });
+	}
+
+	async mergeFields() {
+		const [contactFields, dealFields] = await Promise.all([
+			this.fields.definitionsFor("CONTACT"),
+			this.fields.definitionsFor("DEAL"),
+		]);
+
+		return {
+			groups: [
+				...STATIC_MERGE_FIELD_GROUPS,
+				{
+					id: "contact_fields",
+					label: "Contact fields",
+					fields: contactFields.map((definition) => ({
+						token: `contact.field.${definition.key}`,
+						label: definition.label,
+					})),
+				},
+				{
+					id: "deal_fields",
+					label: "Job fields",
+					fields: dealFields.map((definition) => ({
+						token: `deal.field.${definition.key}`,
+						label: definition.label,
+					})),
+				},
+			],
+		};
+	}
+
+	async mergeRegistry(): Promise<Map<string, string>> {
+		const { groups } = await this.mergeFields();
+		const registry = new Map<string, string>();
+
+		for (const group of groups) {
+			for (const field of group.fields) {
+				registry.set(field.token, field.label);
+			}
+		}
+
+		registry.set("business.phone", "Business phone");
+
+		return registry;
 	}
 
 	async byPurpose(input: TemplateByPurposeInput) {
@@ -83,7 +134,7 @@ export class TemplatesService {
 		}
 	}
 
-	async preview(input: TemplatePreviewInput) {
+	async preview(input: TemplatePreviewInput, senderName?: string) {
 		const hasRefs = Boolean(
 			input.contactId || input.dealId || input.estimateId || input.invoiceId,
 		);
@@ -94,6 +145,7 @@ export class TemplatesService {
 					dealId: input.dealId,
 					estimateId: input.estimateId,
 					invoiceId: input.invoiceId,
+					senderName,
 				})
 			: SAMPLE_MERGE_CONTEXT;
 
@@ -106,7 +158,15 @@ export class TemplatesService {
 		const mode = input.purpose === "CONTRACT_BODY" ? "document" : "email";
 		const { html } = renderEmailHtml(blocks, context, mode);
 
-		return { subject, html };
+		const registry = await this.mergeRegistry();
+		const tokens = collectTokens(template.subject ?? "", blocks);
+		const missing = missingMerges(tokens, context, registry).filter((entry) => {
+			if (entry.token === "signing_link") return false;
+			if (entry.token === "sender.name" && senderName) return false;
+			return true;
+		});
+
+		return { subject, html, missing };
 	}
 
 	async sendTest(input: TemplateSendTestInput) {
@@ -117,10 +177,31 @@ export class TemplatesService {
 		const template = await this.byPurpose({ purpose: input.purpose });
 		const blocks = parseTemplateBlocks(template.blocks);
 
+		const registry = await this.mergeRegistry();
+		const tokens = collectTokens(template.subject ?? "", blocks);
+
+		const sampleContext: Record<string, string> = { ...SAMPLE_MERGE_CONTEXT };
+		for (const token of tokens) {
+			if (sampleContext[token] !== undefined) continue;
+			const label = registry.get(token);
+			if (label !== undefined) sampleContext[token] = label;
+		}
+
+		const missing = missingMerges(tokens, sampleContext, registry);
+		const unknownLabels = missing
+			.filter((entry) => entry.reason === "unknown")
+			.map((entry) => entry.label);
+
+		if (unknownLabels.length > 0) {
+			throw new BadRequestException(
+				`No longer exists — remove from the template: ${unknownLabels.join(", ")}`,
+			);
+		}
+
 		const subject = template.subject
-			? applyMergeFields(template.subject, SAMPLE_MERGE_CONTEXT)
+			? applyMergeFields(template.subject, sampleContext)
 			: "";
-		const { html, text } = renderEmailHtml(blocks, SAMPLE_MERGE_CONTEXT);
+		const { html, text } = renderEmailHtml(blocks, sampleContext);
 
 		const result = await this.mailer.send({
 			to: input.to,

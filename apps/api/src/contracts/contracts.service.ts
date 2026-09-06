@@ -19,6 +19,11 @@ import { tierTotals } from "../estimates/estimate-pdf";
 import { invoiceTotalCents } from "../invoices/invoice-pdf";
 import { MailerService } from "../mailer/mailer.service";
 import { MergeContextService } from "../templates/merge-context.service";
+import {
+	assertMergeComplete,
+	collectTokens,
+	missingMerges,
+} from "../templates/merge-guard";
 import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
 import { parseTemplateBlocks } from "../templates/template-blocks";
 import { TemplatesService } from "../templates/templates.service";
@@ -324,7 +329,7 @@ export class ContractsService {
 		}
 	}
 
-	async send(input: ContractSendInput) {
+	async send(input: ContractSendInput, senderName?: string) {
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -360,6 +365,7 @@ export class ContractsService {
 			estimateId: contract.estimateId ?? undefined,
 			invoiceId: contract.invoiceId ?? undefined,
 			contractId: contract.id,
+			senderName,
 			signingLink,
 			personalNote: input.personalNote,
 		});
@@ -368,6 +374,10 @@ export class ContractsService {
 			purpose: "CONTRACT_SEND",
 		});
 		const blocks = parseTemplateBlocks(template.blocks);
+
+		const registry = await this.templates.mergeRegistry();
+		const tokens = collectTokens(template.subject ?? "", blocks);
+		assertMergeComplete("contract", missingMerges(tokens, context, registry));
 
 		const subject =
 			input.subject ??

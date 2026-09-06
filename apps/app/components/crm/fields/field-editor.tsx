@@ -2,6 +2,7 @@
 
 import Add from "@carbon/icons-react/es/Add";
 import Close from "@carbon/icons-react/es/Close";
+import Copy from "@carbon/icons-react/es/Copy";
 import {
 	FIELD_TYPES,
 	fieldKeyFromLabel,
@@ -54,10 +55,15 @@ import {
 	BRIEF_HELP,
 	BRIEF_LABEL,
 	CANCEL,
+	COPIED,
+	COPY_MERGE_TAG,
 	FILL_REST,
 	KEY_HELP,
 	KEY_LABEL,
 	LABEL_LABEL,
+	MERGE_TAG_HELP,
+	MERGE_TAG_LABEL,
+	mergeTagFor,
 	OPTIONS_LABEL,
 	optionLabel,
 	SAVE,
@@ -168,6 +174,48 @@ function Coverage({ field }: { field: FieldRecord }) {
 	);
 }
 
+function MergeTag({
+	entity,
+	fieldKey,
+}: {
+	entity: FieldEntity;
+	fieldKey: string;
+}) {
+	const tag = mergeTagFor(entity, fieldKey);
+
+	const copy = () => {
+		const clipboard = navigator.clipboard;
+
+		if (!clipboard) {
+			toast.error(`Could not copy the ${MERGE_TAG_LABEL.toLowerCase()}.`);
+			return;
+		}
+
+		clipboard
+			.writeText(tag)
+			.then(() => toast.success(COPIED))
+			.catch(() =>
+				toast.error(`Could not copy the ${MERGE_TAG_LABEL.toLowerCase()}.`),
+			);
+	};
+
+	return (
+		<Field>
+			<div className="flex items-center justify-between gap-2">
+				<FieldTitle>{MERGE_TAG_LABEL}</FieldTitle>
+				<Button variant="ghost" size="sm" onClick={copy}>
+					<Icon icon={Copy} data-icon="inline-start" />
+					{COPY_MERGE_TAG}
+				</Button>
+			</div>
+			<span className="w-fit rounded-sm bg-muted px-1.5 py-0.5 font-mono text-code-foreground text-xs">
+				{tag}
+			</span>
+			<FieldDescription>{MERGE_TAG_HELP}</FieldDescription>
+		</Field>
+	);
+}
+
 export function FieldEditor({
 	entity,
 	field,
@@ -261,6 +309,8 @@ export function FieldEditor({
 						</div>
 						<FieldDescription>{KEY_HELP}</FieldDescription>
 					</Field>
+
+					{field ? <MergeTag entity={entity} fieldKey={field.key} /> : null}
 				</div>
 
 				<div className={SECTION}>

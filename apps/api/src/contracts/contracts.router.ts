@@ -59,8 +59,11 @@ export class ContractsRouter {
 	}
 
 	@Mutation({ input: contractSendInput })
-	async send(@Input() input: z.infer<typeof contractSendInput>) {
-		return this.contracts.send(input);
+	async send(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof contractSendInput>,
+	) {
+		return this.contracts.send(input, ctx.user.name);
 	}
 
 	@Mutation({ input: contractIdInput })

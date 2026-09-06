@@ -90,6 +90,12 @@ function fakeTemplates(
 			subject,
 			blocks: ESTIMATE_SEND_BLOCKS,
 		}),
+		mergeRegistry: async () =>
+			new Map([
+				["business.name", "Business name"],
+				["contact.first_name", "First name"],
+				["personal_note", "Personal note"],
+			]),
 	} as unknown as TemplatesService;
 }
 

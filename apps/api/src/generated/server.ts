@@ -647,7 +647,9 @@ const appRouter = t.router({
       .input(templateSendTestInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["sendTest"]>>),
     mailerConfigured: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["mailerConfigured"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["mailerConfigured"]>>),
+    mergeFields: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["mergeFields"]>>)
     }),
   tracking: t.router({
     settings: publicProcedure
