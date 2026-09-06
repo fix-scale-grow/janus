@@ -68,9 +68,18 @@ beforeAll(async () => {
 	});
 	recentId = recent.id;
 
+	const now = Date.now();
+	await db.drawing.update({
+		where: { id: recentId },
+		data: { updatedAt: new Date(now) },
+	});
+	await db.drawing.update({
+		where: { id: attachedId },
+		data: { updatedAt: new Date(now - 30_000) },
+	});
 	await db.drawing.update({
 		where: { id: orphanId },
-		data: { updatedAt: new Date(Date.now() - 60_000) },
+		data: { updatedAt: new Date(now - 60_000) },
 	});
 });
 
