@@ -49,3 +49,5 @@ yarn-error.log*
 
 # Superpowers launcher and dev scripts
 /.superpowers/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
