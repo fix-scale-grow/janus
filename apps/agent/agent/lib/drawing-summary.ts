@@ -11,6 +11,7 @@ import {
 	parseDrawingScene,
 	type ShapeAdjustment,
 } from "@crm/drawings";
+import { UNASSIGNED_SERVICE } from "./service-assignment";
 import { fenceUntrusted } from "./untrusted";
 
 export type ServiceLike = {
@@ -104,7 +105,7 @@ export function summarizeScene(
 			kind: shape.kind,
 			label: fenceUntrusted("shape label", shape.label),
 			quantity: shape.quantity,
-			service: serviceName ?? "unassigned",
+			service: serviceName ?? UNASSIGNED_SERVICE,
 			adj: shape.adj ?? null,
 		};
 	});

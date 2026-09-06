@@ -3,6 +3,7 @@ import { APP_AUTH, type AppAuth } from "./app-auth";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
 import { settledWithin } from "./deadline";
 import { DISPATCH } from "./dispatch-config";
+import { parseDrawingCheckPayload } from "./drawing-check-payload";
 import { markRunning, settle } from "./enrichment";
 import { collapsing, runLimited } from "./pool";
 import { runSlackChannelJoin } from "./slack-join-task";
@@ -379,10 +380,10 @@ export function brief(task: LeasedTask): string {
 			? `This is attempt ${task.attempts}; the earlier one did not finish. Carry on from what is already in this thread rather than starting again. `
 			: "";
 
-	return again + work(task.kind, task.reason);
+	return again + work(task.kind, task.reason, task.payload);
 }
 
-function work(kind: string, reason: string): string {
+function work(kind: string, reason: string, payload: unknown): string {
 	switch (kind) {
 		case "identify":
 			return "Work out who this contact actually is, and record what you find. Read what we already have before spending anything.";
@@ -393,8 +394,13 @@ function work(kind: string, reason: string): string {
 			return "There is a meeting with this person soon. Make sure whoever is taking it opens the record knowing who they are dealing with.";
 		case "workspace-profile":
 			return "Write the profile of the company you work for, so that every other session knows who we are. Read our own site and keep it short.";
-		case "drawing-check":
-			return `${reason} Call review_drawing on this drawing and tell the rep about anything that looks off — a shape drawn but not assigned to a service, a shape tagged but not measured, or a related service in the price book that is missing from the estimate. Ask about it, do not assert it is wrong.`;
+		case "drawing-check": {
+			const parsed = parseDrawingCheckPayload(payload);
+			const withEstimate = parsed
+				? ` Pass estimateId "${parsed.estimateId}" to review_drawing — that is the estimate that was just generated, and the one to check.`
+				: "";
+			return `${reason} Call review_drawing on this drawing.${withEstimate} Tell the rep about anything that looks off — a shape drawn but not assigned to a service, a shape tagged but not measured, or a related service in the price book that is missing from the estimate. Ask about it, do not assert it is wrong.`;
+		}
 		default:
 			return `Handle this: ${reason}`;
 	}

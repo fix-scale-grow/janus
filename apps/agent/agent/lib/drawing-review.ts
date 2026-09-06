@@ -13,6 +13,7 @@ export type DrawingReviewResult =
 
 export async function reviewDrawing(
 	drawingId: string,
+	estimateId?: string,
 ): Promise<DrawingReviewResult> {
 	const drawing = await db.drawing.findUnique({
 		where: { id: drawingId },
@@ -20,6 +21,7 @@ export async function reviewDrawing(
 			scene: true,
 			scale: true,
 			estimates: {
+				where: estimateId ? { id: estimateId } : undefined,
 				orderBy: { createdAt: "desc" },
 				take: 1,
 				select: {

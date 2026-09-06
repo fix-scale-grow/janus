@@ -1,3 +1,5 @@
+import { UNASSIGNED_SERVICE } from "./service-assignment";
+
 export type TakeoffShape = {
 	scopeId: string;
 	kind: string;
@@ -51,11 +53,15 @@ export function reviewTakeoff(input: {
 	patterns?: readonly ServicePattern[];
 }): TakeoffReviewFacts {
 	const unassignedShapes = input.shapes
-		.filter((shape) => shape.service === "unassigned" && shape.hasQuantity)
+		.filter(
+			(shape) => shape.service === UNASSIGNED_SERVICE && shape.hasQuantity,
+		)
 		.map(({ scopeId, kind, label }) => ({ scopeId, kind, label }));
 
 	const taggedUnmeasuredShapes = input.shapes
-		.filter((shape) => shape.service !== "unassigned" && !shape.hasQuantity)
+		.filter(
+			(shape) => shape.service !== UNASSIGNED_SERVICE && !shape.hasQuantity,
+		)
 		.map(({ scopeId, kind, label, service }) => ({
 			scopeId,
 			kind,
@@ -64,7 +70,7 @@ export function reviewTakeoff(input: {
 		}));
 
 	const somethingIsPriced = input.shapes.some(
-		(shape) => shape.service !== "unassigned",
+		(shape) => shape.service !== UNASSIGNED_SERVICE,
 	);
 
 	const estimateNames = new Set(

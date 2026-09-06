@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { UNASSIGNED_SERVICE } from "../agent/lib/service-assignment";
 import { reviewTakeoff, SERVICE_PATTERNS } from "../agent/lib/takeoff-review";
 
 describe("reviewTakeoff", () => {
@@ -9,7 +10,7 @@ describe("reviewTakeoff", () => {
 					scopeId: "s1",
 					kind: "area",
 					label: "North slope",
-					service: "unassigned",
+					service: UNASSIGNED_SERVICE,
 					hasQuantity: true,
 				},
 			],
@@ -30,7 +31,7 @@ describe("reviewTakeoff", () => {
 					scopeId: "s1",
 					kind: "area",
 					label: "North slope",
-					service: "unassigned",
+					service: UNASSIGNED_SERVICE,
 					hasQuantity: false,
 				},
 			],
@@ -136,7 +137,7 @@ describe("reviewTakeoff", () => {
 					scopeId: "s1",
 					kind: "area",
 					label: "Roof",
-					service: "unassigned",
+					service: UNASSIGNED_SERVICE,
 					hasQuantity: false,
 				},
 			],
