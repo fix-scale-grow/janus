@@ -1,5 +1,11 @@
 import { badgeVariants } from "@crm/ui/components/badge";
-import { mergeFieldLabel, TEMPLATE_BLOCKS } from "./merge-fields";
+import { TEMPLATE_BLOCKS } from "./merge-fields";
+
+export type MergeFieldLabels = Record<string, string>;
+
+function labelFor(labels: MergeFieldLabels, token: string): string {
+	return labels[token] ?? `{{${token}}}`;
+}
 
 const FIELD_TOKEN = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
 const FIELD_SPAN =
@@ -79,19 +85,21 @@ function sanitizeStoredHtml(html: string): string {
 		});
 }
 
-export function fieldChipHtml(token: string): string {
-	return `<span class="${escapeAttribute(CHIP_CLASS)}" data-field="${escapeAttribute(token)}" contenteditable="false">${escapeText(mergeFieldLabel(token))}</span>`;
+export function fieldChipHtml(token: string, labels: MergeFieldLabels): string {
+	return `<span class="${escapeAttribute(CHIP_CLASS)}" data-field="${escapeAttribute(token)}" contenteditable="false">${escapeText(labelFor(labels, token))}</span>`;
 }
 
-export function toEditorHtml(html: string): string {
+export function toEditorHtml(html: string, labels: MergeFieldLabels): string {
 	return sanitizeStoredHtml(html)
 		.replace(FIELD_SPAN, (_match, token: string) => `{{${token}}}`)
-		.replace(FIELD_TOKEN, (_match, token: string) => fieldChipHtml(token));
+		.replace(FIELD_TOKEN, (_match, token: string) =>
+			fieldChipHtml(token, labels),
+		);
 }
 
-export function toEditorText(text: string): string {
+export function toEditorText(text: string, labels: MergeFieldLabels): string {
 	return escapeText(text).replace(FIELD_TOKEN, (_match, token: string) =>
-		fieldChipHtml(token),
+		fieldChipHtml(token, labels),
 	);
 }
 
@@ -182,12 +190,15 @@ function collapseAfter(node: Node): void {
 	selection.addRange(range);
 }
 
-export function createFieldChip(token: string): HTMLSpanElement {
+export function createFieldChip(
+	token: string,
+	labels: MergeFieldLabels,
+): HTMLSpanElement {
 	const chip = document.createElement("span");
 	chip.className = CHIP_CLASS;
 	chip.dataset.field = token;
 	chip.contentEditable = "false";
-	chip.textContent = mergeFieldLabel(token);
+	chip.textContent = labelFor(labels, token);
 	return chip;
 }
 
@@ -205,8 +216,9 @@ export function insertFieldChip(
 	root: HTMLElement,
 	range: Range | null,
 	token: string,
+	labels: MergeFieldLabels,
 ): void {
-	const chip = createFieldChip(token);
+	const chip = createFieldChip(token, labels);
 	const spacer = document.createTextNode(SPACER_CHARACTER);
 	const target =
 		range && root.contains(range.commonAncestorContainer) ? range : null;

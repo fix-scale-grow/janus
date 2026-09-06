@@ -1,5 +1,8 @@
 import { TemplatePurpose } from "@crm/db/enums";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { z } from "zod";
+import { useTRPC } from "@/lib/trpc/client";
 
 export const TEMPLATE_BLOCKS = {
 	heading: { maxTextLength: 300, defaultText: "New heading" },
@@ -103,75 +106,36 @@ export type MergeFieldGroup = {
 	fields: MergeField[];
 };
 
-export const MERGE_FIELD_GROUPS: MergeFieldGroup[] = [
-	{
-		id: "contact",
-		label: "Contact",
-		fields: [
-			{ token: "contact.full_name", label: "Full name" },
-			{ token: "contact.first_name", label: "First name" },
-			{ token: "contact.email", label: "Email address" },
-		],
-	},
-	{
-		id: "business",
-		label: "Business",
-		fields: [
-			{ token: "business.name", label: "Business name" },
-			{ token: "business.phone", label: "Business phone" },
-			{ token: "sender.name", label: "Sender name" },
-		],
-	},
-	{
-		id: "deal",
-		label: "Job",
-		fields: [
-			{ token: "deal.title", label: "Job title" },
-			{ token: "deal.address", label: "Job address" },
-		],
-	},
-	{
-		id: "estimate",
-		label: "Estimate",
-		fields: [
-			{ token: "estimate.title", label: "Estimate title" },
-			{ token: "estimate.total", label: "Total price" },
-			{ token: "estimate.tier", label: "Estimate tier" },
-		],
-	},
-	{
-		id: "invoice",
-		label: "Invoice",
-		fields: [
-			{ token: "invoice.number", label: "Invoice number" },
-			{ token: "invoice.total", label: "Amount due" },
-			{ token: "invoice.due_date", label: "Due date" },
-		],
-	},
-	{
-		id: "contract",
-		label: "Contract",
-		fields: [
-			{ token: "contract.number", label: "Contract number" },
-			{ token: "contract.title", label: "Contract title" },
-		],
-	},
-	{
-		id: "send",
-		label: "Sending",
-		fields: [
-			{ token: "signing_link", label: "Signing link" },
-			{ token: "personal_note", label: "Personal note" },
-		],
-	},
-];
+export type MergeFields = {
+	groups: MergeFieldGroup[];
+	labelFor(token: string): string;
+};
 
-const MERGE_FIELD_LABELS: Record<string, string> = Object.fromEntries(
-	MERGE_FIELD_GROUPS.flatMap((group) =>
-		group.fields.map((field) => [field.token, field.label]),
-	),
-);
+export function useMergeFields(): MergeFields {
+	const trpc = useTRPC();
 
-export function mergeFieldLabel(token: string): string {
-	return MERGE_FIELD_LABELS[token] ?? `{{${token}}}`;
+	const query = useQuery({
+		...trpc.templates.mergeFields.queryOptions(),
+		placeholderData: (previous) => previous,
+	});
+
+	const groups = query.data?.groups ?? [];
+
+	const labels = useMemo(
+		() =>
+			new Map(
+				groups.flatMap((group) =>
+					group.fields.map((field) => [field.token, field.label] as const),
+				),
+			),
+		[groups],
+	);
+
+	return useMemo(
+		() => ({
+			groups,
+			labelFor: (token: string) => labels.get(token) ?? `{{${token}}}`,
+		}),
+		[groups, labels],
+	);
 }

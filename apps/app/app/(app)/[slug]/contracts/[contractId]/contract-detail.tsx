@@ -63,10 +63,14 @@ import {
 	type EditorBlock,
 } from "@/components/templates/block-canvas";
 import {
+	type MergeFieldLabels,
 	toEditorHtml,
 	toEditorText,
 } from "@/components/templates/block-serialize";
-import type { TemplateBlock } from "@/components/templates/merge-fields";
+import {
+	type TemplateBlock,
+	useMergeFields,
+} from "@/components/templates/merge-fields";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -104,7 +108,13 @@ function contractBodyBlocks(body: TemplateBlock[] | null): TemplateBlock[] {
 	return body ?? [];
 }
 
-function ContractBodyStatic({ blocks }: { blocks: TemplateBlock[] }) {
+function ContractBodyStatic({
+	blocks,
+	labels,
+}: {
+	blocks: TemplateBlock[];
+	labels: MergeFieldLabels;
+}) {
 	if (blocks.length === 0) {
 		return (
 			<p className="rounded-lg border p-4 text-muted-foreground text-sm">
@@ -117,19 +127,25 @@ function ContractBodyStatic({ blocks }: { blocks: TemplateBlock[] }) {
 		<div className="flex flex-col gap-3 rounded-lg border p-4">
 			{blocks.map((block, index) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: static, non-reorderable read-only render
-				<ContractBodyBlockRow key={index} block={block} />
+				<ContractBodyBlockRow key={index} block={block} labels={labels} />
 			))}
 		</div>
 	);
 }
 
-function ContractBodyBlockRow({ block }: { block: TemplateBlock }) {
+function ContractBodyBlockRow({
+	block,
+	labels,
+}: {
+	block: TemplateBlock;
+	labels: MergeFieldLabels;
+}) {
 	if (block.kind === "heading") {
 		return (
 			<h2
 				className="font-semibold text-base"
 				// biome-ignore lint/security/noDangerouslySetInnerHtml: block html is sanitized before storage
-				dangerouslySetInnerHTML={{ __html: toEditorText(block.text) }}
+				dangerouslySetInnerHTML={{ __html: toEditorText(block.text, labels) }}
 			/>
 		);
 	}
@@ -139,7 +155,7 @@ function ContractBodyBlockRow({ block }: { block: TemplateBlock }) {
 			<div
 				className="whitespace-pre-wrap text-sm"
 				// biome-ignore lint/security/noDangerouslySetInnerHtml: block html is sanitized before storage
-				dangerouslySetInnerHTML={{ __html: toEditorHtml(block.html) }}
+				dangerouslySetInnerHTML={{ __html: toEditorHtml(block.html, labels) }}
 			/>
 		);
 	}
@@ -380,6 +396,17 @@ export function ContractDetail({
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
 	const [voidOpen, setVoidOpen] = useState(false);
+
+	const mergeFields = useMergeFields();
+	const labels = useMemo(
+		() =>
+			Object.fromEntries(
+				mergeFields.groups.flatMap((group) =>
+					group.fields.map((field) => [field.token, field.label]),
+				),
+			),
+		[mergeFields.groups],
+	);
 
 	const nextId = useRef(0);
 	const initialBlocks = useMemo(
@@ -624,9 +651,12 @@ export function ContractDetail({
 							) : null}
 						</div>
 						{isDraft ? (
-							<BlockCanvas blocks={rows} onChange={setRows} />
+							<BlockCanvas blocks={rows} onChange={setRows} labels={labels} />
 						) : (
-							<ContractBodyStatic blocks={contractBodyBlocks(data.body)} />
+							<ContractBodyStatic
+								blocks={contractBodyBlocks(data.body)}
+								labels={labels}
+							/>
 						)}
 					</div>
 				</div>

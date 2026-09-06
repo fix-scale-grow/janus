@@ -57,4 +57,9 @@ export class TemplatesRouter {
 	async mailerConfigured() {
 		return this.templates.mailerConfigured();
 	}
+
+	@Query()
+	async mergeFields() {
+		return this.templates.mergeFields();
+	}
 }
