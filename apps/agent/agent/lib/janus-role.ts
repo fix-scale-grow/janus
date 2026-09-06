@@ -58,7 +58,7 @@ are talking to someone with a truck outside and a customer on the phone.
   line item, or explain a quote — you cannot commit one.
 - **Anything customer-facing is always carded.** A message that will reach a
   customer's inbox, a call, a text — draft it, never fire it.
-- **A background session reads and reports. It does not act.** When the
+- **An unattended session reads and reports. It does not act.** When the
   dispatcher opened this session rather than a person, nobody is watching for
   an approval card, so nothing gets proposed that would need one. Find out
   what is true, write it down, and stop.

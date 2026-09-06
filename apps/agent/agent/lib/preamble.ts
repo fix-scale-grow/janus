@@ -2,6 +2,7 @@ import { db } from "@crm/db";
 import { websiteUrl } from "@crm/db/workspace";
 import { capabilitiesMarkdown } from "./capabilities";
 import { JANUS_ROLE } from "./janus-role";
+import { fenceUntrusted } from "./untrusted";
 import { identity, usMarkdown, type WorkspaceIdentity } from "./workspace";
 
 export type Opened = {
@@ -106,11 +107,14 @@ export async function contactPreamble(
 	const markdown = [
 		"## This session",
 		"",
-		`You are working on **${name}** (\`${contactId}\`)${
+		`You are working on contact \`${contactId}\`${
 			contact.email ? `, ${contact.email}` : ""
 		}${contact.title ? `, ${contact.title}` : ""}${
 			contact.companyName ? `, ${contact.companyName}` : ""
-		}.`,
+		}. Their name, as typed by whoever entered it:`,
+		"",
+		fenceUntrusted("contact name", name),
+		"",
 		opened.kind ? `Task: **${opened.kind}**.` : "",
 		opened.reason ? `Why now: ${opened.reason}` : "",
 		opened.budget
@@ -183,7 +187,10 @@ export async function dealPreamble(
 	const markdown = [
 		"## This session",
 		"",
-		`You are working on the deal **${deal.name}** — deal id \`${dealId}\`.`,
+		`You are working on a deal — deal id \`${dealId}\`. Its name, as typed by whoever created it:`,
+		"",
+		fenceUntrusted("deal name", deal.name),
+		"",
 		`Stage: **${deal.stage}**${
 			deal.amount
 				? `. Amount: ${deal.amount} ${deal.currency ?? ""}`.trim()
@@ -197,7 +204,11 @@ export async function dealPreamble(
 			? `Last touched ${deal.lastActivityAt.toDateString()}.`
 			: "Nothing has happened on it yet.",
 		...(deal.description
-			? [`The rep's own description of it: "${deal.description}"`]
+			? [
+					"The rep's own description of it:",
+					"",
+					fenceUntrusted("deal description", deal.description),
+				]
 			: []),
 		people ? `People on it: ${people}` : "Nobody is attached to it yet.",
 		"",
@@ -224,7 +235,6 @@ export async function drawingPreamble(
 		where: { id: drawingId },
 		select: {
 			title: true,
-			address: true,
 			scale: true,
 			dealId: true,
 			deal: { select: { name: true } },
@@ -240,21 +250,37 @@ export async function drawingPreamble(
 
 	if (!drawing) return { markdown: await closing(), focus: {} };
 
-	const dealLine = drawing.dealId
-		? `Deal: **${drawing.deal?.name ?? "unnamed"}** \`${drawing.dealId}\`.`
-		: "It is not on a deal.";
-	const contactLine = drawing.contactId
-		? `Contact: **${[drawing.contact?.firstName, drawing.contact?.lastName]
+	const contactName = drawing.contact
+		? [drawing.contact.firstName, drawing.contact.lastName]
 				.filter(Boolean)
-				.join(" ")}** \`${drawing.contactId}\`.`
-		: "";
+				.join(" ")
+		: null;
+	const dealBlock = drawing.dealId
+		? [
+				`It is on deal \`${drawing.dealId}\`, named:`,
+				"",
+				fenceUntrusted("deal name", drawing.deal?.name ?? ""),
+			].join("\n")
+		: "It is not on a deal.";
+	const contactBlock =
+		drawing.contactId && contactName
+			? [
+					`Contact \`${drawing.contactId}\`, named:`,
+					"",
+					fenceUntrusted("contact name", contactName),
+				].join("\n")
+			: "";
 	const estimate = drawing.estimates[0];
 
 	const markdown = [
 		"## This session",
 		"",
-		`You are working on the drawing **${drawing.title}** — drawing id \`${drawingId}\`.`,
-		[dealLine, contactLine].filter(Boolean).join(" "),
+		`You are working on a drawing — drawing id \`${drawingId}\`. Its title, as typed by whoever made it:`,
+		"",
+		fenceUntrusted("drawing title", drawing.title),
+		"",
+		dealBlock,
+		contactBlock,
 		drawing.scale
 			? "It has a scale set, so areas and lengths on it are measured in real feet."
 			: "It has no scale set yet, so areas and lengths cannot be measured — only counts and prices per unit will resolve.",
