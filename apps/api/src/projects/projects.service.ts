@@ -42,7 +42,6 @@ const LIST_SELECT = {
 		select: {
 			id: true,
 			name: true,
-			company: { select: { id: true, name: true } },
 		},
 	},
 	tasks: { select: { status: true } },
@@ -88,7 +87,6 @@ export class ProjectsService {
 					select: {
 						id: true,
 						name: true,
-						company: { select: { id: true, name: true } },
 					},
 				},
 				tasks: {

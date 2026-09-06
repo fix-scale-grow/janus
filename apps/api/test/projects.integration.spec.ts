@@ -7,7 +7,6 @@ const suffix = process.env.TEST_RUN_ID ?? "projects-spec";
 const service = new ProjectsService(db);
 
 let userId: string;
-let companyId: string;
 let dealId: string;
 
 beforeAll(async () => {
@@ -21,17 +20,10 @@ beforeAll(async () => {
 	});
 	userId = user.id;
 
-	const company = await db.company.create({
-		data: { id: `company-${suffix}`, name: `Acme ${suffix}` },
-		select: { id: true },
-	});
-	companyId = company.id;
-
 	const deal = await db.deal.create({
 		data: {
 			id: `deal-${suffix}`,
 			name: `Deal ${suffix}`,
-			companyId,
 			ownerId: userId,
 		},
 		select: { id: true },
@@ -45,7 +37,6 @@ afterAll(async () => {
 	});
 	await db.project.deleteMany({ where: { dealId } });
 	await db.deal.deleteMany({ where: { id: dealId } });
-	await db.company.deleteMany({ where: { id: companyId } });
 	await db.user.deleteMany({ where: { id: userId } });
 });
 
@@ -186,15 +177,10 @@ describe("ProjectsService", () => {
 	});
 
 	it("cascades the deletion of a deal to its project and tasks", async () => {
-		const secondCompany = await db.company.create({
-			data: { id: `company-cascade-${suffix}`, name: `Cascade Co ${suffix}` },
-			select: { id: true },
-		});
 		const secondDeal = await db.deal.create({
 			data: {
 				id: `deal-cascade-${suffix}`,
 				name: `Cascade Deal ${suffix}`,
-				companyId: secondCompany.id,
 				ownerId: userId,
 			},
 			select: { id: true },
@@ -221,7 +207,5 @@ describe("ProjectsService", () => {
 
 		expect(projectCount).toBe(0);
 		expect(taskCount).toBe(0);
-
-		await db.company.deleteMany({ where: { id: secondCompany.id } });
 	});
 });

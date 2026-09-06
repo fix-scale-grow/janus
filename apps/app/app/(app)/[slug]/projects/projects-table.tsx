@@ -59,17 +59,6 @@ export function ProjectsTable() {
 			),
 		},
 		{
-			id: "company",
-			header: "Company",
-			width: "w-[18%]",
-			hideBelow: "lg",
-			cell: (row) => (
-				<span className="truncate text-muted-foreground">
-					{row.deal.company?.name ?? "—"}
-				</span>
-			),
-		},
-		{
 			id: "progress",
 			header: "Progress",
 			align: "right",
