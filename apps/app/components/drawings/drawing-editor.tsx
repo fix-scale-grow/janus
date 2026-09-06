@@ -16,6 +16,12 @@ import {
 	symbolPinCustomData,
 } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@crm/ui/components/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type {
@@ -30,6 +36,7 @@ import { useRouter } from "next/navigation";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AgentPanel } from "@/components/crm/agent-panel";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -162,6 +169,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		elementId: string;
 		pixelLength: number;
 	} | null>(null);
+	const [askJanusOpen, setAskJanusOpen] = useState(false);
 
 	const excalidrawApiRef = useCallback(
 		(api: ExcalidrawImperativeAPI) => {
@@ -539,6 +547,14 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							)}
 						</>
 					)}
+
+					<Button
+						className="ml-auto"
+						onClick={() => setAskJanusOpen(true)}
+						variant="outline"
+					>
+						Ask Janus
+					</Button>
 				</div>
 			</Tabs>
 
@@ -620,6 +636,15 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				}}
 				services={services.data?.rows ?? []}
 			/>
+
+			<Sheet onOpenChange={setAskJanusOpen} open={askJanusOpen}>
+				<SheetContent className="gap-0 p-0" size="lg">
+					<SheetHeader className="border-b">
+						<SheetTitle>Ask Janus</SheetTitle>
+					</SheetHeader>
+					<AgentPanel record={{ kind: "drawing", id: props.drawingId }} />
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

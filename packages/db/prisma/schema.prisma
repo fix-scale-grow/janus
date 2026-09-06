@@ -478,6 +478,8 @@ model AgentConversation {
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
   dealId    String?
   deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  drawingId String?
+  drawing   Drawing? @relation(fields: [drawingId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation("ConversationOwner", fields: [userId], references: [id], onDelete: Cascade)
@@ -508,6 +510,7 @@ model AgentConversation {
 
   @@index([contactId, lastMessageAt])
   @@index([dealId, lastMessageAt])
+  @@index([drawingId, lastMessageAt])
   @@index([userId, kind, lastMessageAt])
   @@index([agentId, lastMessageAt])
   @@map("agentConversation")
@@ -962,6 +965,7 @@ model Drawing {
   createdBy    User              @relation("DrawingCreator", fields: [createdById], references: [id])
   versions     DrawingVersion[]
   estimates    Estimate[]
+  conversations AgentConversation[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 

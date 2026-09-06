@@ -1,12 +1,12 @@
 import type { CarbonIcon } from "@crm/ui/components/icon";
 
-export type AgentRecordKind = "contact" | "deal";
+export type AgentRecordKind = "contact" | "deal" | "drawing";
 
 export type AgentRecord = { kind: AgentRecordKind; id: string };
 
 type RecordCopy = {
 	header: string;
-	field: "contactId" | "dealId";
+	field: "contactId" | "dealId" | "drawingId";
 	title: string;
 	blurb: string;
 	placeholder: string;
@@ -40,6 +40,19 @@ const COPY: Record<AgentRecordKind, RecordCopy> = {
 			"What is the risk here?",
 		],
 	},
+	drawing: {
+		header: "x-crm-drawing",
+		field: "drawingId",
+		title: "Ask about this drawing",
+		blurb:
+			"It can read every shape on it, what it prices against, and any estimate already generated from it.",
+		placeholder: "What's still unassigned?",
+		suggestions: [
+			"What's still unassigned?",
+			"What will this come to?",
+			"What did the customer write on it?",
+		],
+	},
 };
 
 export function recordCopy(kind: AgentRecordKind): RecordCopy {
@@ -53,6 +66,7 @@ export function recordHeader(record: AgentRecord): Record<string, string> {
 export function recordFilter(record: AgentRecord): {
 	contactId?: string;
 	dealId?: string;
+	drawingId?: string;
 } {
 	return { [COPY[record.kind].field]: record.id };
 }

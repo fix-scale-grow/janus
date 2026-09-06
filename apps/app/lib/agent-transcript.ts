@@ -58,6 +58,7 @@ type AgentStreamEvent = {
 const VERBS: Record<string, string> = {
 	read_crm_history: "Read our emails and meetings with them",
 	read_deal_history: "Read the deal and where it has been",
+	read_drawing: "Read the drawing and what's on it",
 	search_crm: "Looked the record up in the CRM",
 	get_contact_work_history: "Read their work history",
 	fetch_contact_photo: "Fetched their profile picture",

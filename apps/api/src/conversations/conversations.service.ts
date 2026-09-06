@@ -79,6 +79,7 @@ export class ConversationsService {
 				userId,
 				...(input.contactId ? { contactId: input.contactId } : {}),
 				...(input.dealId ? { dealId: input.dealId } : {}),
+				...(input.drawingId ? { drawingId: input.drawingId } : {}),
 			},
 			orderBy: { lastMessageAt: "desc" },
 			take: 20,
@@ -749,6 +750,7 @@ export class ConversationsService {
 			userId: string;
 			contactId: string | null;
 			dealId: string | null;
+			drawingId: string | null;
 		}) => {
 			if (existing.userId !== userId || existing.kind !== "RECORD") {
 				throw new NotFoundException(
@@ -756,7 +758,8 @@ export class ConversationsService {
 				);
 			}
 
-			const existingRecordId = existing.contactId ?? existing.dealId;
+			const existingRecordId =
+				existing.contactId ?? existing.dealId ?? existing.drawingId;
 			if (existingRecordId !== recordId) {
 				throw new BadRequestException(
 					"A conversation cannot be moved to another CRM record.",
@@ -770,6 +773,7 @@ export class ConversationsService {
 					userId,
 					contactId: input.contactId ?? null,
 					dealId: input.dealId ?? null,
+					drawingId: input.drawingId ?? null,
 				},
 				data: {
 					continuationToken: input.continuationToken ?? null,
@@ -796,6 +800,7 @@ export class ConversationsService {
 				userId: true,
 				contactId: true,
 				dealId: true,
+				drawingId: true,
 			},
 		});
 		let conversation: { id: string };
@@ -814,6 +819,7 @@ export class ConversationsService {
 						userId,
 						contactId: input.contactId ?? null,
 						dealId: input.dealId ?? null,
+						drawingId: input.drawingId ?? null,
 					},
 					select: { id: true },
 				});
@@ -827,6 +833,7 @@ export class ConversationsService {
 						userId: true,
 						contactId: true,
 						dealId: true,
+						drawingId: true,
 					},
 				});
 				if (!winner) throw error;
@@ -919,8 +926,12 @@ export class ConversationsService {
 		return { id };
 	}
 
-	private recordId(input: { contactId?: string; dealId?: string }): string {
-		const recordIds = [input.contactId, input.dealId].filter(
+	private recordId(input: {
+		contactId?: string;
+		dealId?: string;
+		drawingId?: string;
+	}): string {
+		const recordIds = [input.contactId, input.dealId, input.drawingId].filter(
 			(recordId): recordId is string => Boolean(recordId),
 		);
 		const [recordId] = recordIds;

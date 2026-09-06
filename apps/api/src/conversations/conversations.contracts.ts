@@ -3,10 +3,15 @@ import { z } from "zod";
 const recordShape = {
 	contactId: z.string().trim().min(1).optional(),
 	dealId: z.string().trim().min(1).optional(),
+	drawingId: z.string().trim().min(1).optional(),
 };
 
-const hasExactlyOneRecord = (input: { contactId?: string; dealId?: string }) =>
-	[input.contactId, input.dealId].filter(Boolean).length === 1;
+const hasExactlyOneRecord = (input: {
+	contactId?: string;
+	dealId?: string;
+	drawingId?: string;
+}) =>
+	[input.contactId, input.dealId, input.drawingId].filter(Boolean).length === 1;
 
 const recordMessage = "Choose exactly one contact or deal.";
 
