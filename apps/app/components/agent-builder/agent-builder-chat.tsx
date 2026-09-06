@@ -864,6 +864,8 @@ function AssistantMessage({
 					);
 				}
 
+				if (item.kind !== "asked") return null;
+
 				return conversation === null ||
 					answeredQuestionIds.has(item.question.requestId) ? (
 					<FollowUpTranscriptItem

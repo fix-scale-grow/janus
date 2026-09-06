@@ -49,6 +49,10 @@ import { useEveAgent } from "eve/react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AgentClarificationComposer } from "@/components/agent-clarification-composer";
 import {
+	AgentApprovalCard,
+	type ApprovalResponse,
+} from "@/components/crm/agent-approval-card";
+import {
 	type Conversation,
 	ConversationPicker,
 	useConversations,
@@ -68,6 +72,7 @@ import {
 } from "@/lib/agent-session";
 import {
 	NEW_THREAD,
+	pendingApproval,
 	pendingQuestion,
 	resolveThread,
 	type Source,
@@ -224,8 +229,9 @@ function Thread({
 	const busy = agent.status === "submitted" || agent.status === "streaming";
 	const messages = toTranscript(agent.data.messages);
 	const question = pendingQuestion(agent.data.messages);
+	const approval = pendingApproval(agent.data.messages);
 
-	const { locked, ended } = composerState(thread, busy);
+	const { locked, ended } = composerState(thread, busy || approval !== null);
 
 	const ask = (message: string) => {
 		if (!message.trim() || locked) return;
@@ -233,6 +239,9 @@ function Thread({
 		setDraft("");
 		void agent.send({ message: message.trim() });
 	};
+
+	const respondToApproval = (response: ApprovalResponse) =>
+		agent.send({ inputResponses: [response] });
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
@@ -250,7 +259,11 @@ function Thread({
 										{message.items.map((item) =>
 											item.kind === "asked" &&
 											item.question.requestId === question?.requestId ? null : (
-												<Item key={item.id} item={item} />
+												<Item
+													key={item.id}
+													item={item}
+													onApprovalRespond={respondToApproval}
+												/>
 											),
 										)}
 									</div>
@@ -284,7 +297,11 @@ function Thread({
 			) : null}
 
 			<div className="border-t px-4 py-3 sm:px-5">
-				{question ? (
+				{approval ? (
+					<p className="text-pretty text-muted-foreground text-xs">
+						Janus is waiting for your approval.
+					</p>
+				) : question ? (
 					<AgentClarificationComposer
 						key={question.requestId}
 						question={question}
@@ -387,7 +404,17 @@ const SOURCE_ICONS: Record<Source["network"], CarbonIcon> = {
 	web: Document,
 };
 
-function Item({ item }: { item: TranscriptItem }) {
+function Item({
+	item,
+	onApprovalRespond,
+}: {
+	item: TranscriptItem;
+	onApprovalRespond: (response: ApprovalResponse) => Promise<void>;
+}) {
+	if (item.kind === "tool-approval") {
+		return <AgentApprovalCard item={item} onRespond={onApprovalRespond} />;
+	}
+
 	if (item.kind === "said") {
 		return item.mine ? (
 			<Message align="end" className="min-w-0">

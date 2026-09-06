@@ -15,6 +15,14 @@ export type TranscriptItem =
 			question: EveMessageInputRequest;
 	  }
 	| {
+			kind: "tool-approval";
+			id: string;
+			requestId: string;
+			toolName: string;
+			input: Record<string, unknown> | null;
+			status: ApprovalStatus;
+	  }
+	| {
 			kind: "did";
 			id: string;
 			label: string;
@@ -28,6 +36,8 @@ export type TranscriptItem =
 	  };
 
 export type Tone = "neutral" | "success" | "warning";
+
+export type ApprovalStatus = "pending" | "approved" | "denied";
 
 export type Source = {
 	url: string;
@@ -223,6 +233,18 @@ export function toTranscript(
 					if (request?.kind === "question") {
 						return [{ kind: "asked", id, question: request }];
 					}
+					if (request?.kind === "tool-approval") {
+						return [
+							{
+								kind: "tool-approval",
+								id,
+								requestId: request.requestId,
+								toolName: toolName(part),
+								input: input(part),
+								status: approvalStatusOf(part),
+							},
+						];
+					}
 				}
 
 				if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
@@ -337,6 +359,33 @@ export function pendingQuestion(messages: readonly EveMessage[]) {
 	return null;
 }
 
+export type PendingApproval = {
+	requestId: string;
+	toolName: string;
+	input: Record<string, unknown> | null;
+};
+
+export function pendingApproval(
+	messages: readonly EveMessage[],
+): PendingApproval | null {
+	for (const part of messages.at(-1)?.parts ?? []) {
+		if (part.type !== "dynamic-tool" || part.state !== "approval-requested") {
+			continue;
+		}
+
+		const request = part.toolMetadata?.eve?.inputRequest;
+		if (request?.kind !== "tool-approval") continue;
+
+		return {
+			requestId: request.requestId,
+			toolName: toolName(part),
+			input: input(part),
+		};
+	}
+
+	return null;
+}
+
 export function latestTurnFailure(
 	events: readonly AgentStreamEvent[],
 ): AgentTurnFailure | null {
@@ -383,6 +432,30 @@ function input(part: EveMessagePart): Record<string, unknown> | null {
 	return "input" in part && part.input && typeof part.input === "object"
 		? (part.input as Record<string, unknown>)
 		: null;
+}
+
+function approvalOf(part: EveMessagePart): { approved?: boolean } | null {
+	return "approval" in part &&
+		part.approval &&
+		typeof part.approval === "object"
+		? (part.approval as { approved?: boolean })
+		: null;
+}
+
+function approvalStatusOf(part: EveMessagePart): ApprovalStatus {
+	const state = "state" in part ? part.state : undefined;
+
+	switch (state) {
+		case "approval-responded":
+			return approvalOf(part)?.approved === false ? "denied" : "approved";
+		case "output-denied":
+			return "denied";
+		case "output-available":
+		case "output-error":
+			return "approved";
+		default:
+			return "pending";
+	}
 }
 
 function errorTextOf(part: EveMessagePart): string | null {
