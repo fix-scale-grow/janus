@@ -21,6 +21,8 @@ const badgeVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         mono: "rounded-sm bg-muted font-mono font-normal text-muted-foreground",
         token: "rounded-sm border-border font-normal text-foreground",
+        field:
+          "rounded-sm border-primary/20 bg-primary/10 font-normal text-primary [a]:hover:bg-primary/20 [button]:hover:bg-primary/20",
       },
     },
     defaultVariants: {
