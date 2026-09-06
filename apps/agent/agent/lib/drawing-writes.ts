@@ -125,6 +125,96 @@ export async function applyDrawingTags(
 	};
 }
 
+export type AttachDrawingInput = {
+	drawingId: string;
+	dealId?: string | null;
+	contactId?: string | null;
+	confirmReplace?: boolean;
+};
+
+export type AttachDrawingResult =
+	| {
+			attached: true;
+			drawingId: string;
+			dealId: string | null;
+			contactId: string | null;
+	  }
+	| { attached: false; reason: string };
+
+export async function attachDrawing(
+	input: AttachDrawingInput,
+): Promise<AttachDrawingResult> {
+	const drawing = await db.drawing.findUnique({
+		where: { id: input.drawingId },
+		select: { dealId: true, contactId: true },
+	});
+	if (!drawing) return { attached: false, reason: "No such drawing." };
+
+	const wantsDeal = input.dealId !== undefined;
+	const wantsContact = input.contactId !== undefined;
+	if (!wantsDeal && !wantsContact) {
+		return {
+			attached: false,
+			reason: "Nothing to change. Pass dealId or contactId.",
+		};
+	}
+
+	const conflicts: string[] = [];
+	if (
+		wantsDeal &&
+		drawing.dealId &&
+		drawing.dealId !== input.dealId &&
+		!input.confirmReplace
+	) {
+		conflicts.push("deal");
+	}
+	if (
+		wantsContact &&
+		drawing.contactId &&
+		drawing.contactId !== input.contactId &&
+		!input.confirmReplace
+	) {
+		conflicts.push("contact");
+	}
+	if (conflicts.length > 0) {
+		return {
+			attached: false,
+			reason: `This drawing already belongs to a different ${conflicts.join(" and ")}. Ask the rep whether to move it, then call again with confirmReplace: true.`,
+		};
+	}
+
+	if (wantsDeal && input.dealId) {
+		const deal = await db.deal.findUnique({
+			where: { id: input.dealId },
+			select: { id: true },
+		});
+		if (!deal) return { attached: false, reason: "No such deal." };
+	}
+	if (wantsContact && input.contactId) {
+		const contact = await db.contact.findUnique({
+			where: { id: input.contactId },
+			select: { id: true },
+		});
+		if (!contact) return { attached: false, reason: "No such contact." };
+	}
+
+	const updated = await db.drawing.update({
+		where: { id: input.drawingId },
+		data: {
+			...(wantsDeal ? { dealId: input.dealId } : {}),
+			...(wantsContact ? { contactId: input.contactId } : {}),
+		},
+		select: { id: true, dealId: true, contactId: true },
+	});
+
+	return {
+		attached: true,
+		drawingId: updated.id,
+		dealId: updated.dealId,
+		contactId: updated.contactId,
+	};
+}
+
 async function pruneVersions(
 	tx: Prisma.TransactionClient,
 	drawingId: string,

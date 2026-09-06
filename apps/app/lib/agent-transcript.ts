@@ -81,6 +81,9 @@ const VERBS: Record<string, string> = {
 	archive_field: "Asked to retire a field",
 	read_price_book: "Read the price book",
 	update_service: "Proposed a price book update",
+	list_drawings: "Looked for a drawing",
+	attach_drawing: "Attached the drawing to the record",
+	read_estimate: "Read the estimate",
 
 	load_skill: "Read its instructions for this",
 	web_search: "Searched the web",
