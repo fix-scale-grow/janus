@@ -76,6 +76,40 @@ describe("propose_drawing_tags approval copy", () => {
 	});
 });
 
+describe("propose_estimate_lines approval copy", () => {
+	it("renders one section per line from the structured input", () => {
+		const copy = approvalCopyFor("propose_estimate_lines");
+		const sections = copy.render({
+			estimateId: "estimate1",
+			estimateTitle: "123 Main St re-roof",
+			lines: [
+				{
+					name: "Ridge vent",
+					unit: "PER_LINEAR_FT",
+					quantity: 40,
+					reason: "Noted on the drawing but not priced yet.",
+					source: "note",
+				},
+			],
+		});
+
+		expect(copy.title).toBe("Approve estimate line items");
+		expect(sections).toEqual([
+			{
+				title: "Ridge vent",
+				rows: [
+					{ label: "Quantity", value: "40 Per linear ft" },
+					{ label: "Source", value: "From a drawing note" },
+					{
+						label: "Why",
+						value: "Noted on the drawing but not priced yet.",
+					},
+				],
+			},
+		]);
+	});
+});
+
 describe("generic approval copy fallback bounds", () => {
 	it("stops descending past the depth cap and renders a safe summary", () => {
 		const copy = approvalCopyFor("refund_charge");

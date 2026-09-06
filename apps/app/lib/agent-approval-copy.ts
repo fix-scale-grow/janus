@@ -45,6 +45,39 @@ function proposedDrawingTags(
 	return Array.isArray(tags) ? tags.filter(isProposedDrawingTag) : [];
 }
 
+const SOURCE_LABEL: Record<string, string> = {
+	missing: "Missing item",
+	note: "From a drawing note",
+	chat: "Asked in chat",
+};
+
+type ProposedEstimateLine = {
+	name: string;
+	unit: string;
+	quantity: number;
+	reason: string;
+	source: string;
+};
+
+function isProposedEstimateLine(value: unknown): value is ProposedEstimateLine {
+	if (value === null || typeof value !== "object") return false;
+	const line = value as Record<string, unknown>;
+	return (
+		typeof line.name === "string" &&
+		typeof line.unit === "string" &&
+		typeof line.quantity === "number" &&
+		typeof line.reason === "string" &&
+		typeof line.source === "string"
+	);
+}
+
+function proposedEstimateLines(
+	input: Record<string, unknown> | null,
+): ProposedEstimateLine[] {
+	const lines = input?.lines;
+	return Array.isArray(lines) ? lines.filter(isProposedEstimateLine) : [];
+}
+
 export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 	propose_drawing_tags: {
 		title: "Approve drawing tags",
@@ -57,6 +90,29 @@ export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 				rows: [
 					{ label: "Service", value: truncateText(tag.serviceName) },
 					{ label: "Why", value: truncateText(tag.reason) },
+				],
+			}));
+		},
+	},
+
+	propose_estimate_lines: {
+		title: "Approve estimate line items",
+		render: (input) => {
+			const lines = proposedEstimateLines(input);
+			if (lines.length === 0) return [{ rows: [] }];
+
+			return lines.map((line) => ({
+				title: truncateText(line.name),
+				rows: [
+					{
+						label: "Quantity",
+						value: `${line.quantity} ${humanise(line.unit)}`,
+					},
+					{
+						label: "Source",
+						value: SOURCE_LABEL[line.source] ?? humanise(line.source),
+					},
+					{ label: "Why", value: truncateText(line.reason) },
 				],
 			}));
 		},

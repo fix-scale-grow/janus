@@ -244,9 +244,9 @@ function Thread({
 
 	const respondToApproval = async (response: ApprovalResponse) => {
 		await agent.send({ inputResponses: [response] });
-		if (response.optionId === "approve" && record.kind === "drawing") {
-			await cache.drawing(record.id);
-		}
+		if (response.optionId !== "approve") return;
+		if (record.kind === "drawing") await cache.drawing(record.id);
+		if (approval?.toolName === "propose_estimate_lines") await cache.estimate();
 	};
 
 	return (
