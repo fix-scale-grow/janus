@@ -108,9 +108,9 @@ self-hoster's admin cannot redeploy.
   SAML UI: it needs an X.509 cert and SP signing key we have nowhere to keep.
 - `SsoService` passes `WORKSPACE_ID`, never an input.
 - **Management is tRPC (`sso.*`); signing in is `authClient.signIn.sso()`.**
-- **`sso.signInOptions` is the one public procedure in the app.** Every other `sso.*`
-  takes `AuthMiddleware` at the *method*, which is what leaves it open. A client
-  secret is never read back out.
+- **`sso.signInOptions` and `contractSigning.*` are the app's only public
+  procedures.** Every other `sso.*` takes `AuthMiddleware` at the *method*,
+  which is what leaves it open. A client secret is never read back out.
 - **It is the API's answer, not the app's** — the API serves `/api/auth/*`.
 - **An install with no Google, no Microsoft and no provider says so**, naming the
   variables; a read that *fails* falls back to offering Google.

@@ -152,6 +152,36 @@ describe("renderEmailHtml", () => {
 		expect(html).toContain('href="&quot;>');
 	});
 
+	it("renders a plain white 640px page in document mode, with no grey email shell", () => {
+		const blocks: TemplateBlocks = [
+			{ kind: "heading", text: "Roofing Services Agreement" },
+		];
+		const { html } = renderEmailHtml(blocks, CONTEXT, "document");
+
+		expect(html).toContain("640px");
+		expect(html).not.toContain("600px");
+		expect(html).not.toContain("#f4f4f4");
+	});
+
+	it("renders a button block without the bulletproof table chrome in document mode", () => {
+		const blocks: TemplateBlocks = [{ kind: "button", label: "Sign now" }];
+		const { html } = renderEmailHtml(blocks, CONTEXT, "document");
+
+		expect(html).not.toContain(
+			'<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:',
+		);
+		expect(html).toContain("Sign now");
+		expect(html).toContain("#006b4f");
+	});
+
+	it("defaults to email mode when no mode is given", () => {
+		const blocks: TemplateBlocks = [{ kind: "heading", text: "Hi" }];
+		const { html } = renderEmailHtml(blocks, CONTEXT);
+
+		expect(html).toContain("600px");
+		expect(html).toContain("#f4f4f4");
+	});
+
 	it("produces a plain-text variant with tags stripped", () => {
 		const blocks: TemplateBlocks = [
 			{ kind: "heading", text: "Hello there" },

@@ -27,6 +27,14 @@ function stripControlCharacters(value: string): string {
 	return result;
 }
 
+function escapeAttribute(value: string): string {
+	return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+function reescapeAttribute(value: string): string {
+	return escapeAttribute(decodeHrefEntities(value));
+}
+
 function isAllowedHref(href: string): boolean {
 	const normalized = stripControlCharacters(
 		decodeHrefEntities(href),
@@ -58,7 +66,7 @@ function sanitizeHtml(html: string): string {
 				);
 				const href = hrefMatch ? (hrefMatch[1] ?? hrefMatch[2]) : undefined;
 				if (href && isAllowedHref(href)) {
-					return `<a href="${href}">`;
+					return `<a href="${reescapeAttribute(href)}">`;
 				}
 				return "<a>";
 			}
@@ -70,7 +78,8 @@ function sanitizeHtml(html: string): string {
 				const dataField = fieldMatch
 					? (fieldMatch[1] ?? fieldMatch[2])
 					: undefined;
-				if (dataField) return `<span data-field="${dataField}">`;
+				if (dataField)
+					return `<span data-field="${reescapeAttribute(dataField)}">`;
 				return "<span>";
 			}
 

@@ -53,6 +53,7 @@ function renderRow(content: string): string {
 function renderBlockHtml(
 	block: TemplateBlocks[number],
 	context: Record<string, string>,
+	mode: RenderMode,
 ): string {
 	switch (block.kind) {
 		case "heading": {
@@ -70,6 +71,11 @@ function renderBlockHtml(
 		case "button": {
 			const label = escapeHtml(applyMergeFields(block.label, context));
 			const href = escapeAttribute(context.signing_link ?? "#");
+			if (mode === "document") {
+				return renderRow(
+					`<a href="${href}" style="display:inline-block;padding:12px 24px;background:${BRAND_GREEN};border-radius:5px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a>`,
+				);
+			}
 			return renderRow(
 				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:${BRAND_GREEN};border-radius:5px;" bgcolor="${BRAND_GREEN}"><a href="${href}" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a></td></tr></table>`,
 			);
@@ -118,16 +124,26 @@ function renderBlockText(
 	}
 }
 
+export type RenderMode = "email" | "document";
+
+const DOCUMENT_WIDTH = 640;
+
 export function renderEmailHtml(
 	blocks: TemplateBlocks,
 	context: Record<string, string>,
+	mode: RenderMode = "email",
 ): { html: string; text: string } {
-	const rows = blocks.map((block) => renderBlockHtml(block, context)).join("");
+	const rows = blocks
+		.map((block) => renderBlockHtml(block, context, mode))
+		.join("");
+
+	const width = mode === "document" ? DOCUMENT_WIDTH : TABLE_WIDTH;
+	const outerBackground = mode === "document" ? "#ffffff" : "#f4f4f4";
 
 	const html =
-		`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f4;">` +
+		`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${outerBackground};">` +
 		`<tr><td align="center" style="padding:24px 0;">` +
-		`<table role="presentation" width="${TABLE_WIDTH}" cellpadding="0" cellspacing="0" border="0" style="width:${TABLE_WIDTH}px;max-width:${TABLE_WIDTH}px;background:#ffffff;">` +
+		`<table role="presentation" width="${width}" cellpadding="0" cellspacing="0" border="0" style="width:${width}px;max-width:${width}px;background:#ffffff;">` +
 		rows +
 		`</table>` +
 		`</td></tr>` +

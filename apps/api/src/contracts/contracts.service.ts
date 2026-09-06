@@ -420,7 +420,11 @@ export class ContractsService {
 
 		let html: string;
 		try {
-			({ html } = renderEmailHtml(parseTemplateBlocks(contract.body), context));
+			({ html } = renderEmailHtml(
+				parseTemplateBlocks(contract.body),
+				context,
+				"document",
+			));
 		} catch {
 			throw new ConflictException("This contract can no longer be signed.");
 		}

@@ -221,6 +221,52 @@ describe("templateBlocksSchema", () => {
 			}
 		}
 	});
+
+	it("escapes a double quote smuggled through a single-quoted href, defeating attribute breakout", () => {
+		const result = templateBlocksSchema.safeParse([
+			{
+				kind: "text",
+				html: `<a href='https://x" onmouseover="alert(1)'>Link</a>`,
+			},
+		]);
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			const [block] = result.data;
+			if (block?.kind === "text") {
+				expect(block.html).toContain(
+					'<a href="https://x&quot; onmouseover=&quot;alert(1)">',
+				);
+				expect(block.html).not.toContain('x" onmouseover="alert(1)');
+			}
+		}
+	});
+
+	it("is idempotent when sanitizing an already-escaped attribute a second time", () => {
+		const first = templateBlocksSchema.safeParse([
+			{
+				kind: "text",
+				html: `<a href='https://x" onmouseover="alert(1)'>Link</a>`,
+			},
+		]);
+
+		expect(first.success).toBe(true);
+		if (!first.success) return;
+		const [firstBlock] = first.data;
+		if (firstBlock?.kind !== "text") throw new Error("expected text block");
+
+		const second = templateBlocksSchema.safeParse([
+			{ kind: "text", html: firstBlock.html },
+		]);
+
+		expect(second.success).toBe(true);
+		if (!second.success) return;
+		const [secondBlock] = second.data;
+		if (secondBlock?.kind !== "text") throw new Error("expected text block");
+
+		expect(secondBlock.html).toBe(firstBlock.html);
+		expect(secondBlock.html).not.toContain('x" onmouseover="alert(1)');
+	});
 });
 
 describe("parseTemplateBlocks", () => {

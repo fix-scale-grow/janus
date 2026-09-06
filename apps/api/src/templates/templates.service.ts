@@ -103,7 +103,8 @@ export class TemplatesService {
 		const subject = template.subject
 			? applyMergeFields(template.subject, context)
 			: "";
-		const { html } = renderEmailHtml(blocks, context);
+		const mode = input.purpose === "CONTRACT_BODY" ? "document" : "email";
+		const { html } = renderEmailHtml(blocks, context, mode);
 
 		return { subject, html };
 	}
