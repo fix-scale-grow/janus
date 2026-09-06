@@ -31,10 +31,12 @@ export function SortableList({
 	ids,
 	onReorder,
 	children,
+	id = "sortable-list",
 }: {
 	ids: string[];
 	onReorder: (ids: string[]) => void;
 	children: ReactNode;
+	id?: string;
 }) {
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -56,6 +58,7 @@ export function SortableList({
 
 	return (
 		<DndContext
+			id={id}
 			sensors={sensors}
 			collisionDetection={closestCenter}
 			modifiers={[restrictToVerticalAxis, restrictToParentElement]}
