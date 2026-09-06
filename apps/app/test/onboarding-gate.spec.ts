@@ -288,6 +288,20 @@ describe("proxy", () => {
 		).toBeNull();
 	});
 
+	it("lets a signed-out client sign a contract, with no cookie at all", async () => {
+		expect(
+			redirectedTo(await proxy(request("/sign/abc123"))),
+		).toBeNull();
+	});
+
+	it("never gates the signing link behind onboarding either", async () => {
+		setup({ onboarded: false, configured: false });
+
+		expect(
+			redirectedTo(await proxy(request("/sign/abc123", [SESSION_COOKIE]))),
+		).toBeNull();
+	});
+
 	it("fails open when the API is unreachable", async () => {
 		stub(async () => {
 			throw new Error("connect ECONNREFUSED");
