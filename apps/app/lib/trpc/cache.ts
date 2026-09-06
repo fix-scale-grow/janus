@@ -1,5 +1,6 @@
 "use client";
 
+import type { TemplatePurpose } from "@crm/db/enums";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "./client";
 
@@ -25,6 +26,7 @@ export type CrmCache = {
 	project(id?: string, options?: Options): Promise<void>;
 	service(id?: string, options?: Options): Promise<void>;
 	symbol(id?: string, options?: Options): Promise<void>;
+	template(purpose?: TemplatePurpose, options?: Options): Promise<void>;
 	fields(entity?: RecordKind, options?: Options): Promise<void>;
 	fieldCoverage(id?: string, options?: Options): Promise<void>;
 	removed(record: RemovedRecord): Promise<void>;
@@ -253,6 +255,17 @@ export function useCrmCache(): CrmCache {
 						: trpc.symbols.byId.queryKey(),
 				],
 				[trpc.symbols.list.queryKey()],
+				options,
+			),
+
+		template: (purpose, options) =>
+			run(
+				[
+					purpose
+						? trpc.templates.byPurpose.queryKey({ purpose })
+						: trpc.templates.byPurpose.queryKey(),
+				],
+				[trpc.templates.list.queryKey(), trpc.templates.preview.pathKey()],
 				options,
 			),
 
