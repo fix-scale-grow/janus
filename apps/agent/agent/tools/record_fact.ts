@@ -35,9 +35,7 @@ export default defineTool({
 			)
 			.min(1)
 			.describe("Everything you observed. One entry per independent source."),
-		method: z
-			.string()
-			.describe('Where it came from: "crm.thread", "web".'),
+		method: z.string().describe('Where it came from: "crm.thread", "web".'),
 		sourceUrl: z
 			.string()
 			.optional()

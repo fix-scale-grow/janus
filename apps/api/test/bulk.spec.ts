@@ -29,7 +29,9 @@ const contacts = new ContactsService(db, agent, queue, stamp, fields);
 const deals = new DealsService(db, agent, stamp, conversion, fields);
 
 async function clean() {
-	await db.deal.deleteMany({ where: { ownerId: { in: [ownerId, secondOwnerId] } } });
+	await db.deal.deleteMany({
+		where: { ownerId: { in: [ownerId, secondOwnerId] } },
+	});
 	await db.activity.deleteMany({
 		where: { createdById: { in: [ownerId, secondOwnerId] } },
 	});

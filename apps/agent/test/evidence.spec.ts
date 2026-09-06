@@ -76,9 +76,7 @@ describe("scoreEvidence", () => {
 	});
 
 	it("explains itself in words a rep could read", () => {
-		const scored = scoreEvidence(
-			of("crm.signature-block", "web.cited-claim"),
-		);
+		const scored = scoreEvidence(of("crm.signature-block", "web.cited-claim"));
 		expect(scored.rationale).toContain("email signature");
 		expect(scored.rationale).toContain("cited web source");
 	});

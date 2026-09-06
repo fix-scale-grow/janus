@@ -394,7 +394,10 @@ export class CalendarSyncService {
 			select: { createdAt: true },
 		});
 
-		await this.stamp.touch({ contactId: summary.contactId }, activity.createdAt);
+		await this.stamp.touch(
+			{ contactId: summary.contactId },
+			activity.createdAt,
+		);
 	}
 
 	private participantsOf(event: GoogleEvent): Participant[] {

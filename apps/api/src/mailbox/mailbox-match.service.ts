@@ -1,7 +1,7 @@
 import { workspaceDomains } from "@crm/auth/workspace";
 import { type Db, RecordSource } from "@crm/db";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { EnrichmentLogService } from "../crm/enrichment-log.service";
 import { InjectDatabase } from "../database/database.constants";
@@ -38,8 +38,6 @@ export type MatchRequest = {
 
 @Injectable()
 export class MailboxMatchService {
-	private readonly logger = new Logger(MailboxMatchService.name);
-
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly agent: AgentTriggerService,

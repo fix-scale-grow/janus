@@ -16,7 +16,9 @@ const seen = (kind: Evidence["kind"], detail = "observed"): Evidence => ({
 });
 
 beforeAll(async () => {
-	await db.contact.deleteMany({ where: { email: { in: [email, secondEmail] } } });
+	await db.contact.deleteMany({
+		where: { email: { in: [email, secondEmail] } },
+	});
 	const contact = await db.contact.create({
 		data: { firstName: "Subject", lastName: null, email },
 		select: { id: true },
@@ -35,7 +37,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	await db.contact.deleteMany({ where: { email: { in: [email, secondEmail] } } });
+	await db.contact.deleteMany({
+		where: { email: { in: [email, secondEmail] } },
+	});
 });
 
 describe("recordFact", () => {
@@ -143,9 +147,9 @@ describe("recordFact", () => {
 		});
 
 		expect(facts.filter((fact) => fact.status === "PROPOSED")).toHaveLength(0);
-		expect(
-			facts.find((f) => f.value === "Chief of Staff")?.status,
-		).toBe("APPLIED");
+		expect(facts.find((f) => f.value === "Chief of Staff")?.status).toBe(
+			"APPLIED",
+		);
 	});
 
 	it("never overwrites what a person typed", async () => {

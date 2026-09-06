@@ -8,10 +8,10 @@ import {
 } from "@crm/db/tracking";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
-import { isMachineDomain } from "../mailbox/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
+import { isMachineDomain } from "../mailbox/domain";
 import {
 	isAutomatedAddress,
 	isMachineAddress,

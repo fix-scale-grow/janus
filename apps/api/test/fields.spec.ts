@@ -306,9 +306,7 @@ describe("field values", () => {
 			}),
 		).rejects.toThrow(/takes a date/);
 
-		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(
-			0,
-		);
+		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 	});
 
 	it("refuses a user who does not work here, and keeps the batch out", async () => {
@@ -333,9 +331,7 @@ describe("field values", () => {
 			}),
 		).rejects.toThrow(/works here/);
 
-		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(
-			0,
-		);
+		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 
 		await fields.applyValues(db, "CONTACT", record, {
 			spec_champion: ownerId,
@@ -366,9 +362,7 @@ describe("field values", () => {
 
 		await db.contact.delete({ where: { id: doomed } });
 
-		expect(await db.fieldValue.count({ where: { contactId: doomed } })).toBe(
-			0,
-		);
+		expect(await db.fieldValue.count({ where: { contactId: doomed } })).toBe(0);
 	});
 });
 
@@ -469,9 +463,7 @@ describe("a record update that fails", () => {
 			}),
 		).rejects.toThrow();
 
-		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(
-			0,
-		);
+		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 	});
 
 	it("leaves a deal's field values as they were", async () => {

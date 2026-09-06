@@ -622,8 +622,7 @@ async function seedActivities(deals: SeededDeal[]): Promise<number> {
 				...base(deal.ownerId, at),
 				type,
 				dealId: deal.id,
-				contactId:
-					deal.contactIds.length > 0 ? pick(deal.contactIds) : null,
+				contactId: deal.contactIds.length > 0 ? pick(deal.contactIds) : null,
 				subject:
 					type === ActivityType.CALL
 						? pick(CALL_SUBJECTS)

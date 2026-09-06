@@ -109,9 +109,7 @@ describe("searchCrm", () => {
 		expect(result.contacts.map((hit) => hit.id).sort()).toEqual(
 			[paulaId, peterId].sort(),
 		);
-		expect(
-			result.contacts.every((hit) => hit.companyName !== null),
-		).toBe(true);
+		expect(result.contacts.every((hit) => hit.companyName !== null)).toBe(true);
 		expect(result.contacts.map((hit) => hit.title)).toContain("Controller");
 	});
 

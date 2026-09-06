@@ -5,10 +5,8 @@ const recordShape = {
 	dealId: z.string().trim().min(1).optional(),
 };
 
-const hasExactlyOneRecord = (input: {
-	contactId?: string;
-	dealId?: string;
-}) => [input.contactId, input.dealId].filter(Boolean).length === 1;
+const hasExactlyOneRecord = (input: { contactId?: string; dealId?: string }) =>
+	[input.contactId, input.dealId].filter(Boolean).length === 1;
 
 const recordMessage = "Choose exactly one contact or deal.";
 

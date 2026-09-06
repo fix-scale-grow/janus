@@ -803,9 +803,7 @@ export class DealsService {
 			error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
 			(error.code === "P2003" || error.code === "P2025")
 		) {
-			return new BadRequestException(
-				"That owner does not exist any more.",
-			);
+			return new BadRequestException("That owner does not exist any more.");
 		}
 		return error;
 	}
