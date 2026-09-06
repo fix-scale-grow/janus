@@ -76,7 +76,7 @@ function EnrichmentCard() {
 		<BentoCard className="gap-6">
 			<CardHeading
 				title="Records fill themselves in"
-				body="A new person on a thread becomes a contact, and their company arrives with its logo, industry and last activity already on it."
+				body="A new person on a thread becomes a contact, with their title and last activity already on it."
 			/>
 
 			<div className="flex select-none flex-col">

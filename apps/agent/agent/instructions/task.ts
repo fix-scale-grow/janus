@@ -27,7 +27,6 @@ export default defineDynamic({
 			const { markdown, focus } = await sessionPreamble(
 				{
 					contactId: asString(attributes.contactId),
-					companyId: asString(attributes.companyId),
 					dealId: asString(attributes.dealId),
 				},
 				{

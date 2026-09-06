@@ -118,7 +118,7 @@ async function ConnectionsSettingsPageContent({
 						<StarterRow
 							logo={GoogleLogo}
 							name="Google Workspace"
-							description="File email and meetings against the right company"
+							description="File email and meetings against the right contact"
 							href={`/${slug}/settings/connections/google`}
 						/>
 						<StarterRow
@@ -130,7 +130,7 @@ async function ConnectionsSettingsPageContent({
 						<StarterRow
 							logo={MicrosoftLogo}
 							name="Microsoft 365"
-							description="File Outlook email against the right company"
+							description="File Outlook email against the right contact"
 							href={`/${slug}/settings/connections/microsoft`}
 						/>
 					</div>

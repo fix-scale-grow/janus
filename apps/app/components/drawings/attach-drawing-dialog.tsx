@@ -50,7 +50,6 @@ function DealPicker({
 	const options: ComboboxOption[] = (deals.data?.rows ?? []).map((deal) => ({
 		value: deal.id,
 		label: deal.name,
-		hint: deal.company.name,
 	}));
 
 	const stale = deals.isFetching || text.trim() !== query.trim();

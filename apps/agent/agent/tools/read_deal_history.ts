@@ -1,7 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { readDealHistory } from "../lib/accounts";
-import { focusOn } from "../lib/focus";
 
 export default defineTool({
 	description:
@@ -19,8 +18,6 @@ export default defineTool({
 	async execute({ dealId, threads }) {
 		const history = await readDealHistory(dealId, { threads });
 		if (!history) return { found: false as const, reason: "No such deal." };
-
-		focusOn({ companyId: history.company.id });
 
 		return { found: true as const, ...history };
 	},

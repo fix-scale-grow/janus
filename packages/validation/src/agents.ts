@@ -87,7 +87,7 @@ export const CAPABILITY_RESOURCE_IDS = {
 
 export const capabilityResource = z.object({
 	id: z.string().trim().min(1).max(160),
-	kind: z.enum(["company", "contact", "deal", "integration"]),
+	kind: z.enum(["contact", "deal", "integration"]),
 	label: z.string().trim().min(1).max(160),
 });
 

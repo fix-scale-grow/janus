@@ -237,7 +237,7 @@ export class CalendarSyncService {
 			context,
 		);
 
-		if (!match.companyId && !match.contactId) {
+		if (!match.contactId) {
 			return "ignored";
 		}
 
@@ -258,7 +258,6 @@ export class CalendarSyncService {
 				isAllDay: start.isAllDay,
 				status: event.status ?? "confirmed",
 				organizerEmail: organizer,
-				companyId: match.companyId,
 				contactId: match.contactId,
 				syncedByUserId: row.userId,
 				googleEventId: event.id ?? null,
@@ -273,7 +272,6 @@ export class CalendarSyncService {
 				isAllDay: start.isAllDay,
 				status: event.status ?? "confirmed",
 				organizerEmail: organizer,
-				companyId: match.companyId,
 				contactId: match.contactId,
 			},
 			select: { id: true },
@@ -284,7 +282,6 @@ export class CalendarSyncService {
 		await this.project(record.id, row.userId, {
 			title: event.summary ?? "Meeting",
 			startsAt: start.at,
-			companyId: match.companyId,
 			contactId: match.contactId,
 			location: event.location ?? null,
 		});
@@ -370,7 +367,6 @@ export class CalendarSyncService {
 		summary: {
 			title: string;
 			startsAt: Date;
-			companyId: string | null;
 			contactId: string | null;
 			location: string | null;
 		},
@@ -384,7 +380,6 @@ export class CalendarSyncService {
 				subject: summary.title,
 				body,
 				occurredAt: summary.startsAt,
-				companyId: summary.companyId,
 				contactId: summary.contactId,
 				createdById: userId,
 				calendarEventId,
@@ -394,16 +389,12 @@ export class CalendarSyncService {
 				subject: summary.title,
 				body,
 				occurredAt: summary.startsAt,
-				companyId: summary.companyId,
 				contactId: summary.contactId,
 			},
 			select: { createdAt: true },
 		});
 
-		await this.stamp.touch(
-			{ companyId: summary.companyId, contactId: summary.contactId },
-			activity.createdAt,
-		);
+		await this.stamp.touch({ contactId: summary.contactId }, activity.createdAt);
 	}
 
 	private participantsOf(event: GoogleEvent): Participant[] {

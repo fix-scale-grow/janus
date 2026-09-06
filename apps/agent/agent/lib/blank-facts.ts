@@ -18,9 +18,6 @@ const CONTACT_SELECT = {
 	firstName: true,
 	lastName: true,
 	title: true,
-	linkedinUrl: true,
-	twitterUrl: true,
-	githubUrl: true,
 } as const;
 
 export type BlankFactFill = {
@@ -138,9 +135,6 @@ type Proposal = {
 		firstName: string;
 		lastName: string | null;
 		title: string | null;
-		linkedinUrl: string | null;
-		twitterUrl: string | null;
-		githubUrl: string | null;
 	};
 };
 

@@ -4,7 +4,6 @@ import Add from "@carbon/icons-react/es/Add";
 import Application from "@carbon/icons-react/es/Application";
 import ArrowUp from "@carbon/icons-react/es/ArrowUp";
 import AttachmentIcon from "@carbon/icons-react/es/Attachment";
-import Building from "@carbon/icons-react/es/Building";
 import Calendar from "@carbon/icons-react/es/Calendar";
 import Email from "@carbon/icons-react/es/Email";
 import Partnership from "@carbon/icons-react/es/Partnership";
@@ -1459,7 +1458,6 @@ function ResourceResultsSkeleton() {
 
 const RESOURCE_ICONS: Record<BuilderResource["kind"], CarbonIcon> = {
 	integration: Application,
-	company: Building,
 	contact: User,
 	deal: Partnership,
 };

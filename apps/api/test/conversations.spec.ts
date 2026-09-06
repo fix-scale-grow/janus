@@ -157,8 +157,7 @@ describe("ConversationsService", () => {
 	it("requires exactly one CRM record in list and save inputs", () => {
 		expect(conversationListInput.safeParse({}).success).toBe(false);
 		expect(
-			conversationListInput.safeParse({ contactId, companyId: "company-1" })
-				.success,
+			conversationListInput.safeParse({ contactId, dealId: "deal-1" }).success,
 		).toBe(false);
 		expect(
 			conversationSaveInput.safeParse({
@@ -211,7 +210,7 @@ describe("ConversationsService", () => {
 
 		let recordError: unknown;
 		try {
-			await service.save({ companyId: "another-record", sessionId }, userId);
+			await service.save({ dealId: "another-record", sessionId }, userId);
 		} catch (error) {
 			recordError = error;
 		}

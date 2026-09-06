@@ -14,7 +14,7 @@ const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 
 export type BuilderResource = {
-	kind: "integration" | "company" | "contact" | "deal";
+	kind: "integration" | "contact" | "deal";
 	id: string;
 	label: string;
 };
@@ -722,13 +722,6 @@ export function slackDestinationIssues(
 async function describeResources(resources: BuilderResource[]) {
 	return Promise.all(
 		resources.map(async (resource) => {
-			if (resource.kind === "company") {
-				const row = await db.company.findUnique({
-					where: { id: resource.id },
-					select: { id: true, name: true, domain: true, industry: true },
-				});
-				return { ...resource, record: row };
-			}
 			if (resource.kind === "contact") {
 				const row = await db.contact.findUnique({
 					where: { id: resource.id },
@@ -738,7 +731,7 @@ async function describeResources(resources: BuilderResource[]) {
 						lastName: true,
 						email: true,
 						title: true,
-						company: { select: { id: true, name: true } },
+						companyName: true,
 					},
 				});
 				return { ...resource, record: row };
@@ -752,7 +745,6 @@ async function describeResources(resources: BuilderResource[]) {
 						stage: true,
 						amount: true,
 						currency: true,
-						company: { select: { id: true, name: true } },
 					},
 				});
 				return {
@@ -786,9 +778,7 @@ function resourcesOf(value: unknown): BuilderResource[] {
 		if (!resource || typeof resource !== "object") return [];
 		const row = resource as Record<string, unknown>;
 		if (
-			!["integration", "company", "contact", "deal"].includes(
-				String(row.kind),
-			) ||
+			!["integration", "contact", "deal"].includes(String(row.kind)) ||
 			typeof row.id !== "string" ||
 			typeof row.label !== "string"
 		) {

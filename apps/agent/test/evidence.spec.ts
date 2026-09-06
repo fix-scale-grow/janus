@@ -28,14 +28,7 @@ describe("scoreEvidence", () => {
 	});
 
 	it("refuses to write anything without a primary source, however much of it there is", () => {
-		const scored = scoreEvidence(
-			of(
-				"handle.name-form",
-				"search.cites-profile",
-				"web.cited-claim",
-				"employer-only",
-			),
-		);
+		const scored = scoreEvidence(of("web.cited-claim", "web.cited-claim"));
 
 		expect(scored.score).toBeGreaterThan(BAND_FLOOR.PROBABLE);
 		expect(scored.hasPrimary).toBe(false);
@@ -47,19 +40,17 @@ describe("scoreEvidence", () => {
 		expect(bandFor(0.85, true)).toBe("VERIFIED");
 	});
 
-	it("makes an unreadable X handle a suggestion, not a value", () => {
-		const scored = scoreEvidence(
-			of("handle.name-form", "search.cites-profile"),
-		);
-		expect(scored.band).toBe("PROBABLE");
+	it("makes a single cited claim a suggestion, not a value", () => {
+		const scored = scoreEvidence(of("web.cited-claim"));
+		expect(scored.band).toBe("POSSIBLE");
 	});
 
 	it("holds a fact when sources disagree, rather than averaging them", () => {
 		const scored = scoreEvidence([
-			...of("linkedin.employer-and-name"),
+			...of("crm.signature-block"),
 			{
 				kind: "contradiction",
-				detail: "their signature says a different employer",
+				detail: "their own reply says a different employer",
 			},
 		]);
 
@@ -68,7 +59,7 @@ describe("scoreEvidence", () => {
 	});
 
 	it("drops evidence too weak to keep at all", () => {
-		expect(scoreEvidence(of("employer-only")).band).toBeNull();
+		expect(scoreEvidence(of("contradiction")).band).toBeNull();
 		expect(scoreEvidence([]).band).toBeNull();
 	});
 
@@ -76,9 +67,9 @@ describe("scoreEvidence", () => {
 		const everything = scoreEvidence(
 			of(
 				"profile.email-match",
-				"linkedin.employer-and-name",
 				"crm.thread-reply",
-				"github.account-identity",
+				"crm.signature-block",
+				"crm.meeting-attendance",
 			),
 		);
 		expect(everything.score).toBeLessThan(1);
@@ -86,9 +77,9 @@ describe("scoreEvidence", () => {
 
 	it("explains itself in words a rep could read", () => {
 		const scored = scoreEvidence(
-			of("github.account-identity", "handle.name-form"),
+			of("crm.signature-block", "web.cited-claim"),
 		);
-		expect(scored.rationale).toContain("GitHub account");
-		expect(scored.rationale).toContain("handle");
+		expect(scored.rationale).toContain("email signature");
+		expect(scored.rationale).toContain("cited web source");
 	});
 });

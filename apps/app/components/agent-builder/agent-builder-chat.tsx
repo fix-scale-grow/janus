@@ -3,7 +3,6 @@
 import Add from "@carbon/icons-react/es/Add";
 import Application from "@carbon/icons-react/es/Application";
 import ArrowRight from "@carbon/icons-react/es/ArrowRight";
-import Building from "@carbon/icons-react/es/Building";
 import Checkmark from "@carbon/icons-react/es/Checkmark";
 import Copy from "@carbon/icons-react/es/Copy";
 import Partnership from "@carbon/icons-react/es/Partnership";
@@ -1425,7 +1424,6 @@ function ChatUnavailable() {
 
 const RESOURCE_ICONS = {
 	integration: Application,
-	company: Building,
 	contact: User,
 	deal: Partnership,
 } as const;

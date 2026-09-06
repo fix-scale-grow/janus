@@ -5,9 +5,9 @@ import { listDeals, searchCrm } from "../agent/lib/lookup";
 const suffix = process.env.TEST_RUN_ID ?? "lookup-spec";
 const domain = `northwind-${suffix}.test`;
 const otherDomain = `brightwater-${suffix}.test`;
+const northwindName = `Northwind ${suffix}`;
+const brightwaterName = `Brightwater ${suffix}`;
 
-let northwindId: string;
-let brightwaterId: string;
 let paulaId: string;
 let peterId: string;
 let dealId: string;
@@ -28,32 +28,13 @@ beforeAll(async () => {
 		select: { id: true },
 	});
 
-	const northwind = await db.company.create({
-		data: {
-			name: `Northwind ${suffix}`,
-			domain,
-			iconUrl: "https://cdn.example.test/northwind-icon.png",
-			iconDarkUrl: "https://cdn.example.test/northwind-icon-dark.png",
-			iconTone: "opaque",
-			logoUrl: "https://cdn.example.test/northwind-logo.svg",
-		},
-		select: { id: true },
-	});
-	northwindId = northwind.id;
-
-	const brightwater = await db.company.create({
-		data: { name: `Brightwater ${suffix}`, domain: otherDomain },
-		select: { id: true },
-	});
-	brightwaterId = brightwater.id;
-
 	const paula = await db.contact.create({
 		data: {
 			firstName: "Paula",
 			lastName: "Marchetti",
 			title: "Growth Specialist",
 			email: `paula.marchetti@${domain}`,
-			companyId: northwindId,
+			companyName: northwindName,
 			lastActivityAt: new Date(),
 		},
 		select: { id: true },
@@ -66,7 +47,7 @@ beforeAll(async () => {
 			lastName: "Marchetti",
 			title: "Controller",
 			email: `peter.marchetti@${otherDomain}`,
-			companyId: brightwaterId,
+			companyName: brightwaterName,
 		},
 		select: { id: true },
 	});
@@ -75,7 +56,6 @@ beforeAll(async () => {
 	const deal = await db.deal.create({
 		data: {
 			name: `Northwind renewal ${suffix}`,
-			companyId: northwindId,
 			ownerId: user.id,
 			stage: DealStage.QUALIFIED_TO_BUY,
 			amount: 12_000,
@@ -88,7 +68,6 @@ beforeAll(async () => {
 	const freshDeal = await db.deal.create({
 		data: {
 			name: `Fresh expansion ${suffix}`,
-			companyId: northwindId,
 			ownerId: user.id,
 			stage: DealStage.CONTRACT_SENT,
 			lastActivityAt: new Date("2026-08-04T12:00:00.000Z"),
@@ -100,7 +79,6 @@ beforeAll(async () => {
 	const closedDeal = await db.deal.create({
 		data: {
 			name: `Closed renewal ${suffix}`,
-			companyId: brightwaterId,
 			ownerId: user.id,
 			stage: DealStage.CLOSED_LOST,
 			lastActivityAt: new Date("2026-05-01T12:00:00.000Z"),
@@ -113,32 +91,14 @@ beforeAll(async () => {
 afterAll(cleanup);
 
 async function cleanup(): Promise<void> {
-	const companies = await db.company.findMany({
-		where: { domain: { in: [domain, otherDomain] } },
-		select: { id: true },
-	});
-	const ids = companies.map((company) => company.id);
-
-	if (ids.length > 0) {
-		await db.activity.deleteMany({ where: { companyId: { in: ids } } });
-		await db.deal.deleteMany({ where: { companyId: { in: ids } } });
-		await db.contact.deleteMany({ where: { companyId: { in: ids } } });
-		await db.company.deleteMany({ where: { id: { in: ids } } });
-	}
-
+	await db.deal.deleteMany({ where: { name: { contains: suffix } } });
+	await db.contact.deleteMany({ where: { email: { contains: suffix } } });
 	await db.user.deleteMany({ where: { email: `rep.${suffix}@example.test` } });
 }
 
 describe("searchCrm", () => {
-	it("finds a company by name", async () => {
-		const result = await searchCrm(`Northwind ${suffix}`);
-
-		expect(result.companies[0]?.id).toBe(northwindId);
-		expect(result.companies[0]?.contacts).toBe(1);
-	});
-
 	it("finds the people at a company named in the query", async () => {
-		const result = await searchCrm(`Northwind ${suffix}`);
+		const result = await searchCrm(northwindName);
 
 		expect(result.contacts.map((hit) => hit.id)).toContain(paulaId);
 	});
@@ -149,21 +109,16 @@ describe("searchCrm", () => {
 		expect(result.contacts.map((hit) => hit.id).sort()).toEqual(
 			[paulaId, peterId].sort(),
 		);
-		expect(result.contacts.every((hit) => hit.company !== null)).toBe(true);
+		expect(
+			result.contacts.every((hit) => hit.companyName !== null),
+		).toBe(true);
 		expect(result.contacts.map((hit) => hit.title)).toContain("Controller");
 	});
 
-	it("finds a person by their address, and the company on its domain", async () => {
+	it("finds a person by their address", async () => {
 		const result = await searchCrm(`paula.marchetti@${domain}`);
 
 		expect(result.contacts[0]?.id).toBe(paulaId);
-		expect(result.companies[0]?.id).toBe(northwindId);
-	});
-
-	it("treats a bare domain as the company", async () => {
-		const result = await searchCrm(domain);
-
-		expect(result.companies[0]?.id).toBe(northwindId);
 	});
 
 	it("finds a deal by name", async () => {
@@ -174,11 +129,10 @@ describe("searchCrm", () => {
 	});
 
 	it("narrows to the kinds asked for", async () => {
-		const result = await searchCrm(`Northwind ${suffix}`, {
+		const result = await searchCrm(northwindName, {
 			kinds: ["contact"],
 		});
 
-		expect(result.companies).toHaveLength(0);
 		expect(result.deals).toHaveLength(0);
 		expect(result.contacts.length).toBeGreaterThan(0);
 	});
@@ -215,13 +169,6 @@ describe("listDeals", () => {
 		expect(result.deals.find((deal) => deal.id === dealId)).toMatchObject({
 			daysSinceLastActivity: 65,
 			neverActive: false,
-			company: {
-				domain,
-				iconUrl: "https://cdn.example.test/northwind-icon.png",
-				iconDarkUrl: "https://cdn.example.test/northwind-icon-dark.png",
-				iconTone: "opaque",
-				logoUrl: "https://cdn.example.test/northwind-logo.svg",
-			},
 			owner: { image: "https://cdn.example.test/rep-one.png" },
 		});
 	});

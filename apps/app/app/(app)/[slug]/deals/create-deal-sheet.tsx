@@ -34,7 +34,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
-import { CompanyPicker } from "@/components/crm/company-picker";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { dealStageLabel, OPEN_STAGES } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -51,15 +50,15 @@ function AddButton(props: ComponentProps<typeof Button>) {
 	);
 }
 
-export function CreateDealSheet({ companyId }: { companyId?: string }) {
+export function CreateDealSheet() {
 	return (
 		<Suspense fallback={<AddButton disabled />}>
-			<CreateDealForm companyId={companyId} />
+			<CreateDealForm />
 		</Suspense>
 	);
 }
 
-function CreateDealForm({ companyId }: { companyId?: string }) {
+function CreateDealForm() {
 	const openRecord = useOpenRecord();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -69,7 +68,6 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 		parseAsBoolean.withDefault(false),
 	);
 	const [name, setName] = useState("");
-	const [company, setCompany] = useState(companyId ?? UNSET);
 	const [ownerId, setOwnerId] = useState(UNSET);
 	const [stage, setStage] = useState<string>("DEMO_BOOKED");
 	const [amount, setAmount] = useState("");
@@ -104,8 +102,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 		}),
 	);
 
-	const ready =
-		name.trim() !== "" && company !== UNSET && resolvedOwner !== UNSET;
+	const ready = name.trim() !== "" && resolvedOwner !== UNSET;
 
 	return (
 		<Sheet open={open} onOpenChange={(next) => setOpen(next || null)}>
@@ -116,7 +113,7 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 				<SheetHeader>
 					<SheetTitle>New deal</SheetTitle>
 					<SheetDescription>
-						Every deal belongs to a company and has someone's name against it.
+						Every deal has someone's name against it.
 					</SheetDescription>
 				</SheetHeader>
 
@@ -128,7 +125,6 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 						const parsed = Number.parseFloat(amount);
 						create.mutate({
 							name,
-							companyId: company,
 							ownerId: resolvedOwner,
 							stage: stage as never,
 							amountCents: Number.isFinite(parsed)
@@ -149,15 +145,6 @@ function CreateDealForm({ companyId }: { companyId?: string }) {
 								placeholder="Stripe — Janus"
 								autoComplete="off"
 								required
-							/>
-						</Field>
-
-						<Field>
-							<FieldLabel htmlFor="create-deal-company">Company</FieldLabel>
-							<CompanyPicker
-								id="create-deal-company"
-								value={company}
-								onValueChange={setCompany}
 							/>
 						</Field>
 

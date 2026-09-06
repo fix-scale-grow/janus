@@ -3,13 +3,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
 export type ActivityTarget = {
-	companyId?: string | null;
 	contactId?: string | null;
 	dealId?: string | null;
 };
 
 export type StampTargets = {
-	companyIds: string[];
 	contactIds: string[];
 	dealIds: string[];
 };
@@ -30,12 +28,6 @@ export class ActivityStampService {
 		};
 
 		await Promise.all([
-			target.companyId
-				? this.db.company.updateMany({
-						where: { id: target.companyId, ...stale },
-						data: { lastActivityAt: at },
-					})
-				: null,
 			target.contactId
 				? this.db.contact.updateMany({
 						where: { id: target.contactId, ...stale },
@@ -52,17 +44,6 @@ export class ActivityStampService {
 	}
 
 	async recompute(target: ActivityTarget): Promise<void> {
-		if (target.companyId) {
-			const { _max } = await this.db.activity.aggregate({
-				where: { companyId: target.companyId },
-				_max: { createdAt: true },
-			});
-			await this.db.company.update({
-				where: { id: target.companyId },
-				data: { lastActivityAt: _max.createdAt },
-			});
-		}
-
 		if (target.contactId) {
 			const { _max } = await this.db.activity.aggregate({
 				where: { contactId: target.contactId },
@@ -90,14 +71,12 @@ export class ActivityStampService {
 		where: Prisma.ActivityWhereInput,
 		client: Prisma.TransactionClient = this.db,
 	): Promise<StampTargets> {
-		const [companies, contacts, deals] = await Promise.all([
-			client.activity.groupBy({ by: ["companyId"], where }),
+		const [contacts, deals] = await Promise.all([
 			client.activity.groupBy({ by: ["contactId"], where }),
 			client.activity.groupBy({ by: ["dealId"], where }),
 		]);
 
 		return {
-			companyIds: present(companies.map((row) => row.companyId)),
 			contactIds: present(contacts.map((row) => row.contactId)),
 			dealIds: present(deals.map((row) => row.dealId)),
 		};
@@ -105,7 +84,6 @@ export class ActivityStampService {
 
 	async recomputeMany(targets: StampTargets): Promise<void> {
 		const statements = [
-			this.restamp("company", "companyId", targets.companyIds),
 			this.restamp("contact", "contactId", targets.contactIds),
 			this.restamp("deal", "dealId", targets.dealIds),
 		].filter((statement) => statement !== null);
@@ -149,18 +127,6 @@ export class ActivityStampService {
 
 	async recomputeAll(): Promise<void> {
 		await this.db.$transaction([
-			this.db.$executeRaw`
-				UPDATE "company" c
-				SET "lastActivityAt" = a.max
-				FROM (
-					SELECT "companyId" AS id, MAX("createdAt") AS max
-					FROM "activity" WHERE "companyId" IS NOT NULL GROUP BY "companyId"
-				) a
-				WHERE c.id = a.id AND c."lastActivityAt" IS DISTINCT FROM a.max`,
-			this.db.$executeRaw`
-				UPDATE "company" SET "lastActivityAt" = NULL
-				WHERE "lastActivityAt" IS NOT NULL
-				AND id NOT IN (SELECT "companyId" FROM "activity" WHERE "companyId" IS NOT NULL)`,
 			this.db.$executeRaw`
 				UPDATE "contact" c
 				SET "lastActivityAt" = a.max

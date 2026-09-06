@@ -1,7 +1,7 @@
 import { isGoogleConfigured, signsInWithGoogle } from "@crm/auth";
 import { type Db, GoogleSyncStatus, type Prisma } from "@crm/db";
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { normalizeDomain } from "../companies/domain";
+import { normalizeDomain } from "../mailbox/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxMatchService } from "../mailbox/mailbox-match.service";
@@ -209,16 +209,22 @@ export class GoogleConnectionService {
 
 		if (!options.purge) return { domain: normalised, purged: 0 };
 
-		const company = await this.db.company.findUnique({
-			where: { domain: normalised },
+		const contacts = await this.db.contact.findMany({
+			where: { email: { endsWith: `@${normalised}` } },
 			select: { id: true },
 		});
 
-		if (!company) return { domain: normalised, purged: 0 };
+		if (contacts.length === 0) return { domain: normalised, purged: 0 };
+
+		const contactIds = contacts.map((contact) => contact.id);
 
 		const [threads, events] = await this.db.$transaction([
-			this.db.emailThread.deleteMany({ where: { companyId: company.id } }),
-			this.db.calendarEvent.deleteMany({ where: { companyId: company.id } }),
+			this.db.emailThread.deleteMany({
+				where: { contactId: { in: contactIds } },
+			}),
+			this.db.calendarEvent.deleteMany({
+				where: { contactId: { in: contactIds } },
+			}),
 		]);
 
 		await this.stamp.recomputeAll();

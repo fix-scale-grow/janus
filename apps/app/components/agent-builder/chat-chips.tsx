@@ -20,7 +20,7 @@ import Image from "next/image";
 type ChatChipVariant = "default" | "composer";
 
 export type ChatChipResource = {
-	kind: "integration" | "company" | "contact" | "deal";
+	kind: "integration" | "contact" | "deal";
 	id: string;
 	label: string;
 	detail?: string | null;

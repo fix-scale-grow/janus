@@ -1,0 +1,153 @@
+import type { Db } from "@crm/db";
+import { Prisma as PrismaNamespace } from "@crm/db";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { InjectDatabase } from "../database/database.constants";
+import { MailerService } from "../mailer/mailer.service";
+import { MergeContextService } from "./merge-context.service";
+import { applyMergeFields, renderEmailHtml } from "./render-email";
+import { parseTemplateBlocks } from "./template-blocks";
+import { DEFAULT_TEMPLATES, SAMPLE_MERGE_CONTEXT } from "./templates.config";
+import type {
+	TemplateByPurposeInput,
+	TemplatePreviewInput,
+	TemplateSendTestInput,
+	TemplateUpdateInput,
+} from "./templates.contracts";
+
+const TEST_SUBJECT_PREFIX = "[Test] ";
+
+const LIST_SELECT = {
+	id: true,
+	name: true,
+	type: true,
+	purpose: true,
+	updatedAt: true,
+} as const;
+
+@Injectable()
+export class TemplatesService {
+	constructor(
+		@InjectDatabase() private readonly db: Db,
+		private readonly mergeContext: MergeContextService,
+		private readonly mailer: MailerService,
+	) {}
+
+	async list() {
+		return this.db.template.findMany({ select: LIST_SELECT });
+	}
+
+	async byPurpose(input: TemplateByPurposeInput) {
+		const defaults = DEFAULT_TEMPLATES[input.purpose];
+
+		try {
+			return await this.db.template.upsert({
+				where: { purpose: input.purpose },
+				create: {
+					purpose: input.purpose,
+					type: defaults.type,
+					name: defaults.name,
+					subject: defaults.subject,
+					blocks: defaults.blocks,
+				},
+				update: {},
+			});
+		} catch (error) {
+			throw this.translate(error);
+		}
+	}
+
+	async update(input: TemplateUpdateInput, userId: string) {
+		const blocks = parseTemplateBlocks(input.blocks);
+		const defaults = DEFAULT_TEMPLATES[input.purpose];
+
+		try {
+			return await this.db.template.upsert({
+				where: { purpose: input.purpose },
+				create: {
+					purpose: input.purpose,
+					type: defaults.type,
+					name: input.name,
+					subject: input.subject ?? null,
+					blocks,
+					updatedById: userId,
+				},
+				update: {
+					name: input.name,
+					subject: input.subject ?? null,
+					blocks,
+					updatedById: userId,
+				},
+			});
+		} catch (error) {
+			throw this.translate(error);
+		}
+	}
+
+	async preview(input: TemplatePreviewInput) {
+		const hasRefs = Boolean(
+			input.contactId || input.dealId || input.estimateId || input.invoiceId,
+		);
+
+		const context = hasRefs
+			? await this.mergeContext.resolve({
+					contactId: input.contactId,
+					dealId: input.dealId,
+					estimateId: input.estimateId,
+					invoiceId: input.invoiceId,
+				})
+			: SAMPLE_MERGE_CONTEXT;
+
+		const template = await this.byPurpose({ purpose: input.purpose });
+		const blocks = parseTemplateBlocks(template.blocks);
+
+		const subject = template.subject
+			? applyMergeFields(template.subject, context)
+			: "";
+		const mode = input.purpose === "CONTRACT_BODY" ? "document" : "email";
+		const { html } = renderEmailHtml(blocks, context, mode);
+
+		return { subject, html };
+	}
+
+	async sendTest(input: TemplateSendTestInput) {
+		if (!this.mailer.isConfigured()) {
+			throw new BadRequestException("Email is not configured on this install.");
+		}
+
+		const template = await this.byPurpose({ purpose: input.purpose });
+		const blocks = parseTemplateBlocks(template.blocks);
+
+		const subject = template.subject
+			? applyMergeFields(template.subject, SAMPLE_MERGE_CONTEXT)
+			: "";
+		const { html, text } = renderEmailHtml(blocks, SAMPLE_MERGE_CONTEXT);
+
+		const result = await this.mailer.send({
+			to: input.to,
+			subject: `${TEST_SUBJECT_PREFIX}${subject}`,
+			text,
+			html,
+		});
+
+		if (!result.delivered) {
+			throw new BadRequestException(
+				"The email could not be sent. Check the mail configuration and try again.",
+			);
+		}
+
+		return { delivered: true };
+	}
+
+	mailerConfigured(): boolean {
+		return this.mailer.isConfigured();
+	}
+
+	private translate(error: unknown): unknown {
+		if (error instanceof PrismaNamespace.PrismaClientKnownRequestError) {
+			if (error.code === "P2003") {
+				return new BadRequestException("That record no longer exists.");
+			}
+		}
+		return error;
+	}
+}

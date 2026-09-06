@@ -25,23 +25,18 @@ agent and the API both need it.
 ## Pictures are copied, never linked
 
 `mirror()` copies bytes to Vercel Blob; the record points at our copy. Lives in
-**`@crm/db/blob`** — writers are `lib/brand-images.ts`, `lib/portrait.ts`,
-`FaviconService`, `ImageMirrorService`, `prisma/seed.ts`.
+**`@crm/db/blob`**, called by `ImageMirrorService` (`apps/api/src/backfill`) for a
+contact's `imageUrl` and a user's avatar `image`.
 
-- **The key hashes the bytes** — idempotent, and a redesigned mark gets a new URL.
-- **`COMPANY_IMAGE_FIELDS` (`@crm/db/images`) is the one list of picture columns.**
+- **The key hashes the bytes** — idempotent, and a redesigned picture gets a new URL.
 - **Fetch through `@crm/db/safe-fetch`** — vendor URLs are SSRF vectors.
-- **No `BLOB_READ_WRITE_TOKEN` means no photographs**; logos keep the origin URL.
+- **No `BLOB_READ_WRITE_TOKEN` means no photographs**; the field keeps the origin URL.
 - **`isOptimizable` (`@crm/db/images`) is the whole rule**: `next.config.ts`
   allow-lists only our Blob host (a wildcard makes us an open image proxy), and a
   mirrored **SVG is still refused**.
-- **Faces are not optimized** — `AvatarImage` skips `<Image>` because Radix probes the
-  URL itself, doubling fetches.
-- **A photograph only comes from a source already tied to this person** —
-  `lib/portrait-sources.ts`: their LinkedIn, their GitHub, their employer's team page,
-  each keyed on an identifier already on the record.
-- **There is no image search by name, and there must never be.** Nobody audits a face.
-  **Guess where to look, never what you will find.**
+- **There is no portrait lookup and no image search by name.** Nothing in the
+  agent goes looking for a picture; the sweep only ever re-hosts a URL a
+  contact or a user already has.
 
 ## Two lanes
 
@@ -49,16 +44,16 @@ agent and the API both need it.
 
 | | Kinds | How | Per tick |
 | --- | --- | --- | --- |
-| **Visible** | `brand`, `portrait` | Directly — no `receive`, no model | 60, six at a time |
+| **Visible** | `slack-people-match`, `slack-channel-join`, `agent-event` | Directly — no `receive`, no model | 60, six at a time |
 | **Research** | everything else | One eve session per row | 12 |
 
-**Neither visible kind has anything to decide**, and through a session they queued
-behind sixty LLM runs for 25 minutes (`test/lanes.integration.spec.ts`). **The row says
-what the work is; the lane only says whether it needs a conversation.**
+**None of the visible kinds have anything to decide**, and through a session they
+queued behind sixty LLM runs for 25 minutes (`test/lanes.integration.spec.ts`). **The
+row says what the work is; the lane only says whether it needs a conversation.**
 
-**Priority**: `brand` 900 · `portrait` 800 · `workspace` 500 · `requested` 300 ·
-`meeting` 200 · `identify` 100 · `sweep` 50 · `companyProfile` 40 · `recheck` 0. The
-top two are what a rep reads *before* deciding what to open.
+**Priority**: `slackJoin` 950 · `event` 700 · `workspace` 500 · `requested` 300 ·
+`meeting` 200 · `slackPeople` 150 · `identify` 100 · `sweep` 50 · `fieldBackfill` 20 ·
+`recheck` 0.
 
 **`claimDue` sorts what it claims** — Postgres does not order `UPDATE … RETURNING` by
 its sub-select's `ORDER BY`.
@@ -124,7 +119,7 @@ to ration and nobody to scope it to.
 
 ### Backfills
 
-Sign-in sweep covers records never looked up (10 credits/company);
+Sign-in sweep covers records never looked up (10 credits/contact);
 `ImageMirrorService` in the same sweep re-hosts off-site pictures (free);
 `backfill:images` fixes enriched records missing only pictures (free);
 `backfill:facts` is the blank-field sweep above run by hand, with `--dry` to read it
@@ -136,8 +131,6 @@ first — the cron covers it, so this is for a machine pointed at another databa
   path, so no queue forms; the sweep is for rows written before it existed and for the
   field a rep clears while a suggestion is pending. **An unreachable agent leaves the
   suggestions where they are** — the API cannot apply one itself.
-- **A finished `portrait` task stands that contact down for thirty days** — that third
-  source costs credits and usually finds nothing.
 - **No button, deliberately** — a rep cannot know which records predate a resolver.
 - **The trigger is signing in**, via `databaseHooks.session.create.after` in
   `packages/auth`; `BackfillService` subscribes with `onSignedIn` and has no router
@@ -149,7 +142,7 @@ first — the cron covers it, so this is for a machine pointed at another databa
 ## Evidence, not confidence
 
 **No tool accepts a confidence, a score, or a `sourceUrl` offered as proof.** Tools
-report what they *observed* (`crm.signature-block`, `github.account-identity`) and
+report what they *observed* (`crm.signature-block`, `crm.thread-reply`) and
 `lib/evidence.ts` prices it. A model asked to grade its own certainty will, and will be
 wrong in the direction that looks useful.
 
@@ -201,17 +194,16 @@ resolver, and `lib/context-dev.ts` memoises its client on the key string.
   minutes, the oldest ten contacts" belongs in a `dueAt`.
 - `tools/schedule_recheck.ts` — its `reason` is shown to the rep.
 
-## Three records, no dead ends
+## Two records, no dead ends
 
 **Every read hands back the ids of neighbouring records.** Breaking this made the agent
-ask a rep who had a company open, contacts on screen, to paste an email.
+ask a rep who had a deal open, contacts on screen, to paste an email.
 
 | Read (all free) | Hands back |
 | --- | --- |
-| `read_crm_history` | the contact's **company id**, their deals, their colleagues |
-| `read_company_history` | **every contact with id**, deals, threads, meetings, notes |
+| `read_crm_history` | the contact's **deals with ids**, threads, meetings |
 | `read_deal_history` | stage clock and history, **people with ids**, last reply |
-| `search_crm` | contacts, companies and deals matching typed text |
+| `search_crm` | contacts and deals matching typed text |
 
 **A preamble or tool result naming a record without its id is a bug** — the only
 recovery is asking the human. Ambiguity is fine: four Marchettis is four rows with
@@ -243,8 +235,8 @@ preamble; `lib/workspace.ts` is the only renderer.
 - **No profile still gets the name line**, plus *do not guess at what we sell*.
 - **The profile dies with its website** — `readWorkspaceIdentity` returns it only while
   `website` matches.
-- **Not a `Company` row** — that needs excluding from every list, facet and join. One
-  `WorkspaceProfile` keyed on `WORKSPACE_ID`.
+- **One `WorkspaceProfile` keyed on `WORKSPACE_ID`** — not a CRM record, so it
+  never needs excluding from a list, facet or join.
 
 The pass is a `workspace-profile` task using `web_fetch` (no credits), filed only via
 `write_workspace_profile`, queued by `WorkspaceService.update` on a website change. **A
@@ -612,11 +604,11 @@ bun run --filter=agent dispatch
 ```
 
 It drains **both lanes**, exactly as the cron does: up to `VISIBLE_BATCH` (60)
-`brand` and `portrait` rows six at a time, handled in the process with no session
-at all, and `RESEARCH_BATCH` (12) research rows, one session each. So the
-`sessionIds` it prints are the research rows only — a run that resolved forty
-logos prints an empty list and was not idle. Either way it spends real credits, a
-vendor call per visible row and a model session per research one; that is the
+direct rows (`slack-people-match`, `slack-channel-join`, `agent-event`) six at a
+time, handled in the process with no session at all, and `RESEARCH_BATCH` (12)
+research rows, one session each. So the `sessionIds` it prints are the research
+rows only — a run that only settled direct rows prints an empty list and was not
+idle. Either way it spends real credits, a session per research row; that is the
 point of it, and the reason it is a command you run rather than a ticker somebody
 leaves on. Watch the agent pane; the session ids it returns are also streamable at
 `GET /eve/v1/session/:id/stream`.

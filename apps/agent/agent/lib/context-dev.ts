@@ -2,43 +2,6 @@ import ContextDev from "context.dev";
 import { APIError } from "context.dev/core/error";
 import { contextDevKey } from "./capabilities";
 
-export type Brand = {
-	domain?: string | null;
-	title?: string | null;
-	description?: string | null;
-	slogan?: string | null;
-	email?: string | null;
-	phone?: string | null;
-	colors?: { hex?: string | null; name?: string | null }[] | null;
-	logos?:
-		| {
-				url?: string | null;
-				mode?: string | null;
-				type?: string | null;
-				colors?: { hex?: string | null; name?: string | null }[] | null;
-		  }[]
-		| null;
-	socials?: { type?: string | null; url?: string | null }[] | null;
-	address?: {
-		city?: string | null;
-		state_code?: string | null;
-		country?: string | null;
-		country_code?: string | null;
-	} | null;
-	industries?: {
-		eic?: { industry?: string | null; subindustry?: string | null }[] | null;
-	} | null;
-	links?: {
-		pricing?: string | null;
-		careers?: string | null;
-	} | null;
-};
-
-export type LookupResult =
-	| { outcome: "found"; brand: Brand; raw: unknown }
-	| { outcome: "skipped"; reason: string }
-	| { outcome: "failed"; reason: string; retryable: boolean };
-
 export type SearchResult = {
 	url: string | null;
 	title: string | null;
@@ -118,22 +81,6 @@ export function classifyKey(error: unknown): KeyCheck {
 	return { outcome: "valid" };
 }
 
-export async function brandByDomain(
-	domain: string,
-	maxAgeMs?: number,
-): Promise<LookupResult> {
-	return lookup({
-		type: "by_domain",
-		domain,
-		timeoutMS: TIMEOUT_MS,
-		...(maxAgeMs === undefined ? {} : { maxAgeMs }),
-	});
-}
-
-export async function brandByEmail(email: string): Promise<LookupResult> {
-	return lookup({ type: "by_email", email, timeoutMS: TIMEOUT_MS });
-}
-
 export async function prefetch(domain: string): Promise<void> {
 	const api = await contextDev();
 	if (!api) return;
@@ -205,68 +152,6 @@ export async function search(
 	} catch (error) {
 		return { outcome: "failed", reason: describe(error) };
 	}
-}
-
-async function lookup(
-	params: Parameters<ContextDev["brand"]["retrieve"]>[0],
-): Promise<LookupResult> {
-	const api = await contextDev();
-	if (!api) {
-		return { outcome: "skipped", reason: "Context.dev is not configured." };
-	}
-
-	try {
-		const response = await api.brand.retrieve(params);
-		const brand = response.brand as Brand | undefined;
-
-		if (!brand) return { outcome: "skipped", reason: "No brand matched." };
-
-		return { outcome: "found", brand, raw: response };
-	} catch (error) {
-		return classify(error);
-	}
-}
-
-function classify(error: unknown): LookupResult {
-	if (!(error instanceof APIError)) {
-		return { outcome: "failed", reason: describe(error), retryable: true };
-	}
-
-	const code = errorCode(error);
-
-	if (error.status === 400) {
-		if (code === "NOT_FOUND" || code === "WEBSITE_ACCESS_ERROR") {
-			return {
-				outcome: "skipped",
-				reason:
-					code === "NOT_FOUND"
-						? "No brand matched this domain."
-						: "The site could not be reached.",
-			};
-		}
-		return { outcome: "failed", reason: describe(error), retryable: false };
-	}
-
-	if (error.status === 422) {
-		return {
-			outcome: "skipped",
-			reason: "That is a personal or disposable email address.",
-		};
-	}
-
-	if (error.status === 401 || error.status === 403) {
-		return { outcome: "failed", reason: describe(error), retryable: false };
-	}
-
-	if (error.status === 408 || error.status === 429) {
-		return { outcome: "failed", reason: describe(error), retryable: true };
-	}
-
-	return {
-		outcome: "failed",
-		reason: describe(error),
-		retryable: (error.status ?? 500) >= 500,
-	};
 }
 
 function errorCode(error: APIError): string | undefined {

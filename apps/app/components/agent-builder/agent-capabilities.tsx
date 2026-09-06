@@ -150,11 +150,7 @@ export function AgentCapabilities({
 				? {
 						resources: shownResources.map((resource) => ({
 							id: resource.id,
-							kind: resource.kind as
-								| "company"
-								| "contact"
-								| "deal"
-								| "integration",
+							kind: resource.kind as "contact" | "deal" | "integration",
 							label: resource.label,
 						})),
 					}

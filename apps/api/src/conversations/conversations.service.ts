@@ -78,7 +78,6 @@ export class ConversationsService {
 			where: {
 				userId,
 				...(input.contactId ? { contactId: input.contactId } : {}),
-				...(input.companyId ? { companyId: input.companyId } : {}),
 				...(input.dealId ? { dealId: input.dealId } : {}),
 			},
 			orderBy: { lastMessageAt: "desc" },
@@ -179,13 +178,7 @@ export class ConversationsService {
 			? { contains: search, mode: "insensitive" as const }
 			: undefined;
 
-		const [companies, contacts, deals, slackAccount] = await Promise.all([
-			this.db.company.findMany({
-				where: contains ? { name: contains } : undefined,
-				orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
-				take: 6,
-				select: { id: true, name: true, domain: true, logoUrl: true },
-			}),
+		const [contacts, deals, slackAccount] = await Promise.all([
 			this.db.contact.findMany({
 				where: contains
 					? {
@@ -204,18 +197,14 @@ export class ConversationsService {
 					lastName: true,
 					email: true,
 					imageUrl: true,
-					company: { select: { name: true } },
+					companyName: true,
 				},
 			}),
 			this.db.deal.findMany({
 				where: contains ? { name: contains } : undefined,
 				orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
 				take: 6,
-				select: {
-					id: true,
-					name: true,
-					company: { select: { name: true, logoUrl: true } },
-				},
+				select: { id: true, name: true },
 			}),
 			this.db.account.findFirst({
 				where: { providerId: "slack", accessToken: { not: null } },
@@ -235,26 +224,19 @@ export class ConversationsService {
 						},
 					]
 				: []),
-			...companies.map((company) => ({
-				kind: "company" as const,
-				id: company.id,
-				label: company.name,
-				detail: company.domain,
-				imageUrl: company.logoUrl,
-			})),
 			...contacts.map((contact) => ({
 				kind: "contact" as const,
 				id: contact.id,
 				label: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
-				detail: contact.company?.name ?? contact.email,
+				detail: contact.companyName ?? contact.email,
 				imageUrl: contact.imageUrl,
 			})),
 			...deals.map((deal) => ({
 				kind: "deal" as const,
 				id: deal.id,
 				label: deal.name,
-				detail: deal.company.name,
-				imageUrl: deal.company.logoUrl,
+				detail: null,
+				imageUrl: null,
 			})),
 		];
 	}
@@ -766,7 +748,6 @@ export class ConversationsService {
 			kind: string;
 			userId: string;
 			contactId: string | null;
-			companyId: string | null;
 			dealId: string | null;
 		}) => {
 			if (existing.userId !== userId || existing.kind !== "RECORD") {
@@ -775,8 +756,7 @@ export class ConversationsService {
 				);
 			}
 
-			const existingRecordId =
-				existing.contactId ?? existing.companyId ?? existing.dealId;
+			const existingRecordId = existing.contactId ?? existing.dealId;
 			if (existingRecordId !== recordId) {
 				throw new BadRequestException(
 					"A conversation cannot be moved to another CRM record.",
@@ -789,7 +769,6 @@ export class ConversationsService {
 					kind: "RECORD",
 					userId,
 					contactId: input.contactId ?? null,
-					companyId: input.companyId ?? null,
 					dealId: input.dealId ?? null,
 				},
 				data: {
@@ -816,7 +795,6 @@ export class ConversationsService {
 				kind: true,
 				userId: true,
 				contactId: true,
-				companyId: true,
 				dealId: true,
 			},
 		});
@@ -835,7 +813,6 @@ export class ConversationsService {
 						messageCount: input.messageCount ?? 0,
 						userId,
 						contactId: input.contactId ?? null,
-						companyId: input.companyId ?? null,
 						dealId: input.dealId ?? null,
 					},
 					select: { id: true },
@@ -849,7 +826,6 @@ export class ConversationsService {
 						kind: true,
 						userId: true,
 						contactId: true,
-						companyId: true,
 						dealId: true,
 					},
 				});
@@ -943,20 +919,14 @@ export class ConversationsService {
 		return { id };
 	}
 
-	private recordId(input: {
-		contactId?: string;
-		companyId?: string;
-		dealId?: string;
-	}): string {
-		const recordIds = [input.contactId, input.companyId, input.dealId].filter(
+	private recordId(input: { contactId?: string; dealId?: string }): string {
+		const recordIds = [input.contactId, input.dealId].filter(
 			(recordId): recordId is string => Boolean(recordId),
 		);
 		const [recordId] = recordIds;
 
 		if (!recordId || recordIds.length !== 1) {
-			throw new BadRequestException(
-				"Choose exactly one contact, company or deal.",
-			);
+			throw new BadRequestException("Choose exactly one contact or deal.");
 		}
 
 		return recordId;

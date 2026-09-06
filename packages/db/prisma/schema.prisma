@@ -23,7 +23,6 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  ownedCompanies Company[]           @relation("CompanyOwner")
   ownedContacts  Contact[]           @relation("ContactOwner")
   ownedDeals     Deal[]              @relation("DealOwner")
   activities     Activity[]          @relation("ActivityAuthor")
@@ -50,6 +49,7 @@ model User {
 
   estimates Estimate[] @relation("EstimateCreator")
   invoices  Invoice[]  @relation("InvoiceCreator")
+  contracts Contract[] @relation("ContractCreator")
 
   createdProjects Project[]     @relation("ProjectCreator")
   projectTasks    ProjectTask[] @relation("ProjectTaskAssignee")
@@ -298,75 +298,6 @@ enum AgentResponseRating {
   DOWN
 }
 
-model Company {
-  id          String  @id @default(cuid())
-  name        String
-  domain      String? @unique
-  website     String?
-  description String?
-
-  logoUrl     String?
-  logoDarkUrl String?
-  iconUrl     String?
-  iconDarkUrl String?
-  iconTone    String?
-  brandColor  String?
-
-  industry    String?
-  subIndustry String?
-  city        String?
-  stateCode   String?
-  country     String?
-  countryCode String?
-
-  phone       String?
-  email       String?
-  linkedinUrl String?
-  twitterUrl  String?
-  githubUrl   String?
-  pricingUrl  String?
-  careersUrl  String?
-
-  ownerId          String?
-  owner            User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  primaryContactId String?  @unique
-  primaryContact   Contact? @relation("PrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
-
-  enrichmentStatus EnrichmentStatus   @default(PENDING)
-  enrichedAt       DateTime?
-  enrichmentError  String?
-  enrichment       CompanyEnrichment?
-
-  source RecordSource @default(MANUAL)
-
-  lastActivityAt DateTime?
-
-  contacts       Contact[]           @relation("CompanyContacts")
-  conversations  AgentConversation[]
-  deals          Deal[]
-  activities     Activity[]
-  emailThreads   EmailThread[]
-  calendarEvents CalendarEvent[]
-  fieldValues    FieldValue[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  @@index([ownerId])
-  @@index([name])
-  @@index([lastActivityAt])
-  @@map("company")
-}
-
-model CompanyEnrichment {
-  companyId String   @id
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  source    String   @default("context.dev")
-  raw       Json
-  fetchedAt DateTime @default(now())
-
-  @@map("companyEnrichment")
-}
-
 model Contact {
   id          String  @id @default(cuid())
   firstName   String
@@ -374,9 +305,7 @@ model Contact {
   email       String? @unique
   phone       String?
   title       String?
-  linkedinUrl String?
-  twitterUrl  String?
-  githubUrl   String?
+  companyName String?
   imageUrl    String?
 
   socialsCheckedAt DateTime?
@@ -389,11 +318,8 @@ model Contact {
   facts         ContactFact[]
   conversations AgentConversation[]
 
-  companyId String?
-  company   Company? @relation("CompanyContacts", fields: [companyId], references: [id], onDelete: SetNull)
-  ownerId   String?
-  owner     User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  primaryOf Company? @relation("PrimaryContact")
+  ownerId String?
+  owner   User?   @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   source RecordSource @default(MANUAL)
 
@@ -410,10 +336,10 @@ model Contact {
   drawings        Drawing[]
   estimates       Estimate[]
   invoices        Invoice[]
+  contracts       Contract[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
-  @@index([companyId])
   @@index([ownerId])
   @@index([lastActivityAt])
   @@map("contact")
@@ -482,7 +408,6 @@ model ContactBrief {
 model AgentTask {
   id        String  @id @default(cuid())
   contactId String?
-  companyId String?
   dealId    String?
 
   kind    String
@@ -536,8 +461,6 @@ model AgentConversation {
 
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   dealId    String?
   deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
@@ -569,7 +492,6 @@ model AgentConversation {
   builderArtifacts AgentBuilderArtifact[]
 
   @@index([contactId, lastMessageAt])
-  @@index([companyId, lastMessageAt])
   @@index([dealId, lastMessageAt])
   @@index([userId, kind, lastMessageAt])
   @@index([agentId, lastMessageAt])
@@ -934,8 +856,6 @@ model Deal {
   conversations AgentConversation[]
   name          String
   description   String?
-  companyId     String
-  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ownerId       String
   owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
 
@@ -964,10 +884,10 @@ model Deal {
   estimates   Estimate[]
   invoices    Invoice[]
   projects    Project[]
+  contracts   Contract[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  @@index([companyId])
   @@index([ownerId])
   @@index([stage])
   @@index([productionStage])
@@ -1106,6 +1026,7 @@ model Estimate {
   createdBy    User               @relation("EstimateCreator", fields: [createdById], references: [id])
   lineItems    EstimateLineItem[]
   invoices     Invoice[]
+  contracts    Contract[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -1181,6 +1102,7 @@ model Invoice {
   createdById String
   createdBy   User              @relation("InvoiceCreator", fields: [createdById], references: [id])
   lineItems   InvoiceLineItem[]
+  contracts   Contract[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -1260,7 +1182,6 @@ model ProjectTask {
 }
 
 enum FieldEntity {
-  COMPANY
   CONTACT
   DEAL
 }
@@ -1325,8 +1246,6 @@ model FieldValue {
   fieldId String
   field   FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
   dealId    String?
@@ -1343,13 +1262,11 @@ model FieldValue {
 
   updatedAt DateTime @updatedAt
 
-  @@unique([fieldId, companyId])
   @@unique([fieldId, contactId])
   @@unique([fieldId, dealId])
   @@index([fieldId, text])
   @@index([fieldId, number])
   @@index([fieldId, date])
-  @@index([companyId])
   @@index([contactId])
   @@index([dealId])
   @@index([optionId])
@@ -1367,8 +1284,6 @@ model Activity {
   dueAt       DateTime?
   completedAt DateTime?
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
   dealId    String?
@@ -1386,7 +1301,6 @@ model Activity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([companyId, createdAt])
   @@index([dealId, createdAt])
   @@index([contactId, createdAt])
   @@index([dueAt])
@@ -1432,8 +1346,6 @@ model EmailThread {
   rootMessageId String  @unique
   subject       String?
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
@@ -1447,7 +1359,6 @@ model EmailThread {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([companyId, lastMessageAt])
   @@index([contactId, lastMessageAt])
   @@map("emailThread")
 }
@@ -1494,8 +1405,6 @@ model CalendarEvent {
   status         String
   organizerEmail String?
 
-  companyId String?
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
@@ -1509,7 +1418,6 @@ model CalendarEvent {
   updatedAt DateTime @updatedAt
 
   @@unique([iCalUid, originalStartTime])
-  @@index([companyId, startsAt])
   @@index([contactId, startsAt])
   @@map("calendarEvent")
 }
@@ -1800,4 +1708,71 @@ model SsoProvider {
 
   @@unique([providerId])
   @@map("ssoProvider")
+}
+
+enum TemplateType {
+  EMAIL
+  CONTRACT
+}
+
+enum TemplatePurpose {
+  ESTIMATE_SEND
+  INVOICE_SEND
+  CONTRACT_SEND
+  CONTRACT_BODY
+}
+
+model Template {
+  id          String          @id @default(cuid())
+  name        String
+  type        TemplateType
+  purpose     TemplatePurpose @unique
+  subject     String?
+  blocks      Json
+  updatedById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("template")
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  VOID
+}
+
+model Contract {
+  id             String         @id @default(cuid())
+  number         Int            @unique @default(autoincrement())
+  title          String
+  status         ContractStatus @default(DRAFT)
+  body           Json
+  dealId         String?
+  deal           Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  estimateId     String?
+  estimate       Estimate?      @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  invoiceId      String?
+  invoice        Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  createdById    String
+  createdBy      User           @relation("ContractCreator", fields: [createdById], references: [id])
+  sentAt         DateTime?
+  sentTo         String?
+  signedAt       DateTime?
+  signerName     String?
+  signatureKind  String?
+  signatureData  String?
+  signingToken   String?        @unique
+  tokenExpiresAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([dealId])
+  @@index([contactId])
+  @@index([estimateId])
+  @@index([status])
+  @@map("contract")
 }

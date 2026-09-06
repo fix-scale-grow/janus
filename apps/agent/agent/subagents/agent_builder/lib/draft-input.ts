@@ -4,7 +4,7 @@ import { AGENT_ACTION_TYPES } from "../../../lib/agent-actions";
 import type { DraftAgentInput } from "../../../lib/builder-runtime";
 
 const recordResource = z.object({
-	kind: z.enum(["company", "contact", "deal"]),
+	kind: z.enum(["contact", "deal"]),
 	id: z.string().min(1),
 	label: z.string().min(1).max(120),
 });

@@ -2,11 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { db, EnrichmentStatus } from "@crm/db";
 import { markRunning, settle } from "../agent/lib/enrichment";
 
-const domain = "lifecycle.example.test";
-
 async function clear() {
 	await db.agentTask.deleteMany({ where: { reason: "lifecycle" } });
-	await db.company.deleteMany({ where: { domain } });
 	await db.contact.deleteMany({
 		where: { email: { startsWith: "lifecycle-" } },
 	});
@@ -14,13 +11,6 @@ async function clear() {
 
 beforeEach(clear);
 afterEach(clear);
-
-async function company() {
-	return db.company.create({
-		data: { name: "Lifecycle", domain },
-		select: { id: true },
-	});
-}
 
 async function contact() {
 	return db.contact.create({
@@ -32,25 +22,24 @@ async function contact() {
 	});
 }
 
-function subjectOf(ids: { contactId?: string; companyId?: string }) {
+function subjectOf(ids: { contactId?: string }) {
 	return {
 		id: "task",
 		kind: "test",
 		contactId: ids.contactId ?? null,
-		companyId: ids.companyId ?? null,
 	};
 }
 
-async function retiredTask(companyId: string) {
-	const row = await db.company.findUniqueOrThrow({
-		where: { id: companyId },
+async function retiredTask(contactId: string) {
+	const row = await db.contact.findUniqueOrThrow({
+		where: { id: contactId },
 		select: { updatedAt: true },
 	});
 
 	return db.agentTask.create({
 		data: {
-			companyId,
-			kind: "company-profile",
+			contactId,
+			kind: "recheck",
 			reason: "lifecycle",
 			attempts: 3,
 			dueAt: row.updatedAt,
@@ -88,42 +77,24 @@ describe("the record follows the task", () => {
 		expect(done?.enrichedAt).not.toBeNull();
 	});
 
-	it("does the same for a company", async () => {
-		const org = await company();
-		const subject = subjectOf({ companyId: org.id });
-
-		await markRunning(subject);
-		await settle(subject, EnrichmentStatus.COMPLETE);
-
-		const row = await db.company.findUnique({
-			where: { id: org.id },
-			select: { enrichmentStatus: true },
-		});
-		expect(row?.enrichmentStatus).toBe("COMPLETE");
-	});
-
 	it("lets a tool's more specific answer win over the queue's", async () => {
-		const org = await company();
-		const subject = subjectOf({ companyId: org.id });
+		const person = await contact();
+		const subject = subjectOf({ contactId: person.id });
 
 		await markRunning(subject);
 
-		await db.company.update({
-			where: { id: org.id },
+		await db.contact.update({
+			where: { id: person.id },
 			data: {
 				enrichmentStatus: EnrichmentStatus.SKIPPED,
-				enrichmentError: "No domain to look up.",
+				enrichmentError: "No email to look up.",
 			},
 		});
 
 		await settle(subject, EnrichmentStatus.COMPLETE);
 
-		const row = await db.company.findUnique({
-			where: { id: org.id },
-			select: { enrichmentStatus: true, enrichmentError: true },
-		});
+		const row = await statusOfContact(person.id);
 		expect(row?.enrichmentStatus).toBe("SKIPPED");
-		expect(row?.enrichmentError).toBe("No domain to look up.");
 	});
 
 	it("puts a failed record back to work on a retry", async () => {
@@ -146,28 +117,25 @@ describe("the record follows the task", () => {
 	});
 
 	it("records the failure of a task that was retired before it ran", async () => {
-		const org = await company();
-		const task = await retiredTask(org.id);
+		const person = await contact();
+		const task = await retiredTask(person.id);
 
 		await settle(
-			{ ...subjectOf({ companyId: org.id }), id: task.id },
+			{ ...subjectOf({ contactId: person.id }), id: task.id },
 			EnrichmentStatus.FAILED,
 			"Research was attempted several times and never completed.",
 		);
 
-		const row = await db.company.findUnique({
-			where: { id: org.id },
-			select: { enrichmentStatus: true },
-		});
+		const row = await statusOfContact(person.id);
 		expect(row?.enrichmentStatus).toBe("FAILED");
 	});
 
 	it("leaves a fresh request alone when a retired task settles late", async () => {
-		const org = await company();
-		const task = await retiredTask(org.id);
+		const person = await contact();
+		const task = await retiredTask(person.id);
 
-		await db.company.update({
-			where: { id: org.id },
+		await db.contact.update({
+			where: { id: person.id },
 			data: {
 				enrichmentStatus: EnrichmentStatus.PENDING,
 				enrichmentError: null,
@@ -175,13 +143,13 @@ describe("the record follows the task", () => {
 		});
 
 		await settle(
-			{ ...subjectOf({ companyId: org.id }), id: task.id },
+			{ ...subjectOf({ contactId: person.id }), id: task.id },
 			EnrichmentStatus.FAILED,
 			"Research was attempted several times and never completed.",
 		);
 
-		const row = await db.company.findUnique({
-			where: { id: org.id },
+		const row = await db.contact.findUnique({
+			where: { id: person.id },
 			select: { enrichmentStatus: true, enrichmentError: true },
 		});
 		expect(row?.enrichmentStatus).toBe("PENDING");
@@ -189,19 +157,19 @@ describe("the record follows the task", () => {
 	});
 
 	it("leaves a queued record alone when a task that never ended fails late", async () => {
-		const org = await company();
+		const person = await contact();
 		const open = await db.agentTask.create({
 			data: {
-				companyId: org.id,
-				kind: "company-profile",
+				contactId: person.id,
+				kind: "recheck",
 				reason: "lifecycle",
 				dueAt: new Date(),
 			},
 			select: { id: true },
 		});
 
-		await db.company.update({
-			where: { id: org.id },
+		await db.contact.update({
+			where: { id: person.id },
 			data: {
 				enrichmentStatus: EnrichmentStatus.PENDING,
 				enrichmentError: null,
@@ -209,13 +177,13 @@ describe("the record follows the task", () => {
 		});
 
 		await settle(
-			{ ...subjectOf({ companyId: org.id }), id: open.id },
+			{ ...subjectOf({ contactId: person.id }), id: open.id },
 			EnrichmentStatus.FAILED,
 			"The agent turn failed.",
 		);
 
-		const row = await db.company.findUnique({
-			where: { id: org.id },
+		const row = await db.contact.findUnique({
+			where: { id: person.id },
 			select: { enrichmentStatus: true, enrichmentError: true },
 		});
 		expect(row?.enrichmentStatus).toBe("PENDING");
@@ -223,11 +191,11 @@ describe("the record follows the task", () => {
 	});
 
 	it("leaves the record to a newer request when an ended task settles late", async () => {
-		const org = await company();
-		const task = await retiredTask(org.id);
+		const person = await contact();
+		const task = await retiredTask(person.id);
 		await db.agentTask.create({
 			data: {
-				companyId: org.id,
+				contactId: person.id,
 				kind: "recheck",
 				reason: "lifecycle",
 				dueAt: new Date(),
@@ -236,13 +204,13 @@ describe("the record follows the task", () => {
 		});
 
 		await settle(
-			{ ...subjectOf({ companyId: org.id }), id: task.id },
+			{ ...subjectOf({ contactId: person.id }), id: task.id },
 			EnrichmentStatus.FAILED,
 			"Research was attempted several times and never completed.",
 		);
 
-		const row = await db.company.findUnique({
-			where: { id: org.id },
+		const row = await db.contact.findUnique({
+			where: { id: person.id },
 			select: { enrichmentStatus: true, enrichmentError: true },
 		});
 		expect(row?.enrichmentStatus).toBe("PENDING");

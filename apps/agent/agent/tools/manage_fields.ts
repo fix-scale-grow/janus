@@ -4,10 +4,10 @@ import { createField, updateFieldBrief } from "../lib/fields";
 
 export default defineTool({
 	description:
-		"Add a custom field to a record type, or change what a field's brief tells you to look for. Use it when a rep asks the CRM to start tracking something it has no field for. The brief is the whole instruction you will be working from later, so write it the way you would want to read it.",
+		"Add a custom field to contacts or deals, or change what a field's brief tells you to look for. Use it when a rep asks the CRM to start tracking something it has no field for. The brief is the whole instruction you will be working from later, so write it the way you would want to read it.",
 	inputSchema: z.object({
 		action: z.enum(["create", "update-brief"]),
-		entity: z.enum(["COMPANY", "CONTACT", "DEAL"]),
+		entity: z.enum(["CONTACT", "DEAL"]),
 		label: z
 			.string()
 			.optional()

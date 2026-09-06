@@ -64,16 +64,6 @@ const OWNER_SELECT = {
 	image: true,
 } as const;
 
-const COMPANY_SELECT = {
-	id: true,
-	name: true,
-	domain: true,
-	iconUrl: true,
-	iconDarkUrl: true,
-	iconTone: true,
-	logoUrl: true,
-} as const;
-
 const CONTACT_SELECT = {
 	id: true,
 	firstName: true,
@@ -91,7 +81,6 @@ const SORTABLE: Record<
 	(dir: Prisma.SortOrder) => Prisma.DealOrderByWithRelationInput[]
 > = {
 	name: (dir) => [{ name: dir }],
-	company: (dir) => [{ company: { name: dir } }, { name: "asc" }],
 	stage: (dir) => [{ stage: dir }, { expectedCloseDate: "asc" }],
 	amount: (dir) => [{ baseAmount: { sort: dir, nulls: "last" } }],
 	expectedCloseDate: (dir) => [{ expectedCloseDate: dir }],
@@ -136,7 +125,6 @@ export class DealsService {
 						baseAmount: true,
 						expectedCloseDate: true,
 						closedAt: true,
-						company: { select: COMPANY_SELECT },
 						owner: { select: OWNER_SELECT },
 						lastActivityAt: true,
 						createdAt: true,
@@ -208,7 +196,6 @@ export class DealsService {
 				closedAt: true,
 				closedReason: true,
 				createdAt: true,
-				company: { select: { ...COMPANY_SELECT, industry: true } },
 				owner: { select: OWNER_SELECT },
 				contacts: {
 					select: { role: true, contact: { select: CONTACT_SELECT } },
@@ -257,7 +244,6 @@ export class DealsService {
 				const created = await tx.deal.create({
 					data: {
 						name: input.name.trim(),
-						companyId: input.companyId,
 						ownerId: input.ownerId,
 						stage,
 						stageChangedAt: now,
@@ -267,20 +253,20 @@ export class DealsService {
 						...fx,
 						expectedCloseDate: parseDate(input.expectedCloseDate),
 					},
-					select: { id: true, name: true, companyId: true },
+					select: { id: true, name: true },
 				});
 				await emit({
 					type: "deal.created",
 					record: { kind: "deal", id: created.id },
 					occurredAt: now,
-					data: { companyId: created.companyId, stage },
+					data: { stage },
 				});
 				if (closed) {
 					await emit({
 						type: "deal.closed",
 						record: { kind: "deal", id: created.id },
 						occurredAt: now,
-						data: { companyId: created.companyId, from: null, to: stage },
+						data: { from: null, to: stage },
 					});
 				}
 				return created;
@@ -301,9 +287,6 @@ export class DealsService {
 		if (input.description !== undefined) {
 			data.description =
 				input.description === null ? null : blankToNull(input.description);
-		}
-		if (input.companyId !== undefined) {
-			data.company = { connect: { id: input.companyId } };
 		}
 		if (input.ownerId !== undefined) {
 			data.owner = { connect: { id: input.ownerId } };
@@ -392,9 +375,9 @@ export class DealsService {
 		const closed = isClosedStage(input.stage);
 		const transition = await this.agent.withCrmEvents(async (tx, emit) => {
 			const [deal] = await tx.$queryRaw<
-				Array<{ id: string; stage: DealStage; companyId: string }>
+				Array<{ id: string; stage: DealStage }>
 			>`
-				SELECT id, stage, "companyId"
+				SELECT id, stage
 				FROM deal
 				WHERE id = ${input.id}
 				FOR UPDATE
@@ -435,7 +418,6 @@ export class DealsService {
 					subject: "Stage changed",
 					body: closedReason ?? null,
 					occurredAt: now,
-					companyId: deal.companyId,
 					dealId: deal.id,
 					createdById: actingUserId,
 					meta: { from: deal.stage, to: input.stage },
@@ -445,7 +427,7 @@ export class DealsService {
 				type: "deal.stage.changed",
 				record: { kind: "deal", id: deal.id },
 				occurredAt: now,
-				data: { companyId: deal.companyId, from: deal.stage, to: input.stage },
+				data: { from: deal.stage, to: input.stage },
 			});
 			if (!isClosedStage(deal.stage) && closed) {
 				await emit({
@@ -453,7 +435,6 @@ export class DealsService {
 					record: { kind: "deal", id: deal.id },
 					occurredAt: now,
 					data: {
-						companyId: deal.companyId,
 						from: deal.stage,
 						to: input.stage,
 					},
@@ -465,7 +446,6 @@ export class DealsService {
 					record: { kind: "deal", id: deal.id },
 					occurredAt: now,
 					data: {
-						companyId: deal.companyId,
 						from: deal.stage,
 						to: input.stage,
 					},
@@ -481,7 +461,7 @@ export class DealsService {
 
 		const { deal, updated, now } = transition;
 
-		await this.stamp.touch({ companyId: deal.companyId, dealId: deal.id }, now);
+		await this.stamp.touch({ dealId: deal.id }, now);
 
 		this.logger.log({
 			message: "Deal stage changed",
@@ -521,7 +501,6 @@ export class DealsService {
 				amount: true,
 				currency: true,
 				productionStage: true,
-				company: { select: COMPANY_SELECT },
 				contacts: {
 					select: { contact: { select: CONTACT_SELECT } },
 					orderBy: { contact: { firstName: "asc" } },
@@ -560,7 +539,7 @@ export class DealsService {
 	) {
 		const deal = await this.db.deal.findUnique({
 			where: { id: input.id },
-			select: { id: true, stage: true, productionStage: true, companyId: true },
+			select: { id: true, stage: true, productionStage: true },
 		});
 
 		if (!deal) {
@@ -590,7 +569,6 @@ export class DealsService {
 				type: ActivityType.STAGE_CHANGE,
 				subject: "Production stage changed",
 				occurredAt: now,
-				companyId: deal.companyId,
 				dealId: deal.id,
 				createdById: actingUserId,
 				meta: {
@@ -607,7 +585,7 @@ export class DealsService {
 	async contactOptions(dealId: string) {
 		const deal = await this.db.deal.findUnique({
 			where: { id: dealId },
-			select: { companyId: true, contacts: { select: { contactId: true } } },
+			select: { contacts: { select: { contactId: true } } },
 		});
 
 		if (!deal) {
@@ -616,7 +594,6 @@ export class DealsService {
 
 		return this.db.contact.findMany({
 			where: {
-				companyId: deal.companyId,
 				id: { notIn: deal.contacts.map((row) => row.contactId) },
 			},
 			select: CONTACT_SELECT,
@@ -626,20 +603,22 @@ export class DealsService {
 	}
 
 	async attachContact(input: DealAttachContactInput) {
-		const company = await this.companyOf(input.dealId);
+		const deal = await this.db.deal.findUnique({
+			where: { id: input.dealId },
+			select: { id: true },
+		});
+
+		if (!deal) {
+			throw new NotFoundException(`No deal with id ${input.dealId}.`);
+		}
+
 		const contact = await this.db.contact.findUnique({
 			where: { id: input.contactId },
-			select: { companyId: true },
+			select: { id: true },
 		});
 
 		if (!contact) {
 			throw new NotFoundException(`No contact with id ${input.contactId}.`);
-		}
-
-		if (contact.companyId !== company.id) {
-			throw new BadRequestException(
-				`That contact does not work at ${company.name}.`,
-			);
 		}
 
 		const role = roleOrNull(input.role ?? null);
@@ -741,28 +720,12 @@ export class DealsService {
 		return runBulk(ids, (id) => this.delete(id));
 	}
 
-	private async companyOf(dealId: string) {
-		const deal = await this.db.deal.findUnique({
-			where: { id: dealId },
-			select: { company: { select: { id: true, name: true } } },
-		});
-
-		if (!deal) {
-			throw new NotFoundException(`No deal with id ${dealId}.`);
-		}
-
-		return deal.company;
-	}
-
 	private searchFilter(q: string): Prisma.DealWhereInput {
 		const term = q.trim();
 		if (!term) return {};
 
 		return {
-			OR: [
-				{ name: { contains: term, mode: "insensitive" } },
-				{ company: { name: { contains: term, mode: "insensitive" } } },
-			],
+			OR: [{ name: { contains: term, mode: "insensitive" } }],
 		};
 	}
 
@@ -841,7 +804,7 @@ export class DealsService {
 			(error.code === "P2003" || error.code === "P2025")
 		) {
 			return new BadRequestException(
-				"That company or owner does not exist any more.",
+				"That owner does not exist any more.",
 			);
 		}
 		return error;

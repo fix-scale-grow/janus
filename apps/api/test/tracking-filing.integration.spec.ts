@@ -13,7 +13,6 @@ import {
 	contactWindowKey,
 } from "@crm/db/tracking";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
-import { CompanyDirectoryService } from "../src/companies/company-directory.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { TrackingCounterService } from "../src/tracking/tracking-counter.service";
 import { TrackingFilingService } from "../src/tracking/tracking-filing.service";
@@ -29,15 +28,12 @@ const agent = {
 	contactCreated: async (id: string) => {
 		queued.push(id);
 	},
-	companyCreated: async () => undefined,
-	companyRequested: async () => undefined,
 	withCrmEvents: withDiscardedCrmEvents,
 } as unknown as AgentTriggerService;
 
 const stamp = new ActivityStampService(db);
 const counters = new TrackingCounterService(db);
-const directory = new CompanyDirectoryService(agent);
-const filing = new TrackingFilingService(db, counters, directory, agent, stamp);
+const filing = new TrackingFilingService(db, counters, agent, stamp);
 
 let userId: string;
 
@@ -77,7 +73,6 @@ async function clean() {
 	});
 	await db.contact.deleteMany({ where: { email: { endsWith: `@${domain}` } } });
 	await db.contact.deleteMany({ where: { email: `free-${suffix}@gmail.com` } });
-	await db.company.deleteMany({ where: { domain } });
 	await db.suppressedContact.deleteMany({
 		where: { email: { endsWith: `@${domain}` } },
 	});
@@ -152,7 +147,7 @@ describe("filing a form submission", () => {
 		await db.suppressedDomain.deleteMany({ where: { domain } });
 	});
 
-	it("files a free-mail address as a contact with no company", async () => {
+	it("files a free-mail address as a contact", async () => {
 		const { outcome, stored } = await submit(`free-${suffix}@gmail.com`);
 
 		expect(outcome.filed).toBe(true);
@@ -160,10 +155,9 @@ describe("filing a form submission", () => {
 
 		const contact = await db.contact.findUnique({
 			where: { email: `free-${suffix}@gmail.com` },
-			select: { companyId: true, source: true },
+			select: { source: true },
 		});
 
-		expect(contact?.companyId).toBeNull();
 		expect(contact?.source).toBe("TRACKING");
 	});
 
@@ -177,10 +171,9 @@ describe("filing a form submission", () => {
 
 		const contact = await db.contact.findUnique({
 			where: { email },
-			select: { companyId: true, firstName: true },
+			select: { firstName: true },
 		});
 
-		expect(contact?.companyId).toBeTruthy();
 		expect(contact?.firstName).toBe("Dana");
 	});
 

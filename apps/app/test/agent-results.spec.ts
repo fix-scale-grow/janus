@@ -12,7 +12,6 @@ const page = (status: string, ids: string[]) => ({
 	criteria: {
 		status,
 		inactiveForDays: null,
-		companyId: null,
 		ownerId: null,
 	},
 	deals: ids.map((id) => ({
@@ -21,7 +20,6 @@ const page = (status: string, ids: string[]) => ({
 		stage: "Discovery",
 		amount: null,
 		currency: "USD",
-		company: { id: "c1", name: "Acme" },
 		owner: null,
 		daysSinceLastActivity: 3,
 		expectedCloseDate: null,
@@ -117,7 +115,7 @@ describe("anchorResults", () => {
 
 	it("ignores calls belonging to another tool", () => {
 		const anchored = anchorDeals([
-			did("a", page("OPEN", ["d1"]), { tool: "list_companies" }),
+			did("a", page("OPEN", ["d1"]), { tool: "search_crm" }),
 		]);
 
 		expect(anchored.size).toBe(0);

@@ -5,7 +5,6 @@ import { DISPATCH } from "./dispatch-config";
 export type LeasedTask = {
 	id: string;
 	contactId: string | null;
-	companyId: string | null;
 	dealId: string | null;
 	kind: string;
 	reason: string;
@@ -19,7 +18,6 @@ export type LeasedTask = {
 export type TaskSubject = {
 	id: string;
 	contactId: string | null;
-	companyId: string | null;
 	dealId: string | null;
 	kind: string;
 };
@@ -61,7 +59,7 @@ export async function claimDue(
 			FOR UPDATE SKIP LOCKED
 		) AS due
 		WHERE t.id = due.id
-		RETURNING t.id, t."contactId", t."companyId", t."dealId", t.kind, t.reason, t.payload,
+		RETURNING t.id, t."contactId", t."dealId", t.kind, t.reason, t.payload,
 			t.budget, t.attempts, t.priority, t."dueAt";
 	`;
 
@@ -80,7 +78,7 @@ export async function retireExhausted(): Promise<TaskSubject[]> {
 		WHERE t."finishedAt" IS NULL
 			AND t."attempts" >= ${MAX_ATTEMPTS}
 			AND (t."leasedUntil" IS NULL OR t."leasedUntil" < ${now})
-		RETURNING t.id, t."contactId", t."companyId", t."dealId", t.kind;
+		RETURNING t.id, t."contactId", t."dealId", t.kind;
 	`;
 }
 
@@ -105,7 +103,6 @@ export async function completeTask(
 		select: {
 			id: true,
 			contactId: true,
-			companyId: true,
 			dealId: true,
 			kind: true,
 		},
@@ -118,7 +115,6 @@ export async function taskSubject(taskId: string): Promise<TaskSubject | null> {
 		select: {
 			id: true,
 			contactId: true,
-			companyId: true,
 			dealId: true,
 			kind: true,
 		},
@@ -137,7 +133,6 @@ export async function noteSession(
 
 export async function scheduleTask(input: {
 	contactId?: string | null;
-	companyId?: string | null;
 	dealId?: string | null;
 	kind: string;
 	reason: string;
@@ -151,7 +146,6 @@ export async function scheduleTask(input: {
 			kind: input.kind,
 			finishedAt: null,
 			contactId: input.contactId ?? undefined,
-			companyId: input.companyId ?? undefined,
 			dealId: input.dealId ?? undefined,
 		},
 		select: { id: true },
@@ -168,7 +162,6 @@ export async function scheduleTask(input: {
 	return db.agentTask.create({
 		data: {
 			contactId: input.contactId ?? null,
-			companyId: input.companyId ?? null,
 			dealId: input.dealId ?? null,
 			kind: input.kind,
 			reason: input.reason,

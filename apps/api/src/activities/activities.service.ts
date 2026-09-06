@@ -33,7 +33,6 @@ const ENTRY_SELECT = {
 	meta: true,
 	createdAt: true,
 	createdBy: { select: AUTHOR_SELECT },
-	company: { select: { id: true, name: true } },
 	contact: { select: { id: true, firstName: true, lastName: true } },
 	deal: { select: { id: true, name: true } },
 
@@ -97,9 +96,7 @@ export class ActivitiesService {
 		};
 	}
 
-	async timelineCounts(
-		input: Pick<TimelineInput, "companyId" | "contactId" | "dealId">,
-	) {
+	async timelineCounts(input: Pick<TimelineInput, "contactId" | "dealId">) {
 		const anchor = this.anchor(input);
 
 		const [all, notes, upcoming, done, email, meetings] = await Promise.all([
@@ -123,8 +120,6 @@ export class ActivitiesService {
 	}
 
 	async create(input: ActivityCreateInput, actingUserId: string) {
-		const companyId = await this.resolveCompanyId(input);
-
 		const isTask = input.type === ActivityType.TASK;
 
 		const activity = await this.db.activity.create({
@@ -134,7 +129,6 @@ export class ActivitiesService {
 				body: blankToNull(input.body ?? ""),
 				occurredAt: parseDate(input.occurredAt) ?? new Date(),
 				dueAt: isTask ? parseDate(input.dueAt) : null,
-				companyId,
 				contactId: input.contactId ?? null,
 				dealId: input.dealId ?? null,
 				createdById: actingUserId,
@@ -143,7 +137,7 @@ export class ActivitiesService {
 		});
 
 		await this.stamp.touch(
-			{ companyId, contactId: input.contactId, dealId: input.dealId },
+			{ contactId: input.contactId, dealId: input.dealId },
 			activity.createdAt,
 		);
 
@@ -204,44 +198,11 @@ export class ActivitiesService {
 	}
 
 	private anchor(
-		input: Pick<TimelineInput, "companyId" | "contactId" | "dealId">,
+		input: Pick<TimelineInput, "contactId" | "dealId">,
 	): Prisma.ActivityWhereInput {
 		if (input.dealId) return { dealId: input.dealId };
 		if (input.contactId) return { contactId: input.contactId };
-		if (input.companyId) return { companyId: input.companyId };
-		throw new BadRequestException(
-			"A timeline needs a company, a contact or a deal.",
-		);
-	}
-
-	private async resolveCompanyId(
-		input: ActivityCreateInput,
-	): Promise<string | null> {
-		if (input.companyId) return input.companyId;
-
-		if (input.dealId) {
-			const deal = await this.db.deal.findUnique({
-				where: { id: input.dealId },
-				select: { companyId: true },
-			});
-			if (!deal) {
-				throw new NotFoundException(`No deal with id ${input.dealId}.`);
-			}
-			return deal.companyId;
-		}
-
-		if (input.contactId) {
-			const contact = await this.db.contact.findUnique({
-				where: { id: input.contactId },
-				select: { companyId: true },
-			});
-			if (!contact) {
-				throw new NotFoundException(`No contact with id ${input.contactId}.`);
-			}
-			return contact.companyId;
-		}
-
-		return null;
+		throw new BadRequestException("A timeline needs a contact or a deal.");
 	}
 }
 

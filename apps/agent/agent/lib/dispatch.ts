@@ -1,12 +1,10 @@
 import { EnrichmentStatus } from "@crm/db";
 import { APP_AUTH, type AppAuth } from "./app-auth";
-import { brandOutcome, runBrand } from "./brand";
 import { queueEventAgentRuns } from "./custom-agent-dispatch";
 import { settledWithin } from "./deadline";
 import { DISPATCH } from "./dispatch-config";
 import { markRunning, settle } from "./enrichment";
 import { collapsing, runLimited } from "./pool";
-import { runPortrait } from "./portrait";
 import { runSlackChannelJoin } from "./slack-join-task";
 import { runSlackPeopleMatch } from "./slack-people";
 import {
@@ -102,29 +100,6 @@ async function reconcileDirect(
 }
 
 async function handleDirect(task: LeasedTask): Promise<void> {
-	if (task.kind === "brand" && task.companyId) {
-		const result = await runBrand({ companyId: task.companyId });
-		if (result.retryable) return;
-
-		await completeTask(task.id, brandOutcome(result));
-		return;
-	}
-
-	if (task.kind === "portrait" && task.contactId) {
-		const portrait = await runPortrait({
-			contactId: task.contactId,
-			spend: () => ({ ok: true }),
-		});
-
-		await completeTask(
-			task.id,
-			portrait.stored
-				? `Picture stored from ${portrait.source}.`
-				: (portrait.reason ?? "No picture found."),
-		);
-		return;
-	}
-
 	if (task.kind === "slack-people-match") {
 		await completeTask(task.id, await runSlackPeopleMatch());
 		return;
@@ -264,7 +239,6 @@ export function taskAuth(task: LeasedTask, base: AppAuth = APP_AUTH): AppAuth {
 			reason: task.reason,
 			budget: String(task.budget),
 			...(task.contactId ? { contactId: task.contactId } : {}),
-			...(task.companyId ? { companyId: task.companyId } : {}),
 			...(task.dealId ? { dealId: task.dealId } : {}),
 		},
 	};
@@ -416,8 +390,6 @@ function work(kind: string, reason: string): string {
 			return "Bring this contact's record up to date: their background, their current role, and anything that has changed since we last looked.";
 		case "meeting-prep":
 			return "There is a meeting with this person soon. Make sure whoever is taking it opens the record knowing who they are dealing with.";
-		case "company-profile":
-			return "This company's brand, industry, location and links are filled in separately and may already be there. Read the account, fill anything still missing, and write a brief if there is something worth saying.";
 		case "workspace-profile":
 			return "Write the profile of the company you work for, so that every other session knows who we are. Read our own site and keep it short.";
 		default:

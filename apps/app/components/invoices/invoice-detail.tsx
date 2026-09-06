@@ -4,6 +4,7 @@ import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Download from "@carbon/icons-react/es/Download";
 import Send from "@carbon/icons-react/es/Send";
+import { TemplatePurpose } from "@crm/db/enums";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import { DatePicker } from "@crm/ui/components/date-picker";
@@ -50,9 +51,6 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AddInvoiceLineItem } from "./add-invoice-line-item";
 import { AssignInvoiceContact } from "./assign-invoice-contact";
 import { InvoiceLineRow } from "./invoice-line-row";
-
-const DEFAULT_SEND_MESSAGE =
-	"Hi,\n\nPlease find your invoice attached. Let us know if you have any questions.\n\nThanks!";
 
 export type InvoiceDetailData = RouterOutputs["invoices"]["byId"];
 export type InvoiceLineItemRow = InvoiceDetailData["lineItems"][number];
@@ -404,9 +402,13 @@ export function InvoiceDetail({
 			<SendDocumentDialog
 				documentId={invoiceId}
 				entityLabel="invoice"
-				defaultSubject={`Invoice #${data.number}`}
+				purpose={TemplatePurpose.INVOICE_SEND}
+				refs={{
+					invoiceId,
+					dealId: data.dealId ?? undefined,
+					contactId: data.contactId ?? undefined,
+				}}
 				defaultTo={contact.data?.email ?? ""}
-				defaultMessage={DEFAULT_SEND_MESSAGE}
 				open={sendOpen}
 				onOpenChange={setSendOpen}
 				mutation={sendInvoice}

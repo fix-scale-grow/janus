@@ -529,9 +529,9 @@ describe("builder persistence", () => {
 
 		const original = {
 			name: "Workspace pulse",
-			description: "Report the workspace company count.",
+			description: "Report the workspace contact count.",
 			instructions:
-				"When manually triggered, read workspace companies and return the company count in a concise run summary without changing CRM records.",
+				"When manually triggered, read workspace contacts and return the contact count in a concise run summary without changing CRM records.",
 			triggers: [
 				{
 					type: "MANUAL" as const,
@@ -572,7 +572,7 @@ describe("builder persistence", () => {
 		const revised = {
 			...original,
 			name: "Workspace health pulse",
-			description: "Report company and open-deal counts.",
+			description: "Report contact and open-deal counts.",
 		};
 		await writeBuilderArtifact(
 			conversation.id,

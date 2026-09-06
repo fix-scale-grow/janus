@@ -24,7 +24,6 @@ const TIMELINE_FILTERS = [
 export type TimelineFilter = (typeof TIMELINE_FILTERS)[number];
 
 export const timelineInput = z.object({
-	companyId: z.string().optional(),
 	contactId: z.string().optional(),
 	dealId: z.string().optional(),
 	filter: z.enum(TIMELINE_FILTERS).default("all"),
@@ -35,7 +34,6 @@ export const timelineInput = z.object({
 export type TimelineInput = z.infer<typeof timelineInput>;
 
 export const timelineCountsInput = z.object({
-	companyId: z.string().optional(),
 	contactId: z.string().optional(),
 	dealId: z.string().optional(),
 });
@@ -47,12 +45,11 @@ export const activityCreateInput = z
 		body: z.string().trim().optional(),
 		occurredAt: z.string().optional(),
 		dueAt: z.string().nullable().optional(),
-		companyId: z.string().optional(),
 		contactId: z.string().optional(),
 		dealId: z.string().optional(),
 	})
-	.refine((input) => input.companyId || input.contactId || input.dealId, {
-		message: "An activity has to be about a company, a contact or a deal.",
+	.refine((input) => input.contactId || input.dealId, {
+		message: "An activity has to be about a contact or a deal.",
 	})
 	.refine(
 		(input) => input.type !== ActivityType.TASK || Boolean(input.subject),

@@ -68,7 +68,6 @@ export class ThreadWriterService {
 				threadId: true,
 				thread: {
 					select: {
-						companyId: true,
 						contactId: true,
 						activity: { select: { id: true } },
 					},
@@ -84,15 +83,13 @@ export class ThreadWriterService {
 		const thread = existing
 			? {
 					id: existing.threadId,
-					companyId: existing.thread.companyId,
 					contactId: existing.thread.contactId,
 				}
 			: await this.db.emailThread.findUnique({
 					where: { rootMessageId: parsed.rootId },
-					select: { id: true, companyId: true, contactId: true },
+					select: { id: true, contactId: true },
 				});
 
-		let companyId = thread?.companyId ?? null;
 		let contactId = thread?.contactId ?? null;
 
 		if (!thread) {
@@ -110,10 +107,9 @@ export class ThreadWriterService {
 				context,
 			);
 
-			companyId = match.companyId;
 			contactId = match.contactId;
 
-			if (!companyId && !contactId) {
+			if (!contactId) {
 				return false;
 			}
 		}
@@ -129,7 +125,6 @@ export class ThreadWriterService {
 							create: {
 								rootMessageId: parsed.rootId,
 								subject: parsed.subject,
-								companyId,
 								contactId,
 								firstMessageAt: parsed.sentAt,
 								lastMessageAt: parsed.sentAt,
@@ -188,7 +183,6 @@ export class ThreadWriterService {
 					subject: parsed.subject ?? "(no subject)",
 					snippet: snippetOf(parsed.body),
 					lastMessageAt,
-					companyId,
 					contactId,
 					origin: options.origin,
 				});
@@ -198,7 +192,7 @@ export class ThreadWriterService {
 			throw error;
 		}
 
-		await this.touch({ companyId, contactId }, occurredAt, parsed.rfcMessageId);
+		await this.touch({ contactId }, occurredAt, parsed.rfcMessageId);
 
 		return !repair;
 	}
@@ -221,7 +215,7 @@ export class ThreadWriterService {
 	}
 
 	private async touch(
-		target: { companyId: string | null; contactId: string | null },
+		target: { contactId: string | null },
 		at: Date,
 		rfcMessageId: string,
 	): Promise<void> {
@@ -262,7 +256,6 @@ export class ThreadWriterService {
 			subject: string;
 			snippet: string | null;
 			lastMessageAt: Date;
-			companyId: string | null;
 			contactId: string | null;
 			origin: SyncSource;
 		},
@@ -274,7 +267,6 @@ export class ThreadWriterService {
 				subject: summary.subject,
 				body: summary.snippet,
 				occurredAt: summary.lastMessageAt,
-				companyId: summary.companyId,
 				contactId: summary.contactId,
 				createdById: userId,
 				emailThreadId,

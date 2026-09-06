@@ -54,7 +54,7 @@ type Wire = {
 
 async function thread(
 	rootMessageId: string,
-	companyId: string,
+	contactId: string,
 	messages: Wire[],
 ): Promise<void> {
 	const first = messages[0];
@@ -65,7 +65,7 @@ async function thread(
 		data: {
 			rootMessageId,
 			subject: first.subject,
-			companyId,
+			contactId,
 			firstMessageAt: first.sentAt,
 			lastMessageAt: last.sentAt,
 			messageCount: messages.length,
@@ -89,7 +89,7 @@ async function thread(
 					subject: first.subject,
 					body: last.snippet,
 					occurredAt: last.sentAt,
-					companyId,
+					contactId,
 					createdById: first.syncedByUserId,
 					meta: { synced: true },
 				},
@@ -99,12 +99,12 @@ async function thread(
 }
 
 async function seed(): Promise<void> {
-	const company = await db.company.create({
-		data: { name: "Purge Co", domain },
+	const contact = await db.contact.create({
+		data: { firstName: "Purge", email: `them@${domain}` },
 		select: { id: true },
 	});
 
-	await thread(shared, company.id, [
+	await thread(shared, contact.id, [
 		{
 			id: `m1-${suffix}`,
 			syncedByUserId: gmailRep,
@@ -131,7 +131,7 @@ async function seed(): Promise<void> {
 		},
 	]);
 
-	await thread(solo, company.id, [
+	await thread(solo, contact.id, [
 		{
 			id: `m4-${suffix}`,
 			syncedByUserId: gmailRep,
@@ -142,7 +142,7 @@ async function seed(): Promise<void> {
 		},
 	]);
 
-	await thread(theirs, company.id, [
+	await thread(theirs, contact.id, [
 		{
 			id: `m5-${suffix}`,
 			syncedByUserId: outlookRep,
@@ -160,7 +160,7 @@ async function seed(): Promise<void> {
 			startsAt: at(12),
 			endsAt: at(13),
 			status: "confirmed",
-			companyId: company.id,
+			contactId: contact.id,
 			syncedByUserId: gmailRep,
 		},
 	});
@@ -174,7 +174,7 @@ async function clean(): Promise<void> {
 	await db.mailboxSync.deleteMany({ where: { userId: { in: userIds } } });
 	await db.account.deleteMany({ where: { userId: { in: userIds } } });
 	await db.user.deleteMany({ where: { id: { in: userIds } } });
-	await db.company.deleteMany({ where: { domain } });
+	await db.contact.deleteMany({ where: { email: `them@${domain}` } });
 }
 
 async function messagesOn(rootMessageId: string): Promise<string[]> {

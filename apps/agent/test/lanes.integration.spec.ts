@@ -30,9 +30,9 @@ async function queue(kind: string, priority: number) {
 }
 
 describe("dispatch lanes", () => {
-	it("keeps a logo out of the research lane and a brief out of the visible one", async () => {
-		const brand = await queue("brand", PRIORITY.brand);
-		const profile = await queue("company-profile", PRIORITY.companyProfile);
+	it("keeps a direct kind out of the research lane and a brief out of the visible one", async () => {
+		const join = await queue("slack-channel-join", PRIORITY.slackJoin);
+		const recheck = await queue("recheck", PRIORITY.recheck);
 
 		const visible = await claimDue(10, VISIBLE);
 		const research = await claimDue(10, RESEARCH);
@@ -40,35 +40,35 @@ describe("dispatch lanes", () => {
 		const visibleIds = visible.map((t) => t.id);
 		const researchIds = research.map((t) => t.id);
 
-		expect(visibleIds).toContain(brand.id);
-		expect(visibleIds).not.toContain(profile.id);
+		expect(visibleIds).toContain(join.id);
+		expect(visibleIds).not.toContain(recheck.id);
 
-		expect(researchIds).toContain(profile.id);
-		expect(researchIds).not.toContain(brand.id);
+		expect(researchIds).toContain(recheck.id);
+		expect(researchIds).not.toContain(join.id);
 	});
 
-	it("a logo is never starved by a queue full of research", async () => {
+	it("a direct kind is never starved by a queue full of research", async () => {
 		for (let i = 0; i < 30; i += 1) {
 			await queue("identify", PRIORITY.identify);
 		}
 
-		const brand = await queue("brand", PRIORITY.brand);
+		const join = await queue("slack-channel-join", PRIORITY.slackJoin);
 
 		const visible = await claimDue(5, VISIBLE);
 
-		expect(visible.map((t) => t.id)).toContain(brand.id);
+		expect(visible.map((t) => t.id)).toContain(join.id);
 	});
 
 	it("takes the visible work in priority order", async () => {
-		const portrait = await queue("portrait", PRIORITY.portrait);
-		const brand = await queue("brand", PRIORITY.brand);
+		const people = await queue("slack-people-match", PRIORITY.slackPeople);
+		const join = await queue("slack-channel-join", PRIORITY.slackJoin);
 
 		const claimed = await claimDue(10, VISIBLE);
 		const ordered = claimed
-			.filter((t) => t.id === brand.id || t.id === portrait.id)
+			.filter((t) => t.id === join.id || t.id === people.id)
 			.map((t) => t.id);
 
-		expect(ordered).toEqual([brand.id, portrait.id]);
+		expect(ordered).toEqual([join.id, people.id]);
 	});
 
 	it("sends the who-are-we pass to the research lane, ahead of the contacts", async () => {
@@ -88,28 +88,26 @@ describe("dispatch lanes", () => {
 	});
 
 	it("leases the two lanes independently", async () => {
-		const brand = await queue("brand", PRIORITY.brand);
+		const join = await queue("slack-channel-join", PRIORITY.slackJoin);
 
 		await claimDue(10, VISIBLE);
 		const again = await claimDue(10, RESEARCH);
 
-		expect(again.map((t) => t.id)).not.toContain(brand.id);
+		expect(again.map((t) => t.id)).not.toContain(join.id);
 	});
 });
 
 describe("kind vocabulary", () => {
 	it("agrees on which kinds skip the model", () => {
-		expect(isDirectKind("brand")).toBe(true);
-		expect(isDirectKind("portrait")).toBe(true);
-		expect(isDirectKind("company-profile")).toBe(false);
+		expect(isDirectKind("slack-channel-join")).toBe(true);
+		expect(isDirectKind("slack-people-match")).toBe(true);
 		expect(isDirectKind("identify")).toBe(false);
 		expect(isDirectKind("workspace-profile")).toBe(false);
 	});
 
 	it("puts what a rep sees first above what they have to click for", () => {
-		expect(PRIORITY.brand).toBeGreaterThan(PRIORITY.requested);
-		expect(PRIORITY.portrait).toBeGreaterThan(PRIORITY.requested);
-		expect(PRIORITY.requested).toBeGreaterThan(PRIORITY.companyProfile);
-		expect(PRIORITY.companyProfile).toBeGreaterThan(PRIORITY.recheck);
+		expect(PRIORITY.slackJoin).toBeGreaterThan(PRIORITY.requested);
+		expect(PRIORITY.requested).toBeGreaterThan(PRIORITY.fieldBackfill);
+		expect(PRIORITY.fieldBackfill).toBeGreaterThan(PRIORITY.recheck);
 	});
 });

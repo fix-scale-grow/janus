@@ -55,7 +55,7 @@ const TIER_PRICE_FIELD: Record<
 	BEST: "priceBestCents",
 };
 
-const TIER_LABEL: Record<EstimateTier, string> = {
+export const TIER_LABEL: Record<EstimateTier, string> = {
 	GOOD: "Good",
 	BETTER: "Better",
 	BEST: "Best",

@@ -7,9 +7,9 @@ import { AgentModule } from "./agent/agent.module";
 import { AuthModule } from "./auth/auth.module";
 import { BackfillModule } from "./backfill/backfill.module";
 import { AppCacheModule } from "./cache/cache.module";
-import { CompaniesModule } from "./companies/companies.module";
 import { validateEnv } from "./config/env.validation";
 import { ContactsModule } from "./contacts/contacts.module";
+import { ContractsModule } from "./contracts/contracts.module";
 import { ConversationsModule } from "./conversations/conversations.module";
 import { CrmModule } from "./crm/crm.module";
 import { CurrencyModule } from "./currency/currency.module";
@@ -36,6 +36,7 @@ import { SsoModule } from "./sso/sso.module";
 import { SymbolsModule } from "./symbols/symbols.module";
 import { SyncModule } from "./sync/sync.module";
 import { TelemetryModule } from "./telemetry/telemetry.module";
+import { TemplatesModule } from "./templates/templates.module";
 import { TrackingModule } from "./tracking/tracking.module";
 import { TrpcModule } from "./trpc/trpc.module";
 import { UsersModule } from "./users/users.module";
@@ -57,8 +58,8 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		HealthModule,
 		TrpcModule,
 		UsersModule,
-		CompaniesModule,
 		ContactsModule,
+		ContractsModule,
 		ConversationsModule,
 		CurrencyModule,
 		DealsModule,
@@ -84,6 +85,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		SlackModule,
 		BackfillModule,
 		TelemetryModule,
+		TemplatesModule,
 		TrackingModule,
 	],
 })

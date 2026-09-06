@@ -1,50 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-	looksLikeSameCompany,
-	nameMatchesLocalPart,
-	searchTerms,
-} from "../agent/lib/names";
-
-describe("searchTerms", () => {
-	it("strips the initial off a run-together handle", () => {
-		expect(searchTerms("pmarchetti")).toContain("marchetti");
-		expect(searchTerms("tokonkwo")).toContain("okonkwo");
-	});
-
-	it("trusts an explicit separator over any guess", () => {
-		const terms = searchTerms("jane.doe");
-		expect(terms[0]).toBe("jane doe");
-		expect(terms).toContain("doe");
-	});
-
-	it("tries the whole handle before decomposing it", () => {
-		expect(searchTerms("nathan").indexOf("nathan")).toBe(0);
-	});
-
-	it("never emits a fragment too short to search usefully", () => {
-		expect(searchTerms("abc").every((term) => term.length >= 3)).toBe(true);
-		expect(searchTerms("jo")).toEqual([]);
-	});
-});
-
-describe("looksLikeSameCompany", () => {
-	it("matches an employer to the shorter name the CRM holds", () => {
-		expect(
-			looksLikeSameCompany("Northwind Bank", "Northwind", "northwind.com"),
-		).toBe(true);
-		expect(looksLikeSameCompany("Fernhill", "Fernhill", "fernhill.com")).toBe(
-			true,
-		);
-	});
-
-	it("rejects an unrelated employer", () => {
-		expect(
-			looksLikeSameCompany("Brightwater Group", "Fernhill", "fernhill.com"),
-		).toBe(false);
-		expect(looksLikeSameCompany("", "Fernhill", "fernhill.com")).toBe(false);
-	});
-});
+import { nameMatchesLocalPart } from "../agent/lib/names";
 
 describe("nameMatchesLocalPart", () => {
 	const person = (firstName: string, lastName: string) => ({

@@ -12,17 +12,11 @@ export default defineTool({
 		"Raise a job change on a contact's timeline and task their owner. Reads the change from the facts already recorded; call it after recording a new employer.",
 	inputSchema: z.object({
 		contactId: z.string(),
-		moveToCompanyId: z
-			.string()
-			.optional()
-			.describe(
-				"Only when the new employer is already a company in the CRM and a person has approved the move.",
-			),
 	}),
 	approval: sensitiveWrite(
-		"Raise the change without `moveToCompanyId` — the alert lands on the timeline and their owner decides whether to move them.",
+		"Raise the change — the alert lands on the timeline and their owner decides what to do about it.",
 	),
-	async execute({ contactId, moveToCompanyId }, ctx) {
+	async execute({ contactId }, ctx) {
 		assertResearchPurpose(ctx);
 		focusOn({ contactId });
 
@@ -40,7 +34,6 @@ export default defineTool({
 				firstName: true,
 				lastName: true,
 				ownerId: true,
-				companyId: true,
 			},
 		});
 		if (!contact) return { raised: false as const, reason: "No such contact." };
@@ -65,18 +58,10 @@ export default defineTool({
 			{ source: "job-change", from: change.from, to: change.to },
 		);
 
-		if (moveToCompanyId) {
-			await db.contact.update({
-				where: { id: contactId },
-				data: { companyId: moveToCompanyId },
-			});
-		}
-
 		return {
 			raised: true as const,
 			from: change.from,
 			to: change.to,
-			moved: Boolean(moveToCompanyId),
 			ownerNotified: contact.ownerId !== null,
 		};
 	},

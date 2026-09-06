@@ -44,14 +44,12 @@ async function handler(request: Request): Promise<Response> {
 	}
 
 	const contactId = request.headers.get("x-crm-contact");
-	const companyId = request.headers.get("x-crm-company");
 	const dealId = request.headers.get("x-crm-deal");
 	const builderConversationId = request.headers.get(
 		"x-crm-builder-conversation",
 	);
 	const requestedSession = sessionFromPath(url.pathname);
 	headers.delete("x-crm-contact");
-	headers.delete("x-crm-company");
 	headers.delete("x-crm-deal");
 	headers.delete("x-crm-builder-conversation");
 
@@ -98,7 +96,6 @@ async function handler(request: Request): Promise<Response> {
 			},
 			{
 				contactId: cuid(contactId),
-				companyId: cuid(companyId),
 				dealId: cuid(dealId),
 			},
 		)}`,

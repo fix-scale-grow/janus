@@ -8,7 +8,6 @@ import {
 } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
 import { formatMoney } from "@crm/ui/lib/format";
-import { CompanyCell } from "@/components/crm/company-cell";
 import { DealStageIndicator } from "@/components/crm/deal-stage";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
@@ -18,18 +17,17 @@ import type { DealListItem, DealListResult } from "@/lib/agent-transcript";
 import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
 
 const COLUMNS: SimpleTableColumn[] = [
-	{ id: "deal", header: "Deal", width: "w-[20%]" },
-	{ id: "company", header: "Company", width: "w-[18%]" },
-	{ id: "stage", header: "Stage", width: "w-[18%]" },
+	{ id: "deal", header: "Deal", width: "w-[24%]" },
+	{ id: "stage", header: "Stage", width: "w-[22%]" },
 	{
 		id: "amount",
 		header: "Amount",
-		width: "w-[12%]",
+		width: "w-[14%]",
 		align: "right",
 	},
-	{ id: "owner", header: "Owner", width: "w-[14%]" },
-	{ id: "close", header: "Close date", width: "w-[12%]" },
-	{ id: "idle", header: "Idle", width: "w-[8%]", align: "right" },
+	{ id: "owner", header: "Owner", width: "w-[16%]" },
+	{ id: "close", header: "Close date", width: "w-[14%]" },
+	{ id: "idle", header: "Idle", width: "w-[10%]", align: "right" },
 ];
 
 export function DealListResultTable({ result }: { result: DealListResult }) {
@@ -70,9 +68,6 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 									<span className="block truncate font-medium">
 										{deal.name}
 									</span>
-								</TableCell>
-								<TableCell className="overflow-hidden px-3 py-3">
-									<CompanyCell company={deal.company} />
 								</TableCell>
 								<TableCell className="overflow-hidden px-3 py-3">
 									<Stage stage={deal.stage} />

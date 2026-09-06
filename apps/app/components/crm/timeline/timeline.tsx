@@ -26,10 +26,7 @@ import {
 	timelineTabParser,
 } from "./timeline-search-params";
 
-export type TimelineAnchor =
-	| { companyId: string }
-	| { contactId: string }
-	| { dealId: string };
+export type TimelineAnchor = { contactId: string } | { dealId: string };
 
 const TAB_LABELS: Record<TimelineTab, string> = {
 	all: "All",

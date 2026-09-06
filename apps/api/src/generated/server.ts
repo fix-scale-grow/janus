@@ -15,8 +15,8 @@ const t = initTRPC.create();
 const publicProcedure = t.procedure;
 import { timelineInput, timelineCountsInput, myTasksInput, activityCreateInput, completeInput } from "../activities/activities.contracts";
 import { agentReviseInput, agentIdInput, agentSaveFileInput, agentHistoryInput, agentUpdateInput, agentDeployInput, agentRunNowInput, agentRetryRunInput, agentCancelRunInput } from "../agent/agents.contracts";
-import { companyListInput, companyIdInput, companyOptionsInput, companyCreateInput, companyUpdateArgs, companyBulkOwnerInput, companyBulkInput, setPrimaryContactInput } from "../companies/companies.contracts";
-import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkCompanyInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
+import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
+import { contractSigningTokenInput, contractSignInput, contractListInput, contractIdInput, contractCreateFromEstimateInput, contractCreateInput, contractUpdateInput, contractSendInput } from "../contracts/contracts.contracts";
 import { conversationListInput, builderResourceSearchInput, conversationIdInput, conversationEventsInput, conversationSaveInput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, sharedConversationInput } from "../conversations/conversations.contracts";
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
@@ -33,12 +33,14 @@ import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.co
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput } from "../symbols/symbols.contracts";
-import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, companyActivityInput, contactActivityInput } from "../tracking/tracking.contracts";
+import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, templateSendTestInput } from "../templates/templates.contracts";
+import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
-import type { CompaniesRouter } from "../companies/companies.router";
 import type { ContactsRouter } from "../contacts/contacts.router";
+import type { ContractSigningRouter } from "../contracts/contract-signing.router";
+import type { ContractsRouter } from "../contracts/contracts.router";
 import type { ConversationsRouter } from "../conversations/conversations.router";
 import type { CurrencyRouter } from "../currency/currency.router";
 import type { DashboardRouter } from "../dashboard/dashboard.router";
@@ -56,6 +58,7 @@ import type { SettingsRouter } from "../settings/settings.router";
 import type { SlackRouter } from "../slack/slack.router";
 import type { SsoRouter } from "../sso/sso.router";
 import type { SymbolsRouter } from "../symbols/symbols.router";
+import type { TemplatesRouter } from "../templates/templates.router";
 import type { TrackingRouter } from "../tracking/tracking.router";
 import type { UsersRouter } from "../users/users.router";
 import type { WorkspaceRouter } from "../workspace/workspace.router";
@@ -130,44 +133,6 @@ const appRouter = t.router({
       .input(agentCancelRunInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AgentsRouter["cancelRun"]>>)
     }),
-  companies: t.router({
-    list: publicProcedure
-      .input(companyListInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["list"]>>),
-    byId: publicProcedure
-      .input(companyIdInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["byId"]>>),
-    options: publicProcedure
-      .input(companyOptionsInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["options"]>>),
-    create: publicProcedure
-      .input(companyCreateInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["create"]>>),
-    update: publicProcedure
-      .input(companyUpdateArgs)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["update"]>>),
-    delete: publicProcedure
-      .input(companyIdInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["delete"]>>),
-    bulkAssignOwner: publicProcedure
-      .input(companyBulkOwnerInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["bulkAssignOwner"]>>),
-    bulkEnrich: publicProcedure
-      .input(companyBulkInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["bulkEnrich"]>>),
-    bulkDelete: publicProcedure
-      .input(companyBulkInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["bulkDelete"]>>),
-    enrich: publicProcedure
-      .input(companyIdInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["enrich"]>>),
-    research: publicProcedure
-      .input(companyIdInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["research"]>>),
-    setPrimaryContact: publicProcedure
-      .input(setPrimaryContactInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CompaniesRouter["setPrimaryContact"]>>)
-    }),
   contacts: t.router({
     list: publicProcedure
       .input(contactListInput)
@@ -193,9 +158,6 @@ const appRouter = t.router({
     bulkAssignOwner: publicProcedure
       .input(contactBulkOwnerInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkAssignOwner"]>>),
-    bulkSetCompany: publicProcedure
-      .input(contactBulkCompanyInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkSetCompany"]>>),
     bulkEnrich: publicProcedure
       .input(contactBulkInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkEnrich"]>>),
@@ -205,6 +167,45 @@ const appRouter = t.router({
     decideFact: publicProcedure
       .input(factDecisionInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["decideFact"]>>)
+    }),
+  contractSigning: t.router({
+    bySigningToken: publicProcedure
+      .input(contractSigningTokenInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractSigningRouter["bySigningToken"]>>),
+    sign: publicProcedure
+      .input(contractSignInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractSigningRouter["sign"]>>)
+    }),
+  contracts: t.router({
+    list: publicProcedure
+      .input(contractListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["list"]>>),
+    byId: publicProcedure
+      .input(contractIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["byId"]>>),
+    createFromEstimate: publicProcedure
+      .input(contractCreateFromEstimateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["createFromEstimate"]>>),
+    create: publicProcedure
+      .input(contractCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["create"]>>),
+    update: publicProcedure
+      .input(contractUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["update"]>>),
+    send: publicProcedure
+      .input(contractSendInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["send"]>>),
+    void: publicProcedure
+      .input(contractIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["void"]>>),
+    delete: publicProcedure
+      .input(contractIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["delete"]>>),
+    document: publicProcedure
+      .input(contractIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["document"]>>),
+    mailerConfigured: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContractsRouter["mailerConfigured"]>>)
     }),
   conversations: t.router({
     list: publicProcedure
@@ -630,6 +631,24 @@ const appRouter = t.router({
     seedRoofing: publicProcedure
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["seedRoofing"]>>)
     }),
+  templates: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["list"]>>),
+    byPurpose: publicProcedure
+      .input(templateByPurposeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["byPurpose"]>>),
+    update: publicProcedure
+      .input(templateUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["update"]>>),
+    preview: publicProcedure
+      .input(templatePreviewInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["preview"]>>),
+    sendTest: publicProcedure
+      .input(templateSendTestInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["sendTest"]>>),
+    mailerConfigured: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TemplatesRouter["mailerConfigured"]>>)
+    }),
   tracking: t.router({
     settings: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["settings"]>>),
@@ -652,9 +671,6 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["verify"]>>),
     sources: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["sources"]>>),
-    companyActivity: publicProcedure
-      .input(companyActivityInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["companyActivity"]>>),
     contactActivity: publicProcedure
       .input(contactActivityInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["contactActivity"]>>)

@@ -139,23 +139,6 @@ export function ProjectHeader({ id }: { id: string }) {
 						>
 							{project.deal.name}
 						</button>
-						{project.deal.company ? (
-							<>
-								<span aria-hidden>·</span>
-								<button
-									type="button"
-									onClick={() =>
-										openRecord({
-											kind: "company",
-											id: project.deal.company?.id ?? "",
-										})
-									}
-									className="truncate underline-offset-2 hover:underline"
-								>
-									{project.deal.company.name}
-								</button>
-							</>
-						) : null}
 					</div>
 				</div>
 

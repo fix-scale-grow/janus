@@ -168,7 +168,6 @@ describe("deal list presentation", () => {
 		criteria: {
 			status: "open",
 			inactiveForDays: 14,
-			companyId: null,
 			ownerId: null,
 		},
 		deals: [
@@ -178,15 +177,6 @@ describe("deal list presentation", () => {
 				stage: "CONTRACT_SENT",
 				amount: 14_000,
 				currency: "USD",
-				company: {
-					id: "company-1",
-					name: "Notion",
-					domain: "notion.so",
-					iconUrl: "https://cdn.example.test/notion.png",
-					iconDarkUrl: null,
-					iconTone: "opaque",
-					logoUrl: "https://cdn.example.test/notion.svg",
-				},
 				owner: {
 					id: "user-1",
 					name: "Priya Raman",
@@ -208,9 +198,6 @@ describe("deal list presentation", () => {
 				{
 					id: "deal-1",
 					daysSinceLastActivity: 201,
-					company: {
-						iconUrl: "https://cdn.example.test/notion.png",
-					},
 					owner: { image: "https://cdn.example.test/priya.png" },
 				},
 			],
@@ -241,15 +228,15 @@ describe("deal list presentation", () => {
 
 	it("keeps different deal query scopes in separate result groups", () => {
 		const open = dealListResultOf(output);
-		const company = dealListResultOf({
+		const owned = dealListResultOf({
 			...output,
-			criteria: { ...output.criteria, companyId: "company-1" },
+			criteria: { ...output.criteria, ownerId: "user-1" },
 		});
-		if (!open || !company) throw new Error("Expected valid deal list results");
+		if (!open || !owned) throw new Error("Expected valid deal list results");
 
-		expect(mergeDealListResultPages([open, company])).toMatchObject([
-			{ criteria: { companyId: null }, deals: [{ id: "deal-1" }] },
-			{ criteria: { companyId: "company-1" }, deals: [{ id: "deal-1" }] },
+		expect(mergeDealListResultPages([open, owned])).toMatchObject([
+			{ criteria: { ownerId: null }, deals: [{ id: "deal-1" }] },
+			{ criteria: { ownerId: "user-1" }, deals: [{ id: "deal-1" }] },
 		]);
 	});
 

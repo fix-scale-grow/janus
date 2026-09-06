@@ -13,13 +13,13 @@ export const instant = false;
 
 const DESCRIPTION: Record<string, string> = {
 	google:
-		"This CRM reads your Gmail and Calendar so meetings and email threads show up on the right company. It is read-only — nothing is ever sent on your behalf.",
+		"This CRM reads your Gmail and Calendar so meetings and email threads show up on the right contact. It is read-only — nothing is ever sent on your behalf.",
 	microsoft:
-		"This CRM reads your Outlook mail so email threads show up on the right company. It is read-only — nothing is ever sent on your behalf.",
+		"This CRM reads your Outlook mail so email threads show up on the right contact. It is read-only — nothing is ever sent on your behalf.",
 };
 
 const BOTH =
-	"This CRM reads your mail and calendar so meetings and email threads show up on the right company. It is read-only — nothing is ever sent on your behalf.";
+	"This CRM reads your mail and calendar so meetings and email threads show up on the right contact. It is read-only — nothing is ever sent on your behalf.";
 
 export default async function GrantAccessPage() {
 	const { user } = await requireSession();
@@ -42,8 +42,8 @@ export default async function GrantAccessPage() {
 			<GrantAccess providers={providers} />
 
 			<p className="text-center text-muted-foreground text-sm/5">
-				Only conversations with companies in the CRM are stored. Personal mail
-				is discarded without being saved.
+				Only conversations with contacts in the CRM are stored. Personal mail is
+				discarded without being saved.
 			</p>
 		</AuthShell>
 	);

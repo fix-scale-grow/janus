@@ -1,14 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { ActivityType, DealStage, db, EmailDirection } from "@crm/db";
-import { readCompanyHistory, readDealHistory } from "../agent/lib/accounts";
+import { readDealHistory } from "../agent/lib/accounts";
 
 const suffix = process.env.TEST_RUN_ID ?? "accounts-spec";
 const domain = `fernhill-${suffix}.test`;
 
-let companyId: string;
 let dealId: string;
 let paulaId: string;
-let placeholderId: string;
 let userId: string;
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
@@ -28,46 +26,22 @@ beforeAll(async () => {
 	});
 	userId = user.id;
 
-	const company = await db.company.create({
-		data: {
-			name: `Fernhill Systems ${suffix}`,
-			domain,
-			industry: "Security software",
-			lastActivityAt: daysAgo(1),
-		},
-		select: { id: true },
-	});
-	companyId = company.id;
-
 	const paula = await db.contact.create({
 		data: {
 			firstName: "Paula",
 			lastName: "Marchetti",
 			title: "Growth Specialist",
 			email: `paula.marchetti@${domain}`,
-			companyId,
+			companyName: `Fernhill Systems ${suffix}`,
 			lastActivityAt: daysAgo(1),
 		},
 		select: { id: true },
 	});
 	paulaId = paula.id;
 
-	const placeholder = await db.contact.create({
-		data: {
-			firstName: "Tsomerville",
-			lastName: null,
-			email: `tsomerville@${domain}`,
-			companyId,
-			lastActivityAt: daysAgo(30),
-		},
-		select: { id: true },
-	});
-	placeholderId = placeholder.id;
-
 	const deal = await db.deal.create({
 		data: {
 			name: `Fernhill platform ${suffix}`,
-			companyId,
 			ownerId: userId,
 			stage: DealStage.CONTRACT_SENT,
 			stageChangedAt: daysAgo(42),
@@ -86,7 +60,6 @@ beforeAll(async () => {
 			{
 				type: ActivityType.STAGE_CHANGE,
 				subject: "Stage changed",
-				companyId,
 				dealId,
 				createdById: userId,
 				createdAt: daysAgo(60),
@@ -95,7 +68,6 @@ beforeAll(async () => {
 			{
 				type: ActivityType.STAGE_CHANGE,
 				subject: "Stage changed",
-				companyId,
 				dealId,
 				createdById: userId,
 				createdAt: daysAgo(42),
@@ -106,14 +78,12 @@ beforeAll(async () => {
 				subject: "Pricing pushback",
 				body: "They want the security review done before signing.",
 				occurredAt: daysAgo(5),
-				companyId,
 				dealId,
 				createdById: userId,
 			},
 			{
 				type: ActivityType.EMAIL,
 				subject: "Re: Contract",
-				companyId,
 				dealId,
 				createdById: userId,
 			},
@@ -124,7 +94,6 @@ beforeAll(async () => {
 		data: {
 			rootMessageId: `<root.${suffix}@example.test>`,
 			subject: "Re: Contract",
-			companyId,
 			contactId: paulaId,
 			firstMessageAt: daysAgo(9),
 			lastMessageAt: daysAgo(3),
@@ -167,7 +136,6 @@ beforeAll(async () => {
 			startsAt: daysAhead(4),
 			endsAt: daysAhead(4),
 			status: "confirmed",
-			companyId,
 			contactId: paulaId,
 			attendees: {
 				create: [
@@ -181,105 +149,16 @@ beforeAll(async () => {
 afterAll(cleanup);
 
 async function cleanup(): Promise<void> {
-	const company = await db.company.findFirst({
-		where: { domain },
-		select: { id: true },
+	await db.emailThread.deleteMany({
+		where: { rootMessageId: { contains: suffix } },
 	});
-
-	if (company) {
-		await db.activity.deleteMany({ where: { companyId: company.id } });
-		await db.calendarEvent.deleteMany({ where: { companyId: company.id } });
-		await db.emailThread.deleteMany({ where: { companyId: company.id } });
-		await db.deal.deleteMany({ where: { companyId: company.id } });
-		await db.contact.deleteMany({ where: { companyId: company.id } });
-		await db.company.delete({ where: { id: company.id } });
-	}
-
+	await db.calendarEvent.deleteMany({
+		where: { iCalUid: { contains: suffix } },
+	});
+	await db.deal.deleteMany({ where: { name: { contains: suffix } } });
+	await db.contact.deleteMany({ where: { email: { contains: suffix } } });
 	await db.user.deleteMany({ where: { email: `rep.${suffix}@example.test` } });
 }
-
-describe("readCompanyHistory", () => {
-	it("names every contact at the company, with their id", async () => {
-		const history = await readCompanyHistory(companyId);
-
-		expect(history?.people.map((person) => person.id).sort()).toEqual(
-			[paulaId, placeholderId].sort(),
-		);
-		expect(history?.people.find((person) => person.id === paulaId)?.title).toBe(
-			"Growth Specialist",
-		);
-	});
-
-	it("flags a contact still named after their email address", async () => {
-		const history = await readCompanyHistory(companyId);
-		const people = Object.fromEntries(
-			(history?.people ?? []).map((person) => [
-				person.id,
-				person.needsIdentity,
-			]),
-		);
-
-		expect(people[placeholderId]).toBe(true);
-		expect(people[paulaId]).toBe(false);
-	});
-
-	it("returns the deals with stage, value and who is on them", async () => {
-		const history = await readCompanyHistory(companyId);
-		const deal = history?.deals.find((row) => row.id === dealId);
-
-		expect(deal?.stage).toBe("CONTRACT_SENT");
-		expect(deal?.open).toBe(true);
-		expect(deal?.amount).toBe(48_000);
-		expect(deal?.contacts).toEqual([
-			{ id: paulaId, name: "Paula Marchetti", role: "Champion" },
-		]);
-		expect(history?.stats.openDeals).toBe(1);
-	});
-
-	it("reads the correspondence and knows they replied", async () => {
-		const history = await readCompanyHistory(companyId);
-
-		expect(history?.threads[0]?.subject).toBe("Re: Contract");
-		expect(history?.threads[0]?.contact?.id).toBe(paulaId);
-		expect(history?.threads[0]?.messages[0]?.body).toContain(
-			"Growth Specialist",
-		);
-		expect(history?.stats.theyReplied).toBe(true);
-		expect(history?.stats.lastReplyFrom).toBe("Paula Marchetti");
-		expect(history?.stats.nextMeetingAt).not.toBeNull();
-	});
-
-	it("leaves email and meeting projections out of the notes", async () => {
-		const history = await readCompanyHistory(companyId);
-
-		expect(history?.notes.map((note) => note.subject)).toEqual([
-			"Pricing pushback",
-		]);
-	});
-
-	it("omits connected history when the caller did not approve those sources", async () => {
-		const history = await readCompanyHistory(companyId, {
-			includeEmail: false,
-			includeCalendar: false,
-		});
-
-		expect(history?.threads).toEqual([]);
-		expect(history?.meetings).toEqual([]);
-		expect(history?.stats.emails).toBe(0);
-		expect(history?.stats.meetings).toBe(0);
-		expect(history?.stats.lastReplyAt).toBeNull();
-		expect(history?.stats.nextMeetingAt).toBeNull();
-		expect(
-			history?.people.every(
-				(person) => person.threads === 0 && person.meetings === 0,
-			),
-		).toBe(true);
-	});
-
-	it("returns null for a company that does not exist", async () => {
-		expect(await readCompanyHistory("nope")).toBeNull();
-	});
-});
 
 describe("readDealHistory", () => {
 	it("reports the stage clock, not just the stage", async () => {
@@ -311,10 +190,9 @@ describe("readDealHistory", () => {
 				role: "Champion",
 			},
 		]);
-		expect(history?.company.id).toBe(companyId);
 	});
 
-	it("says the correspondence is the account's, not the deal's", async () => {
+	it("says the correspondence belongs to the people on it, not the deal", async () => {
 		const history = await readDealHistory(dealId);
 
 		expect(history?.threads).toHaveLength(1);

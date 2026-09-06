@@ -84,7 +84,7 @@ request.
 
 ### The name is also the URL
 
-Served under the workspace slug (`/comp-ai/companies`). **Cosmetic, not tenancy** —
+Served under the workspace slug (`/comp-ai/deals`). **Cosmetic, not tenancy** —
 every query still resolves through `WORKSPACE_ID`.
 
 - **The slug is the plugin's column**, written by `workspaceSlug(name)`
@@ -108,9 +108,9 @@ self-hoster's admin cannot redeploy.
   SAML UI: it needs an X.509 cert and SP signing key we have nowhere to keep.
 - `SsoService` passes `WORKSPACE_ID`, never an input.
 - **Management is tRPC (`sso.*`); signing in is `authClient.signIn.sso()`.**
-- **`sso.signInOptions` is the one public procedure in the app.** Every other `sso.*`
-  takes `AuthMiddleware` at the *method*, which is what leaves it open. A client
-  secret is never read back out.
+- **`sso.signInOptions` and `contractSigning.*` are the app's only public
+  procedures.** Every other `sso.*` takes `AuthMiddleware` at the *method*,
+  which is what leaves it open. A client secret is never read back out.
 - **It is the API's answer, not the app's** — the API serves `/api/auth/*`.
 - **An install with no Google, no Microsoft and no provider says so**, naming the
   variables; a read that *fails* falls back to offering Google.
@@ -152,8 +152,8 @@ self-hoster's admin cannot redeploy.
 - **`ThreadWriterService.store` is the only writer of `EmailThread`, `EmailMessage`
   and the `EMAIL` activity.** Gmail and Outlook each parse their own wire format down
   to one `IncomingMessage` and hand it over; matching, threading, counting and
-  stamping happen once. A second copy of that is how a rule like *reply before you
-  create a company* comes to be true in one inbox and not the other.
+  stamping happen once. A second copy of that is how a rule like *file only the
+  first reply on a thread* comes to be true in one inbox and not the other.
 - **A thread is keyed by RFC message id, not by the provider's thread id.** Root comes
   from `References` → `In-Reply-To` → own `Message-ID`, so a rep on Gmail and a rep on
   Outlook land on the same `EmailThread` for the same conversation. Graph only returns
@@ -179,10 +179,10 @@ self-hoster's admin cannot redeploy.
 (allow-list domains, `User` table), **rep decisions** (`SuppressedContact`,
 `SuppressedDomain`), and **addresses no human reads**.
 
-- **`isMachineDomain` (`companies/domain.ts`) sits beside `FREE_EMAIL_DOMAINS`**;
-  `domainFromEmail` returns null for both, and `companyForEmail` is the only path from
-  address to company — so a caller ignorant of the rule still cannot create one.
-  `.calendar.google.com` covers shared calendars, rooms and ICS feeds.
+- **`isMachineDomain` (`mailbox/domain.ts`) sits beside `FREE_EMAIL_DOMAINS`**;
+  `domainFromEmail` returns null for both. There is no company to auto-create —
+  a filed thread only ever resolves to a contact. `.calendar.google.com` covers
+  shared calendars, rooms and ICS feeds.
 - **Matches the host, never a substring** — `calendar.acme.com` is a real company.
 - **`isMachineAddress` also catches opaque local parts** (24 hex chars, UUIDs),
   deliberately narrow: a false positive is a real customer never filed.
@@ -198,23 +198,24 @@ self-hoster's admin cannot redeploy.
 `setContactRole` are the only ways to write it. `deals.contactOptions` is what the
 picker reads.
 
-- **A contact on a deal works at that deal's company**, enforced in the service and
-  not merely by the picker — the same rule as `companies.setPrimaryContact`.
+- **Any contact may attach to any deal.** There is no company on a deal to
+  restrict against, and none of the historic "works at that company" guard
+  survives — the picker offers every contact.
 - **Attaching is an upsert and re-attaching keeps the role already there**, so a
   double click cannot blank what somebody typed.
-- **Detaching removes the row, never the contact.** They stay in the CRM, on the
-  company, with their history.
+- **Detaching removes the row, never the contact.** They stay in the CRM, with
+  their history.
 - **`role` is blanked to null, never stored as `""`** — `blankToNull`, as everywhere
   else.
 
 ## Deleting a record
 
-`contacts.delete`, `companies.delete`, `deals.delete`. No soft delete, no archive.
+`contacts.delete`, `deals.delete`. No soft delete, no archive.
 
 - **A deleted contact is suppressed by address**, or the sync recreates them from the
   next thread. `ContactsService.delete` writes `SuppressedContact`, and
   `externalParticipants` drops it like a `SuppressedDomain` — one filter covering
-  contact creation, company auto-creation and attribution.
+  contact creation and attribution.
 - **Keyed lower case.** `normalizeEmail` (`crm/values.ts`) is the one canonicaliser,
   on `contacts.create`, `.update` and the suppression; conflict checks and `allowAgain`
   match case-insensitively.
@@ -223,15 +224,12 @@ picker reads.
   404 is that statement's own `P2025` through `translate`.
 - **Adding them back lifts the suppression** via `allowAgain` **inside the write's
   transaction**. Never automatic.
-- **Deleting a company does not suppress its domain** — its people survive with no
-  company, and domain suppression stays the explicit Settings → Connections control.
-- **Clear `AgentTask` and `AgentEvent` yourself** — they carry `contactId`/`companyId`
-  with no foreign key, so nothing cascades.
+- **Clear `AgentTask` and `AgentEvent` yourself** — they carry `contactId` with no
+  foreign key, so nothing cascades.
 - **Recompute `lastActivityAt` on exactly the records the delete reached.**
   `ActivityStampService.targetsOf(where)` collects them *inside* the transaction (the
-  evidence is what gets deleted); `recomputeMany` restamps. A company's `where` must
-  follow its deals: `{ OR: [{ companyId }, { deal: { companyId } }] }`.
-  `recomputeAll()` is for a purge only.
+  evidence is what gets deleted); `recomputeMany` restamps. `recomputeAll()` is for a
+  purge only.
 - **Recompute after commit, logging rather than throwing** — the row is already gone,
   and a raised error makes the browser skip invalidation and retry into a 404.
 
@@ -247,7 +245,7 @@ Read it before touching any amount, total, chart or rate.
 
 - **Invalidate in `onSuccess` through `useCrmCache()`** (`lib/trpc/cache.ts`), never by
   listing keys at the call site. Say what changed — `cache.deal(id)`,
-  `cache.company(id)`, `cache.contact(id)`, `cache.activity()`. **A new mutation adds a
+  `cache.contact(id)`, `cache.activity()`. **A new mutation adds a
   call there, not a new list of keys.**
 - **A deletion is `cache.removed(ref)`** — one wide fan-out, and the only place
   `refetchType: "none"` is right: the deleted record's `byId` query is still mounted

@@ -40,7 +40,6 @@ const stageEnum = z.enum(
 
 export const dealCreateInput = z.object({
 	name: z.string().trim().min(1, "A deal needs a name."),
-	companyId: z.string().min(1, "A deal belongs to a company."),
 	ownerId: z.string().min(1, "A deal needs an owner."),
 	stage: stageEnum.optional(),
 	amountCents,
@@ -53,7 +52,6 @@ export type DealCreateInput = z.infer<typeof dealCreateInput>;
 const dealUpdateInput = z.object({
 	name: z.string().trim().min(1).optional(),
 	description: z.string().nullable().optional(),
-	companyId: z.string().optional(),
 	ownerId: z.string().optional(),
 	amountCents,
 	currency: currencyCode.optional(),

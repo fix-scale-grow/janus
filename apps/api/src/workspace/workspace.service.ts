@@ -18,7 +18,7 @@ import {
 	ServiceUnavailableException,
 } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
-import { normalizeDomain } from "../companies/domain";
+import { normalizeDomain } from "../mailbox/domain";
 import { InjectDatabase } from "../database/database.constants";
 import {
 	countsByKey,

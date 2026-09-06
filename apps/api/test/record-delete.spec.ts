@@ -2,22 +2,16 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, RecordSource } from "@crm/db";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
-import { CompaniesService } from "../src/companies/companies.service";
-import { CompanyDirectoryService } from "../src/companies/company-directory.service";
-import { FaviconService } from "../src/companies/favicon.service";
 import { ContactsService } from "../src/contacts/contacts.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { EnrichmentLogService } from "../src/crm/enrichment-log.service";
-import { ConversionService } from "../src/currency/conversion.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { MailboxMatchService } from "../src/mailbox/mailbox-match.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
 
 const suffix = process.env.TEST_RUN_ID ?? "record-delete-spec";
 const domain = `delete-${suffix}.test`;
-const doomedDomain = `doomed-${suffix}.test`;
 const stampDomain = `stamped-${suffix}.test`;
-const orphanDomain = `orphaned-${suffix}.test`;
 const email = `gone@${domain}`;
 const colleague = `stays@${domain}`;
 const userId = `user-${suffix}`;
@@ -26,35 +20,15 @@ const stamp = new ActivityStampService(db);
 
 const agent = {
 	contactCreated: async () => undefined,
-	companyCreated: async () => undefined,
 	withCrmEvents: withDiscardedCrmEvents,
-	companyRequested: async () => undefined,
 } as unknown as AgentTriggerService;
 
-const directory = new CompanyDirectoryService(agent);
 const log = new EnrichmentLogService(db, stamp);
 const queue = new AgentQueueService(db);
-const conversion = new ConversionService(db);
 
 const fields = new FieldsService(db, agent);
-const contacts = new ContactsService(
-	db,
-	directory,
-	agent,
-	queue,
-	stamp,
-	fields,
-);
-const companies = new CompaniesService(
-	db,
-	agent,
-	queue,
-	{ backfill: async () => undefined } as unknown as FaviconService,
-	stamp,
-	conversion,
-	fields,
-);
-const match = new MailboxMatchService(db, directory, agent, log);
+const contacts = new ContactsService(db, agent, queue, stamp, fields);
+const match = new MailboxMatchService(db, agent, log);
 
 async function matchContext() {
 	const internal = await match.internalIdentity();
@@ -66,12 +40,12 @@ async function matchContext() {
 	};
 }
 
-const domains = [domain, doomedDomain, stampDomain, orphanDomain];
+const domains = [domain, stampDomain];
 const ours = {
 	OR: domains.map((host) => ({ email: { endsWith: `@${host}` } })),
 };
 
-async function parked(subject: { contactId?: string; companyId?: string }) {
+async function parked(subject: { contactId?: string }) {
 	return db.agentTask.create({
 		data: {
 			...subject,
@@ -84,29 +58,23 @@ async function parked(subject: { contactId?: string; companyId?: string }) {
 }
 
 async function clean() {
-	const [existingContacts, existingCompanies] = await Promise.all([
-		db.contact.findMany({ where: ours, select: { id: true } }),
-		db.company.findMany({
-			where: { domain: { in: domains } },
-			select: { id: true },
-		}),
-	]);
+	const existingContacts = await db.contact.findMany({
+		where: ours,
+		select: { id: true },
+	});
 
 	const contactIds = existingContacts.map((row) => row.id);
-	const companyIds = existingCompanies.map((row) => row.id);
 
 	await db.agentTask.deleteMany({
 		where: {
 			OR: [
 				{ reason: `record-delete-spec (${suffix})` },
 				{ contactId: { in: contactIds } },
-				{ companyId: { in: companyIds } },
 			],
 		},
 	});
 	await db.agentEvent.deleteMany({ where: { contactId: { in: contactIds } } });
 	await db.contact.deleteMany({ where: ours });
-	await db.company.deleteMany({ where: { domain: { in: domains } } });
 	await db.suppressedContact.deleteMany({ where: ours });
 	await db.user.deleteMany({ where: { id: userId } });
 }
@@ -245,58 +213,14 @@ describe("deleting a contact", () => {
 	});
 });
 
-describe("deleting a company", () => {
-	it("takes its deals and leaves its people without a company", async () => {
-		const company = await companies.create({
-			name: "Doomed",
-			domain: doomedDomain,
-		});
-		const contact = await contacts.create({
-			firstName: "Left",
-			lastName: "Behind",
-			email: `left@${doomedDomain}`,
-			companyId: company.id,
-		});
-		const deal = await db.deal.create({
-			data: { name: "Doomed deal", companyId: company.id, ownerId: userId },
-			select: { id: true },
-		});
-
-		await parked({ companyId: company.id });
-
-		expect(await companies.delete(company.id)).toEqual({
-			id: company.id,
-			name: "Doomed",
-		});
-
-		expect(await db.deal.findUnique({ where: { id: deal.id } })).toBeNull();
-		expect(await db.agentTask.count({ where: { companyId: company.id } })).toBe(
-			0,
-		);
-
-		const survivor = await db.contact.findUnique({
-			where: { id: contact.id },
-			select: { companyId: true },
-		});
-		expect(survivor?.companyId).toBeNull();
-
-		await db.contact.delete({ where: { id: contact.id } });
-	});
-});
-
 describe("the activity stamps a delete leaves behind", () => {
 	it("are recomputed on every record the deleted one's activities touched", async () => {
-		const company = await companies.create({
-			name: "Stamped",
-			domain: stampDomain,
-		});
 		const contact = await contacts.create({
 			firstName: "Stamped",
 			email: `stamped@${stampDomain}`,
-			companyId: company.id,
 		});
 		const deal = await db.deal.create({
-			data: { name: "Stamped deal", companyId: company.id, ownerId: userId },
+			data: { name: "Stamped deal", ownerId: userId },
 			select: { id: true },
 		});
 
@@ -305,54 +229,6 @@ describe("the activity stamps a delete leaves behind", () => {
 			data: {
 				type: "NOTE",
 				subject: "The only thing on this account",
-				companyId: company.id,
-				contactId: contact.id,
-				dealId: deal.id,
-				createdById: userId,
-				createdAt: at,
-			},
-		});
-		await stamp.touch(
-			{ companyId: company.id, contactId: contact.id, dealId: deal.id },
-			at,
-		);
-
-		await contacts.delete(contact.id);
-
-		expect(
-			await db.company.findUnique({
-				where: { id: company.id },
-				select: { lastActivityAt: true },
-			}),
-		).toEqual({ lastActivityAt: null });
-		expect(
-			await db.deal.findUnique({
-				where: { id: deal.id },
-				select: { lastActivityAt: true },
-			}),
-		).toEqual({ lastActivityAt: null });
-	});
-
-	it("follow a deleted company through the deals it takes with it", async () => {
-		const company = await companies.create({
-			name: "Orphaner",
-			domain: orphanDomain,
-		});
-		const contact = await contacts.create({
-			firstName: "Orphaned",
-			email: `orphaned@${orphanDomain}`,
-			companyId: company.id,
-		});
-		const deal = await db.deal.create({
-			data: { name: "Orphaned deal", companyId: company.id, ownerId: userId },
-			select: { id: true },
-		});
-
-		const at = new Date();
-		await db.activity.create({
-			data: {
-				type: "MEETING",
-				subject: "Only ever attached to the deal",
 				contactId: contact.id,
 				dealId: deal.id,
 				createdById: userId,
@@ -361,15 +237,15 @@ describe("the activity stamps a delete leaves behind", () => {
 		});
 		await stamp.touch({ contactId: contact.id, dealId: deal.id }, at);
 
-		await companies.delete(company.id);
+		await contacts.delete(contact.id);
 
 		expect(
-			await db.contact.findUnique({
-				where: { id: contact.id },
-				select: { companyId: true, lastActivityAt: true },
+			await db.deal.findUnique({
+				where: { id: deal.id },
+				select: { lastActivityAt: true },
 			}),
-		).toEqual({ companyId: null, lastActivityAt: null });
+		).toEqual({ lastActivityAt: null });
 
-		await db.contact.delete({ where: { id: contact.id } });
+		await db.deal.delete({ where: { id: deal.id } });
 	});
 });

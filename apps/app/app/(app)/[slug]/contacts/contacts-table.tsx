@@ -7,11 +7,9 @@ import {
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
-import { useSearchInput } from "@crm/ui/hooks/use-search-input";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { CompanyCell } from "@/components/crm/company-cell";
+import { useMemo } from "react";
 import { contactName } from "@/components/crm/contact-name";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
 import { OwnerCell } from "@/components/crm/owner-cell";
@@ -75,9 +73,13 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	{
 		id: "company",
 		header: "Company",
-		sortable: true,
 		width: "w-[18%]",
-		cell: (row) => <CompanyCell company={row.company} />,
+		cell: (row) =>
+			row.companyName ? (
+				<span className="truncate">{row.companyName}</span>
+			) : (
+				<EmptyCellValue />
+			),
 	},
 	{
 		id: "owner",
@@ -132,16 +134,6 @@ export function ContactsTable() {
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
 
-	const [companyQuery, setCompanyQuery] = useState("");
-	const [companyText, setCompanyText] = useSearchInput(
-		companyQuery,
-		setCompanyQuery,
-	);
-	const companies = useQuery({
-		...trpc.companies.options.queryOptions({ q: companyQuery }),
-		placeholderData: (previous) => previous,
-	});
-
 	const rows = contacts.data?.rows ?? [];
 	const selection = useTableSelection(
 		useMemo(() => rows.map((row) => row.id), [rows]),
@@ -160,24 +152,6 @@ export function ContactsTable() {
 					label: user.name,
 				})),
 			].filter((option) => (facetCounts?.owner?.[option.value] ?? 0) > 0),
-		},
-		{
-			id: "company",
-			label: "Company",
-			searchable: true,
-			search: companyText,
-			onSearchChange: setCompanyText,
-			stale: companies.isFetching || companyText.trim() !== companyQuery.trim(),
-			empty: companies.isFetching ? "Searching…" : "No company matches.",
-			options: [
-				...(companyQuery.trim()
-					? []
-					: [{ value: "none", label: "No company" }]),
-				...(companies.data ?? []).map((company) => ({
-					value: company.id,
-					label: company.name,
-				})),
-			].filter((option) => (facetCounts?.company?.[option.value] ?? 0) > 0),
 		},
 	];
 

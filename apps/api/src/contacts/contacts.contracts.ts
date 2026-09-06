@@ -5,7 +5,6 @@ import { listInput } from "../trpc/list-input";
 
 export const contactListInput = listInput.extend({
 	owner: z.string().default("all"),
-	company: z.string().default("all"),
 	source: z.string().default("all"),
 });
 
@@ -23,7 +22,11 @@ export const contactCreateInput = z.object({
 	email: z.email("That is not an email address.").optional().or(z.literal("")),
 	phone: z.string().trim().optional(),
 	title: z.string().trim().optional(),
-	companyId: z.string().nullable().optional(),
+	companyName: z
+		.string()
+		.trim()
+		.max(200, "That company name is too long.")
+		.optional(),
 	ownerId: z.string().nullable().optional(),
 });
 
@@ -35,10 +38,11 @@ const contactUpdateInput = z.object({
 	email: z.string().optional(),
 	phone: z.string().optional(),
 	title: z.string().optional(),
-	linkedinUrl: z.string().optional(),
-	twitterUrl: z.string().optional(),
-	githubUrl: z.string().optional(),
-	companyId: z.string().nullable().optional(),
+	companyName: z
+		.string()
+		.trim()
+		.max(200, "That company name is too long.")
+		.optional(),
 	ownerId: z.string().nullable().optional(),
 	fields: recordFieldValues.optional(),
 });
@@ -59,12 +63,6 @@ export const contactBulkOwnerInput = bulkIdsInput.extend({
 });
 
 export type ContactBulkOwnerInput = z.infer<typeof contactBulkOwnerInput>;
-
-export const contactBulkCompanyInput = bulkIdsInput.extend({
-	companyId: z.string().nullable(),
-});
-
-export type ContactBulkCompanyInput = z.infer<typeof contactBulkCompanyInput>;
 
 export const factDecisionInput = z.object({
 	factId: z.string(),

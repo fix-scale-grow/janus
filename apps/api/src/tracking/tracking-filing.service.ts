@@ -8,8 +8,7 @@ import {
 } from "@crm/db/tracking";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
-import { CompanyDirectoryService } from "../companies/company-directory.service";
-import { isMachineDomain } from "../companies/domain";
+import { isMachineDomain } from "../mailbox/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
@@ -49,7 +48,6 @@ export class TrackingFilingService {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly counters: TrackingCounterService,
-		private readonly companies: CompanyDirectoryService,
 		private readonly agent: AgentTriggerService,
 		private readonly stamp: ActivityStampService,
 	) {}
@@ -100,7 +98,6 @@ export class TrackingFilingService {
 			return this.skip(submission.id, CONTACT_CAP_REASON);
 		}
 
-		const companyId = await this.companies.companyForEmail(email);
 		const { firstName, lastName } = splitName(submission.name, email);
 
 		let contact: { id: string };
@@ -110,7 +107,6 @@ export class TrackingFilingService {
 					firstName,
 					lastName,
 					email,
-					companyId,
 					source: RecordSource.TRACKING,
 					lastActivityAt: new Date(),
 				},

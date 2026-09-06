@@ -42,29 +42,23 @@ export function capabilitiesFrom(
 
 	return [
 		{
-			...fromEnv("RAPIDAPI_KEY"),
-			label: "LinkedIn",
-			gives:
-				"a person's real name, current title, employer and tenure, self-reported, and so authoritative on identity",
-		},
-		{
 			...fromEnv("PERPLEXITY_API_KEY"),
 			label: "Web research",
-			gives:
-				"open-web context with citations, and the search that finds a LinkedIn slug in the first place",
+			gives: "open-web context with citations",
 		},
 		{
 			id: CONTEXT_DEV,
 			from: "Settings → General",
-			label: "Company brand data",
-			gives: "a company's logo, industry, location and socials from its domain",
+			label: "Workspace brand data",
+			gives:
+				"this workspace's own logo, industry, location and socials from its domain",
 			enabled: contextDev !== null,
 		},
 		{
 			...fromEnv("BLOB_READ_WRITE_TOKEN"),
 			label: "Picture storage",
 			gives:
-				"somewhere to keep a logo or a profile photo. Without it a record has no picture at all, because the URLs these sources hand back expire and are never stored as they are",
+				"somewhere to keep a logo. Without it a record has no picture at all, because the URLs these sources hand back expire and are never stored as they are",
 		},
 	];
 }

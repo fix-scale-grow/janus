@@ -1,5 +1,6 @@
 "use client";
 
+import type { TemplatePurpose } from "@crm/db/enums";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "./client";
 
@@ -9,22 +10,23 @@ type Options = {
 	settle?: Settle;
 };
 
-type RecordKind = "company" | "contact" | "deal";
+type RecordKind = "contact" | "deal";
 
 type RemovedRecord = { kind: RecordKind; id: string };
 
 type RemovedRecords = { kind: RecordKind; ids: string[] };
 
 export type CrmCache = {
-	company(id?: string, options?: Options): Promise<void>;
 	contact(id?: string, options?: Options): Promise<void>;
 	deal(id?: string, options?: Options): Promise<void>;
 	drawing(id?: string, options?: Options): Promise<void>;
 	estimate(id?: string, options?: Options): Promise<void>;
 	invoice(id?: string, options?: Options): Promise<void>;
 	project(id?: string, options?: Options): Promise<void>;
+	contract(id?: string, options?: Options): Promise<void>;
 	service(id?: string, options?: Options): Promise<void>;
 	symbol(id?: string, options?: Options): Promise<void>;
+	template(purpose?: TemplatePurpose, options?: Options): Promise<void>;
 	fields(entity?: RecordKind, options?: Options): Promise<void>;
 	fieldCoverage(id?: string, options?: Options): Promise<void>;
 	removed(record: RemovedRecord): Promise<void>;
@@ -70,7 +72,6 @@ export function useCrmCache(): CrmCache {
 	];
 
 	const listKeys = () => [
-		trpc.companies.list.queryKey(),
 		trpc.contacts.list.queryKey(),
 		trpc.deals.list.queryKey(),
 		trpc.search.quick.queryKey(),
@@ -78,18 +79,13 @@ export function useCrmCache(): CrmCache {
 
 	const removeRecords = (kind: RecordKind, ids: string[]): Promise<void> => {
 		const byId = {
-			company: trpc.companies.byId,
 			contact: trpc.contacts.byId,
 			deal: trpc.deals.byId,
 		}[kind];
 		const goneKeys = ids.map((id) => byId.queryKey({ id }));
 		const gone = new Set(goneKeys.map((key) => JSON.stringify(key)));
 
-		for (const record of [
-			trpc.companies.byId,
-			trpc.contacts.byId,
-			trpc.deals.byId,
-		]) {
+		for (const record of [trpc.contacts.byId, trpc.deals.byId]) {
 			void queryClient.invalidateQueries({
 				queryKey: record.queryKey(),
 				predicate: (query) => !gone.has(JSON.stringify(query.queryKey)),
@@ -111,13 +107,11 @@ export function useCrmCache(): CrmCache {
 	};
 
 	const RECORD_BY_ID = {
-		company: () => trpc.companies.byId.queryKey(),
 		contact: () => trpc.contacts.byId.queryKey(),
 		deal: () => trpc.deals.byId.queryKey(),
 	} as const;
 
 	const RECORD_LIST = {
-		company: () => trpc.companies.list.queryKey(),
 		contact: () => trpc.contacts.list.queryKey(),
 		deal: () => trpc.deals.list.queryKey(),
 	} as const;
@@ -143,22 +137,6 @@ export function useCrmCache(): CrmCache {
 				options,
 			),
 
-		company: (id, options) =>
-			run(
-				[
-					id
-						? trpc.companies.byId.queryKey({ id })
-						: trpc.companies.byId.queryKey(),
-				],
-				[
-					...listKeys(),
-					trpc.contacts.byId.queryKey(),
-					trpc.deals.byId.queryKey(),
-					trpc.dashboard.summary.queryKey(),
-				],
-				options,
-			),
-
 		contact: (id, options) =>
 			run(
 				[
@@ -168,7 +146,6 @@ export function useCrmCache(): CrmCache {
 				],
 				[
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.deals.byId.queryKey(),
 					trpc.deals.contactOptions.queryKey(),
 				],
@@ -181,7 +158,6 @@ export function useCrmCache(): CrmCache {
 				[
 					...listKeys(),
 					trpc.deals.contactOptions.queryKey(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					...activityKeys(),
 					trpc.dashboard.summary.queryKey(),
@@ -234,6 +210,17 @@ export function useCrmCache(): CrmCache {
 				options,
 			),
 
+		contract: (id, options) =>
+			run(
+				[
+					id
+						? trpc.contracts.byId.queryKey({ id })
+						: trpc.contracts.byId.queryKey(),
+				],
+				[trpc.contracts.list.queryKey()],
+				options,
+			),
+
 		service: (id, options) =>
 			run(
 				[
@@ -253,6 +240,17 @@ export function useCrmCache(): CrmCache {
 						: trpc.symbols.byId.queryKey(),
 				],
 				[trpc.symbols.list.queryKey()],
+				options,
+			),
+
+		template: (purpose, options) =>
+			run(
+				[
+					purpose
+						? trpc.templates.byPurpose.queryKey({ purpose })
+						: trpc.templates.byPurpose.queryKey(),
+				],
+				[trpc.templates.list.queryKey(), trpc.templates.preview.pathKey()],
 				options,
 			),
 
@@ -281,7 +279,6 @@ export function useCrmCache(): CrmCache {
 				activityKeys(),
 				[
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					trpc.deals.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
@@ -295,7 +292,6 @@ export function useCrmCache(): CrmCache {
 				[
 					...activityKeys(),
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
@@ -308,7 +304,6 @@ export function useCrmCache(): CrmCache {
 				[
 					...activityKeys(),
 					...listKeys(),
-					trpc.companies.byId.queryKey(),
 					trpc.contacts.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
@@ -331,7 +326,6 @@ export function useCrmCache(): CrmCache {
 				[
 					...listKeys(),
 					trpc.deals.byId.queryKey(),
-					trpc.companies.byId.queryKey(),
 					trpc.dashboard.summary.queryKey(),
 				],
 				options,

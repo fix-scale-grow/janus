@@ -27,7 +27,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
-import { CompanyPicker } from "@/components/crm/company-picker";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -43,15 +42,15 @@ function AddButton(props: ComponentProps<typeof Button>) {
 	);
 }
 
-export function CreateContactSheet({ companyId }: { companyId?: string }) {
+export function CreateContactSheet() {
 	return (
 		<Suspense fallback={<AddButton disabled />}>
-			<CreateContactForm companyId={companyId} />
+			<CreateContactForm />
 		</Suspense>
 	);
 }
 
-function CreateContactForm({ companyId }: { companyId?: string }) {
+function CreateContactForm() {
 	const openRecord = useOpenRecord();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -64,7 +63,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 	const [lastName, setLastName] = useState("");
 	const [email, setEmail] = useState("");
 	const [title, setTitle] = useState("");
-	const [company, setCompany] = useState(companyId ?? NONE);
+	const [companyName, setCompanyName] = useState("");
 	const [ownerId, setOwnerId] = useState(NONE);
 
 	const firstNameId = useId();
@@ -86,6 +85,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 				setLastName("");
 				setEmail("");
 				setTitle("");
+				setCompanyName("");
 				openRecord({ kind: "contact", id: contact.id });
 			},
 			onError: (error) => toast.error(error.message),
@@ -116,7 +116,7 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 							lastName: lastName || undefined,
 							email: email || undefined,
 							title: title || undefined,
-							companyId: company === NONE ? null : company,
+							companyName: companyName || undefined,
 							ownerId: ownerId === NONE ? null : ownerId,
 						});
 					}}
@@ -167,11 +167,12 @@ function CreateContactForm({ companyId }: { companyId?: string }) {
 
 						<Field>
 							<FieldLabel htmlFor="create-contact-company">Company</FieldLabel>
-							<CompanyPicker
+							<Input
 								id="create-contact-company"
-								value={company}
-								onValueChange={setCompany}
-								none={{ value: NONE, label: "No company" }}
+								value={companyName}
+								onChange={(event) => setCompanyName(event.target.value)}
+								placeholder="Acme Roofing"
+								autoComplete="off"
 							/>
 						</Field>
 
