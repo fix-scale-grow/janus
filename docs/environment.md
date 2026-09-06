@@ -116,6 +116,8 @@ single place that knows what is set.
 | `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
 | `AI_GATEWAY_API_KEY` | The model. Not needed on Vercel (OIDC) |
+| `ANTHROPIC_API_KEY` | Talks to Anthropic directly instead of through the gateway |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Same, as a dev fallback (`claude setup-token`), when the key above is unset |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`

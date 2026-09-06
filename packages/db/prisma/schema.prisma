@@ -454,6 +454,21 @@ model AgentEvent {
   @@map("agentEvent")
 }
 
+model AgentUsage {
+  id             String   @id @default(cuid())
+  sessionId      String
+  conversationId String?
+  taskKind       String?
+  model          String
+  inputTokens    Int
+  outputTokens   Int
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([sessionId])
+  @@map("agent_usage")
+}
+
 model AgentConversation {
   id String @id @default(cuid())
 

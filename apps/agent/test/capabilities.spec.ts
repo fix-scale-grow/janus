@@ -7,7 +7,12 @@ import {
 	unavailable,
 } from "../agent/lib/capabilities";
 
-const KEYS = ["PERPLEXITY_API_KEY", "BLOB_READ_WRITE_TOKEN"] as const;
+const KEYS = [
+	"PERPLEXITY_API_KEY",
+	"BLOB_READ_WRITE_TOKEN",
+	"ANTHROPIC_API_KEY",
+	"CLAUDE_CODE_OAUTH_TOKEN",
+] as const;
 
 const saved: Record<string, string | undefined> = {};
 

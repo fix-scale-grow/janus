@@ -14,13 +14,38 @@ are in `docs/setup.md`.
 Default `zai/glm-5.2-fast`; `DEFAULT_AGENT_MODEL` in `@crm/db/settings` because the
 agent and the API both need it.
 
-- **A row (`AppSetting`), not an env var**, via `defineDynamic` on `session.started`.
-  Open conversations keep their model — prompt caches are per model.
+- **A row (`AppSetting`), not an env var**, via `defineDynamic`. Open conversations
+  keep their model — prompt caches are per model.
 - **`lib/model.ts` always sends `modelContextWindowTokens`**; eve never inherits it.
 - **A failed read logs and keeps the compiled fallback.** Never throws.
 - **The chooser offers only `tool-use` models** (`ModelCatalogService`).
 - **Not a frontier model, deliberately** — refusing wrong answers is enforced by the
   tools and evidence model, not model strength.
+
+### Direct Anthropic, ahead of the gateway
+
+`ANTHROPIC_API_KEY` (canonical) or `CLAUDE_CODE_OAUTH_TOKEN` (a dev fallback — `claude
+setup-token`) route straight to Anthropic instead of through the dormant gateway above,
+on `claude-sonnet-5` by default. `lib/anthropic-provider.ts` holds the pure
+`resolveProvider(env)` choice — the key wins when both are set. Neither present keeps
+the old gateway id, untouched.
+
+- **A live model, not a string, can only come from `step.started`.** eve validates
+  session/turn-scoped selections and silently drops one that resolves to a provider
+  object, logging an error and falling back — `dynamic-model-lifecycle.js` in eve's
+  dist. `lib/model.ts#dynamicAgentModelEvents` picks the event name at boot from
+  whether a direct key is set, so the compiled default only degrades caching (one
+  resolve per step instead of per session) when it is actually needed.
+- **`lib/model-usage.ts` remembers which model id a session resolved to**, in a
+  bounded in-memory map, because no stream event carries the model id — `step.completed`
+  has usage but not the id that produced it.
+
+### Usage metering
+
+`AgentUsage` gets one row per `step.completed` event — the same event
+`persistRunEvent` already reads for `AgentRun` totals, so it is the finest grain eve
+exposes usage at. Written from `hooks/audit.ts`, outside the audit transaction so a
+usage-write failure never rolls back the `AgentEvent` row it came from.
 
 ## Pictures are copied, never linked
 

@@ -1,20 +1,63 @@
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { db } from "@crm/db";
-import { readAgentModel } from "@crm/db/settings";
+import { DEFAULT_AGENT_MODEL, readAgentModel } from "@crm/db/settings";
+import type { LanguageModel } from "ai";
+import { resolveProvider } from "./anthropic-provider";
+import { noteModel } from "./model-usage";
 
 export interface ModelSelection {
-	model: string;
+	model: string | LanguageModel;
 	modelContextWindowTokens: number;
+}
+
+export const DIRECT_ANTHROPIC_DEFAULT_MODEL_ID = "claude-sonnet-5";
+const DIRECT_ANTHROPIC_DEFAULT_CONTEXT_WINDOW_TOKENS = 200_000;
+const ANTHROPIC_OAUTH_BETA_HEADER = "oauth-2025-04-20";
+
+let cachedProvider: ReturnType<typeof createAnthropic> | null | undefined;
+
+function directAnthropicProvider(): ReturnType<typeof createAnthropic> | null {
+	if (cachedProvider !== undefined) return cachedProvider;
+
+	const provider = resolveProvider(process.env);
+
+	cachedProvider =
+		provider === null
+			? null
+			: provider.kind === "api-key"
+				? createAnthropic({ apiKey: provider.apiKey })
+				: createAnthropic({
+						authToken: provider.token,
+						headers: { "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER },
+					});
+
+	return cachedProvider;
 }
 
 export async function selectedModel(): Promise<ModelSelection | null> {
 	try {
 		const setting = await readAgentModel(db);
+		const provider = directAnthropicProvider();
 
-		if (setting.isDefault) return null;
+		if (provider === null) {
+			if (setting.isDefault) return null;
+
+			return {
+				model: setting.id,
+				modelContextWindowTokens: setting.contextWindowTokens,
+			};
+		}
+
+		const id = setting.isDefault
+			? DIRECT_ANTHROPIC_DEFAULT_MODEL_ID
+			: setting.id;
+		const modelContextWindowTokens = setting.isDefault
+			? DIRECT_ANTHROPIC_DEFAULT_CONTEXT_WINDOW_TOKENS
+			: setting.contextWindowTokens;
 
 		return {
-			model: setting.id,
-			modelContextWindowTokens: setting.contextWindowTokens,
+			model: provider(id),
+			modelContextWindowTokens,
 		};
 	} catch (error) {
 		console.error(
@@ -24,4 +67,40 @@ export async function selectedModel(): Promise<ModelSelection | null> {
 		);
 		return null;
 	}
+}
+
+export function selectedModelId(
+	selection: ModelSelection | null,
+	fallbackId: string,
+): string {
+	if (selection === null) return fallbackId;
+	return typeof selection.model === "string"
+		? selection.model
+		: selection.model.modelId;
+}
+
+async function resolveAndTrack(
+	sessionId: string,
+): Promise<ModelSelection | null> {
+	const selection = await selectedModel();
+	noteModel(sessionId, selectedModelId(selection, DEFAULT_AGENT_MODEL.id));
+	return selection;
+}
+
+type DynamicModelHandler = (
+	_event: unknown,
+	ctx: { session: { id: string } },
+) => Promise<ModelSelection | null>;
+
+type DynamicModelEvents = Partial<
+	Record<"session.started" | "step.started", DynamicModelHandler>
+>;
+
+export function dynamicAgentModelEvents(): DynamicModelEvents {
+	const handler: DynamicModelHandler = (_event, ctx) =>
+		resolveAndTrack(ctx.session.id);
+
+	return resolveProvider(process.env) === null
+		? { "session.started": handler }
+		: { "step.started": handler };
 }

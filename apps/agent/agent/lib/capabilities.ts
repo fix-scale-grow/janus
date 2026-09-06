@@ -2,6 +2,7 @@ import "@crm/env/load";
 
 import { db } from "@crm/db";
 import { readContextDevKey } from "@crm/db/settings";
+import { resolveProvider } from "./anthropic-provider";
 
 export const CONTEXT_DEV = "CONTEXT_DEV";
 
@@ -41,6 +42,13 @@ export function capabilitiesFrom(
 	});
 
 	return [
+		{
+			id: "anthropic",
+			from: "ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN",
+			label: "Janus brain (Anthropic)",
+			gives: "reasoning, proposals, chat",
+			enabled: resolveProvider(process.env) !== null,
+		},
 		{
 			...fromEnv("PERPLEXITY_API_KEY"),
 			label: "Web research",

@@ -2,6 +2,7 @@ import { db, Prisma } from "@crm/db";
 import { defineHook } from "eve/hooks";
 import { isTransportOnlyEvent } from "../lib/event-persistence";
 import { currentFocus } from "../lib/focus";
+import { modelFor } from "../lib/model-usage";
 import { lockAgentRun } from "../lib/run-state";
 import { attribute, purposeOf } from "../lib/session-purpose";
 
@@ -41,6 +42,10 @@ export default defineHook({
 						await persistRunEvent(tx, id, event.type, data, emittedAt, ctx);
 					}
 				});
+
+				if (event.type === "step.completed") {
+					await recordUsage(data, ctx.session.id, conversationId, ctx);
+				}
 			} catch (error) {
 				console.warn("[audit] could not record event", {
 					type: event.type,
@@ -50,6 +55,36 @@ export default defineHook({
 		},
 	},
 });
+
+async function recordUsage(
+	data: object,
+	sessionId: string,
+	conversationId: string | null,
+	ctx: Parameters<typeof purposeOf>[0],
+): Promise<void> {
+	try {
+		const values = recordOf(recordOf(data).usage);
+		const inputTokens = numberOf(values.inputTokens) ?? 0;
+		const outputTokens = numberOf(values.outputTokens) ?? 0;
+
+		if (inputTokens === 0 && outputTokens === 0) return;
+
+		await db.agentUsage.create({
+			data: {
+				sessionId,
+				conversationId,
+				taskKind: attribute(ctx, "taskKind"),
+				model: modelFor(sessionId) ?? "unknown",
+				inputTokens,
+				outputTokens,
+			},
+		});
+	} catch (error) {
+		console.warn("[audit] could not record usage", {
+			reason: error instanceof Error ? error.message : String(error),
+		});
+	}
+}
 
 async function persistBuilderLifecycle(
 	tx: Prisma.TransactionClient,
