@@ -87,7 +87,98 @@ function proposedEstimateLines(
 	return Array.isArray(lines) ? lines.filter(isProposedEstimateLine) : [];
 }
 
+type ServiceModifierOption = { name: string; factor: number };
+
+type ServiceModifier = { label: string; options: ServiceModifierOption[] };
+
+type ServiceFieldValues = {
+	name?: string;
+	unitPriceCents?: number;
+	priceGoodCents?: number | null;
+	priceBestCents?: number | null;
+	modifier?: ServiceModifier | null;
+};
+
+type UpdateServiceInput = {
+	current: Required<ServiceFieldValues>;
+	changes: ServiceFieldValues;
+};
+
+function isServiceModifier(value: unknown): value is ServiceModifier {
+	if (value === null || typeof value !== "object") return false;
+	const modifier = value as Record<string, unknown>;
+	return typeof modifier.label === "string" && Array.isArray(modifier.options);
+}
+
+function isUpdateServiceInput(
+	value: Record<string, unknown> | null,
+): value is UpdateServiceInput & Record<string, unknown> {
+	if (value === null) return false;
+	const current = value.current;
+	const changes = value.changes;
+	return (
+		current !== null &&
+		typeof current === "object" &&
+		changes !== null &&
+		typeof changes === "object"
+	);
+}
+
+const SERVICE_FIELD_LABEL: Record<keyof ServiceFieldValues, string> = {
+	name: "Name",
+	unitPriceCents: "Book price",
+	priceGoodCents: "Good price",
+	priceBestCents: "Best price",
+	modifier: "Modifier",
+};
+
+function formatModifier(modifier: ServiceModifier | null | undefined): string {
+	if (!modifier) return EMPTY_VALUE;
+	const options = modifier.options
+		.map((option) => `${option.name} ×${option.factor}`)
+		.join(", ");
+	return `${modifier.label}: ${options}`;
+}
+
+function formatServiceValue(
+	field: keyof ServiceFieldValues,
+	value: unknown,
+): string {
+	if (field === "name") return typeof value === "string" ? value : EMPTY_VALUE;
+	if (field === "modifier") {
+		return isServiceModifier(value) || value === null
+			? formatModifier(value as ServiceModifier | null)
+			: EMPTY_VALUE;
+	}
+	return typeof value === "number" ? formatDollars(value) : EMPTY_VALUE;
+}
+
+const SERVICE_FIELD_ORDER: (keyof ServiceFieldValues)[] = [
+	"name",
+	"unitPriceCents",
+	"priceGoodCents",
+	"priceBestCents",
+	"modifier",
+];
+
 export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
+	update_service: {
+		title: "Approve service update",
+		render: (input) => {
+			if (!isUpdateServiceInput(input)) return [{ rows: [] }];
+			const { current, changes } = input;
+
+			const rows = SERVICE_FIELD_ORDER.filter(
+				(field) => changes[field] !== undefined,
+			).map((field) => ({
+				label: SERVICE_FIELD_LABEL[field],
+				value: `${formatServiceValue(field, current[field])} → ${formatServiceValue(field, changes[field])}`,
+			}));
+
+			return [{ title: truncateText(current.name), rows }];
+		},
+	},
+
 	propose_drawing_tags: {
 		title: "Approve drawing tags",
 		render: (input) => {

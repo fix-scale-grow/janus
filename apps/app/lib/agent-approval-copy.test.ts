@@ -141,6 +141,74 @@ describe("propose_estimate_lines approval copy", () => {
 	});
 });
 
+describe("update_service approval copy", () => {
+	it("renders one old to new row per changed field, from the structured input", () => {
+		const copy = approvalCopyFor("update_service");
+		const sections = copy.render({
+			serviceId: "service1",
+			current: {
+				name: "Tear-off & disposal",
+				unitPriceCents: 45000,
+				priceGoodCents: 40000,
+				priceBestCents: 50000,
+				modifier: null,
+			},
+			changes: { unitPriceCents: 47500 },
+		});
+
+		expect(copy.title).toBe("Approve service update");
+		expect(sections).toEqual([
+			{
+				title: "Tear-off & disposal",
+				rows: [{ label: "Book price", value: "$450.00 → $475.00" }],
+			},
+		]);
+	});
+
+	it("renders every changed field, including name and modifier", () => {
+		const copy = approvalCopyFor("update_service");
+		const sections = copy.render({
+			serviceId: "service1",
+			current: {
+				name: "Tear-off & disposal",
+				unitPriceCents: 45000,
+				priceGoodCents: null,
+				priceBestCents: null,
+				modifier: null,
+			},
+			changes: {
+				name: "Tear-off, haul & disposal",
+				modifier: {
+					label: "Pitch",
+					options: [{ name: "6/12", factor: 1.1 }],
+				},
+			},
+		});
+
+		expect(sections).toEqual([
+			{
+				title: "Tear-off & disposal",
+				rows: [
+					{
+						label: "Name",
+						value: "Tear-off & disposal → Tear-off, haul & disposal",
+					},
+					{
+						label: "Modifier",
+						value: "— → Pitch: 6/12 ×1.1",
+					},
+				],
+			},
+		]);
+	});
+
+	it("returns an empty row set when the input is not structured as expected", () => {
+		const copy = approvalCopyFor("update_service");
+		expect(copy.render(null)).toEqual([{ rows: [] }]);
+		expect(copy.render({ serviceId: "service1" })).toEqual([{ rows: [] }]);
+	});
+});
+
 describe("generic approval copy fallback bounds", () => {
 	it("stops descending past the depth cap and renders a safe summary", () => {
 		const copy = approvalCopyFor("refund_charge");

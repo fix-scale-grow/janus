@@ -76,6 +76,8 @@ const VERBS: Record<string, string> = {
 	set_field_value: "Filled in a custom field",
 	manage_fields: "Changed what the CRM tracks",
 	archive_field: "Asked to retire a field",
+	read_price_book: "Read the price book",
+	update_service: "Proposed a price book update",
 
 	load_skill: "Read its instructions for this",
 	web_search: "Searched the web",
