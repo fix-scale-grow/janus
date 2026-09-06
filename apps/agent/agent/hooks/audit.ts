@@ -5,6 +5,7 @@ import { currentFocus } from "../lib/focus";
 import { modelFor } from "../lib/model-usage";
 import { lockAgentRun } from "../lib/run-state";
 import { attribute, purposeOf } from "../lib/session-purpose";
+import { numberOf, recordOf, usageRowFrom } from "../lib/usage-row";
 
 export default defineHook({
 	events: {
@@ -63,22 +64,16 @@ async function recordUsage(
 	ctx: Parameters<typeof purposeOf>[0],
 ): Promise<void> {
 	try {
-		const values = recordOf(recordOf(data).usage);
-		const inputTokens = numberOf(values.inputTokens) ?? 0;
-		const outputTokens = numberOf(values.outputTokens) ?? 0;
-
-		if (inputTokens === 0 && outputTokens === 0) return;
-
-		await db.agentUsage.create({
-			data: {
-				sessionId,
-				conversationId,
-				taskKind: attribute(ctx, "taskKind"),
-				model: modelFor(sessionId) ?? "unknown",
-				inputTokens,
-				outputTokens,
-			},
+		const row = usageRowFrom(data, {
+			sessionId,
+			conversationId,
+			taskKind: attribute(ctx, "taskKind"),
+			model: modelFor(sessionId) ?? "unknown",
 		});
+
+		if (row === null) return;
+
+		await db.agentUsage.create({ data: row });
 	} catch (error) {
 		console.warn("[audit] could not record usage", {
 			reason: error instanceof Error ? error.message : String(error),
@@ -211,14 +206,4 @@ async function persistRunEvent(
 
 function isRootSession(ctx: Parameters<typeof purposeOf>[0]): boolean {
 	return !("parent" in ctx.session) || !ctx.session.parent;
-}
-
-function recordOf(value: unknown): Record<string, unknown> {
-	return value && typeof value === "object" && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: {};
-}
-
-function numberOf(value: unknown): number | null {
-	return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

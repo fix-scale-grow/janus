@@ -14,24 +14,17 @@ export const DIRECT_ANTHROPIC_DEFAULT_MODEL_ID = "claude-sonnet-5";
 const DIRECT_ANTHROPIC_DEFAULT_CONTEXT_WINDOW_TOKENS = 200_000;
 const ANTHROPIC_OAUTH_BETA_HEADER = "oauth-2025-04-20";
 
-let cachedProvider: ReturnType<typeof createAnthropic> | null | undefined;
-
 function directAnthropicProvider(): ReturnType<typeof createAnthropic> | null {
-	if (cachedProvider !== undefined) return cachedProvider;
-
 	const provider = resolveProvider(process.env);
 
-	cachedProvider =
-		provider === null
-			? null
-			: provider.kind === "api-key"
-				? createAnthropic({ apiKey: provider.apiKey })
-				: createAnthropic({
-						authToken: provider.token,
-						headers: { "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER },
-					});
+	if (provider === null) return null;
 
-	return cachedProvider;
+	return provider.kind === "api-key"
+		? createAnthropic({ apiKey: provider.apiKey })
+		: createAnthropic({
+				authToken: provider.token,
+				headers: { "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER },
+			});
 }
 
 export async function selectedModel(): Promise<ModelSelection | null> {
