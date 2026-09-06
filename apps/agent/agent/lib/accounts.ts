@@ -1,4 +1,5 @@
 import { ActivityType, db, EmailDirection } from "@crm/db";
+import { fenceUntrusted } from "./untrusted";
 
 const BODY_LIMIT = 4000;
 
@@ -187,8 +188,10 @@ export async function readDealHistory(
 	return {
 		deal: {
 			id: deal.id,
-			name: deal.name,
-			description: deal.description,
+			name: fenceUntrusted("deal name", deal.name),
+			description: deal.description
+				? fenceUntrusted("deal description", deal.description)
+				: null,
 			stage: deal.stage,
 			open: isOpen(deal.stage),
 			daysInStage: daysSince(deal.stageChangedAt, now),
@@ -197,14 +200,18 @@ export async function readDealHistory(
 			currency: deal.currency,
 			expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
 			closedAt: deal.closedAt?.toISOString() ?? null,
-			closedReason: deal.closedReason,
+			closedReason: deal.closedReason
+				? fenceUntrusted("closed reason", deal.closedReason)
+				: null,
 			owner: deal.owner?.name ?? deal.owner?.email ?? null,
 			createdAt: deal.createdAt.toISOString(),
 		},
 		people: deal.contacts.map(({ role, contact }) => ({
 			id: contact.id,
-			name: fullName(contact),
-			title: contact.title,
+			name: fenceUntrusted("contact name", fullName(contact)),
+			title: contact.title
+				? fenceUntrusted("contact title", contact.title)
+				: null,
 			email: contact.email,
 			role,
 		})),
@@ -223,7 +230,9 @@ export async function readDealHistory(
 			theyReplied: lastInbound !== null,
 			lastReplyAt: lastInbound?.sentAt.toISOString() ?? null,
 			lastReplyFrom: lastInbound
-				? (lastInbound.fromName ?? lastInbound.fromEmail)
+				? lastInbound.fromName
+					? fenceUntrusted("sender name", lastInbound.fromName)
+					: lastInbound.fromEmail
 				: null,
 			nextMeetingAt:
 				meetings
@@ -277,8 +286,10 @@ async function recentNotes(dealId: string): Promise<AccountNote[]> {
 
 	return rows.map((row) => ({
 		type: row.type,
-		subject: row.subject,
-		body: row.body ? row.body.slice(0, BODY_LIMIT) : null,
+		subject: row.subject ? fenceUntrusted("note subject", row.subject) : null,
+		body: row.body
+			? fenceUntrusted("note", row.body.slice(0, BODY_LIMIT))
+			: null,
 		occurredAt: (row.occurredAt ?? row.createdAt).toISOString(),
 	}));
 }
@@ -298,19 +309,29 @@ function toAccountThread(thread: {
 	}[];
 }): AccountThread {
 	return {
-		subject: thread.subject,
+		subject: thread.subject
+			? fenceUntrusted("email subject", thread.subject)
+			: null,
 		contact: thread.contact
-			? { id: thread.contact.id, name: fullName(thread.contact) }
+			? {
+					id: thread.contact.id,
+					name: fenceUntrusted("contact name", fullName(thread.contact)),
+				}
 			: null,
 		messageCount: thread.messageCount,
 		lastMessageAt: thread.lastMessageAt.toISOString(),
-		messages: thread.messages.map((message) => ({
-			direction: message.direction,
-			from: message.fromEmail,
-			fromName: message.fromName,
-			sentAt: message.sentAt.toISOString(),
-			body: (message.body ?? message.snippet)?.slice(0, BODY_LIMIT) ?? null,
-		})),
+		messages: thread.messages.map((message) => {
+			const body = (message.body ?? message.snippet)?.slice(0, BODY_LIMIT);
+			return {
+				direction: message.direction,
+				from: message.fromEmail,
+				fromName: message.fromName
+					? fenceUntrusted("sender name", message.fromName)
+					: null,
+				sentAt: message.sentAt.toISOString(),
+				body: body ? fenceUntrusted("email body", body) : null,
+			};
+		}),
 	};
 }
 
@@ -323,10 +344,17 @@ function toAccountMeeting(
 	now: Date,
 ): AccountMeeting {
 	return {
-		title: meeting.title,
+		title: meeting.title
+			? fenceUntrusted("meeting title", meeting.title)
+			: null,
 		startsAt: meeting.startsAt.toISOString(),
 		upcoming: meeting.startsAt > now,
-		attendees: meeting.attendees,
+		attendees: meeting.attendees.map((attendee) => ({
+			email: attendee.email,
+			name: attendee.name
+				? fenceUntrusted("attendee name", attendee.name)
+				: null,
+		})),
 	};
 }
 

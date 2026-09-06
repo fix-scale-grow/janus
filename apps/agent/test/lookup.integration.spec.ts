@@ -110,7 +110,9 @@ describe("searchCrm", () => {
 			[paulaId, peterId].sort(),
 		);
 		expect(result.contacts.every((hit) => hit.companyName !== null)).toBe(true);
-		expect(result.contacts.map((hit) => hit.title)).toContain("Controller");
+		expect(
+			result.contacts.some((hit) => hit.title?.includes("Controller")),
+		).toBe(true);
 	});
 
 	it("finds a person by their address", async () => {

@@ -1,5 +1,6 @@
 import { db } from "@crm/db";
 import { isDerivedName } from "./names";
+import { fenceUntrusted } from "./untrusted";
 
 export type WorkItem = {
 	id: string;
@@ -34,17 +35,23 @@ export async function contactsNeedingWork(limit: number): Promise<WorkItem[]> {
 		take: limit,
 	});
 
-	return rows.map((row) => ({
-		id: row.id,
-		fullName: [row.firstName, row.lastName].filter(Boolean).join(" "),
-		email: row.email,
-		title: row.title,
-		companyName: row.companyName,
-		needs: {
-			identity: isDerivedName(row.email, row.firstName, row.lastName),
-			brief: row.brief === null,
-		},
-	}));
+	return rows.map((row) => {
+		const fullName = [row.firstName, row.lastName].filter(Boolean).join(" ");
+
+		return {
+			id: row.id,
+			fullName: fenceUntrusted("contact name", fullName),
+			email: row.email,
+			title: row.title ? fenceUntrusted("contact title", row.title) : null,
+			companyName: row.companyName
+				? fenceUntrusted("company name", row.companyName)
+				: null,
+			needs: {
+				identity: isDerivedName(row.email, row.firstName, row.lastName),
+				brief: row.brief === null,
+			},
+		};
+	});
 }
 
 export type CrmHistory = {
@@ -189,16 +196,24 @@ export async function readCrmHistory(
 		.filter((meeting) => meeting.startsAt > now)
 		.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 
+	const fullName = [contact.firstName, contact.lastName]
+		.filter(Boolean)
+		.join(" ");
+
 	return {
 		contact: {
-			fullName: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+			fullName: fenceUntrusted("contact name", fullName),
 			email: contact.email,
-			title: contact.title,
-			companyName: contact.companyName,
+			title: contact.title
+				? fenceUntrusted("contact title", contact.title)
+				: null,
+			companyName: contact.companyName
+				? fenceUntrusted("company name", contact.companyName)
+				: null,
 		},
 		deals: contact.deals.map(({ role, deal }) => ({
 			id: deal.id,
-			name: deal.name,
+			name: fenceUntrusted("deal name", deal.name),
 			stage: deal.stage,
 			role,
 			amount: deal.amount === null ? null : Number(deal.amount),
@@ -206,19 +221,28 @@ export async function readCrmHistory(
 			expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
 		})),
 		threads: threads.map((thread) => ({
-			subject: thread.subject,
+			subject: thread.subject
+				? fenceUntrusted("email subject", thread.subject)
+				: null,
 			messageCount: thread.messageCount,
 			lastMessageAt: thread.lastMessageAt.toISOString(),
 			messages: thread.messages.map((message) => ({
 				direction: message.direction,
 				from: message.fromEmail,
-				fromName: message.fromName,
+				fromName: message.fromName
+					? fenceUntrusted("sender name", message.fromName)
+					: null,
 				sentAt: message.sentAt.toISOString(),
-				body: message.body ?? message.snippet,
+				body:
+					(message.body ?? message.snippet)
+						? fenceUntrusted("email body", message.body ?? message.snippet)
+						: null,
 			})),
 		})),
 		meetings: meetings.map((meeting) => ({
-			title: meeting.title,
+			title: meeting.title
+				? fenceUntrusted("meeting title", meeting.title)
+				: null,
 			startsAt: meeting.startsAt.toISOString(),
 			attended: meeting.attendees.some(
 				(attendee) =>
@@ -227,7 +251,9 @@ export async function readCrmHistory(
 			),
 			attendees: meeting.attendees.map((attendee) => ({
 				email: attendee.email,
-				name: attendee.name,
+				name: attendee.name
+					? fenceUntrusted("attendee name", attendee.name)
+					: null,
 			})),
 		})),
 		stats: {

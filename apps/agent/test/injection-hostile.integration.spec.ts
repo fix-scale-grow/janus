@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, it } from "bun:test";
 import { db } from "@crm/db";
+import { readDealHistory } from "../agent/lib/accounts";
 import { listDrawings } from "../agent/lib/drawing-lookup";
 import { loadDrawingSummary } from "../agent/lib/drawing-summary";
 import { loadEstimateSummary } from "../agent/lib/estimate-summary";
@@ -79,7 +80,7 @@ afterAll(cleanup);
 async function cleanup(): Promise<void> {
 	await db.drawing.deleteMany({ where: { title: { contains: suffix } } });
 	await db.estimate.deleteMany({ where: { title: { contains: suffix } } });
-	await db.deal.deleteMany({ where: { name: dealName } });
+	await db.deal.deleteMany({ where: { name: { contains: suffix } } });
 	await db.contact.deleteMany({ where: { email: contactEmail } });
 	await db.user.deleteMany({ where: { id: userId } });
 }
@@ -168,6 +169,27 @@ describe("list_drawings summary path holds hostile payloads inert", () => {
 
 			assertFenced(row.title, text);
 			if (row.dealName) assertFenced(row.dealName, dealName);
+		});
+	}
+});
+
+describe("read_deal_history summary path holds hostile payloads inert", () => {
+	for (const { name, text } of HOSTILE_PAYLOADS) {
+		it(`fences a ${name} carried in the deal name and description`, async () => {
+			const hostileDeal = await db.deal.create({
+				data: {
+					name: `Hostile crm deal ${suffix} ${name}: ${text}`,
+					description: text,
+					ownerId: userId,
+				},
+				select: { id: true },
+			});
+
+			const history = await readDealHistory(hostileDeal.id);
+			if (!history) throw new Error("expected the deal to be found");
+
+			assertFenced(history.deal.name, text);
+			assertFenced(history.deal.description ?? "", text);
 		});
 	}
 });

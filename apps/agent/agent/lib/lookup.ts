@@ -1,6 +1,7 @@
 import { DealStage, db } from "@crm/db";
 import { LOSING_DEAL_STAGES, OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
 import { normalise } from "./names";
+import { fenceUntrusted } from "./untrusted";
 
 export type RecordKind = "contact" | "deal";
 
@@ -108,7 +109,7 @@ export async function listDeals(options: DealListOptions = {}) {
 			const activityDate = deal.lastActivityAt ?? deal.createdAt;
 			return {
 				id: deal.id,
-				name: deal.name,
+				name: fenceUntrusted("deal name", deal.name),
 				stage: deal.stage,
 				amount: deal.amount === null ? null : Number(deal.amount),
 				currency: deal.currency,
@@ -201,10 +202,12 @@ async function searchContacts(
 				hit: {
 					kind: "contact" as const,
 					id: row.id,
-					name,
-					title: row.title,
+					name: fenceUntrusted("contact name", name),
+					title: row.title ? fenceUntrusted("contact title", row.title) : null,
 					email: row.email,
-					companyName: row.companyName,
+					companyName: row.companyName
+						? fenceUntrusted("company name", row.companyName)
+						: null,
 					lastActivityAt: row.lastActivityAt?.toISOString() ?? null,
 				},
 			};
@@ -245,7 +248,7 @@ async function searchDeals(
 			hit: {
 				kind: "deal" as const,
 				id: row.id,
-				name: row.name,
+				name: fenceUntrusted("deal name", row.name),
 				stage: row.stage,
 				amount: row.amount === null ? null : Number(row.amount),
 				currency: row.currency,

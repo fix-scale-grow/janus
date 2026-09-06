@@ -181,15 +181,15 @@ describe("readDealHistory", () => {
 	it("names who is on it, with ids and roles", async () => {
 		const history = await readDealHistory(dealId);
 
-		expect(history?.people).toEqual([
-			{
-				id: paulaId,
-				name: "Paula Marchetti",
-				title: "Growth Specialist",
-				email: `paula.marchetti@${domain}`,
-				role: "Champion",
-			},
-		]);
+		expect(history?.people).toHaveLength(1);
+		const [person] = history?.people ?? [];
+		expect(person?.id).toBe(paulaId);
+		expect(person?.email).toBe(`paula.marchetti@${domain}`);
+		expect(person?.role).toBe("Champion");
+		expect(person?.name).toContain("Paula Marchetti");
+		expect(person?.name).toContain("BEGIN UNTRUSTED DATA");
+		expect(person?.title).toContain("Growth Specialist");
+		expect(person?.title).toContain("BEGIN UNTRUSTED DATA");
 	});
 
 	it("says the correspondence belongs to the people on it, not the deal", async () => {
