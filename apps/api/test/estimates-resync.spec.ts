@@ -165,6 +165,52 @@ const PRICED_ITEM: LineItemRow = {
 };
 
 describe("resyncFromDrawing", () => {
+	it("applies a pitch added after generation to an existing line item", async () => {
+		const { db, updated } = fakeDb({
+			elements: [square("sq1", { pitch: "6/12" })],
+			lineItems: [PRICED_ITEM],
+		});
+
+		const result = await service(db).resyncFromDrawing("est1");
+
+		expect(updated).toHaveLength(1);
+		expect(updated[0]?.quantity).toBe(111.8);
+		expect(result.changed[0]?.newQuantity).toBe(111.8);
+	});
+
+	it("adds a line item for a shape scoped after the estimate was generated", async () => {
+		const { db, created } = fakeDb({
+			elements: [
+				square("sq1", { pitch: "6/12" }),
+				square("sq2", { pitch: "6/12", label: "Garage" }),
+			],
+			lineItems: [PRICED_ITEM],
+		});
+
+		const result = await service(db).resyncFromDrawing("est1");
+
+		expect(created).toHaveLength(1);
+		expect(created[0]?.scopeId).toBe("sq2");
+		expect(created[0]?.quantity).toBe(111.8);
+		expect(result.added).toHaveLength(1);
+		expect(result.added[0]?.name).toBe("Tear-off");
+	});
+
+	it("leaves an unscoped line item alone", async () => {
+		const { db, created, updated } = fakeDb({
+			elements: [square("sq1", {})],
+			lineItems: [
+				PRICED_ITEM,
+				{ ...PRICED_ITEM, id: "li2", scopeId: null, name: "Dump fee" },
+			],
+		});
+
+		await service(db).resyncFromDrawing("est1");
+
+		expect(updated).toHaveLength(0);
+		expect(created).toHaveLength(0);
+	});
+
 	it("stamps the sync time so the estimate stops reading as stale", async () => {
 		const { db, syncStamps } = fakeDb({
 			elements: [square("sq1", { pitch: "6/12" })],
