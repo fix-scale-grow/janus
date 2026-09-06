@@ -170,7 +170,7 @@ export class ContractsService {
 
 		const body = await this.contractBodySnapshot();
 
-		return this.db.contract.create({
+		const row = await this.db.contract.create({
 			data: {
 				title: estimate.title,
 				dealId: estimate.dealId,
@@ -181,12 +181,14 @@ export class ContractsService {
 			},
 			select: DETAIL_SELECT,
 		});
+
+		return { ...row, body: parseTemplateBlocks(row.body) };
 	}
 
 	async create(input: ContractCreateInput, userId: string) {
 		const body = await this.contractBodySnapshot();
 
-		return this.db.contract.create({
+		const row = await this.db.contract.create({
 			data: {
 				title: input.title ?? "Untitled contract",
 				dealId: input.dealId,
@@ -196,6 +198,8 @@ export class ContractsService {
 			},
 			select: DETAIL_SELECT,
 		});
+
+		return { ...row, body: parseTemplateBlocks(row.body) };
 	}
 
 	async update(input: ContractUpdateInput) {
@@ -212,7 +216,7 @@ export class ContractsService {
 		}
 
 		try {
-			return await this.db.contract.update({
+			const row = await this.db.contract.update({
 				where: { id: input.id },
 				data: {
 					...(input.data.title !== undefined
@@ -228,6 +232,8 @@ export class ContractsService {
 				},
 				select: DETAIL_SELECT,
 			});
+
+			return { ...row, body: parseTemplateBlocks(row.body) };
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -299,7 +305,7 @@ export class ContractsService {
 		);
 
 		try {
-			return await this.db.contract.update({
+			const row = await this.db.contract.update({
 				where: { id: input.id },
 				data: {
 					status: "SENT",
@@ -310,6 +316,8 @@ export class ContractsService {
 				},
 				select: DETAIL_SELECT,
 			});
+
+			return { ...row, body: parseTemplateBlocks(row.body) };
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -323,11 +331,13 @@ export class ContractsService {
 		}
 
 		try {
-			return await this.db.contract.update({
+			const row = await this.db.contract.update({
 				where: { id },
 				data: { status: "VOID" },
 				select: DETAIL_SELECT,
 			});
+
+			return { ...row, body: parseTemplateBlocks(row.body) };
 		} catch (error) {
 			throw this.translate(error, id);
 		}

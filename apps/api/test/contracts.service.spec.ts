@@ -4,14 +4,15 @@ import { BadRequestException, ConflictException } from "@nestjs/common";
 import { ContractsService } from "../src/contracts/contracts.service";
 import type { MailerService } from "../src/mailer/mailer.service";
 import type { MergeContextService } from "../src/templates/merge-context.service";
+import type { TemplateBlock } from "../src/templates/template-blocks";
 import type { TemplatesService } from "../src/templates/templates.service";
 
-const CONTRACT_BODY_BLOCKS = [
+const CONTRACT_BODY_BLOCKS: TemplateBlock[] = [
 	{ kind: "heading", text: "Roofing Services Agreement" },
 	{ kind: "text", html: "Body for {{contact.full_name}}." },
 ];
 
-const CONTRACT_SEND_BLOCKS = [
+const CONTRACT_SEND_BLOCKS: TemplateBlock[] = [
 	{ kind: "heading", text: "Please sign" },
 	{ kind: "text", html: "Sign here: {{signing_link}}" },
 ];
