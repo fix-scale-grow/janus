@@ -14,7 +14,11 @@ const GATED_BY_APPROVAL_CARD = new Set([
 	"update_service.ts",
 ]);
 
-const GATED_BY_EXECUTE_CHECK = new Set(["attach_drawing.ts"]);
+const GATED_BY_EXECUTE_CHECK = new Set([
+	"attach_drawing.ts",
+	"manage_fields.ts",
+	"set_field_value.ts",
+]);
 
 const FREE_TOOLS = new Set([
 	"identify_contact.ts",
@@ -22,7 +26,6 @@ const FREE_TOOLS = new Set([
 	"list_drawings.ts",
 	"list_fields.ts",
 	"list_outstanding_work.ts",
-	"manage_fields.ts",
 	"read_crm_history.ts",
 	"read_deal_history.ts",
 	"read_drawing.ts",
@@ -34,10 +37,41 @@ const FREE_TOOLS = new Set([
 	"schedule_recheck.ts",
 	"search_crm.ts",
 	"set_chat_title.ts",
-	"set_field_value.ts",
 	"write_brief.ts",
 	"write_workspace_profile.ts",
 ]);
+
+const EXECUTE_CHECK_CASES: Record<
+	string,
+	{ input: Record<string, unknown>; expected: Record<string, unknown> }
+> = {
+	"attach_drawing.ts": {
+		input: { drawingId: "drawing1" },
+		expected: {
+			attached: false,
+			reason: expect.stringContaining("Not something to do unattended"),
+		},
+	},
+	"manage_fields.ts": {
+		input: { action: "create", entity: "CONTACT", label: "Test", type: "TEXT" },
+		expected: {
+			created: false,
+			reason: expect.stringContaining("Not something to do unattended"),
+		},
+	},
+	"set_field_value.ts": {
+		input: {
+			entity: "CONTACT",
+			recordId: "contact1",
+			key: "test",
+			value: "x",
+		},
+		expected: {
+			written: false,
+			reason: expect.stringContaining("Not something to do unattended"),
+		},
+	},
+};
 
 function automatedSession() {
 	return {
@@ -118,17 +152,15 @@ describe("reversible write tools deny an unattended (APP_AUTH) session in execut
 	for (const file of GATED_BY_EXECUTE_CHECK) {
 		it(`${file} refuses before touching the database`, async () => {
 			const tool = (await import(join(TOOLS_DIR, file))).default;
+			const testCase = EXECUTE_CHECK_CASES[file];
 
 			expect(tool.approval).toBeUndefined();
 
-			const result = await tool.execute({ drawingId: "drawing1" }, {
+			const result = await tool.execute(testCase.input, {
 				session: automatedSession(),
 			} as never);
 
-			expect(result).toMatchObject({
-				attached: false,
-				reason: expect.stringContaining("Not something to do unattended"),
-			});
+			expect(result).toMatchObject(testCase.expected);
 		});
 	}
 });
