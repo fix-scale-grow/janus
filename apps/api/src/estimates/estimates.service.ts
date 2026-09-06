@@ -115,6 +115,7 @@ export class EstimatesService {
 				contact: {
 					select: { id: true, firstName: true, lastName: true, email: true },
 				},
+				drawing: { select: { updatedAt: true } },
 			},
 		});
 
@@ -122,15 +123,20 @@ export class EstimatesService {
 			throw new NotFoundException(`No estimate with id ${id}.`);
 		}
 
+		const { drawing, ...estimate } = row;
+		const drawingStale = drawing
+			? drawing.updatedAt.getTime() > (estimate.drawingSyncedAt?.getTime() ?? 0)
+			: false;
+
 		const totals = { goodCents: 0, betterCents: 0, bestCents: 0 };
-		for (const item of row.lineItems) {
+		for (const item of estimate.lineItems) {
 			const quantity = Number(item.quantity);
 			totals.goodCents += Math.round(quantity * item.priceGoodCents);
 			totals.betterCents += Math.round(quantity * item.priceBetterCents);
 			totals.bestCents += Math.round(quantity * item.priceBestCents);
 		}
 
-		return { ...row, totals };
+		return { ...estimate, totals, drawingStale };
 	}
 
 	async create(input: EstimateCreateInput, userId: string) {
@@ -317,6 +323,7 @@ export class EstimatesService {
 					drawingId: drawing.id,
 					currency: drawing.deal?.currency ?? "USD",
 					createdById: userId,
+					drawingSyncedAt: new Date(),
 				},
 			});
 
@@ -357,6 +364,22 @@ export class EstimatesService {
 
 		const shapes = this.measureDrawing(drawing.scene, drawing.scale);
 		const byScopeId = new Map(shapes.map((shape) => [shape.scopeId, shape]));
+		const [services, symbols] = await Promise.all([
+			this.db.service.findMany({ where: { active: true } }),
+			this.db.symbol.findMany({ select: { id: true, serviceId: true } }),
+		]);
+		const knownScopeIds = new Set(
+			estimate.lineItems
+				.map((item) => item.scopeId)
+				.filter((scopeId): scopeId is string => scopeId !== null),
+		);
+		const additions = buildLineItems(shapes, services, symbols).filter(
+			(draft) => draft.scopeId !== null && !knownScopeIds.has(draft.scopeId),
+		);
+		const nextSortOrder = estimate.lineItems.reduce(
+			(highest, item) => Math.max(highest, item.sortOrder + 1),
+			0,
+		);
 
 		const changed: {
 			lineItemId: string;
@@ -364,6 +387,7 @@ export class EstimatesService {
 			oldQuantity: number;
 			newQuantity: number;
 		}[] = [];
+		const added: { lineItemId: string; name: string; quantity: number }[] = [];
 
 		await this.db.$transaction(async (tx) => {
 			for (const item of estimate.lineItems) {
@@ -391,9 +415,31 @@ export class EstimatesService {
 					newQuantity,
 				});
 			}
+
+			for (const [index, draft] of additions.entries()) {
+				const created = await tx.estimateLineItem.create({
+					data: {
+						estimateId: estimate.id,
+						...draft,
+						sortOrder: nextSortOrder + index,
+					},
+					select: { id: true, name: true },
+				});
+				added.push({
+					lineItemId: created.id,
+					name: created.name,
+					quantity: draft.quantity,
+				});
+			}
+
+			await tx.estimate.update({
+				where: { id: estimate.id },
+				data: { drawingSyncedAt: new Date() },
+				select: { id: true },
+			});
 		});
 
-		return { changed };
+		return { changed, added };
 	}
 
 	async assignContact(input: EstimateAssignContactInput) {

@@ -69,8 +69,7 @@ export type EstimateLineItemRow = EstimateDetail["lineItems"][number];
 export type EstimateTier = EstimateDetail["selectedTier"];
 export type EstimateStatusValue = EstimateDetail["status"];
 
-type ResyncChange =
-	RouterOutputs["estimates"]["resyncFromDrawing"]["changed"][number];
+type ResyncResult = RouterOutputs["estimates"]["resyncFromDrawing"];
 
 const TIER_LABEL: Record<EstimateTier, string> = {
 	GOOD: "Good",
@@ -175,9 +174,7 @@ export function EstimateBuilder({
 
 	const [editingTitle, setEditingTitle] = useState(false);
 	const [titleDraft, setTitleDraft] = useState(data.title);
-	const [resyncChanges, setResyncChanges] = useState<ResyncChange[] | null>(
-		null,
-	);
+	const [resyncResult, setResyncResult] = useState<ResyncResult | null>(null);
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
 
@@ -242,11 +239,11 @@ export function EstimateBuilder({
 		trpc.estimates.resyncFromDrawing.mutationOptions({
 			onSuccess: async (result) => {
 				await cache.estimate(estimateId, { settle: "record" });
-				if (result.changed.length === 0) {
-					toast.success("Quantities already match.");
+				if (result.changed.length === 0 && result.added.length === 0) {
+					toast.success("This estimate already matches the drawing.");
 					return;
 				}
-				setResyncChanges(result.changed);
+				setResyncResult(result);
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -388,12 +385,14 @@ export function EstimateBuilder({
 								</Link>
 							</Button>
 							<Button
-								variant="outline"
+								variant={data.drawingStale ? "default" : "outline"}
 								size="sm"
 								disabled={resync.isPending}
 								onClick={() => resync.mutate({ id: estimateId })}
 							>
-								Re-sync from drawing
+								{data.drawingStale
+									? "Drawing changed — re-sync"
+									: "Re-sync from drawing"}
 							</Button>
 						</>
 					)}
@@ -520,27 +519,32 @@ export function EstimateBuilder({
 			</PageShellContent>
 
 			<Dialog
-				open={resyncChanges !== null}
+				open={resyncResult !== null}
 				onOpenChange={(open) => {
-					if (!open) setResyncChanges(null);
+					if (!open) setResyncResult(null);
 				}}
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Quantities updated</DialogTitle>
+						<DialogTitle>Estimate updated</DialogTitle>
 						<DialogDescription>
 							The drawing changed since this estimate was generated.
 						</DialogDescription>
 					</DialogHeader>
 					<ul className="flex flex-col gap-1 text-sm">
-						{resyncChanges?.map((change) => (
+						{resyncResult?.changed.map((change) => (
 							<li key={change.lineItemId}>
 								{change.name}: {change.oldQuantity} → {change.newQuantity}
 							</li>
 						))}
+						{resyncResult?.added.map((addition) => (
+							<li key={addition.lineItemId}>
+								{addition.name}: added, {addition.quantity}
+							</li>
+						))}
 					</ul>
 					<DialogFooter>
-						<Button onClick={() => setResyncChanges(null)}>Done</Button>
+						<Button onClick={() => setResyncResult(null)}>Done</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>

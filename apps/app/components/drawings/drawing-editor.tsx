@@ -590,8 +590,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 						await flushPending();
 						generateEstimate.mutate({ drawingId: props.drawingId });
 					}}
-					onOpenEstimate={() => {
+					onOpenEstimate={async () => {
 						if (!newestEstimateId) return;
+						await flushPending();
 						router.push(workspaceUrl(`/estimates/${newestEstimateId}`));
 					}}
 					onUpdateShape={updateShape}
