@@ -21,6 +21,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { TableCell } from "@crm/ui/components/table";
+import { formatMoney } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -73,9 +74,15 @@ function LinkedTo({ row }: { row: ContractRow }) {
 	return <span className="truncate">{row.estimate.title}</span>;
 }
 
-function LinkedValue({ row }: { row: ContractRow }) {
-	if (!row.invoice) return <EmptyCellValue />;
-	return <span className="text-muted-foreground">#{row.invoice.number}</span>;
+function ContractValue({ row }: { row: ContractRow }) {
+	if (row.valueCents === null || row.currency === null) {
+		return <EmptyCellValue />;
+	}
+	return (
+		<span className="tabular-nums">
+			{formatMoney(row.valueCents, row.currency)}
+		</span>
+	);
 }
 
 export function ContractsTable({
@@ -149,7 +156,7 @@ function PageContractsTable() {
 			align: "right",
 			width: "w-[12%]",
 			hideBelow: "sm",
-			cell: (row) => <LinkedValue row={row} />,
+			cell: (row) => <ContractValue row={row} />,
 		},
 		{
 			id: "open",
@@ -270,8 +277,8 @@ function EmbeddedContractsTable({
 					<TableCell className="truncate py-2.5 pr-3">
 						<LinkedTo row={row} />
 					</TableCell>
-					<TableCell className="py-2.5 pr-3 text-right">
-						<LinkedValue row={row} />
+					<TableCell className="py-2.5 pr-3 text-right tabular-nums">
+						<ContractValue row={row} />
 					</TableCell>
 					<TableCell className="py-2.5 pr-3">
 						<Button

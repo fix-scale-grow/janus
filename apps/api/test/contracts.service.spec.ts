@@ -109,7 +109,10 @@ function applySelect<T extends Record<string, unknown>>(
 	return result;
 }
 
-function fakeDb(initial: FakeContract) {
+function fakeDb(
+	initial: FakeContract,
+	listRows: Record<string, unknown>[] = [],
+) {
 	let row = initial;
 	const estimates = new Map<
 		string,
@@ -124,6 +127,8 @@ function fakeDb(initial: FakeContract) {
 		contract: {
 			findUnique: async (args: { select?: Record<string, unknown> } = {}) =>
 				applySelect(row, args.select),
+			findMany: async () => listRows,
+			count: async () => listRows.length,
 			create: async ({
 				data,
 				select,
@@ -166,6 +171,132 @@ function fakeDb(initial: FakeContract) {
 		) => estimates.set(id, estimate),
 	};
 }
+
+const LIST_ROW_BASE = {
+	id: "contract1",
+	number: 1,
+	title: "Roof job contract",
+	status: "DRAFT",
+	dealId: null,
+	contactId: null,
+	sentAt: null,
+	signedAt: null,
+	updatedAt: new Date("2026-02-01T00:00:00Z"),
+	contact: null,
+	estimate: null,
+	invoice: null,
+};
+
+describe("ContractsService.list", () => {
+	it("shows the invoice total when a contract has a linked invoice", async () => {
+		const { db } = fakeDb(baseContract(), [
+			{
+				...LIST_ROW_BASE,
+				estimate: {
+					id: "est1",
+					title: "Roof estimate",
+					currency: "USD",
+					selectedTier: "BETTER",
+					lineItems: [
+						{
+							quantity: "2",
+							priceGoodCents: 1000,
+							priceBetterCents: 2000,
+							priceBestCents: 3000,
+						},
+					],
+				},
+				invoice: {
+					id: "inv1",
+					number: 7,
+					currency: "USD",
+					lineItems: [
+						{ quantity: "3", priceCents: 500 },
+						{ quantity: "1", priceCents: 250 },
+					],
+				},
+			},
+		]);
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(true),
+		);
+
+		const result = await service.list({
+			q: "",
+			sort: "updatedAt",
+			dir: "desc",
+			page: 1,
+			pageSize: 20,
+		});
+
+		expect(result.rows[0]?.valueCents).toBe(1750);
+		expect(result.rows[0]?.currency).toBe("USD");
+	});
+
+	it("shows the estimate's selected-tier total when there is only an estimate", async () => {
+		const { db } = fakeDb(baseContract(), [
+			{
+				...LIST_ROW_BASE,
+				estimate: {
+					id: "est1",
+					title: "Roof estimate",
+					currency: "USD",
+					selectedTier: "BEST",
+					lineItems: [
+						{
+							quantity: "2",
+							priceGoodCents: 1000,
+							priceBetterCents: 2000,
+							priceBestCents: 3000,
+						},
+					],
+				},
+				invoice: null,
+			},
+		]);
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(true),
+		);
+
+		const result = await service.list({
+			q: "",
+			sort: "updatedAt",
+			dir: "desc",
+			page: 1,
+			pageSize: 20,
+		});
+
+		expect(result.rows[0]?.valueCents).toBe(6000);
+		expect(result.rows[0]?.currency).toBe("USD");
+	});
+
+	it("shows null when there is neither an invoice nor an estimate", async () => {
+		const { db } = fakeDb(baseContract(), [{ ...LIST_ROW_BASE }]);
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(true),
+		);
+
+		const result = await service.list({
+			q: "",
+			sort: "updatedAt",
+			dir: "desc",
+			page: 1,
+			pageSize: 20,
+		});
+
+		expect(result.rows[0]?.valueCents).toBeNull();
+		expect(result.rows[0]?.currency).toBeNull();
+	});
+});
 
 describe("ContractsService.byId", () => {
 	it("never returns signingToken or signatureData", async () => {

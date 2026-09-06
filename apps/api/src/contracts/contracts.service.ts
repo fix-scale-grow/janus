@@ -3,6 +3,7 @@ import { appUrl, DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import {
 	type ContractStatus,
 	type Db,
+	type EstimateTier,
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
@@ -14,6 +15,8 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import { tierTotals } from "../estimates/estimate-pdf";
+import { invoiceTotalCents } from "../invoices/invoice-pdf";
 import { MailerService } from "../mailer/mailer.service";
 import { MergeContextService } from "../templates/merge-context.service";
 import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
@@ -43,8 +46,30 @@ const LIST_SELECT = {
 	sentAt: true,
 	signedAt: true,
 	updatedAt: true,
-	estimate: { select: { id: true, title: true } },
-	invoice: { select: { id: true, number: true } },
+	estimate: {
+		select: {
+			id: true,
+			title: true,
+			currency: true,
+			selectedTier: true,
+			lineItems: {
+				select: {
+					quantity: true,
+					priceGoodCents: true,
+					priceBetterCents: true,
+					priceBestCents: true,
+				},
+			},
+		},
+	},
+	invoice: {
+		select: {
+			id: true,
+			number: true,
+			currency: true,
+			lineItems: { select: { quantity: true, priceCents: true } },
+		},
+	},
 	contact: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 
@@ -104,6 +129,63 @@ function contactName(contact: {
 	return [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 }
 
+type ContractValueEstimate = {
+	currency: string;
+	selectedTier: EstimateTier;
+	lineItems: {
+		quantity: Prisma.Decimal | number | string;
+		priceGoodCents: number;
+		priceBetterCents: number;
+		priceBestCents: number;
+	}[];
+};
+
+type ContractValueInvoice = {
+	currency: string;
+	lineItems: {
+		quantity: Prisma.Decimal | number | string;
+		priceCents: number;
+	}[];
+};
+
+function contractValue(row: {
+	estimate: ContractValueEstimate | null;
+	invoice: ContractValueInvoice | null;
+}): { valueCents: number | null; currency: string | null } {
+	if (row.invoice) {
+		const valueCents = invoiceTotalCents(
+			row.invoice.lineItems.map((item) => ({
+				name: "",
+				unit: "PER_EACH",
+				areaLabel: null,
+				quantity: Number(item.quantity),
+				priceCents: item.priceCents,
+			})),
+		);
+		return { valueCents, currency: row.invoice.currency };
+	}
+
+	if (row.estimate) {
+		const totals = tierTotals(
+			row.estimate.lineItems.map((item) => ({
+				name: "",
+				unit: "PER_EACH",
+				areaLabel: null,
+				quantity: Number(item.quantity),
+				priceGoodCents: item.priceGoodCents,
+				priceBetterCents: item.priceBetterCents,
+				priceBestCents: item.priceBestCents,
+			})),
+		);
+		return {
+			valueCents: totals[row.estimate.selectedTier],
+			currency: row.estimate.currency,
+		};
+	}
+
+	return { valueCents: null, currency: null };
+}
+
 @Injectable()
 export class ContractsService {
 	private readonly logger = new Logger(ContractsService.name);
@@ -131,8 +213,11 @@ export class ContractsService {
 		]);
 
 		return {
-			rows: rows.map(({ contact, ...row }) => ({
+			rows: rows.map(({ contact, estimate, invoice, ...row }) => ({
 				...row,
+				estimate: estimate ? { id: estimate.id, title: estimate.title } : null,
+				invoice: invoice ? { id: invoice.id, number: invoice.number } : null,
+				...contractValue({ estimate, invoice }),
 				contact: contact
 					? { id: contact.id, name: contactName(contact) }
 					: null,
