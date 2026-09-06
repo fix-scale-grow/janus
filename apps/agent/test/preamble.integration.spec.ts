@@ -145,6 +145,27 @@ describe("drawingPreamble", () => {
 		expect(markdown).toContain(": deal name ---");
 		expect(markdown).toContain(`Fernhill platform ${suffix}`);
 	});
+
+	it("keeps the intentional blank line before Start with, without a contact attached", async () => {
+		const drawing = await db.drawing.create({
+			data: {
+				title: `No contact takeoff ${suffix}`,
+				scene: {},
+				createdById: userId,
+				dealId,
+			},
+			select: { id: true },
+		});
+
+		const { markdown } = await drawingPreamble(drawing.id, rep);
+
+		expect(markdown).toContain(
+			"has been generated from it yet.\n\nA drawing here is a job's takeoff",
+		);
+		expect(markdown).toContain(
+			"shows as unassigned.\n\n**A rep has this record open",
+		);
+	});
 });
 
 describe("who opened the session", () => {

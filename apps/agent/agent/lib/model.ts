@@ -10,9 +10,11 @@ export interface ModelSelection {
 	modelContextWindowTokens: number;
 }
 
-export const DIRECT_ANTHROPIC_DEFAULT_MODEL_ID = "claude-sonnet-5";
-const DIRECT_ANTHROPIC_DEFAULT_CONTEXT_WINDOW_TOKENS = 200_000;
-const ANTHROPIC_OAUTH_BETA_HEADER = "oauth-2025-04-20";
+export const DIRECT_ANTHROPIC = {
+	defaultModelId: "claude-sonnet-5",
+	defaultContextWindowTokens: 200_000,
+	oauthBetaHeader: "oauth-2025-04-20",
+} as const;
 
 function directAnthropicProvider(): ReturnType<typeof createAnthropic> | null {
 	const provider = resolveProvider(process.env);
@@ -23,7 +25,7 @@ function directAnthropicProvider(): ReturnType<typeof createAnthropic> | null {
 		? createAnthropic({ apiKey: provider.apiKey })
 		: createAnthropic({
 				authToken: provider.token,
-				headers: { "anthropic-beta": ANTHROPIC_OAUTH_BETA_HEADER },
+				headers: { "anthropic-beta": DIRECT_ANTHROPIC.oauthBetaHeader },
 			});
 }
 
@@ -41,11 +43,9 @@ export async function selectedModel(): Promise<ModelSelection | null> {
 			};
 		}
 
-		const id = setting.isDefault
-			? DIRECT_ANTHROPIC_DEFAULT_MODEL_ID
-			: setting.id;
+		const id = setting.isDefault ? DIRECT_ANTHROPIC.defaultModelId : setting.id;
 		const modelContextWindowTokens = setting.isDefault
-			? DIRECT_ANTHROPIC_DEFAULT_CONTEXT_WINDOW_TOKENS
+			? DIRECT_ANTHROPIC.defaultContextWindowTokens
 			: setting.contextWindowTokens;
 
 		return {

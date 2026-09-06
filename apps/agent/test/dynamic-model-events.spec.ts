@@ -10,7 +10,7 @@ import {
 import { db, type Prisma } from "@crm/db";
 import { DEFAULT_AGENT_MODEL, SETTINGS_ID } from "@crm/db/settings";
 import {
-	DIRECT_ANTHROPIC_DEFAULT_MODEL_ID,
+	DIRECT_ANTHROPIC,
 	dynamicAgentModelEvents,
 	type ModelSelection,
 	selectedModelId,
@@ -81,10 +81,10 @@ describe("dynamicAgentModelEvents", () => {
 		expect(selection?.modelContextWindowTokens).toBe(200_000);
 
 		if (selection && typeof selection.model !== "string") {
-			expect(selection.model.modelId).toBe(DIRECT_ANTHROPIC_DEFAULT_MODEL_ID);
+			expect(selection.model.modelId).toBe(DIRECT_ANTHROPIC.defaultModelId);
 		}
 
-		expect(modelFor("sess_direct")).toBe(DIRECT_ANTHROPIC_DEFAULT_MODEL_ID);
+		expect(modelFor("sess_direct")).toBe(DIRECT_ANTHROPIC.defaultModelId);
 	});
 
 	it("the session.started handler returns null and tracks the gateway fallback", async () => {

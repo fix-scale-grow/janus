@@ -937,7 +937,9 @@ export class ConversationsService {
 		const [recordId] = recordIds;
 
 		if (!recordId || recordIds.length !== 1) {
-			throw new BadRequestException("Choose exactly one contact or deal.");
+			throw new BadRequestException(
+				"Choose exactly one contact, deal or drawing.",
+			);
 		}
 
 		return recordId;

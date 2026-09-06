@@ -219,6 +219,7 @@ export class AgentTriggerService {
 			priority: PRIORITY.requested,
 			budget: 6,
 			payload: { estimateId },
+			subject: { path: ["estimateId"], value: estimateId },
 		});
 	}
 
