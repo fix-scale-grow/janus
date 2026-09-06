@@ -37,6 +37,7 @@ import { DrawingHistory } from "./drawing-history";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { SaveSymbolDialog } from "./save-symbol-dialog";
 import { ScaleDialog } from "./scale-dialog";
+import { initialSceneChangeState, nextSceneChange } from "./scene-change";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
 import { SymbolPalette } from "./symbol-palette";
 import { useBackgroundImage } from "./use-background-image";
@@ -108,7 +109,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const getSceneVersionRef = useRef<
 		((elements: readonly ExcalidrawElement[]) => number) | null
 	>(null);
-	const lastQueuedVersionRef = useRef<number | null>(null);
+	const sceneChangeRef = useRef(initialSceneChangeState());
 	const satelliteUpdateRef = useRef<
 		((scopeId: string, update: ScopeShapeUpdate) => void) | null
 	>(null);
@@ -254,10 +255,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 			const getVersion = getSceneVersionRef.current;
 			const version = getVersion ? getVersion(elements) : null;
-			if (version === null || version !== lastQueuedVersionRef.current) {
-				lastQueuedVersionRef.current = version;
-				queueSave();
-			}
+			const decision = nextSceneChange(sceneChangeRef.current, version);
+			sceneChangeRef.current = decision.state;
+			if (decision.save) queueSave();
 
 			if (calibrating) {
 				const selectedIds = Object.keys(appState.selectedElementIds).filter(
