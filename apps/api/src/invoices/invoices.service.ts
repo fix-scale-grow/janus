@@ -7,6 +7,10 @@ import {
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
+import { MergeContextService } from "../templates/merge-context.service";
+import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
+import { parseTemplateBlocks } from "../templates/template-blocks";
+import { TemplatesService } from "../templates/templates.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
 import { agingBucket, linesFromEstimate } from "./invoice-logic";
 import { renderInvoicePdf } from "./invoice-pdf";
@@ -79,6 +83,8 @@ export class InvoicesService {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly mailer: MailerService,
+		private readonly templates: TemplatesService,
+		private readonly mergeContext: MergeContextService,
 	) {}
 
 	async list(input: InvoiceListInput) {
@@ -323,7 +329,7 @@ export class InvoicesService {
 		};
 	}
 
-	async send(input: InvoiceSendInput) {
+	async send(input: InvoiceSendInput, senderName?: string) {
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -340,10 +346,32 @@ export class InvoicesService {
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderInvoicePdf(invoice, workspaceName);
 
+		const context = await this.mergeContext.resolve({
+			contactId: invoice.contactId ?? undefined,
+			dealId: invoice.dealId ?? undefined,
+			invoiceId: invoice.id,
+			senderName,
+			personalNote: input.personalNote,
+		});
+
+		const template = await this.templates.byPurpose({
+			purpose: "INVOICE_SEND",
+		});
+		const blocks = parseTemplateBlocks(template.blocks);
+
+		const subject =
+			input.subject ??
+			(template.subject
+				? applyMergeFields(template.subject, context)
+				: `Your invoice from ${workspaceName}`);
+
+		const { html, text } = renderEmailHtml(blocks, context);
+
 		const result = await this.mailer.send({
 			to,
-			subject: input.subject,
-			text: input.message,
+			subject,
+			text,
+			html,
 			attachments: [
 				{
 					filename: `invoice-${invoice.number}.pdf`,

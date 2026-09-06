@@ -15,6 +15,10 @@ import {
 import { ContactsService } from "../contacts/contacts.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
+import { MergeContextService } from "../templates/merge-context.service";
+import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
+import { parseTemplateBlocks } from "../templates/template-blocks";
+import { TemplatesService } from "../templates/templates.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
 import { renderEstimatePdf } from "./estimate-pdf";
 import type {
@@ -68,6 +72,8 @@ export class EstimatesService {
 		@InjectDatabase() private readonly db: Db,
 		private readonly contacts: ContactsService,
 		private readonly mailer: MailerService,
+		private readonly templates: TemplatesService,
+		private readonly mergeContext: MergeContextService,
 	) {}
 
 	async list(input: EstimateListInput) {
@@ -447,7 +453,7 @@ export class EstimatesService {
 		};
 	}
 
-	async send(input: EstimateSendInput) {
+	async send(input: EstimateSendInput, senderName?: string) {
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -464,10 +470,32 @@ export class EstimatesService {
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderEstimatePdf(estimate, workspaceName);
 
+		const context = await this.mergeContext.resolve({
+			contactId: estimate.contactId ?? undefined,
+			dealId: estimate.dealId ?? undefined,
+			estimateId: estimate.id,
+			senderName,
+			personalNote: input.personalNote,
+		});
+
+		const template = await this.templates.byPurpose({
+			purpose: "ESTIMATE_SEND",
+		});
+		const blocks = parseTemplateBlocks(template.blocks);
+
+		const subject =
+			input.subject ??
+			(template.subject
+				? applyMergeFields(template.subject, context)
+				: `Your estimate from ${workspaceName}`);
+
+		const { html, text } = renderEmailHtml(blocks, context);
+
 		const result = await this.mailer.send({
 			to,
-			subject: input.subject,
-			text: input.message,
+			subject,
+			text,
+			html,
 			attachments: [
 				{
 					filename: `${this.filenameStem(estimate.title)}.pdf`,

@@ -3,6 +3,14 @@ import type { Db } from "@crm/db";
 import { BadRequestException } from "@nestjs/common";
 import { InvoicesService } from "../src/invoices/invoices.service";
 import type { MailerService } from "../src/mailer/mailer.service";
+import type { MergeContextService } from "../src/templates/merge-context.service";
+import type { TemplateBlock } from "../src/templates/template-blocks";
+import type { TemplatesService } from "../src/templates/templates.service";
+
+const INVOICE_SEND_BLOCKS: TemplateBlock[] = [
+	{ kind: "heading", text: "Your invoice is ready" },
+	{ kind: "text", html: "Hi {{contact.first_name}}. {{personal_note}}" },
+];
 
 function invoiceRow(issuedAt: Date | null) {
 	return {
@@ -62,33 +70,75 @@ function fakeDb(issuedAt: Date | null) {
 }
 
 function fakeMailer(delivered: boolean) {
-	return {
+	let lastSend: {
+		subject: string;
+		html?: string;
+		text?: string;
+	} | null = null;
+
+	const mailer = {
 		isConfigured: () => true,
-		send: async () => ({ delivered }),
+		send: async (args: { subject: string; html?: string; text?: string }) => {
+			lastSend = args;
+			return { delivered };
+		},
 	} as unknown as MailerService;
+
+	return { mailer, lastSend: () => lastSend };
+}
+
+function fakeTemplates(
+	subject: string | null = "Your invoice from {{business.name}}",
+) {
+	return {
+		byPurpose: async () => ({
+			id: "tmpl-invoice-send",
+			subject,
+			blocks: INVOICE_SEND_BLOCKS,
+		}),
+	} as unknown as TemplatesService;
+}
+
+function fakeMergeContext() {
+	return {
+		resolve: async (refs: Record<string, unknown>) => ({
+			"business.name": "Acme Roofing",
+			"contact.first_name": "Jane",
+			personal_note:
+				typeof refs.personalNote === "string" ? refs.personalNote : "",
+		}),
+	} as unknown as MergeContextService;
 }
 
 describe("InvoicesService.send", () => {
 	it("throws and never flips status when delivery fails", async () => {
 		const { db, updateData } = fakeDb(null);
-		const service = new InvoicesService(db, fakeMailer(false));
+		const { mailer } = fakeMailer(false);
+		const service = new InvoicesService(
+			db,
+			mailer,
+			fakeTemplates(),
+			fakeMergeContext(),
+		);
 
-		await expect(
-			service.send({ id: "inv1", subject: "Invoice", message: "Hi" }),
-		).rejects.toBeInstanceOf(BadRequestException);
+		await expect(service.send({ id: "inv1" })).rejects.toBeInstanceOf(
+			BadRequestException,
+		);
 
 		expect(updateData()).toBeNull();
 	});
 
 	it("sets status to SENT and stamps issuedAt when delivery succeeds", async () => {
 		const { db } = fakeDb(null);
-		const service = new InvoicesService(db, fakeMailer(true));
+		const { mailer } = fakeMailer(true);
+		const service = new InvoicesService(
+			db,
+			mailer,
+			fakeTemplates(),
+			fakeMergeContext(),
+		);
 
-		const result = await service.send({
-			id: "inv1",
-			subject: "Invoice",
-			message: "Hi",
-		});
+		const result = await service.send({ id: "inv1" });
 
 		expect(result.status).toBe("SENT");
 		expect(result.issuedAt).toBeInstanceOf(Date);
@@ -97,15 +147,62 @@ describe("InvoicesService.send", () => {
 	it("does not overwrite issuedAt when already set", async () => {
 		const existingIssuedAt = new Date("2026-01-05T00:00:00Z");
 		const { db, updateData } = fakeDb(existingIssuedAt);
-		const service = new InvoicesService(db, fakeMailer(true));
+		const { mailer } = fakeMailer(true);
+		const service = new InvoicesService(
+			db,
+			mailer,
+			fakeTemplates(),
+			fakeMergeContext(),
+		);
 
-		const result = await service.send({
-			id: "inv1",
-			subject: "Invoice",
-			message: "Hi",
-		});
+		const result = await service.send({ id: "inv1" });
 
 		expect(result.issuedAt).toEqual(existingIssuedAt);
 		expect(updateData()?.issuedAt).toEqual(existingIssuedAt);
+	});
+
+	it("renders the subject from the purpose template", async () => {
+		const { db } = fakeDb(null);
+		const { mailer, lastSend } = fakeMailer(true);
+		const service = new InvoicesService(
+			db,
+			mailer,
+			fakeTemplates("Your invoice from {{business.name}}"),
+			fakeMergeContext(),
+		);
+
+		await service.send({ id: "inv1" });
+
+		expect(lastSend()?.subject).toBe("Your invoice from Acme Roofing");
+	});
+
+	it("substitutes the personal note into the rendered email", async () => {
+		const { db } = fakeDb(null);
+		const { mailer, lastSend } = fakeMailer(true);
+		const service = new InvoicesService(
+			db,
+			mailer,
+			fakeTemplates(),
+			fakeMergeContext(),
+		);
+
+		await service.send({ id: "inv1", personalNote: "Thanks again!" });
+
+		expect(lastSend()?.html).toContain("Thanks again!");
+	});
+
+	it("lets an explicit subject override the template's subject", async () => {
+		const { db } = fakeDb(null);
+		const { mailer, lastSend } = fakeMailer(true);
+		const service = new InvoicesService(
+			db,
+			mailer,
+			fakeTemplates("Your invoice from {{business.name}}"),
+			fakeMergeContext(),
+		);
+
+		await service.send({ id: "inv1", subject: "Custom subject" });
+
+		expect(lastSend()?.subject).toBe("Custom subject");
 	});
 });

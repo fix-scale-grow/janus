@@ -114,8 +114,11 @@ export class EstimatesRouter {
 	}
 
 	@Mutation({ input: estimateSendInput })
-	async send(@Input() input: z.infer<typeof estimateSendInput>) {
-		return this.estimates.send(input);
+	async send(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof estimateSendInput>,
+	) {
+		return this.estimates.send(input, ctx.user.name);
 	}
 
 	@Query()

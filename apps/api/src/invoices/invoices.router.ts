@@ -100,7 +100,10 @@ export class InvoicesRouter {
 	}
 
 	@Mutation({ input: invoiceSendInput })
-	async send(@Input() input: z.infer<typeof invoiceSendInput>) {
-		return this.invoices.send(input);
+	async send(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof invoiceSendInput>,
+	) {
+		return this.invoices.send(input, ctx.user.name);
 	}
 }

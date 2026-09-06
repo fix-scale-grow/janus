@@ -98,8 +98,8 @@ export type InvoiceLineItemIdInput = z.infer<typeof invoiceLineItemIdInput>;
 export const invoiceSendInput = z.object({
 	id: z.string().min(1),
 	to: z.email("That is not an email address.").optional(),
-	subject: z.string().trim().min(1).max(200),
-	message: z.string().trim().min(1).max(5000),
+	subject: z.string().trim().min(1).max(200).optional(),
+	personalNote: z.string().trim().max(2000).optional(),
 });
 
 export type InvoiceSendInput = z.infer<typeof invoiceSendInput>;

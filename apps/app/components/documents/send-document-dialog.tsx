@@ -1,5 +1,6 @@
 "use client";
 
+import type { TemplatePurpose } from "@crm/db/enums";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -13,82 +14,99 @@ import { Field, FieldLabel } from "@crm/ui/components/field";
 import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import { useTRPC } from "@/lib/trpc/client";
 
 export type SendDocumentMutation = {
 	mutate: (input: {
 		id: string;
 		to: string;
-		subject: string;
-		message: string;
+		subject?: string;
+		personalNote?: string;
 	}) => void;
 	isPending: boolean;
+};
+
+export type SendDocumentRefs = {
+	contactId?: string;
+	dealId?: string;
+	estimateId?: string;
+	invoiceId?: string;
 };
 
 export function SendDocumentDialog({
 	documentId,
 	entityLabel,
-	defaultSubject,
+	purpose,
+	refs,
 	defaultTo,
-	defaultMessage,
 	open,
 	onOpenChange,
 	mutation,
 }: {
 	documentId: string;
 	entityLabel: string;
-	defaultSubject: string;
+	purpose: TemplatePurpose;
+	refs: SendDocumentRefs;
 	defaultTo: string;
-	defaultMessage: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	mutation: SendDocumentMutation;
 }) {
+	const trpc = useTRPC();
 	const toId = useId();
 	const subjectId = useId();
-	const messageId = useId();
+	const noteId = useId();
 
 	const [to, setTo] = useState(defaultTo);
-	const [subject, setSubject] = useState(defaultSubject);
-	const [message, setMessage] = useState(defaultMessage);
+	const [subject, setSubject] = useState("");
+	const [subjectDirty, setSubjectDirty] = useState(false);
+	const [personalNote, setPersonalNote] = useState("");
+
+	const preview = useQuery({
+		...trpc.templates.preview.queryOptions({ purpose, ...refs }),
+		enabled: open,
+	});
 
 	useEffect(() => {
 		if (!open) return;
 		setTo(defaultTo);
-		setSubject(defaultSubject);
-		setMessage(defaultMessage);
-	}, [open, defaultTo, defaultSubject, defaultMessage]);
+		setSubject("");
+		setSubjectDirty(false);
+		setPersonalNote("");
+	}, [open, defaultTo]);
+
+	useEffect(() => {
+		if (subjectDirty || !preview.data) return;
+		setSubject(preview.data.subject);
+	}, [preview.data, subjectDirty]);
 
 	const submit = () => {
 		const trimmedTo = to.trim();
 		const trimmedSubject = subject.trim();
-		const trimmedMessage = message.trim();
 
 		if (!trimmedTo) {
 			toast.error(`Enter who this ${entityLabel} goes to.`);
 			return;
 		}
-		if (!trimmedSubject) {
+		if (subjectDirty && !trimmedSubject) {
 			toast.error("Give the email a subject.");
-			return;
-		}
-		if (!trimmedMessage) {
-			toast.error("Write a short message.");
 			return;
 		}
 
 		mutation.mutate({
 			id: documentId,
 			to: trimmedTo,
-			subject: trimmedSubject,
-			message: trimmedMessage,
+			subject: subjectDirty ? trimmedSubject : undefined,
+			personalNote: personalNote.trim() || undefined,
 		});
 	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
+			<DialogContent className="sm:max-w-(--container-page-wide)">
 				<DialogHeader>
 					<DialogTitle>Send {entityLabel}</DialogTitle>
 					<DialogDescription>
@@ -96,35 +114,49 @@ export function SendDocumentDialog({
 						Send.
 					</DialogDescription>
 				</DialogHeader>
-				<div className="flex flex-col gap-4">
-					<Field>
-						<FieldLabel htmlFor={toId}>To</FieldLabel>
-						<Input
-							id={toId}
-							type="email"
-							value={to}
-							onChange={(event) => setTo(event.target.value)}
-							autoComplete="off"
+				<div className="grid gap-4 md:grid-cols-2">
+					<div className="flex flex-col gap-4">
+						<Field>
+							<FieldLabel htmlFor={toId}>To</FieldLabel>
+							<Input
+								id={toId}
+								type="email"
+								value={to}
+								onChange={(event) => setTo(event.target.value)}
+								autoComplete="off"
+							/>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor={subjectId}>Subject</FieldLabel>
+							<Input
+								id={subjectId}
+								value={subject}
+								onChange={(event) => {
+									setSubject(event.target.value);
+									setSubjectDirty(true);
+								}}
+								autoComplete="off"
+							/>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor={noteId}>Personal note (optional)</FieldLabel>
+							<Textarea
+								id={noteId}
+								rows={6}
+								value={personalNote}
+								onChange={(event) => setPersonalNote(event.target.value)}
+							/>
+						</Field>
+					</div>
+					<div className="flex flex-col gap-1">
+						<span className="text-muted-foreground text-xs">Preview</span>
+						<iframe
+							title={`${entityLabel} email preview`}
+							sandbox=""
+							srcDoc={preview.data?.html ?? ""}
+							className="h-80 w-full rounded-lg border bg-white"
 						/>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor={subjectId}>Subject</FieldLabel>
-						<Input
-							id={subjectId}
-							value={subject}
-							onChange={(event) => setSubject(event.target.value)}
-							autoComplete="off"
-						/>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor={messageId}>Message</FieldLabel>
-						<Textarea
-							id={messageId}
-							rows={6}
-							value={message}
-							onChange={(event) => setMessage(event.target.value)}
-						/>
-					</Field>
+					</div>
 				</div>
 				<DialogFooter>
 					<Button
@@ -135,7 +167,7 @@ export function SendDocumentDialog({
 						Cancel
 					</Button>
 					<Button onClick={submit} disabled={mutation.isPending}>
-						{mutation.isPending ? <Spinner /> : null}
+						{mutation.isPending ? <Spinner data-icon="inline-start" /> : null}
 						Send {entityLabel}
 					</Button>
 				</DialogFooter>

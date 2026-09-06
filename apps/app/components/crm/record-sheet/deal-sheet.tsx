@@ -25,6 +25,8 @@ import {
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ContractsTable } from "@/app/(app)/[slug]/contracts/contracts-table";
+import { NewContractButton } from "@/app/(app)/[slug]/contracts/new-contract-button";
 import { EstimatesTable } from "@/app/(app)/[slug]/estimates/estimates-table";
 import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-button";
 import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
@@ -188,6 +190,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "projects",
 					label: "Projects",
 					content: <DealProjects dealId={deal.id} />,
+				},
+				{
+					value: "contracts",
+					label: "Contracts",
+					content: <DealContracts deal={deal} />,
 				},
 				{
 					value: "agent",
@@ -555,6 +562,19 @@ function DealInvoices({ deal }: { deal: Deal }) {
 				action={<NewInvoiceButton dealId={deal.id} size="sm" />}
 			>
 				<InvoicesTable dealId={deal.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function DealContracts({ deal }: { deal: Deal }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Contracts"
+				action={<NewContractButton dealId={deal.id} size="sm" />}
+			>
+				<ContractsTable dealId={deal.id} />
 			</DetailSheetSection>
 		</DetailSheetBody>
 	);

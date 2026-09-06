@@ -2,9 +2,11 @@
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
+import Document from "@carbon/icons-react/es/Document";
 import Download from "@carbon/icons-react/es/Download";
 import Money from "@carbon/icons-react/es/Money";
 import Send from "@carbon/icons-react/es/Send";
+import { TemplatePurpose } from "@crm/db/enums";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import {
@@ -61,9 +63,6 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AddLineItem } from "./add-line-item";
 import { AssignEstimateContact } from "./assign-estimate-contact";
 import { EstimateLineRow } from "./estimate-line-row";
-
-const DEFAULT_SEND_MESSAGE =
-	"Hi,\n\nPlease find your estimate attached. Let us know if you have any questions.\n\nThanks!";
 
 export type EstimateDetail = RouterOutputs["estimates"]["byId"];
 export type EstimateLineItemRow = EstimateDetail["lineItems"][number];
@@ -266,6 +265,19 @@ export function EstimateBuilder({
 		}),
 	);
 
+	const createContract = useMutation(
+		trpc.contracts.createFromEstimate.mutationOptions({
+			onSuccess: async (contract) => {
+				await Promise.all([
+					cache.contract(contract.id),
+					cache.estimate(estimateId),
+				]);
+				router.push(workspaceUrl(`/contracts/${contract.id}`));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	const commitTitle = () => {
 		setEditingTitle(false);
 		const next = titleDraft.trim();
@@ -414,6 +426,15 @@ export function EstimateBuilder({
 						Convert to invoice
 					</Button>
 					{data.dealId ? <EstimateProjectAction dealId={data.dealId} /> : null}
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={data.lineItems.length === 0 || createContract.isPending}
+						onClick={() => createContract.mutate({ estimateId })}
+					>
+						<Icon icon={Document} data-icon="inline-start" />
+						Create contract
+					</Button>
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/estimates")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
@@ -527,9 +548,13 @@ export function EstimateBuilder({
 			<SendDocumentDialog
 				documentId={estimateId}
 				entityLabel="estimate"
-				defaultSubject={`Estimate — ${data.title}`}
+				purpose={TemplatePurpose.ESTIMATE_SEND}
+				refs={{
+					estimateId,
+					dealId: data.dealId ?? undefined,
+					contactId: data.contact?.id,
+				}}
 				defaultTo={data.contact?.email ?? ""}
-				defaultMessage={DEFAULT_SEND_MESSAGE}
 				open={sendOpen}
 				onOpenChange={setSendOpen}
 				mutation={sendEstimate}

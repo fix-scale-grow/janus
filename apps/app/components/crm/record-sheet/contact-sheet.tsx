@@ -23,6 +23,8 @@ import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ContractsTable } from "@/app/(app)/[slug]/contracts/contracts-table";
+import { NewContractButton } from "@/app/(app)/[slug]/contracts/new-contract-button";
 import { EstimatesTable } from "@/app/(app)/[slug]/estimates/estimates-table";
 import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-button";
 import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
@@ -150,6 +152,11 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 					value: "invoices",
 					label: "Invoices",
 					content: <ContactInvoices contact={contact} />,
+				},
+				{
+					value: "contracts",
+					label: "Contracts",
+					content: <ContactContracts contact={contact} />,
 				},
 				{
 					value: "agent",
@@ -644,6 +651,19 @@ function ContactInvoices({ contact }: { contact: Contact }) {
 				action={<NewInvoiceButton contactId={contact.id} size="sm" />}
 			>
 				<InvoicesTable contactId={contact.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function ContactContracts({ contact }: { contact: Contact }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection
+				title="Contracts"
+				action={<NewContractButton contactId={contact.id} size="sm" />}
+			>
+				<ContractsTable contactId={contact.id} />
 			</DetailSheetSection>
 		</DetailSheetBody>
 	);

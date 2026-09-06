@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
 	PageShell,
+	PageShellActions,
 	PageShellContent,
 	PageShellDescription,
 	PageShellHeader,
@@ -17,6 +18,7 @@ import {
 	contractsSearchParams,
 } from "./contracts-search-params";
 import { ContractsTable } from "./contracts-table";
+import { NewContractButton } from "./new-contract-button";
 
 export const metadata: Metadata = {
 	title: "Contracts",
@@ -34,6 +36,11 @@ export default function ContractsPage({
 						What has gone out for signature, and what has come back.
 					</PageShellDescription>
 				</PageShellHeading>
+				<PageShellActions>
+					<Suspense fallback={null}>
+						<NewContractButton />
+					</Suspense>
+				</PageShellActions>
 			</PageShellHeader>
 
 			<PageShellContent className="min-h-0">
