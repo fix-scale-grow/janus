@@ -16,8 +16,56 @@ import {
 	SHEET_TITLE,
 	subtitleFor,
 } from "./fields-copy";
-import { entityOf } from "./fields-entity";
+import { entityOf, type FieldEntity } from "./fields-entity";
 import { FieldsList } from "./fields-list";
+
+export function FieldsBody({
+	entity,
+	field,
+	onEdit,
+}: {
+	entity: FieldEntity;
+	field: string | null;
+	onEdit: (key: string | null) => void;
+}) {
+	const trpc = useTRPC();
+
+	const query = useQuery(
+		trpc.fields.list.queryOptions({ entity, includeArchived: true }),
+	);
+
+	const editingKey = field && field !== "new" ? field : null;
+	const editing = editingKey
+		? query.data?.find((entry) => entry.key === editingKey)
+		: undefined;
+
+	if (field) {
+		if (editingKey && query.isPending) {
+			return (
+				<div className="flex min-h-0 flex-1 items-center justify-center">
+					<Spinner />
+				</div>
+			);
+		}
+
+		return (
+			<FieldEditor
+				key={editing?.id ?? "new"}
+				entity={entity}
+				field={editing}
+				onDone={() => onEdit(null)}
+			/>
+		);
+	}
+
+	return (
+		<FieldsList
+			entity={entity}
+			onEdit={(key) => onEdit(key)}
+			onNew={() => onEdit("new")}
+		/>
+	);
+}
 
 function FieldsSheetBody({
 	kind,
@@ -65,18 +113,7 @@ function FieldsSheetBody({
 					onBack={() => onEdit(null)}
 					onClose={onClose}
 				/>
-				{editingKey && query.isPending ? (
-					<div className="flex min-h-0 flex-1 items-center justify-center">
-						<Spinner />
-					</div>
-				) : (
-					<FieldEditor
-						key={editing?.id ?? "new"}
-						entity={entity}
-						field={editing}
-						onDone={() => onEdit(null)}
-					/>
-				)}
+				<FieldsBody entity={entity} field={field} onEdit={onEdit} />
 			</>
 		);
 	}
@@ -102,11 +139,7 @@ function FieldsSheetBody({
 					</Tabs>
 				}
 			/>
-			<FieldsList
-				entity={entity}
-				onEdit={(key) => onEdit(key)}
-				onNew={() => onEdit("new")}
-			/>
+			<FieldsBody entity={entity} field={field} onEdit={onEdit} />
 		</>
 	);
 }
