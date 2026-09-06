@@ -108,6 +108,37 @@ describe("propose_estimate_lines approval copy", () => {
 			},
 		]);
 	});
+
+	it("renders a price row and a Matches row when the line carries them", () => {
+		const copy = approvalCopyFor("propose_estimate_lines");
+		const sections = copy.render({
+			estimateId: "estimate1",
+			estimateTitle: "123 Main St re-roof",
+			lines: [
+				{
+					name: "3-tab shingle",
+					serviceName: "Shingle tear-off and replace",
+					unit: "PER_SQUARE",
+					quantity: 3,
+					unitPriceCents: 450,
+					reason: "Book price at time of proposal.",
+					source: "missing",
+				},
+			],
+		});
+
+		expect(sections).toEqual([
+			{
+				title: "3-tab shingle",
+				rows: [
+					{ label: "Quantity", value: "3 Per square × $4.50" },
+					{ label: "Matches", value: "Shingle tear-off and replace" },
+					{ label: "Source", value: "Missing item" },
+					{ label: "Why", value: "Book price at time of proposal." },
+				],
+			},
+		]);
+	});
 });
 
 describe("generic approval copy fallback bounds", () => {

@@ -28,6 +28,27 @@ describe("propose_estimate_lines input schema", () => {
 		expect(result.success).toBe(true);
 	});
 
+	it("accepts a display-only unitPriceCents within the cap", () => {
+		const result = proposeEstimateLines.inputSchema.safeParse(
+			baseInput([baseLine({ unitPriceCents: 450 })]),
+		);
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects a unitPriceCents over the cap", () => {
+		const result = proposeEstimateLines.inputSchema.safeParse(
+			baseInput([baseLine({ unitPriceCents: 100_000_000 })]),
+		);
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects a negative unitPriceCents", () => {
+		const result = proposeEstimateLines.inputSchema.safeParse(
+			baseInput([baseLine({ unitPriceCents: -1 })]),
+		);
+		expect(result.success).toBe(false);
+	});
+
 	it("rejects a quantity over the cap", () => {
 		const result = proposeEstimateLines.inputSchema.safeParse(
 			baseInput([baseLine({ quantity: 10_000_000 })]),

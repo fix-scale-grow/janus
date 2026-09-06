@@ -55,6 +55,8 @@ type ProposedEstimateLine = {
 	name: string;
 	unit: string;
 	quantity: number;
+	unitPriceCents?: number;
+	serviceName?: string;
 	reason: string;
 	source: string;
 };
@@ -66,9 +68,16 @@ function isProposedEstimateLine(value: unknown): value is ProposedEstimateLine {
 		typeof line.name === "string" &&
 		typeof line.unit === "string" &&
 		typeof line.quantity === "number" &&
+		(line.unitPriceCents === undefined ||
+			typeof line.unitPriceCents === "number") &&
+		(line.serviceName === undefined || typeof line.serviceName === "string") &&
 		typeof line.reason === "string" &&
 		typeof line.source === "string"
 	);
+}
+
+function formatDollars(cents: number): string {
+	return `$${(cents / 100).toFixed(2)}`;
 }
 
 function proposedEstimateLines(
@@ -106,8 +115,14 @@ export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 				rows: [
 					{
 						label: "Quantity",
-						value: `${line.quantity} ${humanise(line.unit)}`,
+						value:
+							line.unitPriceCents === undefined
+								? `${line.quantity} ${humanise(line.unit)}`
+								: `${line.quantity} ${humanise(line.unit)} × ${formatDollars(line.unitPriceCents)}`,
 					},
+					...(line.serviceName
+						? [{ label: "Matches", value: truncateText(line.serviceName) }]
+						: []),
 					{
 						label: "Source",
 						value: SOURCE_LABEL[line.source] ?? humanise(line.source),

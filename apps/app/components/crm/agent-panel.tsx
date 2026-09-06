@@ -246,7 +246,12 @@ function Thread({
 		await agent.send({ inputResponses: [response] });
 		if (response.optionId !== "approve") return;
 		if (record.kind === "drawing") await cache.drawing(record.id);
-		if (approval?.toolName === "propose_estimate_lines") await cache.estimate();
+		if (approval?.toolName === "propose_estimate_lines") {
+			const estimateId = approval.input?.estimateId;
+			await cache.estimate(
+				typeof estimateId === "string" ? estimateId : undefined,
+			);
+		}
 	};
 
 	return (
