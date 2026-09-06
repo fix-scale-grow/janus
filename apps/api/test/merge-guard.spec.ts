@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { BadRequestException } from "@nestjs/common";
 import {
+	assertMergeComplete,
 	collectTokens,
 	type MissingMerge,
 	missingMerges,
@@ -124,5 +126,49 @@ describe("missingMerges", () => {
 		);
 
 		expect(result).toEqual([]);
+	});
+});
+
+describe("assertMergeComplete", () => {
+	it("comma-space joins multiple unknown labels in the message", () => {
+		const missing: MissingMerge[] = [
+			{ token: "a", label: "Roof type", reason: "unknown" },
+			{ token: "b", label: "Old field", reason: "unknown" },
+		];
+
+		let caught: unknown;
+		try {
+			assertMergeComplete("estimate", missing);
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+		expect((caught as BadRequestException).message).toBe(
+			"No longer exists — remove from the template: Roof type, Old field",
+		);
+	});
+
+	it("comma-space joins multiple empty labels in the message", () => {
+		const missing: MissingMerge[] = [
+			{ token: "a", label: "Full name", reason: "empty" },
+			{ token: "b", label: "Job address", reason: "empty" },
+		];
+
+		let caught: unknown;
+		try {
+			assertMergeComplete("estimate", missing);
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+		expect((caught as BadRequestException).message).toBe(
+			"Missing for this estimate: Full name, Job address",
+		);
+	});
+
+	it("does not throw when nothing is missing", () => {
+		expect(() => assertMergeComplete("estimate", [])).not.toThrow();
 	});
 });
