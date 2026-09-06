@@ -109,6 +109,8 @@ export type MergeFieldGroup = {
 export type MergeFields = {
 	groups: MergeFieldGroup[];
 	labelFor(token: string): string;
+	isLoading: boolean;
+	isError: boolean;
 };
 
 export function useMergeFields(): MergeFields {
@@ -135,7 +137,9 @@ export function useMergeFields(): MergeFields {
 		() => ({
 			groups,
 			labelFor: (token: string) => labels.get(token) ?? `{{${token}}}`,
+			isLoading: query.isPending,
+			isError: query.isError,
 		}),
-		[groups, labels],
+		[groups, labels, query.isPending, query.isError],
 	);
 }

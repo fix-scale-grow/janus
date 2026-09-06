@@ -205,7 +205,9 @@ export function TemplateEditor({
 			<PageShellContent>
 				{mode === "edit" ? (
 					rows ? (
-						mergeFields.groups.length > 0 ? (
+						mergeFields.isLoading && !mergeFields.isError ? (
+							<Spinner />
+						) : (
 							<div className="flex flex-col gap-4">
 								{template.subject === null ? null : (
 									<Field>
@@ -228,8 +230,6 @@ export function TemplateEditor({
 									<FieldSidebar onInsert={insertField} />
 								</div>
 							</div>
-						) : (
-							<Spinner />
 						)
 					) : (
 						<div className="rounded-lg border p-4 text-muted-foreground text-sm">
