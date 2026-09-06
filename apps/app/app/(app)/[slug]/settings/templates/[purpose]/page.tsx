@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { PageShellFallback } from "@/components/page-shell";
 import { TemplateEditor } from "@/components/templates/template-editor";
 import { purposeFromSlug } from "@/components/templates/template-labels";
+import { requireSession } from "@/lib/session";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 
 export const metadata: Metadata = {
@@ -32,7 +33,9 @@ async function PrefetchedTemplate({
 	if (!purpose) notFound();
 
 	const client = getServerTrpcClient();
-	const template = await client.templates.byPurpose.query({ purpose });
+	const loading = client.templates.byPurpose.query({ purpose });
+	const session = await requireSession();
+	const template = await loading;
 
-	return <TemplateEditor template={template} />;
+	return <TemplateEditor template={template} testEmail={session.user.email} />;
 }

@@ -48,7 +48,13 @@ export type TemplateDetail = RouterOutputs["templates"]["byPurpose"];
 
 type EditorMode = "edit" | "preview";
 
-export function TemplateEditor({ template }: { template: TemplateDetail }) {
+export function TemplateEditor({
+	template,
+	testEmail,
+}: {
+	template: TemplateDetail;
+	testEmail: string;
+}) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const toId = useId();
@@ -59,7 +65,7 @@ export function TemplateEditor({ template }: { template: TemplateDetail }) {
 
 	const [mode, setMode] = useState<EditorMode>("edit");
 	const [sendTestOpen, setSendTestOpen] = useState(false);
-	const [to, setTo] = useState("");
+	const [to, setTo] = useState(testEmail);
 
 	const canvas = useRef<BlockCanvasHandle>(null);
 	const nextId = useRef(0);
@@ -124,7 +130,7 @@ export function TemplateEditor({ template }: { template: TemplateDetail }) {
 			{
 				purpose,
 				name: template.name,
-				subject: subject.trim() ? subject.trim() : undefined,
+				subject: template.subject === null ? undefined : subject.trim(),
 				blocks,
 			},
 			{

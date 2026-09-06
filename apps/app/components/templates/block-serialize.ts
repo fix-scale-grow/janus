@@ -26,6 +26,20 @@ function escapeAttribute(value: string): string {
 	return escapeText(value).replace(/"/g, "&quot;");
 }
 
+function decodeAttribute(value: string): string {
+	return value
+		.replace(/&lt;/gi, "<")
+		.replace(/&gt;/gi, ">")
+		.replace(/&quot;/gi, '"')
+		.replace(/&#0*39;/g, "'")
+		.replace(/&apos;/gi, "'")
+		.replace(/&amp;/gi, "&");
+}
+
+function reescapeAttribute(value: string): string {
+	return escapeAttribute(decodeAttribute(value));
+}
+
 function isAllowedHref(href: string): boolean {
 	const normalized = href.trim().toLowerCase();
 	return TEMPLATE_BLOCKS.text.allowedHrefSchemes.some((scheme) =>
@@ -49,7 +63,7 @@ function sanitizeStoredHtml(html: string): string {
 				const found = attributes.match(HREF_ATTRIBUTE);
 				const href = found ? (found[1] ?? found[2]) : undefined;
 				if (href && isAllowedHref(href)) {
-					return `<a href="${escapeAttribute(href)}">`;
+					return `<a href="${reescapeAttribute(href)}">`;
 				}
 				return "<a>";
 			}
@@ -57,7 +71,7 @@ function sanitizeStoredHtml(html: string): string {
 			if (tag === "span") {
 				const found = attributes.match(FIELD_ATTRIBUTE);
 				const field = found ? (found[1] ?? found[2]) : undefined;
-				if (field) return `<span data-field="${escapeAttribute(field)}">`;
+				if (field) return `<span data-field="${reescapeAttribute(field)}">`;
 				return "<span>";
 			}
 
@@ -83,6 +97,11 @@ export function toEditorText(text: string): string {
 
 type SerializeMode = "html" | "text";
 
+function isEmptyLine(node: HTMLElement): boolean {
+	const only = node.childNodes.length === 1 ? node.firstChild : null;
+	return only instanceof HTMLElement && only.tagName === "BR";
+}
+
 function serializeNode(
 	node: Node,
 	mode: SerializeMode,
@@ -105,12 +124,13 @@ function serializeNode(
 	const tag = node.tagName.toLowerCase();
 	if (tag === "br") return mode === "html" ? "<br>" : "\n";
 
-	const inner = serializeChildren(node, mode);
-
 	if (BLOCK_TAGS.includes(tag)) {
+		const inner = isEmptyLine(node) ? "" : serializeChildren(node, mode);
 		if (first) return inner;
 		return mode === "html" ? `<br>${inner}` : `\n${inner}`;
 	}
+
+	const inner = serializeChildren(node, mode);
 
 	if (mode === "text") return inner;
 
@@ -140,16 +160,11 @@ function serializeChildren(root: Node, mode: SerializeMode): string {
 }
 
 export function serializeBlockHtml(root: HTMLElement): string {
-	return serializeChildren(root, "html")
-		.trim()
-		.slice(0, TEMPLATE_BLOCKS.text.maxHtmlLength);
+	return serializeChildren(root, "html").trim();
 }
 
 export function serializeBlockText(root: HTMLElement): string {
-	return serializeChildren(root, "text")
-		.replace(/\s+/g, " ")
-		.trim()
-		.slice(0, TEMPLATE_BLOCKS.heading.maxTextLength);
+	return serializeChildren(root, "text").replace(/\s+/g, " ").trim();
 }
 
 function currentSelection(): Selection | null {
