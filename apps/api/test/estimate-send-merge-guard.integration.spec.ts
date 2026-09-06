@@ -126,6 +126,7 @@ function servicesFor(mailer: MailerService) {
 		mailer,
 		templates,
 		mergeContext,
+		{} as AgentTriggerService,
 	);
 	return { estimates };
 }
