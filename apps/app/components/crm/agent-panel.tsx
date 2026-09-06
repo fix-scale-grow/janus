@@ -80,6 +80,7 @@ import {
 	type TranscriptItem,
 	toTranscript,
 } from "@/lib/agent-transcript";
+import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useRecordSheetView } from "./record-sheet/record-stack";
 
@@ -208,6 +209,7 @@ function Thread({
 	onNewThread: () => void;
 }) {
 	const copy = recordCopy(record.kind);
+	const cache = useCrmCache();
 	const agent = useEveAgent({
 		headers: recordHeader(record),
 		...(thread && "session" in thread
@@ -240,8 +242,12 @@ function Thread({
 		void agent.send({ message: message.trim() });
 	};
 
-	const respondToApproval = (response: ApprovalResponse) =>
-		agent.send({ inputResponses: [response] });
+	const respondToApproval = async (response: ApprovalResponse) => {
+		await agent.send({ inputResponses: [response] });
+		if (response.optionId === "approve" && record.kind === "drawing") {
+			await cache.drawing(record.id);
+		}
+	};
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">

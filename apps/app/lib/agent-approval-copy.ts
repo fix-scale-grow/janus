@@ -13,8 +13,6 @@ export type ApprovalCopy = {
 	render: (input: Record<string, unknown> | null) => ApprovalSection[];
 };
 
-export const APPROVAL_COPY: Record<string, ApprovalCopy> = {};
-
 const FLATTEN_LIMITS = {
 	maxDepth: 4,
 	maxRows: 40,
@@ -23,6 +21,47 @@ const FLATTEN_LIMITS = {
 
 const EMPTY_VALUE = "—";
 const TRUNCATION_LABEL = "…";
+
+type ProposedDrawingTag = {
+	shapeLabel: string;
+	serviceName: string;
+	reason: string;
+};
+
+function isProposedDrawingTag(value: unknown): value is ProposedDrawingTag {
+	if (value === null || typeof value !== "object") return false;
+	const tag = value as Record<string, unknown>;
+	return (
+		typeof tag.shapeLabel === "string" &&
+		typeof tag.serviceName === "string" &&
+		typeof tag.reason === "string"
+	);
+}
+
+function proposedDrawingTags(
+	input: Record<string, unknown> | null,
+): ProposedDrawingTag[] {
+	const tags = input?.tags;
+	return Array.isArray(tags) ? tags.filter(isProposedDrawingTag) : [];
+}
+
+export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
+	propose_drawing_tags: {
+		title: "Approve drawing tags",
+		render: (input) => {
+			const tags = proposedDrawingTags(input);
+			if (tags.length === 0) return [{ rows: [] }];
+
+			return tags.map((tag) => ({
+				title: truncateText(tag.shapeLabel),
+				rows: [
+					{ label: "Service", value: truncateText(tag.serviceName) },
+					{ label: "Why", value: truncateText(tag.reason) },
+				],
+			}));
+		},
+	},
+};
 
 export function approvalCopyFor(toolName: string): ApprovalCopy {
 	return APPROVAL_COPY[toolName] ?? genericApprovalCopy(toolName);

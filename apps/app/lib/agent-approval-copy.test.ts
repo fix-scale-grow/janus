@@ -47,6 +47,35 @@ describe("generic approval copy fallback", () => {
 	});
 });
 
+describe("propose_drawing_tags approval copy", () => {
+	it("renders one section per tag from the structured input", () => {
+		const copy = approvalCopyFor("propose_drawing_tags");
+		const sections = copy.render({
+			drawingId: "drawing1",
+			tags: [
+				{
+					scopeId: "s1",
+					shapeLabel: "long eave line",
+					serviceId: "svc1",
+					serviceName: "Drip edge",
+					reason: "Matches the eave line label.",
+				},
+			],
+		});
+
+		expect(copy.title).toBe("Approve drawing tags");
+		expect(sections).toEqual([
+			{
+				title: "long eave line",
+				rows: [
+					{ label: "Service", value: "Drip edge" },
+					{ label: "Why", value: "Matches the eave line label." },
+				],
+			},
+		]);
+	});
+});
+
 describe("generic approval copy fallback bounds", () => {
 	it("stops descending past the depth cap and renders a safe summary", () => {
 		const copy = approvalCopyFor("refund_charge");
