@@ -63,6 +63,7 @@ import {
 	LocalDay,
 	LocalRelativeTime,
 } from "@/components/local-date-time";
+import { DealProjects } from "@/components/projects/deal-projects";
 import { dialHref, reachableContact } from "@/lib/dial";
 import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -182,6 +183,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "invoices",
 					label: "Invoices",
 					content: <DealInvoices deal={deal} />,
+				},
+				{
+					value: "projects",
+					label: "Projects",
+					content: <DealProjects dealId={deal.id} />,
 				},
 				{
 					value: "agent",

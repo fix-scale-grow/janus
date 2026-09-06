@@ -27,6 +27,7 @@ import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
 import { MailerModule } from "./mailer/mailer.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
+import { ProjectsModule } from "./projects/projects.module";
 import { SearchModule } from "./search/search.module";
 import { ServicesCatalogModule } from "./services-catalog/services-catalog.module";
 import { SettingsModule } from "./settings/settings.module";
@@ -65,6 +66,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		EstimatesModule,
 		FieldsModule,
 		InvoicesModule,
+		ProjectsModule,
 		ActivitiesModule,
 		AgentModule,
 		DashboardModule,

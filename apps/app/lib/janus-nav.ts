@@ -3,6 +3,7 @@ import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
 import Chat from "@carbon/icons-react/es/Chat";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
+import EventSchedule from "@carbon/icons-react/es/EventSchedule";
 import Mobile from "@carbon/icons-react/es/Mobile";
 import Partnership from "@carbon/icons-react/es/Partnership";
 import PenFountain from "@carbon/icons-react/es/PenFountain";
@@ -100,6 +101,14 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Tools,
 		source: "app/(app)/production",
+	},
+	{
+		title: "Projects",
+		href: "/projects",
+		match: "prefix",
+		status: "live",
+		icon: EventSchedule,
+		source: "app/(app)/projects",
 	},
 	{
 		title: "Field",
