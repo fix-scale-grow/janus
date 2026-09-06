@@ -9,7 +9,7 @@ import {
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { CompanyDirectoryService } from "../companies/company-directory.service";
-import { isMachineDomain } from "../companies/domain";
+import { isMachineDomain } from "../mailbox/domain";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";

@@ -15,7 +15,6 @@ import {
 } from "@nestjs/common";
 import { AgentQueueService } from "../agent/agent-queue.service";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
-import { CompanyDirectoryService } from "../companies/company-directory.service";
 import {
 	ActivityStampService,
 	type StampTargets,
@@ -34,7 +33,6 @@ import {
 	resolveOrderBy,
 } from "../trpc/list-input";
 import type {
-	ContactBulkCompanyInput,
 	ContactBulkOwnerInput,
 	ContactCreateInput,
 	ContactListInput,
@@ -49,23 +47,8 @@ const OWNER_SELECT = {
 	image: true,
 } as const;
 
-const COMPANY_SELECT = {
-	id: true,
-	name: true,
-	domain: true,
-	iconUrl: true,
-	iconDarkUrl: true,
-	iconTone: true,
-	logoUrl: true,
-} as const;
-
-const NO_COMPANY = "none";
-
 const FACT_COLUMNS: Record<string, string | undefined> = {
 	title: "title",
-	linkedinUrl: "linkedinUrl",
-	twitterUrl: "twitterUrl",
-	githubUrl: "githubUrl",
 };
 
 export type ContactRow = {
@@ -75,15 +58,7 @@ export type ContactRow = {
 	email: string | null;
 	title: string | null;
 	imageUrl: string | null;
-	company: {
-		id: string;
-		name: string;
-		domain: string | null;
-		iconUrl: string | null;
-		iconDarkUrl: string | null;
-		iconTone: string | null;
-		logoUrl: string | null;
-	} | null;
+	companyName: string | null;
 	owner: {
 		id: string;
 		name: string;
@@ -102,7 +77,6 @@ const SORTABLE: Record<
 	name: (dir) => [{ lastName: dir }, { firstName: dir }],
 	email: (dir) => [{ email: dir }],
 	title: (dir) => [{ title: dir }, { lastName: "asc" }],
-	company: (dir) => [{ company: { name: dir } }, { lastName: "asc" }],
 	createdAt: (dir) => [{ createdAt: dir }],
 	owner: (dir) => [{ owner: { name: dir } }, { lastName: "asc" }],
 	lastActivity: (dir) => [{ lastActivityAt: { sort: dir, nulls: "last" } }],
@@ -114,7 +88,6 @@ export class ContactsService {
 
 	constructor(
 		@InjectDatabase() private readonly db: Db,
-		private readonly companies: CompanyDirectoryService,
 		private readonly agent: AgentTriggerService,
 		private readonly queue: AgentQueueService,
 		private readonly stamp: ActivityStampService,
@@ -139,7 +112,7 @@ export class ContactsService {
 					title: true,
 					imageUrl: true,
 					source: true,
-					company: { select: COMPANY_SELECT },
+					companyName: true,
 					owner: { select: OWNER_SELECT },
 					lastActivityAt: true,
 					createdAt: true,
@@ -195,9 +168,7 @@ export class ContactsService {
 				email: true,
 				phone: true,
 				title: true,
-				linkedinUrl: true,
-				twitterUrl: true,
-				githubUrl: true,
+				companyName: true,
 				imageUrl: true,
 				enrichmentStatus: true,
 				enrichmentError: true,
@@ -227,9 +198,6 @@ export class ContactsService {
 						observedAt: true,
 					},
 				},
-				company: {
-					select: { ...COMPANY_SELECT, industry: true, primaryContactId: true },
-				},
 				owner: { select: OWNER_SELECT },
 				deals: {
 					select: {
@@ -254,16 +222,12 @@ export class ContactsService {
 			throw new NotFoundException(`No contact with id ${id}.`);
 		}
 
-		const relationship = await this.relationship(
-			id,
-			contact.company?.id ?? null,
-		);
+		const relationship = await this.relationship(id);
 
-		const { deals, createdAt, brief, facts, company, ...rest } = contact;
+		const { deals, createdAt, brief, facts, ...rest } = contact;
 
 		return {
 			...rest,
-			company,
 			fields: await this.fields.valuesFor("CONTACT", id),
 			queued: await this.queue.isQueued({ contactId: id }),
 			createdAt: createdAt.toISOString(),
@@ -280,7 +244,6 @@ export class ContactsService {
 				observedAt: fact.observedAt.toISOString(),
 			})),
 			relationship,
-			isPrimaryContact: company?.primaryContactId === contact.id,
 			deals: deals.map(({ role, deal }) => ({
 				...deal,
 				role,
@@ -306,14 +269,6 @@ export class ContactsService {
 			}
 		}
 
-		const companyId =
-			input.companyId ??
-			(email
-				? await this.companies.companyForEmail(email, {
-						ownerId: input.ownerId,
-					})
-				: null);
-
 		const contact = await this.agent.withCrmEvents(async (tx, emit) => {
 			await this.allowAgain(tx, email);
 
@@ -324,7 +279,7 @@ export class ContactsService {
 					email,
 					phone: blankToNull(input.phone ?? ""),
 					title: blankToNull(input.title ?? ""),
-					companyId,
+					companyName: blankToNull(input.companyName ?? ""),
 					ownerId: input.ownerId ?? null,
 				},
 				select: {
@@ -332,7 +287,6 @@ export class ContactsService {
 					firstName: true,
 					lastName: true,
 					email: true,
-					companyId: true,
 					createdAt: true,
 				},
 			});
@@ -344,7 +298,6 @@ export class ContactsService {
 					firstName: created.firstName,
 					lastName: created.lastName,
 					email: created.email,
-					companyId: created.companyId,
 				},
 			});
 			return created;
@@ -425,19 +378,8 @@ export class ContactsService {
 		if (input.email !== undefined) data.email = normalizeEmail(input.email);
 		if (input.phone !== undefined) data.phone = blankToNull(input.phone);
 		if (input.title !== undefined) data.title = blankToNull(input.title);
-		if (input.linkedinUrl !== undefined) {
-			data.linkedinUrl = blankToNull(input.linkedinUrl);
-		}
-		if (input.twitterUrl !== undefined) {
-			data.twitterUrl = blankToNull(input.twitterUrl);
-		}
-		if (input.githubUrl !== undefined) {
-			data.githubUrl = blankToNull(input.githubUrl);
-		}
-		if (input.companyId !== undefined) {
-			data.company = input.companyId
-				? { connect: { id: input.companyId } }
-				: { disconnect: true };
+		if (input.companyName !== undefined) {
+			data.companyName = blankToNull(input.companyName);
 		}
 		if (input.ownerId !== undefined) {
 			data.owner = input.ownerId
@@ -493,39 +435,6 @@ export class ContactsService {
 		};
 	}
 
-	async bulkSetCompany(input: ContactBulkCompanyInput): Promise<BulkResult> {
-		const companyId = input.companyId || null;
-
-		if (companyId) {
-			const company = await this.db.company.findUnique({
-				where: { id: companyId },
-				select: { id: true },
-			});
-			if (!company) {
-				throw new NotFoundException(`No company with id ${companyId}.`);
-			}
-		}
-
-		const ids = [...new Set(input.ids)];
-		const { count } = await this.db.contact.updateMany({
-			where: { id: { in: ids } },
-			data: { companyId },
-		});
-
-		this.logger.log({
-			message: "Contacts moved",
-			count,
-			companyId,
-		});
-
-		return {
-			requested: ids.length,
-			succeeded: count,
-			failed: ids.length - count,
-			message: null,
-		};
-	}
-
 	async bulkEnrich(ids: string[]): Promise<BulkResult> {
 		return runBulk(ids, (id) => this.enrich(id));
 	}
@@ -544,48 +453,34 @@ export class ContactsService {
 		});
 	}
 
-	private async relationship(contactId: string, companyId: string | null) {
+	private async relationship(contactId: string) {
 		const now = new Date();
 
-		const [threads, lastReply, meetings, nextMeeting, colleagues] =
-			await Promise.all([
-				this.db.emailThread.aggregate({
-					where: { contactId },
-					_sum: { messageCount: true },
-					_count: { _all: true },
-				}),
-				this.db.emailMessage.findFirst({
-					where: { thread: { contactId }, direction: "INBOUND" },
-					orderBy: { sentAt: "desc" },
-					select: { sentAt: true },
-				}),
-				this.db.calendarEvent.count({
-					where: {
-						OR: [{ contactId }, { attendees: { some: { contactId } } }],
-					},
-				}),
-				this.db.calendarEvent.findFirst({
-					where: {
-						startsAt: { gt: now },
-						OR: [{ contactId }, { attendees: { some: { contactId } } }],
-					},
-					orderBy: { startsAt: "asc" },
-					select: { title: true, startsAt: true },
-				}),
-				companyId
-					? this.db.contact.findMany({
-							where: { companyId, id: { not: contactId } },
-							orderBy: { lastActivityAt: { sort: "desc", nulls: "last" } },
-							take: 4,
-							select: {
-								id: true,
-								firstName: true,
-								lastName: true,
-								title: true,
-							},
-						})
-					: Promise.resolve([]),
-			]);
+		const [threads, lastReply, meetings, nextMeeting] = await Promise.all([
+			this.db.emailThread.aggregate({
+				where: { contactId },
+				_sum: { messageCount: true },
+				_count: { _all: true },
+			}),
+			this.db.emailMessage.findFirst({
+				where: { thread: { contactId }, direction: "INBOUND" },
+				orderBy: { sentAt: "desc" },
+				select: { sentAt: true },
+			}),
+			this.db.calendarEvent.count({
+				where: {
+					OR: [{ contactId }, { attendees: { some: { contactId } } }],
+				},
+			}),
+			this.db.calendarEvent.findFirst({
+				where: {
+					startsAt: { gt: now },
+					OR: [{ contactId }, { attendees: { some: { contactId } } }],
+				},
+				orderBy: { startsAt: "asc" },
+				select: { title: true, startsAt: true },
+			}),
+		]);
 
 		return {
 			emails: threads._sum.messageCount ?? 0,
@@ -598,20 +493,13 @@ export class ContactsService {
 						startsAt: nextMeeting.startsAt.toISOString(),
 					}
 				: null,
-			colleagues: colleagues.map((colleague) => ({
-				id: colleague.id,
-				name: [colleague.firstName, colleague.lastName]
-					.filter(Boolean)
-					.join(" "),
-				title: colleague.title,
-			})),
 		};
 	}
 
 	async enrich(id: string): Promise<{ id: string; queued: true }> {
 		const contact = await this.db.contact.findUnique({
 			where: { id },
-			select: { id: true, imageUrl: true, linkedinUrl: true },
+			select: { id: true, imageUrl: true },
 		});
 
 		if (!contact) {
@@ -623,12 +511,7 @@ export class ContactsService {
 			data: { enrichmentStatus: "PENDING", enrichmentError: null },
 		});
 
-		await this.agent.contactCreated(
-			id,
-			contact.linkedinUrl && !contact.imageUrl
-				? "A rep asked for a fresh look — they have a LinkedIn profile on file but no picture"
-				: "A rep asked for a fresh look",
-		);
+		await this.agent.contactCreated(id, "A rep asked for a fresh look");
 
 		return { id, queued: true };
 	}
@@ -722,7 +605,7 @@ export class ContactsService {
 				{ firstName: { contains: term, mode: "insensitive" } },
 				{ lastName: { contains: term, mode: "insensitive" } },
 				{ email: { contains: term, mode: "insensitive" } },
-				{ company: { name: { contains: term, mode: "insensitive" } } },
+				{ companyName: { contains: term, mode: "insensitive" } },
 			],
 		};
 	}
@@ -732,10 +615,6 @@ export class ContactsService {
 			...this.searchFilter(input.q),
 			...ownerFilter(input.owner),
 		};
-
-		if (input.company !== FACET_ALL) {
-			where.companyId = input.company === NO_COMPANY ? null : input.company;
-		}
 
 		if (input.source !== FACET_ALL) {
 			where.source = input.source as RecordSource;
@@ -747,14 +626,9 @@ export class ContactsService {
 	private async facetCounts(input: ContactListInput) {
 		const where = this.searchFilter(input.q);
 
-		const [owners, companies, sources] = await Promise.all([
+		const [owners, sources] = await Promise.all([
 			this.db.contact.groupBy({
 				by: ["ownerId"],
-				where,
-				_count: { _all: true },
-			}),
-			this.db.contact.groupBy({
-				by: ["companyId"],
 				where,
 				_count: { _all: true },
 			}),
@@ -767,7 +641,6 @@ export class ContactsService {
 
 		return {
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
-			company: countsByKey(companies, "companyId", NO_COMPANY),
 			source: countsByKey(sources, "source"),
 		};
 	}

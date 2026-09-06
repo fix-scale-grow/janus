@@ -2,9 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
-import { CompaniesService } from "../src/companies/companies.service";
-import { CompanyDirectoryService } from "../src/companies/company-directory.service";
-import type { FaviconService } from "../src/companies/favicon.service";
 import { ContactsService } from "../src/contacts/contacts.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
@@ -20,51 +17,24 @@ const ours = { OR: [{ email: { endsWith: `@${domain}` } }] };
 
 const agent = {
 	contactCreated: async () => undefined,
-	companyCreated: async () => undefined,
-	companyRequested: async () => undefined,
 	withCrmEvents: withDiscardedCrmEvents,
 } as unknown as AgentTriggerService;
 
 const stamp = new ActivityStampService(db);
 const queue = new AgentQueueService(db);
 const conversion = new ConversionService(db);
-const directory = new CompanyDirectoryService(agent);
 
 const fields = new FieldsService(db, agent);
-const contacts = new ContactsService(
-	db,
-	directory,
-	agent,
-	queue,
-	stamp,
-	fields,
-);
-const companies = new CompaniesService(
-	db,
-	agent,
-	queue,
-	{ backfill: async () => undefined } as unknown as FaviconService,
-	stamp,
-	conversion,
-	fields,
-);
+const contacts = new ContactsService(db, agent, queue, stamp, fields);
 const deals = new DealsService(db, agent, stamp, conversion, fields);
 
-let companyId: string;
-
 async function clean() {
-	const owned = await db.company.findMany({
-		where: { domain: { endsWith: domain } },
-		select: { id: true },
+	await db.deal.deleteMany({ where: { ownerId: { in: [ownerId, secondOwnerId] } } });
+	await db.activity.deleteMany({
+		where: { createdById: { in: [ownerId, secondOwnerId] } },
 	});
-	const companyIds = owned.map((row) => row.id);
-
-	await db.deal.deleteMany({ where: { companyId: { in: companyIds } } });
-	await db.activity.deleteMany({ where: { companyId: { in: companyIds } } });
-	await db.agentTask.deleteMany({ where: { companyId: { in: companyIds } } });
 	await db.contact.deleteMany({ where: ours });
 	await db.suppressedContact.deleteMany({ where: ours });
-	await db.company.deleteMany({ where: { domain: { endsWith: domain } } });
 	await db.user.deleteMany({ where: { id: { in: [ownerId, secondOwnerId] } } });
 }
 
@@ -77,12 +47,6 @@ beforeAll(async () => {
 			{ id: secondOwnerId, name: "Second Rep", email: `second@${domain}` },
 		],
 	});
-
-	const company = await db.company.create({
-		data: { name: `Bulk Co ${suffix}`, domain },
-		select: { id: true },
-	});
-	companyId = company.id;
 });
 
 afterAll(clean);
@@ -193,34 +157,12 @@ describe("deleting a selection", () => {
 			await db.contact.findUnique({ where: { id: survivor.id } }),
 		).toBeNull();
 	});
-
-	it("takes a company's deals with it", async () => {
-		const doomed = await companies.create({
-			name: `Doomed Co ${suffix}`,
-			domain: `doomed-${domain}`,
-		});
-		const deal = await deals.create({
-			name: `Doomed deal ${suffix}`,
-			companyId: doomed.id,
-			ownerId,
-		});
-
-		expect(await companies.bulkDelete([doomed.id])).toEqual({
-			requested: 1,
-			succeeded: 1,
-			failed: 0,
-			message: null,
-		});
-
-		expect(await db.deal.findUnique({ where: { id: deal.id } })).toBeNull();
-	});
 });
 
 describe("moving a selection of deals to a stage", () => {
 	it("will not close them as lost without a reason", async () => {
 		const deal = await deals.create({
 			name: `Unreasoned ${suffix}`,
-			companyId,
 			ownerId,
 		});
 
@@ -239,12 +181,10 @@ describe("moving a selection of deals to a stage", () => {
 	it("writes the one reason onto every deal's timeline", async () => {
 		const first = await deals.create({
 			name: `Lost one ${suffix}`,
-			companyId,
 			ownerId,
 		});
 		const second = await deals.create({
 			name: `Lost two ${suffix}`,
-			companyId,
 			ownerId,
 		});
 
