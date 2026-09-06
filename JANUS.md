@@ -43,6 +43,17 @@ and the agent does the CRM work. Automations are TOLD, not built.
 6. **Reviews/GBP** — Review Gremlin integration
 7. **Agent-built landing pages** — reuse deploy-site pipeline
 8. **Platform layer** — control plane, instance-per-business, Stripe, impersonation admin
+9. **Master control panel (dev/operator)** — approved by Kyle 9/6 from the concept mock
+   (https://claude.ai/code/artifact/b6aee56a-a45e-4deb-b654-e89ecb8deb3d): per-instance
+   ops panel organized by what breaks, not by system. Overview leads with a
+   "needs a human" list; sections: services (restart/log-tail per process), database
+   (deploy-guard toggles, migration chain with additive/destructive labels, hourly
+   drift check), agent queue (stuck-task retry/drop + capability roster), mail
+   (transport state, sends, bounces, real-SMTP check), unified logs joined by request
+   id with error grouping, config audit (env presence per capability, never values),
+   danger zone (impersonation with customer-visible banner, secret rotation, restore,
+   destructive-migration override gated on a fresh backup). Every operator action
+   writes an audit line. Grows a fleet view when the platform layer (8) exists.
 
 ## Rules of the build
 
