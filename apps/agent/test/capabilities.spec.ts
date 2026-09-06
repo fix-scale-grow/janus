@@ -114,8 +114,8 @@ describe("the capability briefing", () => {
 
 		const markdown = markdownFor(capabilitiesFrom("ctx"));
 
-		expect(markdown).toContain("Company brand data");
-		expect(markdown.indexOf("Company brand data")).toBeLessThan(
+		expect(markdown).toContain("Workspace brand data");
+		expect(markdown.indexOf("Workspace brand data")).toBeLessThan(
 			markdown.indexOf("Not configured here"),
 		);
 	});
