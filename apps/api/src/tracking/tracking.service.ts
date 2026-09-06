@@ -391,15 +391,6 @@ export class TrackingService {
 		return attribute;
 	}
 
-	async activityForCompany(companyId: string): Promise<WebsiteActivity> {
-		const visitors = await this.db.trackedVisitor.findMany({
-			where: { contact: { companyId } },
-			select: { id: true },
-		});
-
-		return this.activityFor(visitors.map((visitor) => visitor.id));
-	}
-
 	async activityForContact(contactId: string): Promise<WebsiteActivity> {
 		const visitors = await this.db.trackedVisitor.findMany({
 			where: { contactId },

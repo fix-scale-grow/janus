@@ -3,7 +3,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
 export type SearchHit = {
-	kind: "company" | "contact" | "deal";
+	kind: "contact" | "deal";
 	id: string;
 	label: string;
 	detail: string | null;
@@ -23,25 +23,7 @@ export class SearchService {
 		const term = q.trim();
 		if (term.length < 2) return { hits: [] };
 
-		const [companies, contacts, deals] = await Promise.all([
-			this.db.company.findMany({
-				where: {
-					OR: [
-						{ name: { contains: term, mode: "insensitive" } },
-						{ domain: { contains: term, mode: "insensitive" } },
-					],
-				},
-				take: PER_KIND,
-				orderBy: { name: "asc" },
-				select: {
-					id: true,
-					name: true,
-					domain: true,
-					iconUrl: true,
-					iconDarkUrl: true,
-					iconTone: true,
-				},
-			}),
+		const [contacts, deals] = await Promise.all([
 			this.db.contact.findMany({
 				where: {
 					OR: [
@@ -58,42 +40,19 @@ export class SearchService {
 					lastName: true,
 					email: true,
 					imageUrl: true,
-					company: { select: { name: true } },
+					companyName: true,
 				},
 			}),
 			this.db.deal.findMany({
 				where: { name: { contains: term, mode: "insensitive" } },
 				take: PER_KIND,
 				orderBy: [{ stage: "asc" }, { name: "asc" }],
-				select: {
-					id: true,
-					name: true,
-					company: {
-						select: {
-							name: true,
-							iconUrl: true,
-							iconDarkUrl: true,
-							iconTone: true,
-						},
-					},
-				},
+				select: { id: true, name: true },
 			}),
 		]);
 
 		return {
 			hits: [
-				...companies.map(
-					(company): SearchHit => ({
-						kind: "company",
-						id: company.id,
-						label: company.name,
-						detail: company.domain,
-						iconUrl: company.iconUrl,
-						iconDarkUrl: company.iconDarkUrl,
-						iconTone: company.iconTone,
-						imageUrl: null,
-					}),
-				),
 				...contacts.map(
 					(contact): SearchHit => ({
 						kind: "contact",
@@ -101,7 +60,7 @@ export class SearchService {
 						label:
 							[contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
 							(contact.email ?? "Unnamed"),
-						detail: contact.company?.name ?? contact.email,
+						detail: contact.companyName ?? contact.email,
 						iconUrl: null,
 						iconDarkUrl: null,
 						iconTone: null,
@@ -113,10 +72,10 @@ export class SearchService {
 						kind: "deal",
 						id: deal.id,
 						label: deal.name,
-						detail: deal.company.name,
-						iconUrl: deal.company.iconUrl,
-						iconDarkUrl: deal.company.iconDarkUrl,
-						iconTone: deal.company.iconTone,
+						detail: null,
+						iconUrl: null,
+						iconDarkUrl: null,
+						iconTone: null,
 						imageUrl: null,
 					}),
 				),

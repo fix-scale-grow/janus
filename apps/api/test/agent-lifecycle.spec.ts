@@ -473,7 +473,7 @@ describe("agent lifecycle", () => {
 				id: agentId,
 				clientRequestId: crypto.randomUUID(),
 				actions: ["slack.message.post"],
-				resources: [{ id: "acme", kind: "company", label: "Acme" }],
+				resources: [{ id: "acme", kind: "contact", label: "Acme" }],
 			},
 			userId,
 		);
@@ -509,7 +509,7 @@ describe("agent lifecycle", () => {
 			],
 			dataScope: {
 				mode: "SELECTED",
-				resources: [{ id: "acme", kind: "company", label: "Acme" }],
+				resources: [{ id: "acme", kind: "contact", label: "Acme" }],
 			},
 		});
 	});

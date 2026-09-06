@@ -29,10 +29,6 @@ export const verifyInput = z.object({
 	url: z.string().min(1).max(2048),
 });
 
-export const companyActivityInput = z.object({
-	companyId: z.string().min(1),
-});
-
 export const contactActivityInput = z.object({
 	contactId: z.string().min(1),
 });

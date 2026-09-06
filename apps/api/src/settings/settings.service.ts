@@ -118,12 +118,8 @@ export class SettingsService {
 			verified: check.outcome === "valid",
 		});
 
-		// Every company added while there was no key is still PENDING, because a
-		// brand task with nowhere to look leaves the record alone. The sign-in
-		// sweep would find them, but the person who just fixed it is standing
-		// here — so pick the work up now rather than on their next sign-in.
 		void this.backfill
-			.run("companies")
+			.run("contacts")
 			.then(({ queued, remaining }) => {
 				if (queued > 0) {
 					this.logger.log({

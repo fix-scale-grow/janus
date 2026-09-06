@@ -28,7 +28,6 @@ const deals = new DealsService(
 );
 const dashboard = new DashboardService(db, conversion);
 
-let companyId: string;
 let previousReportingCurrency: string | null = null;
 
 const MILLION = 100_000_000;
@@ -89,20 +88,11 @@ beforeAll(async () => {
 		update: {},
 	});
 
-	const company = await db.company.upsert({
-		where: { domain },
-		create: { name: `Money Co ${suffix}`, domain },
-		update: {},
-		select: { id: true },
-	});
-	companyId = company.id;
-
 	await rate("EUR", "1.10", RateSource.FETCHED);
 });
 
 afterAll(async () => {
-	await db.deal.deleteMany({ where: { companyId } });
-	await db.company.deleteMany({ where: { domain } });
+	await db.deal.deleteMany({ where: { ownerId: userId } });
 	await db.user.deleteMany({ where: { id: userId } });
 	await clearRates();
 
@@ -119,7 +109,6 @@ describe("a total across currencies", () => {
 	it("converts on write and never adds two currencies together", async () => {
 		await deals.create({
 			name: `Domestic ${suffix}`,
-			companyId,
 			ownerId: userId,
 			amountCents: MILLION,
 			currency: "USD",
@@ -127,7 +116,6 @@ describe("a total across currencies", () => {
 
 		await deals.create({
 			name: `Continental ${suffix}`,
-			companyId,
 			ownerId: userId,
 			amountCents: MILLION,
 			currency: "EUR",
@@ -138,7 +126,7 @@ describe("a total across currencies", () => {
 
 	it("locks the rate onto the deal, so the row says how it was converted", async () => {
 		const row = await db.deal.findFirst({
-			where: { companyId, currency: "EUR" },
+			where: { ownerId: userId, currency: "EUR" },
 			select: { amount: true, baseAmount: true, fxRate: true, fxRateAt: true },
 		});
 
@@ -153,7 +141,6 @@ describe("a total across currencies", () => {
 
 		await deals.create({
 			name: `Alpine ${suffix}`,
-			companyId,
 			ownerId: userId,
 			amountCents: HALF_MILLION,
 			currency: "CHF",
@@ -187,7 +174,7 @@ describe("a total across currencies", () => {
 		await conversion.fillMissing();
 
 		const row = await db.deal.findFirst({
-			where: { companyId, currency: "EUR" },
+			where: { ownerId: userId, currency: "EUR" },
 			select: { baseAmount: true },
 		});
 
@@ -200,7 +187,7 @@ describe("a total across currencies", () => {
 		await conversion.rerateAll();
 
 		const row = await db.deal.findFirst({
-			where: { companyId, currency: "EUR" },
+			where: { ownerId: userId, currency: "EUR" },
 			select: { baseAmount: true, fxRate: true },
 		});
 
@@ -261,7 +248,6 @@ describe("a converted figure knows which currency it is in", () => {
 
 		const deal = await deals.create({
 			name: `Stale ${suffix}`,
-			companyId,
 			ownerId: userId,
 			amountCents: MILLION,
 			currency: "USD",
@@ -296,7 +282,6 @@ describe("a converted figure knows which currency it is in", () => {
 		const orphan = await db.deal.create({
 			data: {
 				name: `Orphan ${suffix}`,
-				companyId,
 				ownerId: userId,
 				amount: 50_000,
 				currency: "USD",
@@ -330,7 +315,6 @@ describe("a converted figure knows which currency it is in", () => {
 				db.deal.create({
 					data: {
 						name: `Variant ${index} ${suffix}`,
-						companyId,
 						ownerId: userId,
 						amount: 1000,
 						currency,
@@ -382,7 +366,6 @@ describe("a converted figure knows which currency it is in", () => {
 
 		const deal = await deals.create({
 			name: `Frozen ${suffix}`,
-			companyId,
 			ownerId: userId,
 			amountCents: MILLION,
 			currency: "EUR",
@@ -401,7 +384,6 @@ describe("a converted figure knows which currency it is in", () => {
 		const stranded = await db.deal.create({
 			data: {
 				name: `Stranded ${suffix}`,
-				companyId,
 				ownerId: userId,
 				amount: 1000,
 				currency: "EUR",
@@ -457,7 +439,6 @@ describe("the dashboard only values what it can convert", () => {
 		return db.deal.create({
 			data: {
 				name: `${name} ${suffix}`,
-				companyId,
 				ownerId: analystId,
 				stage,
 				amount: 9_000,
@@ -475,7 +456,6 @@ describe("the dashboard only values what it can convert", () => {
 	it("does not average a won deal it cannot value into the rest", async () => {
 		const won = await deals.create({
 			name: `Valued win ${suffix}`,
-			companyId,
 			ownerId: analystId,
 			amountCents: 10_000,
 			currency: "USD",
@@ -496,7 +476,6 @@ describe("the dashboard only values what it can convert", () => {
 	it("does not let a stale figure set the largest open deal", async () => {
 		const open = await deals.create({
 			name: `Valued open ${suffix}`,
-			companyId,
 			ownerId: analystId,
 			amountCents: 10_000,
 			currency: "USD",

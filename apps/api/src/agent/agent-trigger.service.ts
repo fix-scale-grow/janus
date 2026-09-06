@@ -33,45 +33,6 @@ export class AgentTriggerService {
 
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async companyCreated(
-		companyId: string,
-		reason = "New company",
-	): Promise<void> {
-		await this.enqueue({
-			companyId,
-			kind: "brand",
-			reason,
-			priority: PRIORITY.brand,
-			budget: 2,
-		});
-
-		await this.enqueue({
-			companyId,
-			kind: "company-profile",
-			reason,
-			priority: PRIORITY.companyProfile,
-			budget: 4,
-		});
-	}
-
-	async companyRequested(companyId: string, reason: string): Promise<void> {
-		await this.enqueue({
-			companyId,
-			kind: "brand",
-			reason,
-			priority: PRIORITY.brand,
-			budget: 2,
-		});
-
-		await this.enqueue({
-			companyId,
-			kind: "company-profile",
-			reason,
-			priority: PRIORITY.requested,
-			budget: 8,
-		});
-	}
-
 	async workspaceChanged(website: string, reason: string): Promise<void> {
 		await this.enqueue({
 			kind: "workspace-profile",
@@ -300,13 +261,11 @@ export class AgentTriggerService {
 	async backfill(input: {
 		kind: string;
 		reason: string;
-		contactIds?: string[];
-		companyIds?: string[];
+		contactIds: string[];
 		budget?: number;
 		priority?: number;
 	}): Promise<{ queued: number; alreadyQueued: number }> {
-		const subject = input.contactIds ? "contactId" : "companyId";
-		const ids = [...new Set(input.contactIds ?? input.companyIds ?? [])];
+		const ids = [...new Set(input.contactIds)];
 		if (ids.length === 0) return { queued: 0, alreadyQueued: 0 };
 
 		try {
@@ -314,21 +273,18 @@ export class AgentTriggerService {
 				where: {
 					kind: input.kind,
 					finishedAt: null,
-					[subject]: { in: ids },
+					contactId: { in: ids },
 				},
-				select: { [subject]: true },
+				select: { contactId: true },
 			});
 
-			const taken = new Set(
-				outstanding.map((row) => (row as Record<string, unknown>)[subject]),
-			);
+			const taken = new Set(outstanding.map((row) => row.contactId));
 			const fresh = ids.filter((id) => !taken.has(id));
 
 			if (fresh.length > 0) {
 				await this.db.agentTask.createMany({
 					data: fresh.map((id) => ({
-						contactId: input.contactIds ? id : null,
-						companyId: input.companyIds ? id : null,
+						contactId: id,
 						kind: input.kind,
 						reason: input.reason,
 						priority: input.priority ?? PRIORITY.sweep,
@@ -363,7 +319,6 @@ export class AgentTriggerService {
 	private async enqueue(
 		task: {
 			contactId?: string;
-			companyId?: string;
 			kind: string;
 			reason: string;
 			priority: number;
@@ -378,14 +333,13 @@ export class AgentTriggerService {
 			const write = async (tx: Prisma.TransactionClient) => {
 				await lockIdempotencyKey(
 					tx,
-					`agent-task:${task.kind}:${task.contactId ?? ""}:${task.companyId ?? ""}:${task.subject?.value ?? ""}`,
+					`agent-task:${task.kind}:${task.contactId ?? ""}:${task.subject?.value ?? ""}`,
 				);
 				const pending = await tx.agentTask.findFirst({
 					where: {
 						kind: task.kind,
 						finishedAt: null,
 						...(task.contactId ? { contactId: task.contactId } : {}),
-						...(task.companyId ? { companyId: task.companyId } : {}),
 						...(task.subject
 							? {
 									payload: {
@@ -402,7 +356,6 @@ export class AgentTriggerService {
 				await tx.agentTask.create({
 					data: {
 						contactId: task.contactId ?? null,
-						companyId: task.companyId ?? null,
 						kind: task.kind,
 						reason: task.reason,
 						priority: task.priority,
@@ -423,7 +376,6 @@ export class AgentTriggerService {
 				message: "Agent task queued",
 				kind: task.kind,
 				contactId: task.contactId,
-				companyId: task.companyId,
 			});
 
 			if (!client) this.poke();
@@ -445,7 +397,6 @@ export class AgentTriggerService {
 	): Promise<void> {
 		const recordIds = {
 			contactId: input.record.kind === "contact" ? input.record.id : null,
-			companyId: input.record.kind === "company" ? input.record.id : null,
 			dealId: input.record.kind === "deal" ? input.record.id : null,
 		};
 		await tx.agentTask.create({

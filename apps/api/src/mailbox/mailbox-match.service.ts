@@ -3,11 +3,9 @@ import { type Db, RecordSource } from "@crm/db";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
-import { CompanyDirectoryService } from "../companies/company-directory.service";
 import { EnrichmentLogService } from "../crm/enrichment-log.service";
 import { InjectDatabase } from "../database/database.constants";
 import {
-	dominantDomain,
 	externalParticipants,
 	isDerivedName,
 	type Participant,
@@ -20,7 +18,6 @@ export type SyncRecordSource =
 	| typeof RecordSource.CALENDAR;
 
 export type MatchResult = {
-	companyId: string | null;
 	contactId: string | null;
 	external: Participant[];
 };
@@ -45,7 +42,6 @@ export class MailboxMatchService {
 
 	constructor(
 		@InjectDatabase() private readonly db: Db,
-		private readonly companies: CompanyDirectoryService,
 		private readonly agent: AgentTriggerService,
 		private readonly log: EnrichmentLogService,
 	) {}
@@ -96,120 +92,30 @@ export class MailboxMatchService {
 		});
 
 		if (external.length === 0) {
-			return { companyId: null, contactId: null, external };
+			return { contactId: null, external };
 		}
 
 		const contact = await this.db.contact.findFirst({
 			where: { email: { in: external.map((person) => person.email) } },
-			select: { id: true, companyId: true },
+			select: { id: true },
 		});
 
 		if (contact) {
-			return {
-				companyId: contact.companyId,
-				contactId: contact.id,
-				external,
-			};
-		}
-
-		const domains = [
-			...new Set(
-				external
-					.map((person) => workDomain(person.email))
-					.filter((domain): domain is string => domain !== null),
-			),
-		];
-
-		const known = await this.db.company.findMany({
-			where: { domain: { in: domains } },
-			select: { id: true, domain: true },
-		});
-
-		const knownDomains = new Set(
-			known
-				.map((company) => company.domain)
-				.filter((domain): domain is string => domain !== null),
-		);
-
-		const domain = dominantDomain(external, knownDomains);
-		if (!domain) return { companyId: null, contactId: null, external };
-
-		const existing = known.find((company) => company.domain === domain);
-		if (existing) {
-			return {
-				companyId: existing.id,
-				contactId: request.allowCreate
-					? await this.createContact(external, domain, existing.id, request)
-					: null,
-				external,
-			};
+			return { contactId: contact.id, external };
 		}
 
 		if (!request.allowCreate) {
-			return { companyId: null, contactId: null, external };
+			return { contactId: null, external };
 		}
 
-		return this.create(external, domain, request);
-	}
-
-	private async create(
-		external: Participant[],
-		domain: string,
-		request: MatchRequest,
-	): Promise<MatchResult> {
-		const lead =
-			external.find((person) => workDomain(person.email) === domain) ??
-			external[0];
-
-		if (!lead) return { companyId: null, contactId: null, external };
-
-		const companyId = await this.companies.companyForEmail(lead.email, {
-			ownerId: request.ownerId,
-		});
-		if (!companyId) {
-			return { companyId: null, contactId: null, external };
-		}
-
-		await this.db.company.update({
-			where: { id: companyId },
-			data: { source: request.source },
-		});
-
-		const contactId = await this.createContact(
-			external,
-			domain,
-			companyId,
-			request,
-		);
-
-		await this.log.record({
-			companyId,
-			subject: "Company added from your inbox",
-			body:
-				`Created because you ${request.source === "CALENDAR" ? "met" : "emailed"} ` +
-				`someone at ${domain}.`,
-			meta: { source: request.source, domain },
-		});
-
-		this.logger.log({
-			message: "Company auto-created from mailbox sync",
-			companyId,
-			domain,
-			source: request.source,
-		});
-
-		return { companyId, contactId, external };
+		return { contactId: await this.createContact(external, request), external };
 	}
 
 	private async createContact(
 		external: Participant[],
-		domain: string,
-		companyId: string,
 		request: MatchRequest,
 	): Promise<string | null> {
-		const person = external.find(
-			(candidate) => workDomain(candidate.email) === domain,
-		);
+		const person = external[0];
 		if (!person) return null;
 
 		const { firstName, lastName } = splitName(person.name, person.email);
@@ -223,7 +129,6 @@ export class MailboxMatchService {
 					firstName: true,
 					lastName: true,
 					email: true,
-					companyId: true,
 					createdAt: true,
 				},
 			});
@@ -234,7 +139,6 @@ export class MailboxMatchService {
 					firstName,
 					lastName,
 					email: person.email,
-					companyId,
 					source: request.source,
 					ownerId: request.ownerId,
 				},
@@ -243,7 +147,6 @@ export class MailboxMatchService {
 					firstName: true,
 					lastName: true,
 					email: true,
-					companyId: true,
 					createdAt: true,
 				},
 			});
@@ -255,7 +158,6 @@ export class MailboxMatchService {
 					firstName: contact.firstName,
 					lastName: contact.lastName,
 					email: contact.email,
-					companyId: contact.companyId,
 					source: request.source,
 				},
 			});
@@ -266,7 +168,6 @@ export class MailboxMatchService {
 		if (outcome.created) {
 			await this.log.record({
 				contactId: contact.id,
-				companyId,
 				subject: "Contact added from your inbox",
 				body: `${person.email} appeared in a ${request.source === "CALENDAR" ? "meeting" : "thread"}.`,
 				meta: { source: request.source },

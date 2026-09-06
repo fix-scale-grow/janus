@@ -9,7 +9,6 @@ import { FieldsService } from "../src/fields/fields.service";
 const suffix = crypto.randomUUID();
 const dealId = `event-deal-${suffix}`;
 const contactId = `event-contact-${suffix}`;
-const companyId = `event-company-${suffix}`;
 const service = new AgentTriggerService(db);
 const stamp = new ActivityStampService(db);
 const conversion = new ConversionService(db);
@@ -17,8 +16,6 @@ const fields = new FieldsService(db, service);
 const deals = new DealsService(db, service, stamp, conversion, fields);
 const channelId = `event-channel-${suffix}`;
 const ownerId = `event-owner-${suffix}`;
-const domain = `event-${suffix}.example.test`;
-let persistedCompanyId = "";
 let persistedDealId = "";
 let previousBridgeSecret: string | undefined;
 
@@ -35,11 +32,6 @@ beforeAll(async () => {
 			email: `${ownerId}@example.test`,
 		},
 	});
-	const company = await db.company.create({
-		data: { name: "Event Test Company", domain },
-		select: { id: true },
-	});
-	persistedCompanyId = company.id;
 });
 
 afterAll(async () => {
@@ -60,9 +52,6 @@ afterAll(async () => {
 	if (persistedDealId) {
 		await db.activity.deleteMany({ where: { dealId: persistedDealId } });
 		await db.deal.deleteMany({ where: { id: persistedDealId } });
-	}
-	if (persistedCompanyId) {
-		await db.company.deleteMany({ where: { id: persistedCompanyId } });
 	}
 	await db.user.deleteMany({ where: { id: ownerId } });
 	if (previousBridgeSecret === undefined) {
@@ -89,14 +78,12 @@ describe("CRM agent events", () => {
 				where: { contactId, kind: "agent-event" },
 				select: {
 					contactId: true,
-					companyId: true,
 					dealId: true,
 					payload: true,
 				},
 			}),
 		).toEqual({
 			contactId,
-			companyId: null,
 			dealId: null,
 			payload: {
 				type: "contact.created",
@@ -116,13 +103,13 @@ describe("CRM agent events", () => {
 				type: "deal.created",
 				record: { kind: "deal", id: dealId },
 				occurredAt: createdAt,
-				data: { companyId, stage: "DEMO_BOOKED" },
+				data: { stage: "DEMO_BOOKED" },
 			});
 			await emit({
 				type: "deal.closed",
 				record: { kind: "deal", id: dealId },
 				occurredAt: closedAt,
-				data: { companyId, from: "NEGOTIATION", to: "CLOSED_WON" },
+				data: { from: "NEGOTIATION", to: "CLOSED_WON" },
 			});
 		});
 
@@ -144,7 +131,7 @@ describe("CRM agent events", () => {
 				type: "deal.created",
 				record: { kind: "deal", id: dealId },
 				occurredAt: createdAt.toISOString(),
-				data: { companyId, stage: "DEMO_BOOKED" },
+				data: { stage: "DEMO_BOOKED" },
 			},
 			finishedAt: null,
 		});
@@ -155,7 +142,7 @@ describe("CRM agent events", () => {
 				type: "deal.closed",
 				record: { kind: "deal", id: dealId },
 				occurredAt: closedAt.toISOString(),
-				data: { companyId, from: "NEGOTIATION", to: "CLOSED_WON" },
+				data: { from: "NEGOTIATION", to: "CLOSED_WON" },
 			},
 			finishedAt: null,
 		});
@@ -177,23 +164,24 @@ describe("CRM agent events", () => {
 	});
 
 	it("rolls back the record when its event cannot commit", async () => {
-		const rollbackCompanyId = `event-rollback-company-${suffix}`;
+		const rollbackContactId = `event-rollback-contact-${suffix}`;
 		let error: Error | null = null;
 
 		try {
 			await service.withCrmEvents(async (tx, emit) => {
-				const company = await tx.company.create({
+				const contact = await tx.contact.create({
 					data: {
-						id: rollbackCompanyId,
-						name: "Rollback Event Company",
+						id: rollbackContactId,
+						firstName: "Rollback",
+						lastName: "Event Contact",
 					},
 					select: { id: true, createdAt: true },
 				});
 				await emit({
-					type: "company.created",
-					record: { kind: "company", id: company.id },
-					occurredAt: company.createdAt,
-					data: { name: "Rollback Event Company", domain: null },
+					type: "contact.created",
+					record: { kind: "contact", id: contact.id },
+					occurredAt: contact.createdAt,
+					data: { email: null },
 				});
 				throw new Error("Rollback the record and outbox together.");
 			});
@@ -203,11 +191,11 @@ describe("CRM agent events", () => {
 
 		expect(error?.message).toBe("Rollback the record and outbox together.");
 		expect(
-			await db.company.findUnique({ where: { id: rollbackCompanyId } }),
+			await db.contact.findUnique({ where: { id: rollbackContactId } }),
 		).toBeNull();
 		expect(
 			await db.agentTask.count({
-				where: { companyId: rollbackCompanyId, kind: "agent-event" },
+				where: { contactId: rollbackContactId, kind: "agent-event" },
 			}),
 		).toBe(0);
 	});
@@ -215,7 +203,6 @@ describe("CRM agent events", () => {
 	it("emits each real deal lifecycle transition exactly once", async () => {
 		const deal = await deals.create({
 			name: "Event-driven deal",
-			companyId: persistedCompanyId,
 			ownerId,
 			amountCents: 25_000,
 			currency: "USD",

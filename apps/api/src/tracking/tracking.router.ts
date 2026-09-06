@@ -12,7 +12,6 @@ import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	addDomainInput,
-	companyActivityInput,
 	contactActivityInput,
 	cookieLifetimeInput,
 	removeDomainInput,
@@ -81,11 +80,6 @@ export class TrackingRouter {
 	@Query()
 	async sources(@Ctx() ctx: AuthedTrpcContext) {
 		return this.tracking.sources(ctx.user.id);
-	}
-
-	@Query({ input: companyActivityInput })
-	async companyActivity(@Input() input: z.infer<typeof companyActivityInput>) {
-		return this.tracking.activityForCompany(input.companyId);
 	}
 
 	@Query({ input: contactActivityInput })

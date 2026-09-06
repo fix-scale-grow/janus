@@ -15,7 +15,6 @@ export class ConversationService {
 				messageCount: true,
 				firstMessageAt: true,
 				lastMessageAt: true,
-				company: { select: { id: true, name: true } },
 				contact: { select: { id: true, firstName: true, lastName: true } },
 				messages: {
 					orderBy: { sentAt: "asc" },
@@ -109,7 +108,6 @@ export class ConversationService {
 				isAllDay: true,
 				status: true,
 				organizerEmail: true,
-				company: { select: { id: true, name: true } },
 				contact: { select: { id: true, firstName: true, lastName: true } },
 				attendees: {
 					orderBy: [{ isOrganizer: "desc" }, { email: "asc" }],

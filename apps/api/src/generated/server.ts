@@ -34,7 +34,7 @@ import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } fr
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput } from "../symbols/symbols.contracts";
 import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, templateSendTestInput } from "../templates/templates.contracts";
-import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, companyActivityInput, contactActivityInput } from "../tracking/tracking.contracts";
+import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
@@ -671,9 +671,6 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["verify"]>>),
     sources: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["sources"]>>),
-    companyActivity: publicProcedure
-      .input(companyActivityInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["companyActivity"]>>),
     contactActivity: publicProcedure
       .input(contactActivityInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<TrackingRouter["contactActivity"]>>)

@@ -1,6 +1,6 @@
-import type { Db, Prisma } from "@crm/db";
+import type { Db } from "@crm/db";
 import { blobEnabled, mirror } from "@crm/db/blob";
-import { BLOB_HOST_SUFFIX, COMPANY_IMAGE_FIELDS } from "@crm/db/images";
+import { BLOB_HOST_SUFFIX } from "@crm/db/images";
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
@@ -20,11 +20,7 @@ export class ImageMirrorService {
 	async sweep(): Promise<ImageMirrorResult> {
 		if (!blobEnabled()) return { scanned: 0, copied: 0 };
 
-		const results = [
-			await this.sweepCompanies(),
-			await this.sweepContacts(),
-			await this.sweepUsers(),
-		];
+		const results = [await this.sweepContacts(), await this.sweepUsers()];
 
 		const total = results.reduce(
 			(sum, result) => ({
@@ -39,49 +35,6 @@ export class ImageMirrorService {
 		}
 
 		return total;
-	}
-
-	private async sweepCompanies(): Promise<ImageMirrorResult> {
-		const rows = await this.db.company.findMany({
-			where: {
-				OR: COMPANY_IMAGE_FIELDS.map((field) => external(field)),
-			},
-			orderBy: { createdAt: "asc" },
-			take: MAX_PER_SWEEP,
-			select: {
-				id: true,
-				logoUrl: true,
-				logoDarkUrl: true,
-				iconUrl: true,
-				iconDarkUrl: true,
-			},
-		});
-
-		let copied = 0;
-
-		for (const row of rows) {
-			const data: Prisma.CompanyUpdateInput = {};
-
-			for (const field of COMPANY_IMAGE_FIELDS) {
-				const current = row[field];
-				if (!current) continue;
-
-				const stored = await mirror(current, `companies/${row.id}/${field}`);
-				if (!stored || stored === current) continue;
-
-				data[field] = stored;
-				copied += 1;
-			}
-
-			if (Object.keys(data).length === 0) continue;
-
-			await this.db.company.updateMany({
-				where: { id: row.id, ...unchanged(row) },
-				data,
-			});
-		}
-
-		return { scanned: rows.length, copied };
 	}
 
 	private async sweepContacts(): Promise<ImageMirrorResult> {
@@ -148,10 +101,4 @@ function external<T extends string>(
 			{ contains: string }
 		>,
 	};
-}
-
-function unchanged(row: Record<string, unknown>): Prisma.CompanyWhereInput {
-	return Object.fromEntries(
-		COMPANY_IMAGE_FIELDS.map((field) => [field, row[field] ?? null]),
-	);
 }

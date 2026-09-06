@@ -4,7 +4,6 @@ import { InjectDatabase } from "../database/database.constants";
 import { ActivityStampService } from "./activity-stamp.service";
 
 export type EnrichmentEvent = {
-	companyId?: string | null;
 	contactId?: string | null;
 	subject: string;
 	body?: string | null;
@@ -28,7 +27,6 @@ export class EnrichmentLogService {
 				subject: event.subject,
 				body: event.body ?? null,
 				occurredAt: new Date(),
-				companyId: event.companyId ?? null,
 				contactId: event.contactId ?? null,
 				createdById: author,
 				meta: { ...event.meta, automated: true },
@@ -36,10 +34,7 @@ export class EnrichmentLogService {
 			select: { id: true, createdAt: true },
 		});
 
-		await this.stamp.touch(
-			{ companyId: event.companyId, contactId: event.contactId },
-			activity.createdAt,
-		);
+		await this.stamp.touch({ contactId: event.contactId }, activity.createdAt);
 
 		return activity.id;
 	}
@@ -51,14 +46,6 @@ export class EnrichmentLogService {
 				select: { ownerId: true },
 			});
 			if (contact?.ownerId) return contact.ownerId;
-		}
-
-		if (event.companyId) {
-			const company = await this.db.company.findUnique({
-				where: { id: event.companyId },
-				select: { ownerId: true },
-			});
-			if (company?.ownerId) return company.ownerId;
 		}
 
 		const anyUser = await this.db.user.findFirst({ select: { id: true } });
