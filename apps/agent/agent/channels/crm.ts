@@ -25,6 +25,7 @@ import {
 	taskAuth,
 } from "../lib/dispatch";
 import { DISPATCH } from "../lib/dispatch-config";
+import { fileDrawingCheckConversation } from "../lib/drawing-conversation";
 import { settle } from "../lib/enrichment";
 import { finishRun } from "../lib/run-runtime";
 import { attribute } from "../lib/session-purpose";
@@ -227,11 +228,19 @@ export default defineChannel({
 			);
 		},
 
-		async "session.waiting"(_data, channel) {
+		async "session.waiting"(_data, channel, ctx) {
 			const taskId = taskFromToken(channel.continuationToken);
 			if (taskId) {
 				const subject = await completeTask(taskId, "ran");
-				if (subject) await settle(subject, EnrichmentStatus.COMPLETE);
+				if (subject) {
+					await settle(subject, EnrichmentStatus.COMPLETE);
+					if (subject.kind === "drawing-check" && subject.drawingId) {
+						await fileDrawingCheckConversation(
+							subject.drawingId,
+							ctx.session.id,
+						);
+					}
+				}
 				return;
 			}
 

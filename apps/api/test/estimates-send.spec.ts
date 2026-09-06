@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
 import { BadRequestException } from "@nestjs/common";
+import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
 import type { MailerService } from "../src/mailer/mailer.service";
@@ -111,6 +112,7 @@ function fakeMergeContext() {
 }
 
 const noContacts = {} as unknown as ContactsService;
+const noAgent = {} as unknown as AgentTriggerService;
 
 describe("EstimatesService.send", () => {
 	it("throws and never flips status when delivery fails", async () => {
@@ -122,6 +124,7 @@ describe("EstimatesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext().service,
+			noAgent,
 		);
 
 		await expect(service.send({ id: "est1" })).rejects.toBeInstanceOf(
@@ -140,6 +143,7 @@ describe("EstimatesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext().service,
+			noAgent,
 		);
 
 		const result = await service.send({ id: "est1" });
@@ -156,6 +160,7 @@ describe("EstimatesService.send", () => {
 			mailer,
 			fakeTemplates("Your estimate from {{business.name}}"),
 			fakeMergeContext().service,
+			noAgent,
 		);
 
 		await service.send({ id: "est1" });
@@ -172,6 +177,7 @@ describe("EstimatesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext().service,
+			noAgent,
 		);
 
 		await service.send({ id: "est1", personalNote: "See you Tuesday!" });
@@ -188,6 +194,7 @@ describe("EstimatesService.send", () => {
 			mailer,
 			fakeTemplates("Your estimate from {{business.name}}"),
 			fakeMergeContext().service,
+			noAgent,
 		);
 
 		await service.send({ id: "est1", subject: "Custom subject" });

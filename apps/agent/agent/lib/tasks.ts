@@ -6,6 +6,7 @@ export type LeasedTask = {
 	id: string;
 	contactId: string | null;
 	dealId: string | null;
+	drawingId: string | null;
 	kind: string;
 	reason: string;
 	payload: Prisma.JsonValue | null;
@@ -19,6 +20,7 @@ export type TaskSubject = {
 	id: string;
 	contactId: string | null;
 	dealId: string | null;
+	drawingId: string | null;
 	kind: string;
 };
 
@@ -59,8 +61,8 @@ export async function claimDue(
 			FOR UPDATE SKIP LOCKED
 		) AS due
 		WHERE t.id = due.id
-		RETURNING t.id, t."contactId", t."dealId", t.kind, t.reason, t.payload,
-			t.budget, t.attempts, t.priority, t."dueAt";
+		RETURNING t.id, t."contactId", t."dealId", t."drawingId", t.kind, t.reason,
+			t.payload, t.budget, t.attempts, t.priority, t."dueAt";
 	`;
 
 	return claimed.sort(
@@ -78,7 +80,7 @@ export async function retireExhausted(): Promise<TaskSubject[]> {
 		WHERE t."finishedAt" IS NULL
 			AND t."attempts" >= ${MAX_ATTEMPTS}
 			AND (t."leasedUntil" IS NULL OR t."leasedUntil" < ${now})
-		RETURNING t.id, t."contactId", t."dealId", t.kind;
+		RETURNING t.id, t."contactId", t."dealId", t."drawingId", t.kind;
 	`;
 }
 
@@ -104,6 +106,7 @@ export async function completeTask(
 			id: true,
 			contactId: true,
 			dealId: true,
+			drawingId: true,
 			kind: true,
 		},
 	});
@@ -116,6 +119,7 @@ export async function taskSubject(taskId: string): Promise<TaskSubject | null> {
 			id: true,
 			contactId: true,
 			dealId: true,
+			drawingId: true,
 			kind: true,
 		},
 	});

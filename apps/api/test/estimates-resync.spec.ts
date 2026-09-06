@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
+import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
 import type { MailerService } from "../src/mailer/mailer.service";
@@ -146,6 +147,7 @@ function service(db: Db) {
 		{} as MailerService,
 		{} as TemplatesService,
 		{} as MergeContextService,
+		{} as AgentTriggerService,
 	);
 }
 

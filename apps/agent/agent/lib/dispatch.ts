@@ -240,6 +240,7 @@ export function taskAuth(task: LeasedTask, base: AppAuth = APP_AUTH): AppAuth {
 			budget: String(task.budget),
 			...(task.contactId ? { contactId: task.contactId } : {}),
 			...(task.dealId ? { dealId: task.dealId } : {}),
+			...(task.drawingId ? { drawingId: task.drawingId } : {}),
 		},
 	};
 }
@@ -392,6 +393,8 @@ function work(kind: string, reason: string): string {
 			return "There is a meeting with this person soon. Make sure whoever is taking it opens the record knowing who they are dealing with.";
 		case "workspace-profile":
 			return "Write the profile of the company you work for, so that every other session knows who we are. Read our own site and keep it short.";
+		case "drawing-check":
+			return `${reason} Call review_drawing on this drawing and tell the rep about anything that looks off — a shape drawn but not assigned to a service, a shape tagged but not measured, or a related service in the price book that is missing from the estimate. Ask about it, do not assert it is wrong.`;
 		default:
 			return `Handle this: ${reason}`;
 	}

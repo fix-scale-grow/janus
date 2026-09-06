@@ -12,6 +12,7 @@ import {
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
+import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ContactsService } from "../contacts/contacts.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
@@ -74,6 +75,7 @@ export class EstimatesService {
 		private readonly mailer: MailerService,
 		private readonly templates: TemplatesService,
 		private readonly mergeContext: MergeContextService,
+		private readonly agent: AgentTriggerService,
 	) {}
 
 	async list(input: EstimateListInput) {
@@ -314,7 +316,7 @@ export class EstimatesService {
 			);
 		}
 
-		return this.db.$transaction(async (tx) => {
+		const created = await this.db.$transaction(async (tx) => {
 			const estimate = await tx.estimate.create({
 				data: {
 					title: `${drawing.title} estimate`,
@@ -336,6 +338,14 @@ export class EstimatesService {
 
 			return { id: estimate.id };
 		});
+
+		void this.agent.estimateGenerated(
+			drawing.id,
+			created.id,
+			"An estimate was just generated from this drawing.",
+		);
+
+		return created;
 	}
 
 	async resyncFromDrawing(id: string) {

@@ -8,6 +8,7 @@ export const TASK_KINDS = [
 	"slack-people-match",
 	"slack-channel-join",
 	"agent-event",
+	"drawing-check",
 ] as const;
 
 export type TaskKind = (typeof TASK_KINDS)[number];
