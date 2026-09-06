@@ -69,7 +69,7 @@ export function FieldsSettings() {
 				</CardAction>
 			</CardHeader>
 
-			<CardPanel>
+			<CardPanel className="h-[640px]">
 				<FieldsBody entity={entity} field={field} onEdit={setField} />
 			</CardPanel>
 		</Card>
