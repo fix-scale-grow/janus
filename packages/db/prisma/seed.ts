@@ -1,7 +1,5 @@
-import { mirror } from "../src/blob";
 import { db } from "../src/client";
 import { DEFAULT_REPORTING_CURRENCY } from "../src/currency";
-import { resolveFavicon } from "../src/favicon";
 import {
 	ActivityType,
 	DealStage,
@@ -364,72 +362,13 @@ async function seedOwners(): Promise<string[]> {
 	return created.map((user) => user.id);
 }
 
-async function seedCompanies(
-	ownerIds: string[],
-): Promise<{ id: string; name: string; domain: string }[]> {
-	const companies = [];
+type SeededContact = { id: string; companyDomain: string };
 
-	for (const company of COMPANIES) {
-		const row = await db.company.upsert({
-			where: { domain: company.domain },
-			create: {
-				name: company.name,
-				domain: company.domain,
-				website: `https://${company.domain}`,
-				industry: company.industry,
-				city: company.city,
-				country: company.country,
-				countryCode: company.countryCode,
-				ownerId: pick(ownerIds),
-				createdAt: daysFromNow(-integer(30, 400), 12),
-			},
-			update: {},
-			select: { id: true, name: true, domain: true, iconUrl: true },
-		});
-		companies.push({ ...row, domain: row.domain ?? company.domain });
-	}
-
-	await seedIcons(companies);
-
-	return companies.map(({ iconUrl: _, ...company }) => company);
-}
-
-async function seedIcons(
-	companies: { id: string; domain: string | null; iconUrl: string | null }[],
-): Promise<void> {
-	const missing = companies.filter(
-		(company) => company.iconUrl === null && company.domain,
-	);
-	if (missing.length === 0) return;
-
-	let resolved = 0;
-	for (const company of missing) {
-		const source = await resolveFavicon(company.domain);
-		if (!source) continue;
-
-		const iconUrl =
-			(await mirror(source, `companies/${company.id}/icon`)) ?? source;
-
-		await db.company.updateMany({
-			where: { id: company.id, iconUrl: null },
-			data: { iconUrl },
-		});
-		resolved += 1;
-	}
-
-	console.log(`Resolved ${resolved} of ${missing.length} company icons.`);
-}
-
-type SeededContact = { id: string; companyId: string };
-
-async function seedContacts(
-	companies: { id: string; domain: string }[],
-	ownerIds: string[],
-): Promise<SeededContact[]> {
+async function seedContacts(ownerIds: string[]): Promise<SeededContact[]> {
 	const contacts: SeededContact[] = [];
 	const used = new Set<string>();
 
-	for (const company of companies) {
+	for (const company of COMPANIES) {
 		for (let index = 0; index < integer(2, 4); index++) {
 			const firstName = pick(FIRST_NAMES);
 			const lastName = pick(LAST_NAMES);
@@ -445,7 +384,7 @@ async function seedContacts(
 					email,
 					title: pick(TITLES),
 					phone: chance(0.4) ? `+1 415 555 ${integer(1000, 9999)}` : null,
-					companyId: company.id,
+					companyName: company.name,
 					ownerId: pick(ownerIds),
 					createdAt: daysFromNow(-integer(10, 300), 12),
 				},
@@ -453,17 +392,8 @@ async function seedContacts(
 				select: { id: true },
 			});
 
-			contacts.push({ id: contact.id, companyId: company.id });
+			contacts.push({ id: contact.id, companyDomain: company.domain });
 		}
-	}
-
-	for (const company of companies) {
-		const first = contacts.find((contact) => contact.companyId === company.id);
-		if (!first) continue;
-		await db.company.update({
-			where: { id: company.id },
-			data: { primaryContactId: first.id },
-		});
 	}
 
 	return contacts;
@@ -471,9 +401,9 @@ async function seedContacts(
 
 type SeededDeal = {
 	id: string;
-	companyId: string;
 	ownerId: string;
 	closed: boolean;
+	contactIds: string[];
 };
 
 const SEED_RATES: Record<string, number> = {
@@ -556,14 +486,16 @@ function money(usdAmount: number, currency: string) {
 }
 
 async function seedDeals(
-	companies: { id: string; name: string }[],
 	contacts: SeededContact[],
 	ownerIds: string[],
 ): Promise<SeededDeal[]> {
 	const deals: SeededDeal[] = [];
 
-	for (const [index, company] of companies.entries()) {
+	for (const [index, company] of COMPANIES.entries()) {
 		const count = index % 2 === 0 ? 2 : 1;
+		const companyContacts = contacts.filter(
+			(contact) => contact.companyDomain === company.domain,
+		);
 
 		for (let n = 0; n < count; n++) {
 			const id = `seed-deal-${slug(company.name)}-${n}`;
@@ -589,7 +521,6 @@ async function seedDeals(
 							? `${company.name} — Comp AI`
 							: `${company.name} — expansion`,
 					description: pick(DEAL_DESCRIPTIONS),
-					companyId: company.id,
 					ownerId,
 					stage,
 					stageChangedAt,
@@ -621,9 +552,7 @@ async function seedDeals(
 				update: {},
 			});
 
-			const companyContacts = contacts.filter(
-				(contact) => contact.companyId === company.id,
-			);
+			const dealContactIds: string[] = [];
 			for (const contact of companyContacts.slice(0, integer(1, 2))) {
 				await db.dealContact.upsert({
 					where: { dealId_contactId: { dealId: id, contactId: contact.id } },
@@ -634,21 +563,17 @@ async function seedDeals(
 					},
 					update: {},
 				});
+				dealContactIds.push(contact.id);
 			}
 
-			deals.push({ id, companyId: company.id, ownerId, closed });
+			deals.push({ id, ownerId, closed, contactIds: dealContactIds });
 		}
 	}
 
 	return deals;
 }
 
-async function seedActivities(
-	companies: { id: string }[],
-	contacts: SeededContact[],
-	deals: SeededDeal[],
-	ownerIds: string[],
-): Promise<number> {
+async function seedActivities(deals: SeededDeal[]): Promise<number> {
 	const existing = await db.activity.count();
 	if (existing > 0) {
 		console.log(`Activities already seeded (${existing}) — skipping.`);
@@ -662,7 +587,6 @@ async function seedActivities(
 		occurredAt: Date | null;
 		dueAt: Date | null;
 		completedAt: Date | null;
-		companyId: string | null;
 		contactId: string | null;
 		dealId: string | null;
 		createdById: string;
@@ -672,8 +596,7 @@ async function seedActivities(
 
 	const rows: ActivityRow[] = [];
 
-	const base = (companyId: string, createdById: string, createdAt: Date) => ({
-		companyId,
+	const base = (createdById: string, createdAt: Date) => ({
 		contactId: null,
 		dealId: null,
 		occurredAt: null,
@@ -686,8 +609,6 @@ async function seedActivities(
 	});
 
 	for (const deal of deals) {
-		const dealContacts = contacts.filter((c) => c.companyId === deal.companyId);
-
 		for (let n = 0; n < integer(3, 6); n++) {
 			const at = daysFromNow(-integer(2, 120), 18);
 			const type = pick([
@@ -698,10 +619,11 @@ async function seedActivities(
 			]);
 
 			rows.push({
-				...base(deal.companyId, deal.ownerId, at),
+				...base(deal.ownerId, at),
 				type,
 				dealId: deal.id,
-				contactId: dealContacts.length > 0 ? pick(dealContacts).id : null,
+				contactId:
+					deal.contactIds.length > 0 ? pick(deal.contactIds) : null,
 				subject:
 					type === ActivityType.CALL
 						? pick(CALL_SUBJECTS)
@@ -716,7 +638,7 @@ async function seedActivities(
 		}
 
 		rows.push({
-			...base(deal.companyId, deal.ownerId, daysFromNow(-integer(1, 20), 12)),
+			...base(deal.ownerId, daysFromNow(-integer(1, 20), 12)),
 			type: ActivityType.STAGE_CHANGE,
 			dealId: deal.id,
 			subject: "Stage changed",
@@ -739,7 +661,7 @@ async function seedActivities(
 				: daysFromNow(integer(1, 21), 6);
 
 			rows.push({
-				...base(deal.companyId, deal.ownerId, daysFromNow(-integer(1, 30), 12)),
+				...base(deal.ownerId, daysFromNow(-integer(1, 30), 12)),
 				type: ActivityType.TASK,
 				dealId: deal.id,
 				subject: pick(TASK_SUBJECTS),
@@ -749,15 +671,6 @@ async function seedActivities(
 		}
 	}
 
-	for (const company of companies) {
-		if (!chance(0.6)) continue;
-		rows.push({
-			...base(company.id, pick(ownerIds), daysFromNow(-integer(5, 200), 12)),
-			type: ActivityType.NOTE,
-			body: pick(NOTE_BODIES),
-		});
-	}
-
 	await db.activity.createMany({ data: rows });
 	return rows.length;
 }
@@ -765,14 +678,13 @@ async function seedActivities(
 async function main() {
 	const rates = await seedRates();
 	const ownerIds = await seedOwners();
-	const companies = await seedCompanies(ownerIds);
-	const contacts = await seedContacts(companies, ownerIds);
-	const deals = await seedDeals(companies, contacts, ownerIds);
-	const activities = await seedActivities(companies, contacts, deals, ownerIds);
+	const contacts = await seedContacts(ownerIds);
+	const deals = await seedDeals(contacts, ownerIds);
+	const activities = await seedActivities(deals);
 
 	console.log(
-		`Seeded ${companies.length} companies, ${contacts.length} contacts, ` +
-			`${deals.length} deals, ${activities} activities, ${rates} exchange rates.`,
+		`Seeded ${contacts.length} contacts, ${deals.length} deals, ` +
+			`${activities} activities, ${rates} exchange rates.`,
 	);
 }
 
