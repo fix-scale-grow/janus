@@ -8,6 +8,11 @@ import {
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
 import { MergeContextService } from "../templates/merge-context.service";
+import {
+	assertMergeComplete,
+	collectTokens,
+	missingMerges,
+} from "../templates/merge-guard";
 import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
 import { parseTemplateBlocks } from "../templates/template-blocks";
 import { TemplatesService } from "../templates/templates.service";
@@ -358,6 +363,10 @@ export class InvoicesService {
 			purpose: "INVOICE_SEND",
 		});
 		const blocks = parseTemplateBlocks(template.blocks);
+
+		const registry = await this.templates.mergeRegistry();
+		const tokens = collectTokens(template.subject ?? "", blocks);
+		assertMergeComplete("invoice", missingMerges(tokens, context, registry));
 
 		const subject =
 			input.subject ??

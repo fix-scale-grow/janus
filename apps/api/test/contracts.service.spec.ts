@@ -33,12 +33,21 @@ function fakeTemplates() {
 				blocks: CONTRACT_SEND_BLOCKS,
 			};
 		},
+		mergeRegistry: async () =>
+			new Map([
+				["contract.title", "Contract title"],
+				["contact.full_name", "Full name"],
+				["signing_link", "Signing link"],
+			]),
 	} as unknown as TemplatesService;
 }
 
 function fakeMergeContext() {
 	return {
-		resolve: async () => ({ "contract.title": "A contract" }),
+		resolve: async () => ({
+			"contract.title": "A contract",
+			signing_link: "https://app.example.com/sign/abc123",
+		}),
 	} as unknown as MergeContextService;
 }
 

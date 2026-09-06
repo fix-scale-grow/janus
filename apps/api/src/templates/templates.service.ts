@@ -5,6 +5,7 @@ import { InjectDatabase } from "../database/database.constants";
 import { FieldsService } from "../fields/fields.service";
 import { MailerService } from "../mailer/mailer.service";
 import { MergeContextService } from "./merge-context.service";
+import { collectTokens, missingMerges } from "./merge-guard";
 import { applyMergeFields, renderEmailHtml } from "./render-email";
 import { parseTemplateBlocks } from "./template-blocks";
 import {
@@ -69,6 +70,19 @@ export class TemplatesService {
 				},
 			],
 		};
+	}
+
+	async mergeRegistry(): Promise<Map<string, string>> {
+		const { groups } = await this.mergeFields();
+		const registry = new Map<string, string>();
+
+		for (const group of groups) {
+			for (const field of group.fields) {
+				registry.set(field.token, field.label);
+			}
+		}
+
+		return registry;
 	}
 
 	async byPurpose(input: TemplateByPurposeInput) {
@@ -141,7 +155,11 @@ export class TemplatesService {
 		const mode = input.purpose === "CONTRACT_BODY" ? "document" : "email";
 		const { html } = renderEmailHtml(blocks, context, mode);
 
-		return { subject, html };
+		const registry = await this.mergeRegistry();
+		const tokens = collectTokens(template.subject ?? "", blocks);
+		const missing = missingMerges(tokens, context, registry);
+
+		return { subject, html, missing };
 	}
 
 	async sendTest(input: TemplateSendTestInput) {
@@ -151,6 +169,16 @@ export class TemplatesService {
 
 		const template = await this.byPurpose({ purpose: input.purpose });
 		const blocks = parseTemplateBlocks(template.blocks);
+
+		const registry = await this.mergeRegistry();
+		const tokens = collectTokens(template.subject ?? "", blocks);
+		const missing = missingMerges(tokens, SAMPLE_MERGE_CONTEXT, registry);
+
+		if (missing.length > 0) {
+			throw new BadRequestException(
+				`Missing for this test send: ${missing.map((entry) => entry.label).join(", ")}`,
+			);
+		}
 
 		const subject = template.subject
 			? applyMergeFields(template.subject, SAMPLE_MERGE_CONTEXT)

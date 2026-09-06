@@ -1,6 +1,8 @@
 "use client";
 
+import Warning from "@carbon/icons-react/es/Warning";
 import type { TemplatePurpose } from "@crm/db/enums";
+import { Alert, AlertDescription, AlertTitle } from "@crm/ui/components/alert";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -11,6 +13,7 @@ import {
 	DialogTitle,
 } from "@crm/ui/components/dialog";
 import { Field, FieldLabel } from "@crm/ui/components/field";
+import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
@@ -83,6 +86,9 @@ export function SendDocumentDialog({
 		setSubject(preview.data.subject);
 	}, [preview.data, subjectDirty]);
 
+	const missing = preview.data?.missing ?? [];
+	const hasUnknownMerge = missing.some((entry) => entry.reason === "unknown");
+
 	const submit = () => {
 		const trimmedTo = to.trim();
 		const trimmedSubject = subject.trim();
@@ -114,6 +120,26 @@ export function SendDocumentDialog({
 						Send.
 					</DialogDescription>
 				</DialogHeader>
+				{missing.length > 0 ? (
+					<Alert variant="warning">
+						<Icon icon={Warning} />
+						<AlertTitle>
+							{missing.length === 1
+								? "One merge field needs a value"
+								: `${missing.length} merge fields need a value`}
+						</AlertTitle>
+						<AlertDescription>
+							<ul className="list-disc pl-4">
+								{missing.map((entry) => (
+									<li key={entry.token}>
+										{entry.label}. Fill it on the contact or job, or remove it
+										from the template.
+									</li>
+								))}
+							</ul>
+						</AlertDescription>
+					</Alert>
+				) : null}
 				<div className="grid gap-4 md:grid-cols-2">
 					<div className="flex flex-col gap-4">
 						<Field>
@@ -166,7 +192,10 @@ export function SendDocumentDialog({
 					>
 						Cancel
 					</Button>
-					<Button onClick={submit} disabled={mutation.isPending}>
+					<Button
+						onClick={submit}
+						disabled={mutation.isPending || hasUnknownMerge}
+					>
 						{mutation.isPending ? <Spinner data-icon="inline-start" /> : null}
 						Send {entityLabel}
 					</Button>
