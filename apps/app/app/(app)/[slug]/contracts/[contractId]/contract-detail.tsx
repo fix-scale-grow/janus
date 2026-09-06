@@ -45,7 +45,7 @@ import { Textarea } from "@crm/ui/components/textarea";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { contactName } from "@/components/crm/contact-name";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
@@ -264,6 +264,12 @@ function SendForSignatureDialog({
 	const [to, setTo] = useState(defaultTo);
 	const [note, setNote] = useState("");
 
+	useEffect(() => {
+		if (!open) return;
+		setTo(defaultTo);
+		setNote("");
+	}, [open, defaultTo]);
+
 	const send = useMutation(
 		trpc.contracts.send.mutationOptions({
 			onSuccess: async () => {
@@ -289,16 +295,7 @@ function SendForSignatureDialog({
 	};
 
 	return (
-		<Dialog
-			open={open}
-			onOpenChange={(next) => {
-				if (next) {
-					setTo(defaultTo);
-					setNote("");
-				}
-				onOpenChange(next);
-			}}
-		>
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Send for signature</DialogTitle>
