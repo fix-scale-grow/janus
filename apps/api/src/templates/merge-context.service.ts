@@ -4,6 +4,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { formatCents } from "../documents/pdf-money";
 import { TIER_LABEL, tierTotals } from "../estimates/estimate-pdf";
+import { fieldMergeEntries } from "./field-merge";
 
 export type MergeContextRefs = {
 	contactId?: string;
@@ -16,10 +17,21 @@ export type MergeContextRefs = {
 	personalNote?: string;
 };
 
+const FIELD_VALUES_INCLUDE = {
+	fieldValues: {
+		include: {
+			field: { include: { options: true } },
+			option: true,
+			user: true,
+		},
+	},
+} as const;
+
 const CONTACT_SELECT = {
 	firstName: true,
 	lastName: true,
 	email: true,
+	...FIELD_VALUES_INCLUDE,
 } as const;
 
 const DEAL_SELECT = {
@@ -29,6 +41,7 @@ const DEAL_SELECT = {
 		orderBy: { updatedAt: "desc" },
 		take: 1,
 	},
+	...FIELD_VALUES_INCLUDE,
 } as const;
 
 const ESTIMATE_SELECT = {
@@ -92,6 +105,13 @@ export class MergeContextService {
 					.join(" ");
 				context["contact.first_name"] = contact.firstName;
 				context["contact.email"] = contact.email ?? "";
+
+				for (const entry of fieldMergeEntries(
+					"CONTACT",
+					contact.fieldValues ?? [],
+				)) {
+					context[entry.token] = entry.value;
+				}
 			}
 		}
 
@@ -103,6 +123,10 @@ export class MergeContextService {
 			if (deal) {
 				context["deal.title"] = deal.name;
 				context["deal.address"] = deal.drawings[0]?.address ?? "";
+
+				for (const entry of fieldMergeEntries("DEAL", deal.fieldValues ?? [])) {
+					context[entry.token] = entry.value;
+				}
 			}
 		}
 
