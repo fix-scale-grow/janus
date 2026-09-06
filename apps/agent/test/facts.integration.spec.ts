@@ -5,8 +5,10 @@ import { recordFact, writeBrief } from "../agent/lib/facts";
 
 const suffix = process.env.TEST_RUN_ID ?? "facts-spec";
 const email = `evidence.subject.${suffix}@example.test`;
+const secondEmail = `evidence.typed.${suffix}@example.test`;
 
 let contactId: string;
+let typedContactId: string;
 
 const seen = (kind: Evidence["kind"], detail = "observed"): Evidence => ({
 	kind,
@@ -14,16 +16,26 @@ const seen = (kind: Evidence["kind"], detail = "observed"): Evidence => ({
 });
 
 beforeAll(async () => {
-	await db.contact.deleteMany({ where: { email } });
+	await db.contact.deleteMany({ where: { email: { in: [email, secondEmail] } } });
 	const contact = await db.contact.create({
 		data: { firstName: "Subject", lastName: null, email },
 		select: { id: true },
 	});
 	contactId = contact.id;
+	const typedContact = await db.contact.create({
+		data: {
+			firstName: "Typed",
+			lastName: null,
+			email: secondEmail,
+			title: "Human-typed Title",
+		},
+		select: { id: true },
+	});
+	typedContactId = typedContact.id;
 });
 
 afterAll(async () => {
-	await db.contact.deleteMany({ where: { email } });
+	await db.contact.deleteMany({ where: { email: { in: [email, secondEmail] } } });
 });
 
 describe("recordFact", () => {
@@ -49,20 +61,20 @@ describe("recordFact", () => {
 	it("fills an empty field without asking anybody", async () => {
 		const result = await recordFact({
 			contactId,
-			field: "twitterUrl",
-			value: "https://x.com/subject",
-			evidence: [seen("handle.name-form"), seen("search.cites-profile")],
-			method: "x.handle+citation",
+			field: "seniority",
+			value: "Director",
+			evidence: [seen("web.cited-claim"), seen("web.cited-claim")],
+			method: "web",
 		});
 
 		expect(result.applied).toBe(true);
 		expect(result.band).toBe("PROBABLE");
 
-		const contact = await db.contact.findUnique({
-			where: { id: contactId },
-			select: { twitterUrl: true },
+		const fact = await db.contactFact.findFirst({
+			where: { contactId, field: "seniority", status: "APPLIED" },
+			select: { value: true },
 		});
-		expect(contact?.twitterUrl).toBe("https://x.com/subject");
+		expect(fact?.value).toBe("Director");
 	});
 
 	it("fills a field the record keeps no column for", async () => {
@@ -81,29 +93,29 @@ describe("recordFact", () => {
 	it("offers rather than replaces a value it already found", async () => {
 		const result = await recordFact({
 			contactId,
-			field: "twitterUrl",
-			value: "https://x.com/someone-else",
-			evidence: [seen("handle.name-form"), seen("search.cites-profile")],
-			method: "x.handle+citation",
+			field: "seniority",
+			value: "VP",
+			evidence: [seen("web.cited-claim"), seen("web.cited-claim")],
+			method: "web",
 		});
 
 		expect(result.stored).toBe(true);
 		expect(result.applied).toBe(false);
 		expect(result.reason).toContain("already carries a value");
 
-		const contact = await db.contact.findUnique({
-			where: { id: contactId },
-			select: { twitterUrl: true },
+		const fact = await db.contactFact.findFirst({
+			where: { contactId, field: "seniority", status: "APPLIED" },
+			select: { value: true },
 		});
-		expect(contact?.twitterUrl).toBe("https://x.com/subject");
+		expect(fact?.value).toBe("Director");
 	});
 
 	it("puts the same suggestion in front of a rep only once", async () => {
 		const result = await recordFact({
 			contactId,
-			field: "twitterUrl",
-			value: "https://x.com/someone-else",
-			evidence: [seen("web.cited-claim"), seen("search.cites-profile")],
+			field: "seniority",
+			value: "VP",
+			evidence: [seen("web.cited-claim"), seen("web.cited-claim")],
 			method: "web",
 		});
 
@@ -111,7 +123,7 @@ describe("recordFact", () => {
 		expect(result.reason).toContain("already in front of a rep");
 
 		const offers = await db.contactFact.count({
-			where: { contactId, field: "twitterUrl", status: "PROPOSED" },
+			where: { contactId, field: "seniority", status: "PROPOSED" },
 		});
 		expect(offers).toBe(1);
 	});
@@ -119,45 +131,40 @@ describe("recordFact", () => {
 	it("settles the suggestions a stronger fact has answered", async () => {
 		await recordFact({
 			contactId,
-			field: "twitterUrl",
-			value: "https://x.com/the-real-one",
+			field: "seniority",
+			value: "Chief of Staff",
 			evidence: [seen("profile.email-match")],
-			method: "x.profile",
+			method: "web.profile",
 		});
 
 		const facts = await db.contactFact.findMany({
-			where: { contactId, field: "twitterUrl" },
+			where: { contactId, field: "seniority" },
 			select: { value: true, status: true },
 		});
 
 		expect(facts.filter((fact) => fact.status === "PROPOSED")).toHaveLength(0);
 		expect(
-			facts.find((f) => f.value === "https://x.com/the-real-one")?.status,
+			facts.find((f) => f.value === "Chief of Staff")?.status,
 		).toBe("APPLIED");
 	});
 
 	it("never overwrites what a person typed", async () => {
-		await db.contact.update({
-			where: { id: contactId },
-			data: { githubUrl: "https://github.com/typed-by-a-human" },
-		});
-
 		const result = await recordFact({
-			contactId,
-			field: "githubUrl",
-			value: "https://github.com/found-on-the-web",
-			evidence: [seen("github.account-identity")],
-			method: "github.api",
+			contactId: typedContactId,
+			field: "title",
+			value: "Found on the web",
+			evidence: [seen("crm.signature-block")],
+			method: "crm.thread",
 		});
 
 		expect(result.applied).toBe(false);
 		expect(result.reason).toContain("A person already filled in");
 
 		const contact = await db.contact.findUnique({
-			where: { id: contactId },
-			select: { githubUrl: true },
+			where: { id: typedContactId },
+			select: { title: true },
 		});
-		expect(contact?.githubUrl).toBe("https://github.com/typed-by-a-human");
+		expect(contact?.title).toBe("Human-typed Title");
 	});
 
 	it("never re-offers a value a person dismissed", async () => {
@@ -165,7 +172,7 @@ describe("recordFact", () => {
 			contactId,
 			field: "title",
 			value: "Head of Trust",
-			evidence: [seen("web.cited-claim"), seen("search.cites-profile")],
+			evidence: [seen("web.cited-claim"), seen("web.cited-claim")],
 			method: "web",
 		});
 		expect(offer.applied).toBe(false);
@@ -183,7 +190,7 @@ describe("recordFact", () => {
 			contactId,
 			field: "title",
 			value: "Head of Trust",
-			evidence: [seen("web.cited-claim"), seen("search.cites-profile")],
+			evidence: [seen("web.cited-claim"), seen("web.cited-claim")],
 			method: "web",
 		});
 
@@ -196,16 +203,16 @@ describe("recordFact", () => {
 			contactId,
 			field: "employer",
 			value: "Fleetio",
-			evidence: [seen("linkedin.employer-and-name")],
-			method: "linkedin.profile",
+			evidence: [seen("profile.email-match")],
+			method: "web.profile",
 		});
 
 		await recordFact({
 			contactId,
 			field: "employer",
 			value: "Comp AI",
-			evidence: [seen("linkedin.employer-and-name")],
-			method: "linkedin.profile",
+			evidence: [seen("profile.email-match")],
+			method: "web.profile",
 		});
 
 		const facts = await db.contactFact.findMany({
@@ -223,7 +230,7 @@ describe("recordFact", () => {
 			contactId,
 			field: "employer",
 			value: "Fleetio Inc",
-			evidence: [seen("web.cited-claim"), seen("search.cites-profile")],
+			evidence: [seen("web.cited-claim"), seen("web.cited-claim")],
 			method: "web",
 		});
 		expect(offer.applied).toBe(false);
@@ -232,8 +239,8 @@ describe("recordFact", () => {
 			contactId,
 			field: "employer",
 			value: "Fleetio Inc",
-			evidence: [seen("linkedin.employer-and-name")],
-			method: "linkedin.profile",
+			evidence: [seen("profile.email-match")],
+			method: "web.profile",
 		});
 
 		expect(result.stored).toBe(true);
@@ -267,15 +274,15 @@ describe("writeBrief", () => {
 			contactId,
 			narrative: "Subject is Head of Security at Example.",
 			sections: { currentRole: "Head of Security · Example" },
-			evidence: [seen("linkedin.employer-and-name")],
-			sourceUrl: "https://www.linkedin.com/in/subject",
+			evidence: [seen("crm.signature-block")],
+			sourceUrl: "https://example.test/subject",
 		});
 
 		await writeBrief({
 			contactId,
 			narrative: "Subject is now VP Security at Example.",
 			sections: { currentRole: "VP Security · Example" },
-			evidence: [seen("linkedin.employer-and-name")],
+			evidence: [seen("crm.signature-block")],
 		});
 
 		const brief = await db.contactBrief.findUnique({ where: { contactId } });
@@ -287,7 +294,7 @@ describe("writeBrief", () => {
 			contactId,
 			narrative: "Subject seems like a great person to know.",
 			sections: {},
-			evidence: [seen("employer-only")],
+			evidence: [],
 		});
 
 		expect(result.written).toBe(false);

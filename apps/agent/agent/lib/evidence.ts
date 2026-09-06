@@ -2,15 +2,10 @@ import { FactBand } from "@crm/db";
 
 export type EvidenceKind =
 	| "profile.email-match"
-	| "linkedin.employer-and-name"
 	| "crm.thread-reply"
 	| "crm.signature-block"
-	| "github.account-identity"
 	| "crm.meeting-attendance"
 	| "web.cited-claim"
-	| "handle.name-form"
-	| "search.cites-profile"
-	| "employer-only"
 	| "contradiction";
 
 type Weighting = {
@@ -25,11 +20,6 @@ export const WEIGHTS: Record<EvidenceKind, Weighting> = {
 		primary: true,
 		label: "their email address is on the profile",
 	},
-	"linkedin.employer-and-name": {
-		weight: 0.85,
-		primary: true,
-		label: "LinkedIn: employer and name both match",
-	},
 	"crm.thread-reply": {
 		weight: 0.85,
 		primary: true,
@@ -40,11 +30,6 @@ export const WEIGHTS: Record<EvidenceKind, Weighting> = {
 		primary: true,
 		label: "their own email signature says so",
 	},
-	"github.account-identity": {
-		weight: 0.8,
-		primary: true,
-		label: "the GitHub account names them or their employer",
-	},
 	"crm.meeting-attendance": {
 		weight: 0.7,
 		primary: true,
@@ -54,21 +39,6 @@ export const WEIGHTS: Record<EvidenceKind, Weighting> = {
 		weight: 0.4,
 		primary: false,
 		label: "a cited web source states it",
-	},
-	"handle.name-form": {
-		weight: 0.35,
-		primary: false,
-		label: "the handle is a form of their name",
-	},
-	"search.cites-profile": {
-		weight: 0.35,
-		primary: false,
-		label: "a search for them cites this profile",
-	},
-	"employer-only": {
-		weight: 0.2,
-		primary: false,
-		label: "the employer matches, the name does not",
 	},
 	contradiction: {
 		weight: 0,

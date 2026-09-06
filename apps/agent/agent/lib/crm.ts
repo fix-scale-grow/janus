@@ -1,6 +1,5 @@
-import { db, EnrichmentStatus } from "@crm/db";
-import { domainOf, isDerivedName } from "./names";
-import type { Person } from "./socials";
+import { db } from "@crm/db";
+import { isDerivedName } from "./names";
 
 export type WorkItem = {
 	id: string;
@@ -8,12 +7,9 @@ export type WorkItem = {
 	email: string | null;
 	title: string | null;
 	companyName: string | null;
-	companyDomain: string | null;
-	linkedinUrl: string | null;
 	needs: {
 		identity: boolean;
 		brief: boolean;
-		socials: boolean;
 	};
 };
 
@@ -22,7 +18,6 @@ export async function contactsNeedingWork(limit: number): Promise<WorkItem[]> {
 		where: {
 			OR: [
 				{ brief: { is: null } },
-				{ socialsCheckedAt: null },
 				{ AND: [{ email: { not: null } }, { lastName: null }] },
 			],
 		},
@@ -32,9 +27,7 @@ export async function contactsNeedingWork(limit: number): Promise<WorkItem[]> {
 			firstName: true,
 			lastName: true,
 			title: true,
-			linkedinUrl: true,
-			socialsCheckedAt: true,
-			company: { select: { name: true, domain: true } },
+			companyName: true,
 			brief: { select: { contactId: true } },
 		},
 		orderBy: { createdAt: "asc" },
@@ -46,64 +39,12 @@ export async function contactsNeedingWork(limit: number): Promise<WorkItem[]> {
 		fullName: [row.firstName, row.lastName].filter(Boolean).join(" "),
 		email: row.email,
 		title: row.title,
-		companyName: row.company?.name ?? null,
-		companyDomain:
-			row.company?.domain ?? (row.email ? domainOf(row.email) : null),
-		linkedinUrl: row.linkedinUrl,
+		companyName: row.companyName,
 		needs: {
 			identity: isDerivedName(row.email, row.firstName, row.lastName),
 			brief: row.brief === null,
-			socials: row.socialsCheckedAt === null,
 		},
 	}));
-}
-
-export async function personForVerification(
-	contactId: string,
-): Promise<Person | null> {
-	const contact = await db.contact.findUnique({
-		where: { id: contactId },
-		select: {
-			firstName: true,
-			lastName: true,
-			title: true,
-			email: true,
-			company: { select: { name: true, domain: true } },
-		},
-	});
-
-	if (!contact) return null;
-
-	return {
-		firstName: contact.firstName,
-		lastName: contact.lastName,
-		fullName: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
-		title: contact.title,
-		companyName: contact.company?.name ?? null,
-		companyDomain:
-			contact.company?.domain ??
-			(contact.email ? domainOf(contact.email) : null),
-	};
-}
-
-export async function contactProfileSlug(
-	contactId: string,
-): Promise<{ slug: string; profileUrl: string } | null> {
-	const contact = await db.contact.findUnique({
-		where: { id: contactId },
-		select: { linkedinUrl: true },
-	});
-
-	const slug = linkedinSlug(contact?.linkedinUrl ?? null);
-	return slug
-		? { slug, profileUrl: `https://www.linkedin.com/in/${slug}` }
-		: null;
-}
-
-export function linkedinSlug(url: string | null): string | null {
-	if (!url) return null;
-	const match = /linkedin\.com\/in\/([A-Za-z0-9\-_%]+)/.exec(url);
-	return match?.[1] ?? null;
 }
 
 export type CrmHistory = {
@@ -112,12 +53,6 @@ export type CrmHistory = {
 		email: string | null;
 		title: string | null;
 		companyName: string | null;
-		company: {
-			id: string;
-			name: string;
-			domain: string | null;
-			industry: string | null;
-		} | null;
 	};
 	deals: {
 		id: string;
@@ -153,7 +88,6 @@ export type CrmHistory = {
 		meetings: number;
 		nextMeetingAt: string | null;
 	};
-	colleagues: { id: string; name: string; title: string | null }[];
 };
 
 export async function readCrmHistory(
@@ -173,10 +107,7 @@ export async function readCrmHistory(
 			lastName: true,
 			email: true,
 			title: true,
-			companyId: true,
-			company: {
-				select: { id: true, name: true, domain: true, industry: true },
-			},
+			companyName: true,
 			deals: {
 				orderBy: { deal: { lastActivityAt: "desc" } },
 				select: {
@@ -200,7 +131,7 @@ export async function readCrmHistory(
 	const includeEmail = options.includeEmail ?? true;
 	const includeCalendar = options.includeCalendar ?? true;
 
-	const [threads, meetings, colleagues] = await Promise.all([
+	const [threads, meetings] = await Promise.all([
 		includeEmail
 			? db.emailThread.findMany({
 					where: { contactId },
@@ -246,14 +177,6 @@ export async function readCrmHistory(
 					},
 				})
 			: Promise.resolve([]),
-		contact.companyId
-			? db.contact.findMany({
-					where: { companyId: contact.companyId, id: { not: contactId } },
-					select: { id: true, firstName: true, lastName: true, title: true },
-					take: 8,
-					orderBy: { lastActivityAt: "desc" },
-				})
-			: Promise.resolve([]),
 	]);
 
 	const inbound = threads
@@ -271,8 +194,7 @@ export async function readCrmHistory(
 			fullName: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
 			email: contact.email,
 			title: contact.title,
-			companyName: contact.company?.name ?? null,
-			company: contact.company,
+			companyName: contact.companyName,
 		},
 		deals: contact.deals.map(({ role, deal }) => ({
 			id: deal.id,
@@ -315,36 +237,7 @@ export async function readCrmHistory(
 			meetings: meetings.length,
 			nextMeetingAt: upcoming[0]?.startsAt.toISOString() ?? null,
 		},
-		colleagues: colleagues.map((colleague) => ({
-			id: colleague.id,
-			name: [colleague.firstName, colleague.lastName].filter(Boolean).join(" "),
-			title: colleague.title,
-		})),
 	};
-}
-
-export async function stampSocialsChecked(contactId: string): Promise<void> {
-	await db.contact.update({
-		where: { id: contactId },
-		data: { socialsCheckedAt: new Date() },
-	});
-}
-
-export async function setEnrichmentStatus(
-	contactId: string,
-	status: EnrichmentStatus,
-	error?: string,
-): Promise<void> {
-	await db.contact.update({
-		where: { id: contactId },
-		data: {
-			enrichmentStatus: status,
-			enrichmentError: error ?? null,
-			...(status === EnrichmentStatus.COMPLETE
-				? { enrichedAt: new Date() }
-				: {}),
-		},
-	});
 }
 
 export async function writeTimelineNote(
@@ -355,7 +248,7 @@ export async function writeTimelineNote(
 ): Promise<string | null> {
 	const contact = await db.contact.findUnique({
 		where: { id: contactId },
-		select: { companyId: true, ownerId: true },
+		select: { ownerId: true },
 	});
 	if (!contact) return null;
 
@@ -372,7 +265,6 @@ export async function writeTimelineNote(
 			body,
 			occurredAt: new Date(),
 			contactId,
-			companyId: contact.companyId,
 			createdById: author,
 			meta: { ...meta, agent: "people-research" },
 		},

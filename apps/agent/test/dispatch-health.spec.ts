@@ -91,10 +91,9 @@ function directTask(overrides: Partial<LeasedTask> = {}): LeasedTask {
 	return {
 		id: "task_direct",
 		contactId: null,
-		companyId: null,
 		dealId: null,
-		kind: "brand",
-		reason: "A new company",
+		kind: "slack-channel-join",
+		reason: "Add the bot to a channel",
 		payload: null,
 		budget: 0,
 		attempts: 1,

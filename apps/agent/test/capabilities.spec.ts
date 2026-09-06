@@ -7,11 +7,7 @@ import {
 	unavailable,
 } from "../agent/lib/capabilities";
 
-const KEYS = [
-	"RAPIDAPI_KEY",
-	"PERPLEXITY_API_KEY",
-	"BLOB_READ_WRITE_TOKEN",
-] as const;
+const KEYS = ["PERPLEXITY_API_KEY", "BLOB_READ_WRITE_TOKEN"] as const;
 
 const saved: Record<string, string | undefined> = {};
 
@@ -32,25 +28,25 @@ afterEach(() => {
 describe("capabilities", () => {
 	it("reports everything off on a bare install", async () => {
 		expect(capabilitiesFrom(null).every((c) => !c.enabled)).toBe(true);
-		expect(await enabled("RAPIDAPI_KEY")).toBe(false);
+		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
 	});
 
 	it("turns one on without turning on the others", async () => {
 		process.env.PERPLEXITY_API_KEY = "pplx-test";
 
 		expect(await enabled("PERPLEXITY_API_KEY")).toBe(true);
-		expect(await enabled("RAPIDAPI_KEY")).toBe(false);
+		expect(await enabled("BLOB_READ_WRITE_TOKEN")).toBe(false);
 	});
 
 	it("treats blank and whitespace as unset", async () => {
-		process.env.RAPIDAPI_KEY = "   ";
-		expect(await enabled("RAPIDAPI_KEY")).toBe(false);
+		process.env.PERPLEXITY_API_KEY = "   ";
+		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
 	});
 
 	it("is read live, so a late-configured process is not stuck off", async () => {
-		expect(await enabled("RAPIDAPI_KEY")).toBe(false);
-		process.env.RAPIDAPI_KEY = "key";
-		expect(await enabled("RAPIDAPI_KEY")).toBe(true);
+		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
+		process.env.PERPLEXITY_API_KEY = "key";
+		expect(await enabled("PERPLEXITY_API_KEY")).toBe(true);
 	});
 
 	it("is unknown for a variable that is not a capability", async () => {
@@ -87,12 +83,12 @@ describe("the Context key is a setting, never a variable", () => {
 
 describe("the unavailable result", () => {
 	it("says retrying will not help", () => {
-		const result = unavailable("RAPIDAPI_KEY");
+		const result = unavailable("PERPLEXITY_API_KEY");
 
 		expect(result.ok).toBe(false);
 		expect(result.configured).toBe(false);
 		expect(result.reason).toContain("retrying will not help");
-		expect(result.reason).toContain("RAPIDAPI_KEY");
+		expect(result.reason).toContain("PERPLEXITY_API_KEY");
 	});
 });
 
@@ -105,17 +101,16 @@ describe("the capability briefing", () => {
 	});
 
 	it("lists what is on and what is off, separately", () => {
-		process.env.RAPIDAPI_KEY = "key";
+		process.env.PERPLEXITY_API_KEY = "key";
 		const markdown = markdownFor(capabilitiesFrom(null));
 
 		expect(markdown).toContain("Available:");
-		expect(markdown).toContain("LinkedIn");
-		expect(markdown).toContain("Not configured here");
 		expect(markdown).toContain("Web research");
+		expect(markdown).toContain("Not configured here");
 	});
 
 	it("counts a stored Context key as configured", () => {
-		process.env.RAPIDAPI_KEY = "key";
+		process.env.PERPLEXITY_API_KEY = "key";
 
 		const markdown = markdownFor(capabilitiesFrom("ctx"));
 

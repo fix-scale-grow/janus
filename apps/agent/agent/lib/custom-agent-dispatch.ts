@@ -266,10 +266,7 @@ export async function queueDueAgentRuns(now = new Date()): Promise<number> {
 }
 
 export async function queueEventAgentRuns(
-	task: Pick<
-		LeasedTask,
-		"id" | "contactId" | "companyId" | "dealId" | "payload"
-	>,
+	task: Pick<LeasedTask, "id" | "contactId" | "dealId" | "payload">,
 ): Promise<number> {
 	const payload = recordOf(task.payload);
 	const eventType = payload.type;
@@ -281,11 +278,9 @@ export async function queueEventAgentRuns(
 	const taskRecordId =
 		recordKind === "contact"
 			? task.contactId
-			: recordKind === "company"
-				? task.companyId
-				: recordKind === "deal"
-					? task.dealId
-					: null;
+			: recordKind === "deal"
+				? task.dealId
+				: null;
 	if (
 		!isCrmEventType(eventType) ||
 		CRM_EVENT_CATALOG[eventType].recordKind !== recordKind ||

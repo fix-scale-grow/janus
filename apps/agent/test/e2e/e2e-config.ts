@@ -4,22 +4,18 @@ const MINUTE_MS = 60 * SECOND_MS;
 export const E2E = {
 	dispatch: {
 		agentPrefix: "E2E Dispatch Agent",
-		companyPrefix: "E2E Co",
-		domainPrefix: "e2e-",
-		domainSuffix: ".test",
+		dealPrefix: "E2E Deal",
 	},
 
 	load: {
 		agentPrefix: "E2E Load Agent",
-		companyPrefix: "Load Co",
-		domainPrefix: "load-",
-		domainSuffix: ".test",
+		dealPrefix: "Load Deal",
 		defaultCount: 300,
 		drainPassSlack: 5,
 	},
 
 	retry: {
-		companyPrefix: "E2E Retry Co",
+		contactPrefix: "E2E Retry Contact",
 		kind: "e2e-retry",
 		reason: "e2e.retry",
 		priority: 900,

@@ -73,24 +73,15 @@ async function seedAgent() {
 }
 
 async function seedDeal() {
-	const stamp = Date.now();
-	const company = await db.company.create({
-		data: {
-			name: `${E2E.dispatch.companyPrefix} ${stamp}`,
-			domain: `${E2E.dispatch.domainPrefix}${stamp}${E2E.dispatch.domainSuffix}`,
-		},
-		select: { id: true },
-	});
 	const owner = await db.user.findFirstOrThrow({ select: { id: true } });
 	return db.deal.create({
 		data: {
-			name: `E2E Deal ${Date.now()}`,
-			companyId: company.id,
+			name: `${E2E.dispatch.dealPrefix} ${Date.now()}`,
 			ownerId: owner.id,
 			stage: "DEMO_BOOKED",
 			stageChangedAt: new Date(),
 		},
-		select: { id: true, companyId: true },
+		select: { id: true },
 	});
 }
 
@@ -99,50 +90,38 @@ async function sweepLeftovers() {
 		console.log(`  removed leftover ${name}`);
 	}
 
-	const stale = await db.company.findMany({
-		where: {
-			domain: {
-				startsWith: E2E.dispatch.domainPrefix,
-				endsWith: E2E.dispatch.domainSuffix,
-			},
-			name: { startsWith: E2E.dispatch.companyPrefix },
-		},
-		select: { id: true, name: true },
+	const stale = await db.deal.findMany({
+		where: { name: { startsWith: E2E.dispatch.dealPrefix } },
+		select: { id: true },
 	});
 
-	for (const company of stale) {
-		const deals = await db.deal.findMany({
-			where: { companyId: company.id },
-			select: { id: true },
-		});
+	if (stale.length > 0) {
 		await db.agentTask.deleteMany({
-			where: { dealId: { in: deals.map((deal) => deal.id) } },
+			where: { dealId: { in: stale.map((deal) => deal.id) } },
 		});
-		await db.deal.deleteMany({ where: { companyId: company.id } });
-		await db.company.delete({ where: { id: company.id } });
-		console.log(`  removed leftover ${company.name}`);
+		await db.deal.deleteMany({
+			where: { id: { in: stale.map((deal) => deal.id) } },
+		});
+		console.log(`  removed ${stale.length} leftover deal(s)`);
 	}
 }
 
 async function cleanUp(
 	agentId: string | null,
-	companyId: string | null,
 	dealId: string | null,
 	taskId: string | null,
 ) {
 	await removeEventRuns(taskId ? [taskId] : []);
 	if (agentId) await removeAgent(agentId);
-	if (dealId) await db.agentTask.deleteMany({ where: { dealId } });
-	if (!companyId) return;
-	await db.deal.deleteMany({ where: { companyId } });
-	await db.company.delete({ where: { id: companyId } });
+	if (!dealId) return;
+	await db.agentTask.deleteMany({ where: { dealId } });
+	await db.deal.delete({ where: { id: dealId } });
 }
 
 async function main() {
 	await sweepLeftovers();
 
 	let agentId: string | null = null;
-	let companyId: string | null = null;
 	let dealId: string | null = null;
 	let taskId: string | null = null;
 
@@ -150,7 +129,6 @@ async function main() {
 		const seededAgent = await seedAgent();
 		agentId = seededAgent.agentId;
 		const deal = await seedDeal();
-		companyId = deal.companyId;
 		dealId = deal.id;
 		const task = await db.agentTask.create({
 			data: {
@@ -161,7 +139,7 @@ async function main() {
 					type: "deal.created",
 					record: { kind: "deal", id: deal.id },
 					occurredAt: new Date().toISOString(),
-					data: { companyId: deal.companyId, stage: "DEMO_BOOKED" },
+					data: { stage: "DEMO_BOOKED" },
 				},
 				priority: PRIORITY.event,
 				budget: 1,
@@ -203,14 +181,14 @@ async function main() {
 		});
 		record("no agent-event backlog", stuck === 0, `${stuck} unclaimed`);
 	} finally {
-		const failure = await cleanUp(agentId, companyId, dealId, taskId).then(
+		const failure = await cleanUp(agentId, dealId, taskId).then(
 			() => null,
 			(error: unknown) => reasonOf(error),
 		);
 		record(
 			"cleanup leaves no seeded rows",
 			failure === null,
-			failure ?? "agent, run, task, deal and company removed",
+			failure ?? "agent, run, task and deal removed",
 		);
 	}
 

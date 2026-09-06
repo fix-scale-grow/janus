@@ -5,7 +5,7 @@ import { focusOn } from "../lib/focus";
 
 export default defineTool({
 	description:
-		"Read everything the CRM already has on a contact: email threads with full message bodies, meetings, whether they have ever replied, their company and its id, the deals they are on, and who else we know at their company. Free, fast, and the best evidence there is — call it before paying for a lookup.",
+		"Read everything the CRM already has on a contact: email threads with full message bodies, meetings, whether they have ever replied, and the deals they are on. Free, fast, and the best evidence there is — call it before paying for a lookup.",
 	inputSchema: z.object({
 		contactId: z.string(),
 		threads: z
@@ -27,14 +27,10 @@ export default defineTool({
 				? "We have never actually spoken to this person. Nothing here is evidence of anything."
 				: "A signature block or a reply from their own address is primary evidence — record it as `crm.signature-block` or `crm.thread-reply`.";
 
-		const reach = history.contact.company
-			? ` Their company is \`${history.contact.company.id}\` — read_company_history or enrich_company take that id directly.`
-			: " They are not attached to a company; search_crm will find one by name or domain if the question needs it.";
-
 		return {
 			found: true as const,
 			...history,
-			note: evidence + reach,
+			note: evidence,
 		};
 	},
 });

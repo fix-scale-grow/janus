@@ -63,10 +63,10 @@ async function releaseHeldBack(held: readonly HeldTask[]) {
 
 async function main() {
 	const stamp = Date.now();
-	const company = await db.company.create({
+	const contact = await db.contact.create({
 		data: {
-			name: `${E2E.retry.companyPrefix} ${stamp}`,
-			domain: `retry-${stamp}.test`,
+			firstName: `${E2E.retry.contactPrefix} ${stamp}`,
+			email: `retry-${stamp}@test.example`,
 		},
 		select: { id: true },
 	});
@@ -75,7 +75,7 @@ async function main() {
 	try {
 		const task = await db.agentTask.create({
 			data: {
-				companyId: company.id,
+				contactId: contact.id,
 				kind: E2E.retry.kind,
 				reason: E2E.retry.reason,
 				priority: E2E.retry.priority,
@@ -116,8 +116,8 @@ async function main() {
 			retired?.outcome ?? "still queued",
 		);
 
-		const enrichment = await db.company.findUnique({
-			where: { id: company.id },
+		const enrichment = await db.contact.findUnique({
+			where: { id: contact.id },
 			select: { enrichmentStatus: true, enrichmentError: true },
 		});
 		record(
@@ -128,8 +128,8 @@ async function main() {
 	} finally {
 		try {
 			await releaseHeldBack(held);
-			await db.agentTask.deleteMany({ where: { companyId: company.id } });
-			await db.company.delete({ where: { id: company.id } });
+			await db.agentTask.deleteMany({ where: { contactId: contact.id } });
+			await db.contact.delete({ where: { id: contact.id } });
 		} catch (error) {
 			record("cleanup leaves nothing behind", false, reasonOf(error));
 		}

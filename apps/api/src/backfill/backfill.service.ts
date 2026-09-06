@@ -1,6 +1,5 @@
 import { onSignedIn } from "@crm/auth";
 import { type Db, EnrichmentStatus, type Prisma } from "@crm/db";
-import { PRIORITY } from "@crm/db/agent-tasks";
 import { readWorkspaceIdentity } from "@crm/db/workspace";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
@@ -27,8 +26,6 @@ const NEVER_SUCCEEDED: Prisma.EnumEnrichmentStatusFilter = {
 const AUTO_KEY = "backfill:auto";
 
 const AUTO_EVERY_MS = 5 * 60_000;
-
-const RECHECK_PHOTO_AFTER_MS = 30 * 24 * 60 * 60_000;
 
 const RECHECK_WORKSPACE_AFTER_MS = 7 * 24 * 60 * 60_000;
 
@@ -105,38 +102,14 @@ export class BackfillService implements OnModuleInit {
 	}
 
 	private async runContacts(): Promise<BackfillResult> {
-		const needsPhoto = await this.contactsNeedingPhoto();
-
-		const [photoTotal, photoRows] = await Promise.all([
-			this.db.contact.count({ where: needsPhoto }),
+		const [researchTotal, researchRows] = await Promise.all([
+			this.db.contact.count({ where: this.contactsNeverResearched() }),
 			this.db.contact.findMany({
-				where: needsPhoto,
+				where: this.contactsNeverResearched(),
 				orderBy: { createdAt: "asc" },
 				take: MAX_PER_RUN,
 				select: { id: true },
 			}),
-		]);
-
-		const photos = await this.agent.backfill({
-			kind: "portrait",
-			reason: "Backfill — somewhere to look for a picture, and no picture",
-			contactIds: photoRows.map((row) => row.id),
-			budget: 1,
-			priority: PRIORITY.portrait,
-		});
-
-		const headroom = MAX_PER_RUN - photoRows.length;
-
-		const [researchTotal, researchRows] = await Promise.all([
-			this.db.contact.count({ where: this.contactsNeverResearched() }),
-			headroom > 0
-				? this.db.contact.findMany({
-						where: this.contactsNeverResearched(),
-						orderBy: { createdAt: "asc" },
-						take: headroom,
-						select: { id: true },
-					})
-				: Promise.resolve([]),
 		]);
 
 		const research = await this.agent.backfill({
@@ -146,30 +119,10 @@ export class BackfillService implements OnModuleInit {
 		});
 
 		return {
-			queued: photos.queued + research.queued,
-			alreadyQueued: photos.alreadyQueued + research.alreadyQueued,
-			remaining:
-				Math.max(0, photoTotal - photoRows.length) +
-				Math.max(0, researchTotal - researchRows.length),
+			queued: research.queued,
+			alreadyQueued: research.alreadyQueued,
+			remaining: Math.max(0, researchTotal - researchRows.length),
 			iconsResolving: 0,
-		};
-	}
-
-	private async contactsNeedingPhoto(): Promise<Prisma.ContactWhereInput> {
-		const since = new Date(Date.now() - RECHECK_PHOTO_AFTER_MS);
-
-		const checked = await this.db.agentTask.findMany({
-			where: { kind: "portrait", finishedAt: { gte: since } },
-			select: { contactId: true },
-		});
-
-		const recentlyChecked = checked
-			.map((row) => row.contactId)
-			.filter((id): id is string => id !== null);
-
-		return {
-			imageUrl: null,
-			...(recentlyChecked.length > 0 ? { id: { notIn: recentlyChecked } } : {}),
 		};
 	}
 

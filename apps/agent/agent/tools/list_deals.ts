@@ -16,7 +16,6 @@ export default defineTool({
 			.describe(
 				"Return deals whose last activity was at least this many days ago. Deals with no activity qualify once they are this old.",
 			),
-		companyId: z.string().optional(),
 		ownerId: z.string().optional(),
 		limit: z.number().int().min(1).max(100).default(50),
 		cursor: z.string().optional(),
@@ -31,7 +30,6 @@ export default defineTool({
 				...output,
 				deals: output.deals.map((deal) => ({
 					...deal,
-					company: { id: deal.company.id, name: deal.company.name },
 					owner: deal.owner
 						? {
 								id: deal.owner.id,

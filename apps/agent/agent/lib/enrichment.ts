@@ -1,4 +1,4 @@
-import { db, EnrichmentStatus, type Prisma } from "@crm/db";
+import { db, EnrichmentStatus } from "@crm/db";
 import type { TaskSubject } from "./tasks";
 
 type SettleGuard = {
@@ -27,7 +27,7 @@ async function write(
 	error: string | null,
 	onlyIfRunning: boolean,
 ): Promise<void> {
-	if (!subject.contactId && !subject.companyId) return;
+	if (!subject.contactId) return;
 
 	const data = {
 		enrichmentStatus: status,
@@ -39,19 +39,10 @@ async function write(
 		? await settleable(subject, status)
 		: {};
 
-	if (subject.contactId) {
-		await db.contact.updateMany({
-			where: { id: subject.contactId, ...guard },
-			data,
-		});
-	}
-
-	if (subject.companyId) {
-		await db.company.updateMany({
-			where: { id: subject.companyId, ...guard },
-			data,
-		});
-	}
+	await db.contact.updateMany({
+		where: { id: subject.contactId, ...guard },
+		data,
+	});
 }
 
 async function settleable(
@@ -86,13 +77,14 @@ async function taskEndedAt(taskId: string): Promise<Date | null> {
 }
 
 async function hasOpenRequest(subject: TaskSubject): Promise<boolean> {
-	const owners: Prisma.AgentTaskWhereInput[] = [];
-	if (subject.contactId) owners.push({ contactId: subject.contactId });
-	if (subject.companyId) owners.push({ companyId: subject.companyId });
-	if (owners.length === 0) return false;
+	if (!subject.contactId) return false;
 
 	const open = await db.agentTask.findFirst({
-		where: { id: { not: subject.id }, finishedAt: null, OR: owners },
+		where: {
+			id: { not: subject.id },
+			finishedAt: null,
+			contactId: subject.contactId,
+		},
 		select: { id: true },
 	});
 

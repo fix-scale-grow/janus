@@ -91,7 +91,6 @@ function task(overrides: Partial<LeasedTask> = {}): LeasedTask {
 	return {
 		id: "task_1",
 		contactId: "contact_1",
-		companyId: null,
 		dealId: null,
 		kind: "identify",
 		reason: "A new contact",
@@ -112,18 +111,18 @@ describe("taskAuth", () => {
 	});
 
 	it("carries the record and the budget the preamble needs", () => {
-		const auth = taskAuth(task({ companyId: "company_1" }));
+		const auth = taskAuth(task({ dealId: "deal_1" }));
 
 		expect(auth.attributes).toMatchObject({
 			taskKind: "identify",
 			budget: "4",
 			contactId: "contact_1",
-			companyId: "company_1",
+			dealId: "deal_1",
 		});
 	});
 
 	it("omits the id of a record the task does not name", () => {
-		const auth = taskAuth(task({ contactId: null, companyId: "company_1" }));
+		const auth = taskAuth(task({ contactId: null, dealId: "deal_1" }));
 
 		expect(auth.attributes).not.toHaveProperty("contactId");
 	});

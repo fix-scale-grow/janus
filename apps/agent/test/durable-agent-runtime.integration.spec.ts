@@ -23,8 +23,8 @@ const userId = `durable-runtime-user-${suffix}`;
 const domain = `durable-${suffix}.example.test`;
 let agentId = "";
 let versionId = "";
-let companyId = "";
-let otherCompanyId = "";
+let contactId = "";
+let otherContactId = "";
 let triggerId = "";
 const builderConversationIds: string[] = [];
 
@@ -36,18 +36,26 @@ beforeAll(async () => {
 			email: `${userId}@example.test`,
 		},
 	});
-	const [company, otherCompany] = await Promise.all([
-		db.company.create({
-			data: { name: "Durable Runtime Company", domain },
+	const [contact, otherContact] = await Promise.all([
+		db.contact.create({
+			data: {
+				firstName: "Durable",
+				lastName: "Runtime",
+				email: `contact@${domain}`,
+			},
 			select: { id: true },
 		}),
-		db.company.create({
-			data: { name: "Out of Scope Company", domain: `other-${domain}` },
+		db.contact.create({
+			data: {
+				firstName: "Out",
+				lastName: "Of Scope",
+				email: `other@${domain}`,
+			},
 			select: { id: true },
 		}),
 	]);
-	companyId = company.id;
-	otherCompanyId = otherCompany.id;
+	contactId = contact.id;
+	otherContactId = otherContact.id;
 
 	const agent = await db.agentDefinition.create({
 		data: {
@@ -78,12 +86,12 @@ beforeAll(async () => {
 				],
 				dataScope: {
 					mode: "SELECTED",
-					summary: "Only the selected durable runtime company",
+					summary: "Only the selected durable runtime contact",
 					resources: [
 						{
-							kind: "company",
-							id: companyId,
-							label: "Durable Runtime Company",
+							kind: "contact",
+							id: contactId,
+							label: "Durable Runtime Contact",
 						},
 					],
 				},
@@ -171,8 +179,8 @@ afterAll(async () => {
 		await db.agentVersion.deleteMany({ where: { agentId } });
 		await db.agentDefinition.deleteMany({ where: { id: agentId } });
 	}
-	await db.company.deleteMany({
-		where: { id: { in: [companyId, otherCompanyId] } },
+	await db.contact.deleteMany({
+		where: { id: { in: [contactId, otherContactId] } },
 	});
 	await db.user.deleteMany({ where: { id: userId } });
 });
@@ -202,8 +210,8 @@ async function createRun(
 async function satisfyRequiredActivity(runId: string, callId: string) {
 	return createRunActivity(runId, callId, {
 		type: "NOTE",
-		targetKind: "company",
-		targetId: companyId,
+		targetKind: "contact",
+		targetId: contactId,
 		subject: "Runtime test",
 		body: "Completed the required action.",
 	});
@@ -227,7 +235,6 @@ describe("durable custom-agent runtime", () => {
 		const task = {
 			id: `event-task-${suffix}`,
 			contactId: null,
-			companyId: null,
 			dealId: `event-deal-${suffix}`,
 			payload: {
 				type: "deal.closed",
@@ -776,8 +783,8 @@ describe("durable custom-agent runtime", () => {
 		const run = await createRun();
 		const input = {
 			type: "NOTE" as const,
-			targetKind: "company" as const,
-			targetId: companyId,
+			targetKind: "contact" as const,
+			targetId: contactId,
 			subject: "Durable note",
 			body: "Created exactly once.",
 		};
@@ -816,7 +823,7 @@ describe("durable custom-agent runtime", () => {
 		try {
 			await createRunActivity(run.id, "out-of-scope", {
 				...input,
-				targetId: otherCompanyId,
+				targetId: otherContactId,
 			});
 		} catch (error) {
 			scopeError = error as Error;
