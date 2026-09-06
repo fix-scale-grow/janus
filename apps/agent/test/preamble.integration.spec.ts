@@ -122,9 +122,10 @@ describe("drawingPreamble", () => {
 
 		const { markdown } = await drawingPreamble(drawing.id, rep);
 
-		expect(markdown).toContain("BEGIN UNTRUSTED DATA: drawing title");
+		expect(markdown).toContain("BEGIN UNTRUSTED DATA");
+		expect(markdown).toContain(": drawing title ---");
 		expect(markdown).toContain(hostileTitle);
-		expect(markdown).toContain(`END UNTRUSTED DATA: drawing title`);
+		expect(markdown).toContain("END UNTRUSTED DATA");
 	});
 
 	it("fences the deal name it is attached to", async () => {
@@ -140,7 +141,8 @@ describe("drawingPreamble", () => {
 
 		const { markdown } = await drawingPreamble(drawing.id, rep);
 
-		expect(markdown).toContain("BEGIN UNTRUSTED DATA: deal name");
+		expect(markdown).toContain("BEGIN UNTRUSTED DATA");
+		expect(markdown).toContain(": deal name ---");
 		expect(markdown).toContain(`Fernhill platform ${suffix}`);
 	});
 });
