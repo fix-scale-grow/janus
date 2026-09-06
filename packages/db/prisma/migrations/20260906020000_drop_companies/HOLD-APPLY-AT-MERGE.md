@@ -10,3 +10,11 @@ Lesson for the next staged migration: a committed migration cannot be held
 on a shared database while `prepare-dev.ts` auto-deploys. Stage held DDL
 outside `prisma/migrations/` (or add a hold-list guard to prepare-dev)
 instead.
+
+This migration's FieldEntity enum swap fails on any populated database that
+holds `fieldDefinition` rows with `entity = 'COMPANY'`. Before replaying it on
+such a database, delete those rows first:
+
+```sql
+DELETE FROM "fieldDefinition" WHERE "entity" = 'COMPANY';
+```
