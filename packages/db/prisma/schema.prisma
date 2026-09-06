@@ -23,14 +23,14 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  ownedContacts  Contact[]           @relation("ContactOwner")
-  ownedDeals     Deal[]              @relation("DealOwner")
-  activities     Activity[]          @relation("ActivityAuthor")
-  mailboxSyncs   MailboxSync[]
-  factDecisions  ContactFact[]       @relation("FactDecider")
-  conversations  AgentConversation[] @relation("ConversationOwner")
-  fieldValues    FieldValue[]        @relation("FieldValueUser")
-  drawings       Drawing[]           @relation("DrawingCreator")
+  ownedContacts Contact[]           @relation("ContactOwner")
+  ownedDeals    Deal[]              @relation("DealOwner")
+  activities    Activity[]          @relation("ActivityAuthor")
+  mailboxSyncs  MailboxSync[]
+  factDecisions ContactFact[]       @relation("FactDecider")
+  conversations AgentConversation[] @relation("ConversationOwner")
+  fieldValues   FieldValue[]        @relation("FieldValueUser")
+  drawings      Drawing[]           @relation("DrawingCreator")
 
   createdAgentDefinitions AgentDefinition[]             @relation("AgentDefinitionCreator")
   createdAgentVersions    AgentVersion[]                @relation("AgentVersionCreator")
@@ -59,14 +59,14 @@ model User {
 }
 
 model SlackMemberMatch {
-  id                  String   @id @default(cuid())
-  crmUserId           String   @unique
-  crmUser             User     @relation(fields: [crmUserId], references: [id], onDelete: Cascade)
-  slackUserId         String?
-  slackHandle         String?
-  slackEmail          String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id          String   @id @default(cuid())
+  crmUserId   String   @unique
+  crmUser     User     @relation(fields: [crmUserId], references: [id], onDelete: Cascade)
+  slackUserId String?
+  slackHandle String?
+  slackEmail  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([slackUserId])
   @@map("slackMemberMatch")
@@ -952,24 +952,25 @@ model DealContact {
 }
 
 model Drawing {
-  id           String            @id @default(cuid())
-  title        String            @default("Untitled drawing")
-  background   DrawingBackground @default(WHITEBOARD)
-  scene        Json
-  scale        Json?
-  address      String?
-  thumbnailUrl String?
-  dealId       String?
-  deal         Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
-  contactId    String?
-  contact      Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  createdById  String
-  createdBy    User              @relation("DrawingCreator", fields: [createdById], references: [id])
-  versions     DrawingVersion[]
-  estimates    Estimate[]
-  conversations AgentConversation[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id             String              @id @default(cuid())
+  title          String              @default("Untitled drawing")
+  background     DrawingBackground   @default(WHITEBOARD)
+  scene          Json
+  sceneUpdatedAt DateTime?
+  scale          Json?
+  address        String?
+  thumbnailUrl   String?
+  dealId         String?
+  deal           Deal?               @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contactId      String?
+  contact        Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdById    String
+  createdBy      User                @relation("DrawingCreator", fields: [createdById], references: [id])
+  versions       DrawingVersion[]
+  estimates      Estimate[]
+  conversations  AgentConversation[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@index([dealId])
   @@index([contactId])
@@ -1010,21 +1011,21 @@ enum EstimateTier {
 }
 
 model Service {
-  id              String      @id @default(cuid())
-  name            String
-  trade           String      @default("roofing")
-  unit            ServiceUnit
-  unitPriceCents  Int
-  costCents       Int?
-  priceGoodCents  Int?
-  priceBestCents  Int?
-  modifier        Json?
-  symbolId        String?     @unique
-  active          Boolean     @default(true)
-  lineItems       EstimateLineItem[]
-  symbols         Symbol[]
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id             String             @id @default(cuid())
+  name           String
+  trade          String             @default("roofing")
+  unit           ServiceUnit
+  unitPriceCents Int
+  costCents      Int?
+  priceGoodCents Int?
+  priceBestCents Int?
+  modifier       Json?
+  symbolId       String?            @unique
+  active         Boolean            @default(true)
+  lineItems      EstimateLineItem[]
+  symbols        Symbol[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@index([trade])
   @@index([active])
@@ -1032,26 +1033,26 @@ model Service {
 }
 
 model Estimate {
-  id           String             @id @default(cuid())
-  title        String             @default("Untitled estimate")
-  status       EstimateStatus     @default(DRAFT)
-  currency     String             @default("USD")
-  selectedTier EstimateTier       @default(BETTER)
+  id           String         @id @default(cuid())
+  title        String         @default("Untitled estimate")
+  status       EstimateStatus @default(DRAFT)
+  currency     String         @default("USD")
+  selectedTier EstimateTier   @default(BETTER)
   dealId       String?
-  deal         Deal?              @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  deal         Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
   contactId    String?
-  contact      Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contact      Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
   drawingId    String?
-  drawing      Drawing?           @relation(fields: [drawingId], references: [id], onDelete: SetNull)
+  drawing      Drawing?       @relation(fields: [drawingId], references: [id], onDelete: SetNull)
 
   drawingSyncedAt DateTime?
-  createdById  String
-  createdBy    User               @relation("EstimateCreator", fields: [createdById], references: [id])
-  lineItems    EstimateLineItem[]
-  invoices     Invoice[]
-  contracts    Contract[]
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  createdById     String
+  createdBy       User               @relation("EstimateCreator", fields: [createdById], references: [id])
+  lineItems       EstimateLineItem[]
+  invoices        Invoice[]
+  contracts       Contract[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   @@index([dealId])
   @@index([drawingId])
@@ -1491,15 +1492,15 @@ model AppSetting {
 
   ratesRefreshedAt DateTime?
 
-  trackingSiteId           String?  @unique
-  trackingCrossDomain      Boolean  @default(true)
-  trackingLimitToDomains   Boolean  @default(true)
-  trackingCookieSubdomains Boolean  @default(false)
-  trackingSecureCookies    Boolean  @default(true)
-  trackingHonourDnt        Boolean  @default(true)
-  trackingCookieDays       Int      @default(395)
+  trackingSiteId           String? @unique
+  trackingCrossDomain      Boolean @default(true)
+  trackingLimitToDomains   Boolean @default(true)
+  trackingCookieSubdomains Boolean @default(false)
+  trackingSecureCookies    Boolean @default(true)
+  trackingHonourDnt        Boolean @default(true)
+  trackingCookieDays       Int     @default(395)
   trackingConfigHash       String?
-  trackingPaused           Boolean  @default(false)
+  trackingPaused           Boolean @default(false)
 
   updatedAt DateTime @updatedAt
 
@@ -1530,14 +1531,14 @@ model TrackedVisitor {
   contactId String?
   contact   Contact? @relation("VisitorContact", fields: [contactId], references: [id], onDelete: SetNull)
 
-  firstSource     String?
-  firstMedium     String?
-  firstCampaign   String?
-  firstTerm       String?
-  firstContent    String?
-  firstReferrer   String?
-  firstLanding    String?
-  firstTouchAt    DateTime?
+  firstSource   String?
+  firstMedium   String?
+  firstCampaign String?
+  firstTerm     String?
+  firstContent  String?
+  firstReferrer String?
+  firstLanding  String?
+  firstTouchAt  DateTime?
 
   lastSource   String?
   lastMedium   String?

@@ -193,4 +193,20 @@ describe("attachDrawing", () => {
 			reason: "Nothing to change. Pass dealId or contactId.",
 		});
 	});
+
+	it("leaves sceneUpdatedAt untouched, since attaching is metadata-only", async () => {
+		const before = await db.drawing.findUniqueOrThrow({
+			where: { id: drawingId },
+			select: { sceneUpdatedAt: true },
+		});
+
+		await attachDrawing({ drawingId, dealId: dealAId, confirmReplace: true });
+
+		const after = await db.drawing.findUniqueOrThrow({
+			where: { id: drawingId },
+			select: { sceneUpdatedAt: true },
+		});
+
+		expect(after.sceneUpdatedAt).toEqual(before.sceneUpdatedAt);
+	});
 });

@@ -122,6 +122,7 @@ export class DrawingsService {
 					where: { id: input.id },
 					data: {
 						scene: input.scene as Prisma.InputJsonValue,
+						sceneUpdatedAt: new Date(),
 						scale: (input.scale ?? undefined) as
 							| Prisma.InputJsonValue
 							| undefined,
@@ -226,6 +227,7 @@ export class DrawingsService {
 					where: { id: input.id },
 					data: {
 						scene: version.scene as Prisma.InputJsonValue,
+						sceneUpdatedAt: new Date(),
 						scale: version.scale as Prisma.InputJsonValue,
 					},
 				});

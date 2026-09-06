@@ -69,6 +69,7 @@ function fakeDb(options: {
 	elements: Element[];
 	lineItems: LineItemRow[];
 	drawingUpdatedAt?: Date;
+	drawingSceneUpdatedAt?: Date | null;
 	drawingSyncedAt?: Date | null;
 }) {
 	const created: Record<string, unknown>[] = [];
@@ -95,7 +96,10 @@ function fakeDb(options: {
 				drawingSyncedAt: options.drawingSyncedAt ?? null,
 				lineItems: options.lineItems,
 				contact: null,
-				drawing: { updatedAt: options.drawingUpdatedAt ?? new Date(0) },
+				drawing: {
+					updatedAt: options.drawingUpdatedAt ?? new Date(0),
+					sceneUpdatedAt: options.drawingSceneUpdatedAt ?? null,
+				},
 			}),
 			update: async (args: { data: { drawingSyncedAt?: Date } }) => {
 				syncStamps.push(args.data.drawingSyncedAt);
@@ -251,5 +255,47 @@ describe("byId drawing staleness", () => {
 		const row = await service(db).byId("est1");
 
 		expect(row.drawingStale).toBe(false);
+	});
+
+	it("stays fresh when a metadata-only change bumps updatedAt but not the scene", async () => {
+		const { db } = fakeDb({
+			elements: [square("sq1", {})],
+			lineItems: [PRICED_ITEM],
+			drawingUpdatedAt: new Date("2026-02-03T00:00:00Z"),
+			drawingSceneUpdatedAt: new Date("2026-02-01T00:00:00Z"),
+			drawingSyncedAt: new Date("2026-02-02T00:00:00Z"),
+		});
+
+		const row = await service(db).byId("est1");
+
+		expect(row.drawingStale).toBe(false);
+	});
+
+	it("reports stale when the scene changed after the last sync", async () => {
+		const { db } = fakeDb({
+			elements: [square("sq1", {})],
+			lineItems: [PRICED_ITEM],
+			drawingUpdatedAt: new Date("2026-02-01T00:00:00Z"),
+			drawingSceneUpdatedAt: new Date("2026-02-03T00:00:00Z"),
+			drawingSyncedAt: new Date("2026-02-02T00:00:00Z"),
+		});
+
+		const row = await service(db).byId("est1");
+
+		expect(row.drawingStale).toBe(true);
+	});
+
+	it("falls back to updatedAt when sceneUpdatedAt has never been set", async () => {
+		const { db } = fakeDb({
+			elements: [square("sq1", {})],
+			lineItems: [PRICED_ITEM],
+			drawingUpdatedAt: new Date("2026-02-02T00:00:00Z"),
+			drawingSceneUpdatedAt: null,
+			drawingSyncedAt: new Date("2026-02-01T00:00:00Z"),
+		});
+
+		const row = await service(db).byId("est1");
+
+		expect(row.drawingStale).toBe(true);
 	});
 });

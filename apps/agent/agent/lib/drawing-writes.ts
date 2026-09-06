@@ -103,7 +103,10 @@ export async function applyDrawingTags(
 	await db.$transaction(async (tx) => {
 		await tx.drawing.update({
 			where: { id: drawingId },
-			data: { scene: result.scene as Prisma.InputJsonValue },
+			data: {
+				scene: result.scene as Prisma.InputJsonValue,
+				sceneUpdatedAt: new Date(),
+			},
 		});
 
 		await tx.drawingVersion.create({

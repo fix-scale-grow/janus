@@ -144,4 +144,25 @@ describe("applyDrawingTags", () => {
 
 		expect(result).toEqual({ applied: false, reason: "No such drawing." });
 	});
+
+	it("bumps sceneUpdatedAt, since it changed the scene", async () => {
+		const before = await db.drawing.findUniqueOrThrow({
+			where: { id: drawingId },
+			select: { sceneUpdatedAt: true },
+		});
+
+		await applyDrawingTags(drawingId, [
+			{ scopeId: "s2", serviceId: "svc-gutters" },
+		]);
+
+		const after = await db.drawing.findUniqueOrThrow({
+			where: { id: drawingId },
+			select: { sceneUpdatedAt: true },
+		});
+
+		expect(after.sceneUpdatedAt).not.toBeNull();
+		expect((after.sceneUpdatedAt as Date).getTime()).toBeGreaterThanOrEqual(
+			before.sceneUpdatedAt?.getTime() ?? 0,
+		);
+	});
 });

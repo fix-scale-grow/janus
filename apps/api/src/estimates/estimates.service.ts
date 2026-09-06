@@ -117,7 +117,7 @@ export class EstimatesService {
 				contact: {
 					select: { id: true, firstName: true, lastName: true, email: true },
 				},
-				drawing: { select: { updatedAt: true } },
+				drawing: { select: { updatedAt: true, sceneUpdatedAt: true } },
 			},
 		});
 
@@ -126,8 +126,11 @@ export class EstimatesService {
 		}
 
 		const { drawing, ...estimate } = row;
-		const drawingStale = drawing
-			? drawing.updatedAt.getTime() > (estimate.drawingSyncedAt?.getTime() ?? 0)
+		const drawingChangedAt = drawing
+			? (drawing.sceneUpdatedAt ?? drawing.updatedAt)
+			: null;
+		const drawingStale = drawingChangedAt
+			? drawingChangedAt.getTime() > (estimate.drawingSyncedAt?.getTime() ?? 0)
 			: false;
 
 		const totals = { goodCents: 0, betterCents: 0, bestCents: 0 };
