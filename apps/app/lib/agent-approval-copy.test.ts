@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { approvalCopyFor } from "./agent-approval-copy";
+import { approvalCopyFor, invalidationFor } from "./agent-approval-copy";
 
 describe("generic approval copy fallback", () => {
 	it("titles the card from the tool name", () => {
@@ -206,6 +206,119 @@ describe("update_service approval copy", () => {
 		const copy = approvalCopyFor("update_service");
 		expect(copy.render(null)).toEqual([{ rows: [] }]);
 		expect(copy.render({ serviceId: "service1" })).toEqual([{ rows: [] }]);
+	});
+});
+
+describe("approval outcome lines", () => {
+	it("phrases a drawing tags success from the execute result", () => {
+		const copy = approvalCopyFor("propose_drawing_tags");
+		expect(
+			copy.outcome?.({
+				applied: true,
+				drawingId: "drawing1",
+				matched: ["s1", "s2", "s3"],
+				unmatched: [],
+			}),
+		).toBe("Applied — 3 shapes tagged");
+	});
+
+	it("phrases a drawing tags failure with the reason", () => {
+		const copy = approvalCopyFor("propose_drawing_tags");
+		expect(
+			copy.outcome?.({
+				applied: false,
+				reason: "None of the proposed tags matched a shape on this drawing.",
+			}),
+		).toBe(
+			"Not applied — None of the proposed tags matched a shape on this drawing.",
+		);
+	});
+
+	it("phrases an estimate lines success from the execute result", () => {
+		const copy = approvalCopyFor("propose_estimate_lines");
+		expect(
+			copy.outcome?.({
+				applied: true,
+				estimateId: "estimate1",
+				lineItemIds: ["li1"],
+			}),
+		).toBe("Applied — 1 line added");
+	});
+
+	it("phrases a service update success from the execute result", () => {
+		const copy = approvalCopyFor("update_service");
+		expect(
+			copy.outcome?.({
+				applied: true,
+				serviceId: "service1",
+				diff: [{ field: "unitPriceCents", from: 45000, to: 47500 }],
+			}),
+		).toBe("Applied — 1 field updated");
+	});
+
+	it("falls back to a generic Approved when the output is unreadable", () => {
+		const copy = approvalCopyFor("propose_drawing_tags");
+		expect(copy.outcome?.(null)).toBeNull();
+		expect(copy.outcome?.({ matched: "not an array" })).toBeNull();
+	});
+
+	it("derives a generic outcome for an unknown tool from applied/reason", () => {
+		const copy = approvalCopyFor("refund_charge");
+		expect(copy.outcome?.({ applied: true })).toBe("Applied");
+		expect(
+			copy.outcome?.({ applied: false, reason: "Charge already refunded." }),
+		).toBe("Not applied — Charge already refunded.");
+		expect(copy.outcome?.(null)).toBeNull();
+	});
+});
+
+describe("cache invalidation map", () => {
+	it("invalidates the drawing by input.drawingId when present", () => {
+		expect(
+			invalidationFor(
+				"propose_drawing_tags",
+				{ drawingId: "drawing1" },
+				"record1",
+			),
+		).toEqual([{ kind: "drawing", id: "drawing1" }]);
+	});
+
+	it("falls back to the record id when the input has no drawingId", () => {
+		expect(invalidationFor("propose_drawing_tags", null, "record1")).toEqual([
+			{ kind: "drawing", id: "record1" },
+		]);
+	});
+
+	it("invalidates the estimate by input.estimateId", () => {
+		expect(
+			invalidationFor(
+				"propose_estimate_lines",
+				{ estimateId: "estimate1" },
+				"record1",
+			),
+		).toEqual([{ kind: "estimate", id: "estimate1" }]);
+	});
+
+	it("invalidates nothing for propose_estimate_lines with no estimateId", () => {
+		expect(invalidationFor("propose_estimate_lines", null, "record1")).toEqual(
+			[],
+		);
+	});
+
+	it("invalidates the service by input.serviceId", () => {
+		expect(
+			invalidationFor("update_service", { serviceId: "service1" }, "record1"),
+		).toEqual([{ kind: "service", id: "service1" }]);
+	});
+
+	it("invalidates nothing for update_service with no serviceId", () => {
+		expect(invalidationFor("update_service", null, "record1")).toEqual([]);
+	});
+
+	it("invalidates nothing for a tool with no approval card, like attach_drawing", () => {
+		expect(
+			invalidationFor("attach_drawing", { drawingId: "d1" }, "r1"),
+		).toEqual([]);
 	});
 });
 

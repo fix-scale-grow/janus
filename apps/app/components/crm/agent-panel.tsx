@@ -57,6 +57,7 @@ import {
 	ConversationPicker,
 	useConversations,
 } from "@/components/crm/agent-conversations";
+import { invalidationFor } from "@/lib/agent-approval-copy";
 import {
 	type AgentRecord,
 	recordCopy,
@@ -244,14 +245,13 @@ function Thread({
 
 	const respondToApproval = async (response: ApprovalResponse) => {
 		await agent.send({ inputResponses: [response] });
-		if (response.optionId !== "approve") return;
-		if (record.kind === "drawing") await cache.drawing(record.id);
-		if (approval?.toolName === "propose_estimate_lines") {
-			const estimateId = approval.input?.estimateId;
-			await cache.estimate(
-				typeof estimateId === "string" ? estimateId : undefined,
-			);
-		}
+		if (response.optionId !== "approve" || !approval) return;
+
+		await Promise.all(
+			invalidationFor(approval.toolName, approval.input, record.id).map(
+				(entry) => cache[entry.kind](entry.id),
+			),
+		);
 	};
 
 	return (

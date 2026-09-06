@@ -22,6 +22,7 @@ export function AgentApprovalCard({
 }) {
 	const copy = approvalCopyFor(item.toolName);
 	const sections = copy.render(item.input);
+	const settled = item.status !== "pending";
 
 	const approve = useAsyncAction({
 		action: () => onRespond({ requestId: item.requestId, optionId: "approve" }),
@@ -31,18 +32,23 @@ export function AgentApprovalCard({
 	});
 	const busy = approve.pending || deny.pending;
 
+	const outcome =
+		item.status === "approved"
+			? (copy.outcome?.(item.output) ?? "Approved")
+			: item.status === "denied"
+				? "Declined"
+				: null;
+
 	return (
 		<div className="w-full max-w-sm space-y-3 rounded-lg border bg-card p-3">
 			<div className="space-y-1">
 				<p className="font-medium text-xs">{copy.title}</p>
-				{item.status !== "pending" ? (
-					<p className="text-pretty text-muted-foreground text-xs">
-						{item.status === "approved" ? "Approved." : "Denied."}
-					</p>
+				{outcome ? (
+					<p className="text-pretty text-muted-foreground text-xs">{outcome}</p>
 				) : null}
 			</div>
 
-			{sections.some((section) => section.rows.length > 0) ? (
+			{!settled && sections.some((section) => section.rows.length > 0) ? (
 				<div className="space-y-2">
 					{sections.map((section) => (
 						<div

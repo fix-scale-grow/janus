@@ -11,6 +11,7 @@ export type ApprovalSection = {
 export type ApprovalCopy = {
 	title: string;
 	render: (input: Record<string, unknown> | null) => ApprovalSection[];
+	outcome?: (output: Record<string, unknown> | null) => string | null;
 };
 
 const FLATTEN_LIMITS = {
@@ -161,6 +162,84 @@ const SERVICE_FIELD_ORDER: (keyof ServiceFieldValues)[] = [
 	"modifier",
 ];
 
+function plural(count: number, noun: string): string {
+	return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+type AppliedOutput = { applied: true } | { applied: false; reason: string };
+
+function isAppliedOutput(value: unknown): value is AppliedOutput {
+	if (value === null || typeof value !== "object") return false;
+	const output = value as Record<string, unknown>;
+	if (output.applied === true) return true;
+	if (output.applied === false) return typeof output.reason === "string";
+	return false;
+}
+
+type DrawingTagsOutput = AppliedOutput & { matched?: string[] };
+
+function isDrawingTagsOutput(value: unknown): value is DrawingTagsOutput {
+	if (!isAppliedOutput(value)) return false;
+	if (!value.applied) return true;
+	return Array.isArray((value as Record<string, unknown>).matched);
+}
+
+function drawingTagsOutcome(
+	output: Record<string, unknown> | null,
+): string | null {
+	if (!isDrawingTagsOutput(output)) return null;
+	if (!output.applied) return `Not applied — ${output.reason}`;
+	return `Applied — ${plural((output.matched ?? []).length, "shape")} tagged`;
+}
+
+type EstimateLinesOutput = AppliedOutput & { lineItemIds?: string[] };
+
+function isEstimateLinesOutput(value: unknown): value is EstimateLinesOutput {
+	if (!isAppliedOutput(value)) return false;
+	if (!value.applied) return true;
+	return Array.isArray((value as Record<string, unknown>).lineItemIds);
+}
+
+function estimateLinesOutcome(
+	output: Record<string, unknown> | null,
+): string | null {
+	if (!isEstimateLinesOutput(output)) return null;
+	if (!output.applied) return `Not applied — ${output.reason}`;
+	return `Applied — ${plural((output.lineItemIds ?? []).length, "line")} added`;
+}
+
+type ServiceUpdateOutput = AppliedOutput & { diff?: unknown[] };
+
+function isServiceUpdateOutput(value: unknown): value is ServiceUpdateOutput {
+	if (!isAppliedOutput(value)) return false;
+	if (!value.applied) return true;
+	return Array.isArray((value as Record<string, unknown>).diff);
+}
+
+function serviceUpdateOutcome(
+	output: Record<string, unknown> | null,
+): string | null {
+	if (!isServiceUpdateOutput(output)) return null;
+	if (!output.applied) return `Not applied — ${output.reason}`;
+	return `Applied — ${plural((output.diff ?? []).length, "field")} updated`;
+}
+
+function genericOutcome(output: Record<string, unknown> | null): string | null {
+	if (output === null) return null;
+	if (output.applied === false) {
+		return typeof output.reason === "string"
+			? `Not applied — ${output.reason}`
+			: "Not applied";
+	}
+	if (output.applied === true || output.written === true) return "Applied";
+	if (output.stored === false || output.written === false) {
+		return typeof output.reason === "string"
+			? `Not applied — ${output.reason}`
+			: "Not applied";
+	}
+	return null;
+}
+
 export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 	update_service: {
 		title: "Approve service update",
@@ -177,6 +256,7 @@ export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 
 			return [{ title: truncateText(current.name), rows }];
 		},
+		outcome: serviceUpdateOutcome,
 	},
 
 	propose_drawing_tags: {
@@ -193,6 +273,7 @@ export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 				],
 			}));
 		},
+		outcome: drawingTagsOutcome,
 	},
 
 	propose_estimate_lines: {
@@ -222,8 +303,50 @@ export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 				],
 			}));
 		},
+		outcome: estimateLinesOutcome,
 	},
 };
+
+export type CacheInvalidationEntry =
+	| { kind: "drawing"; id: string }
+	| { kind: "estimate"; id: string }
+	| { kind: "service"; id: string };
+
+function stringField(
+	input: Record<string, unknown> | null,
+	key: string,
+): string | undefined {
+	const value = input?.[key];
+	return typeof value === "string" ? value : undefined;
+}
+
+const APPROVAL_INVALIDATION: Record<
+	string,
+	(
+		input: Record<string, unknown> | null,
+		recordId: string,
+	) => CacheInvalidationEntry[]
+> = {
+	propose_drawing_tags: (input, recordId) => [
+		{ kind: "drawing", id: stringField(input, "drawingId") ?? recordId },
+	],
+	propose_estimate_lines: (input) => {
+		const id = stringField(input, "estimateId");
+		return id ? [{ kind: "estimate", id }] : [];
+	},
+	update_service: (input) => {
+		const id = stringField(input, "serviceId");
+		return id ? [{ kind: "service", id }] : [];
+	},
+};
+
+export function invalidationFor(
+	toolName: string,
+	input: Record<string, unknown> | null,
+	recordId: string,
+): CacheInvalidationEntry[] {
+	return APPROVAL_INVALIDATION[toolName]?.(input, recordId) ?? [];
+}
 
 export function approvalCopyFor(toolName: string): ApprovalCopy {
 	return APPROVAL_COPY[toolName] ?? genericApprovalCopy(toolName);
@@ -233,6 +356,7 @@ function genericApprovalCopy(toolName: string): ApprovalCopy {
 	return {
 		title: `Approve ${humanise(toolName)}`,
 		render: (input) => [{ rows: capRows(flattenRows(input)) }],
+		outcome: genericOutcome,
 	};
 }
 

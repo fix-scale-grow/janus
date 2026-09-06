@@ -192,6 +192,34 @@ describe("tool-approval transcript items", () => {
 		expect(item.status).toBe("approved");
 	});
 
+	it("carries the tool's execute result once resolved", () => {
+		const [transcript] = toTranscript([
+			approvalMessage({ state: "output-available" }),
+		]);
+		const item = transcript?.items[0];
+		if (item?.kind !== "tool-approval")
+			throw new Error("expected tool-approval");
+		expect(item.output).toEqual({ refunded: true });
+	});
+
+	it("has no output while the approval is still pending", () => {
+		const [transcript] = toTranscript([approvalMessage()]);
+		const item = transcript?.items[0];
+		if (item?.kind !== "tool-approval")
+			throw new Error("expected tool-approval");
+		expect(item.output).toBeNull();
+	});
+
+	it("has no output when the response only records denial", () => {
+		const [transcript] = toTranscript([
+			approvalMessage({ state: "output-denied" }),
+		]);
+		const item = transcript?.items[0];
+		if (item?.kind !== "tool-approval")
+			throw new Error("expected tool-approval");
+		expect(item.output).toBeNull();
+	});
+
 	it("surfaces the pending approval for the composer to lock on", () => {
 		const approval = pendingApproval([approvalMessage()]);
 		expect(approval).toEqual({

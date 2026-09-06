@@ -20,6 +20,7 @@ export type TranscriptItem =
 			requestId: string;
 			toolName: string;
 			input: Record<string, unknown> | null;
+			output: Record<string, unknown> | null;
 			status: ApprovalStatus;
 	  }
 	| {
@@ -250,6 +251,7 @@ export function toTranscript(
 								requestId: request.requestId,
 								toolName: toolName(part),
 								input: input(part),
+								output: output(part),
 								status: approvalStatusOf(part),
 							},
 						];
