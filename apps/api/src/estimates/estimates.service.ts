@@ -115,6 +115,7 @@ export class EstimatesService {
 				contact: {
 					select: { id: true, firstName: true, lastName: true, email: true },
 				},
+				drawing: { select: { updatedAt: true } },
 			},
 		});
 
@@ -122,15 +123,20 @@ export class EstimatesService {
 			throw new NotFoundException(`No estimate with id ${id}.`);
 		}
 
+		const { drawing, ...estimate } = row;
+		const drawingStale = drawing
+			? drawing.updatedAt.getTime() > (estimate.drawingSyncedAt?.getTime() ?? 0)
+			: false;
+
 		const totals = { goodCents: 0, betterCents: 0, bestCents: 0 };
-		for (const item of row.lineItems) {
+		for (const item of estimate.lineItems) {
 			const quantity = Number(item.quantity);
 			totals.goodCents += Math.round(quantity * item.priceGoodCents);
 			totals.betterCents += Math.round(quantity * item.priceBetterCents);
 			totals.bestCents += Math.round(quantity * item.priceBestCents);
 		}
 
-		return { ...row, totals };
+		return { ...estimate, totals, drawingStale };
 	}
 
 	async create(input: EstimateCreateInput, userId: string) {
@@ -317,6 +323,7 @@ export class EstimatesService {
 					drawingId: drawing.id,
 					currency: drawing.deal?.currency ?? "USD",
 					createdById: userId,
+					drawingSyncedAt: new Date(),
 				},
 			});
 
@@ -391,6 +398,12 @@ export class EstimatesService {
 					newQuantity,
 				});
 			}
+
+			await tx.estimate.update({
+				where: { id: estimate.id },
+				data: { drawingSyncedAt: new Date() },
+				select: { id: true },
+			});
 		});
 
 		return { changed };

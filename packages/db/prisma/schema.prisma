@@ -1022,6 +1022,8 @@ model Estimate {
   contact      Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
   drawingId    String?
   drawing      Drawing?           @relation(fields: [drawingId], references: [id], onDelete: SetNull)
+
+  drawingSyncedAt DateTime?
   createdById  String
   createdBy    User               @relation("EstimateCreator", fields: [createdById], references: [id])
   lineItems    EstimateLineItem[]

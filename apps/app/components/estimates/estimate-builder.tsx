@@ -388,12 +388,14 @@ export function EstimateBuilder({
 								</Link>
 							</Button>
 							<Button
-								variant="outline"
+								variant={data.drawingStale ? "default" : "outline"}
 								size="sm"
 								disabled={resync.isPending}
 								onClick={() => resync.mutate({ id: estimateId })}
 							>
-								Re-sync from drawing
+								{data.drawingStale
+									? "Drawing changed — re-sync"
+									: "Re-sync from drawing"}
 							</Button>
 						</>
 					)}
