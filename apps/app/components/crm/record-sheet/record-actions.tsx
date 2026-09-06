@@ -32,7 +32,6 @@ import {
 } from "./record-stack";
 
 const NOUN: Record<RecordKind, string> = {
-	company: "company",
 	contact: "contact",
 	deal: "deal",
 };
@@ -56,9 +55,7 @@ function useDeleteRecord(record: RecordRef) {
 	const options =
 		record.kind === "contact"
 			? trpc.contacts.delete.mutationOptions(handlers)
-			: record.kind === "company"
-				? trpc.companies.delete.mutationOptions(handlers)
-				: trpc.deals.delete.mutationOptions(handlers);
+			: trpc.deals.delete.mutationOptions(handlers);
 
 	return useMutation(options);
 }

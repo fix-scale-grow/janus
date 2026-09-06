@@ -2,7 +2,6 @@
 
 import Email from "@carbon/icons-react/es/Email";
 import Partnership from "@carbon/icons-react/es/Partnership";
-import Star from "@carbon/icons-react/es/Star";
 import type { FieldValueJson } from "@crm/db/fields";
 import {
 	Accordion,
@@ -12,14 +11,9 @@ import {
 } from "@crm/ui/components/accordion";
 import { Button } from "@crm/ui/components/button";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
-import {
-	EntityLogo,
-	type EntityLogoTone,
-} from "@crm/ui/components/entity-logo";
 import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
-import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -30,7 +24,6 @@ import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-but
 import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
 import { NewInvoiceButton } from "@/app/(app)/[slug]/invoices/new-invoice-button";
 import { AgentPanel } from "@/components/crm/agent-panel";
-import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
 import { ContactEnrichmentAction } from "@/components/crm/enrichment-actions";
 import { EnrichmentIndicator } from "@/components/crm/enrichment-status";
@@ -42,7 +35,6 @@ import {
 	savingValue,
 } from "@/components/crm/inline-field";
 import { OwnerCell } from "@/components/crm/owner-cell";
-import { ContactSocials } from "@/components/crm/social-links";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { Timeline } from "@/components/crm/timeline/timeline";
 import { WebsiteActivity } from "@/components/crm/website-activity";
@@ -63,7 +55,6 @@ import { LocalDateTime, LocalRelativeDate } from "@/components/local-date-time";
 import { factsByField } from "@/lib/contact-facts";
 import { ENRICHMENT_POLL_MS, isEnriching } from "@/lib/enrichment-status";
 import { savingField } from "@/lib/pending-field";
-import { hasContactLinks } from "@/lib/social-links";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -96,7 +87,6 @@ const DEAL_COLUMNS = [
 
 export function ContactSheet({ contactId }: { contactId: string }) {
 	const trpc = useTRPC();
-	const cache = useCrmCache();
 	const { tab, setTab } = useRecordSheetView("overview");
 
 	const query = useQuery({
@@ -109,16 +99,6 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 		},
 	});
 	const contact = query.data;
-
-	const setPrimary = useMutation(
-		trpc.companies.setPrimaryContact.mutationOptions({
-			onSuccess: async () => {
-				await cache.contact(contactId);
-				toast.success("Primary contact updated.");
-			},
-			onError: (error) => toast.error(error.message),
-		}),
-	);
 
 	const tabs: DetailSheetTab[] = contact
 		? [
@@ -174,26 +154,16 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 			title={contact ? contactName(contact) : "Contact"}
 			description={
 				contact ? (
-					<MetaLine parts={[contact.title, contact.company?.name]} />
+					<MetaLine parts={[contact.title, contact.companyName]} />
 				) : undefined
 			}
 			note={
-				contact ? (
-					<>
-						{contact.isPrimaryContact ? (
-							<StatusIndicator
-								tone="success"
-								label={`Primary contact at ${contact.company?.name ?? "this company"}`}
-							/>
-						) : null}
-						{contact.enrichmentStatus !== "COMPLETE" ? (
-							<EnrichmentIndicator
-								status={contact.enrichmentStatus}
-								queued={contact.queued}
-								title={contact.enrichmentError}
-							/>
-						) : null}
-					</>
+				contact && contact.enrichmentStatus !== "COMPLETE" ? (
+					<EnrichmentIndicator
+						status={contact.enrichmentStatus}
+						queued={contact.queued}
+						title={contact.enrichmentError}
+					/>
 				) : null
 			}
 			media={
@@ -216,26 +186,10 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 								</a>
 							</Button>
 						) : null}
-						{contact.company && !contact.isPrimaryContact ? (
-							<Button
-								variant="outline"
-								size="sm"
-								disabled={setPrimary.isPending}
-								onClick={() =>
-									setPrimary.mutate({
-										companyId: contact.company?.id ?? "",
-										contactId: contact.id,
-									})
-								}
-							>
-								<Icon icon={Star} data-icon="inline-start" />
-								<span className="hidden sm:inline">Make primary</span>
-							</Button>
-						) : null}
 						<RecordActions
 							record={{ kind: "contact", id: contact.id }}
 							name={contactName(contact)}
-							consequence={`Their notes, agent conversations and everything the agent found go too; emails and meetings stay filed against the company.${contact.email ? ` The sync will not bring ${contact.email} back — only adding them yourself will.` : ""}`}
+							consequence={`Their notes, agent conversations and everything the agent found go too.${contact.email ? ` The sync will not bring ${contact.email} back — only adding them yourself will.` : ""}`}
 						/>
 					</>
 				) : null
@@ -244,11 +198,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 				contact ? (
 					<DetailSheetStats>
 						<DetailSheetStat label="Company">
-							{contact.company ? (
-								<CompanyStat company={contact.company} />
-							) : (
-								<EmptyCellValue />
-							)}
+							{contact.companyName ?? <EmptyCellValue />}
 						</DetailSheetStat>
 						<DetailSheetStat label="Email">
 							{contact.email ? (
@@ -284,31 +234,6 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 			tab={tab}
 			onTabChange={setTab}
 		/>
-	);
-}
-
-function CompanyStat({
-	company,
-}: {
-	company: NonNullable<Contact["company"]>;
-}) {
-	const openRecord = useOpenRecord();
-
-	return (
-		<button
-			type="button"
-			onClick={() => openRecord({ kind: "company", id: company.id })}
-			className="flex min-w-0 items-center gap-2 underline-offset-2 hover:underline"
-		>
-			<EntityLogo
-				src={company.iconUrl}
-				darkSrc={company.iconDarkUrl}
-				tone={company.iconTone as EntityLogoTone | null | undefined}
-				name={company.name}
-				size="xs"
-			/>
-			<span className="truncate">{company.name}</span>
-		</button>
 	);
 }
 
@@ -387,37 +312,11 @@ function ContactOverview({ contact }: { contact: Contact }) {
 						onSave={(phone) => save({ phone })}
 					/>
 					<InlineField
-						label="LinkedIn"
-						value={contact.linkedinUrl}
-						type="url"
-						saving={isSaving("linkedinUrl")}
-						onSave={(linkedinUrl) => save({ linkedinUrl })}
-						{...agentProps("linkedinUrl")}
-					/>
-					<InlineField
-						label="X"
-						value={contact.twitterUrl}
-						type="url"
-						saving={isSaving("twitterUrl")}
-						onSave={(twitterUrl) => save({ twitterUrl })}
-						{...agentProps("twitterUrl")}
-					/>
-					<InlineField
-						label="GitHub"
-						value={contact.githubUrl}
-						type="url"
-						saving={isSaving("githubUrl")}
-						onSave={(githubUrl) => save({ githubUrl })}
-						{...agentProps("githubUrl")}
-					/>
-					<InlineCompanyField
-						value={contact.company?.id ?? NONE}
-						company={contact.company}
-						saving={isSaving("companyId")}
-						none={{ value: NONE, label: "No company" }}
-						onSave={(companyId) =>
-							save({ companyId: companyId === NONE ? null : companyId })
-						}
+						label="Company"
+						value={contact.companyName}
+						placeholder="Acme Roofing"
+						saving={isSaving("companyName")}
+						onSave={(companyName) => save({ companyName })}
 					/>
 					<InlineSelectField
 						label="Owner"
@@ -447,12 +346,6 @@ function ContactOverview({ contact }: { contact: Contact }) {
 				relationship={contact.relationship}
 				contactName={contactName(contact)}
 			/>
-
-			{hasContactLinks(contact) ? (
-				<DetailSheetSection title="Links">
-					<ContactSocials contact={contact} />
-				</DetailSheetSection>
-			) : null}
 
 			<WebsiteActivity contactId={contact.id} />
 		</DetailSheetBody>
@@ -536,10 +429,9 @@ function WeKnowThem({
 	relationship: Contact["relationship"];
 	contactName: string;
 }) {
-	const { emails, meetings, lastReplyAt, nextMeeting, colleagues } =
-		relationship;
+	const { emails, meetings, lastReplyAt, nextMeeting } = relationship;
 
-	if (emails === 0 && meetings === 0 && colleagues.length === 0) return null;
+	if (emails === 0 && meetings === 0 && !nextMeeting) return null;
 
 	const first = name.split(" ")[0] ?? name;
 
@@ -580,40 +472,8 @@ function WeKnowThem({
 						</span>
 					</DetailSheetProperty>
 				) : null}
-
-				{colleagues.length > 0 ? (
-					<DetailSheetProperty label="Also here" wide>
-						<Colleagues colleagues={colleagues} />
-					</DetailSheetProperty>
-				) : null}
 			</DetailSheetProperties>
 		</DetailSheetSection>
-	);
-}
-
-function Colleagues({
-	colleagues,
-}: {
-	colleagues: Contact["relationship"]["colleagues"];
-}) {
-	const openRecord = useOpenRecord();
-
-	return (
-		<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-			{colleagues.map((colleague) => (
-				<button
-					key={colleague.id}
-					type="button"
-					onClick={() => openRecord({ kind: "contact", id: colleague.id })}
-					className="min-w-0 truncate underline-offset-2 hover:underline"
-				>
-					{colleague.name}
-					{colleague.title ? (
-						<span className="text-muted-foreground"> ({colleague.title})</span>
-					) : null}
-				</button>
-			))}
-		</span>
 	);
 }
 
@@ -677,7 +537,7 @@ function ContactDeals({ contact }: { contact: Contact }) {
 			<DetailSheetEmpty
 				icon={Partnership}
 				title="Not on any deals"
-				description={`${contactName(contact)} is not attached to anything being sold yet. Deals are opened on the company, then people are added to them.`}
+				description={`${contactName(contact)} is not attached to anything being sold yet. Add them to a deal to change that.`}
 			/>
 		);
 	}

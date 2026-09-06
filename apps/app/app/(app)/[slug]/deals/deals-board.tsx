@@ -26,7 +26,6 @@ import { parseAsString, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { usePanScroll } from "@/components/board/use-pan-scroll";
-import { CompanyCell } from "@/components/crm/company-cell";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -316,9 +315,6 @@ function DealCardBody({
 				dragging && "rotate-2 cursor-grabbing shadow-xl",
 			)}
 		>
-			{/* Open-record affordance: a real <button> wrapping only non-interactive
-			    content (name/amount/company), so the stage menu below can stay a
-			    sibling control without nesting a button inside a button. */}
 			<button
 				type="button"
 				onClick={onOpen}
@@ -335,7 +331,6 @@ function DealCardBody({
 							: formatMoney(row.amountCents, row.currency)}
 					</span>
 				</span>
-				<CompanyCell company={row.company} />
 			</button>
 			<div className="flex items-center justify-between gap-2">
 				<DealStageMenu dealId={row.id} stage={row.stage} />

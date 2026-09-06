@@ -14,10 +14,6 @@ import { CardTableEmpty } from "@crm/ui/components/card-table";
 import { Checkbox } from "@crm/ui/components/checkbox";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import {
-	EntityLogo,
-	type EntityLogoTone,
-} from "@crm/ui/components/entity-logo";
-import {
 	SimpleTable,
 	type SimpleTableColumn,
 	SimpleTableRow,
@@ -67,12 +63,6 @@ const TASK_COLUMNS: SimpleTableColumn[] = [
 ];
 const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
 	{ id: "activity", header: "Activity" },
-	{
-		id: "company",
-		header: "Company",
-		width: "w-44",
-		className: "hidden md:table-cell",
-	},
 	{
 		id: "deal",
 		header: "Deal",
@@ -160,7 +150,6 @@ export function DashboardSummary() {
 										<TableCell className={CELL}>
 											<DealCell
 												name={deal.name}
-												company={deal.company}
 												meta={<LocalRelativeTime date={deal.stageChangedAt} />}
 											/>
 										</TableCell>
@@ -230,10 +219,6 @@ export function DashboardSummary() {
 														<RecordLink kind="deal" id={task.deal.id}>
 															{task.deal.name}
 														</RecordLink>
-													) : task.company ? (
-														<RecordLink kind="company" id={task.company.id}>
-															{task.company.name}
-														</RecordLink>
 													) : null}
 												</span>
 											</span>
@@ -268,11 +253,6 @@ export function DashboardSummary() {
 							? "Every note, task and stage change you have logged"
 							: "Every note, task and stage change across the workspace"}
 					</CardDescription>
-					<CardAction>
-						<Button asChild variant="contrast" size="sm">
-							<Link href={workspaceUrl("/companies")}>All companies</Link>
-						</Button>
-					</CardAction>
 				</CardHeader>
 				{recentActivity.length === 0 ? (
 					<CardTableEmpty>Nothing has happened yet.</CardTableEmpty>
@@ -284,15 +264,6 @@ export function DashboardSummary() {
 									<span className="truncate">
 										{entry.subject ?? activityLabel(entry.type)}
 									</span>
-								</TableCell>
-								<TableCell className={`${CELL} hidden md:table-cell`}>
-									{entry.company ? (
-										<RecordLink kind="company" id={entry.company.id}>
-											{entry.company.name}
-										</RecordLink>
-									) : (
-										<EmptyCellValue />
-									)}
 								</TableCell>
 								<TableCell className={`${CELL} hidden lg:table-cell`}>
 									{entry.deal ? (
@@ -322,41 +293,13 @@ export function DashboardSummary() {
 	);
 }
 
-function DealCell({
-	name,
-	company,
-	meta,
-}: {
-	name: string;
-	company: {
-		name: string;
-		iconUrl: string | null;
-		iconDarkUrl: string | null;
-		iconTone: string | null;
-	};
-	meta?: ReactNode;
-}) {
+function DealCell({ name, meta }: { name: string; meta?: ReactNode }) {
 	return (
-		<span className="flex min-w-0 items-center gap-2">
-			<EntityLogo
-				src={company.iconUrl}
-				darkSrc={company.iconDarkUrl}
-				tone={company.iconTone as EntityLogoTone | null | undefined}
-				name={company.name}
-				size="sm"
-			/>
-			<span className="flex min-w-0 flex-col">
-				<span className="truncate font-medium">{name}</span>
-				<span className="truncate text-muted-foreground">
-					{meta ? (
-						<>
-							{company.name} · {meta}
-						</>
-					) : (
-						company.name
-					)}
-				</span>
-			</span>
+		<span className="flex min-w-0 flex-col">
+			<span className="truncate font-medium">{name}</span>
+			{meta ? (
+				<span className="truncate text-muted-foreground">{meta}</span>
+			) : null}
 		</span>
 	);
 }

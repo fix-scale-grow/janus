@@ -77,11 +77,6 @@ export function FieldCrew() {
 							<p className="mt-2 truncate text-base font-bold text-foreground">
 								{job.name}
 							</p>
-							{job.company?.name && (
-								<p className="truncate text-sm text-muted-foreground">
-									{job.company.name}
-								</p>
-							)}
 							{name && (
 								<p className="mt-1 truncate text-sm text-foreground">{name}</p>
 							)}

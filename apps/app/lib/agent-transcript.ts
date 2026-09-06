@@ -47,22 +47,15 @@ type AgentStreamEvent = {
 
 const VERBS: Record<string, string> = {
 	read_crm_history: "Read our emails and meetings with them",
-	read_company_history: "Read everything we have on the company",
 	read_deal_history: "Read the deal and where it has been",
 	search_crm: "Looked the record up in the CRM",
-	resolve_linkedin_profile: "Searched for their LinkedIn profile",
-	get_linkedin_profile: "Read a LinkedIn profile",
 	get_contact_work_history: "Read their work history",
 	fetch_contact_photo: "Fetched their profile picture",
-	find_contact_socials: "Searched for their other profiles",
-	set_contact_socials: "Checked a profile against the account itself",
 	identify_contact: "Put a name to the address",
 	record_fact: "Recorded what it found",
 	write_brief: "Wrote the background",
 	write_workspace_profile: "Wrote up who we are",
 	research_person: "Researched them on the web",
-	research_company: "Read the company's site",
-	enrich_company: "Looked up the company",
 	schedule_recheck: "Decided when to look again",
 	record_job_change: "Raised a job change",
 	list_deals: "Reviewed the deal pipeline",
@@ -427,15 +420,6 @@ export type DealListItem = {
 	stage: string;
 	amount: number | null;
 	currency: string;
-	company: {
-		id: string;
-		name: string;
-		domain: string | null;
-		iconUrl: string | null;
-		iconDarkUrl: string | null;
-		iconTone: string | null;
-		logoUrl: string | null;
-	};
 	owner: {
 		id: string;
 		name: string;
@@ -452,7 +436,6 @@ export type DealListResult = {
 	criteria: {
 		status: string;
 		inactiveForDays: number | null;
-		companyId: string | null;
 		ownerId: string | null;
 	};
 	deals: DealListItem[];
@@ -465,7 +448,6 @@ export function dealListResultOf(value: unknown): DealListResult | null {
 	const criteria = recordOf(result.criteria);
 	const status = stringOf(criteria.status);
 	const inactiveForDays = nullableNumberOf(criteria.inactiveForDays);
-	const companyId = nullableStringOf(criteria.companyId);
 	const ownerId = nullableStringOf(criteria.ownerId);
 	const rows = Array.isArray(result.deals) ? result.deals : null;
 
@@ -473,7 +455,6 @@ export function dealListResultOf(value: unknown): DealListResult | null {
 		!asOf ||
 		!status ||
 		inactiveForDays === undefined ||
-		companyId === undefined ||
 		ownerId === undefined ||
 		!rows
 	)
@@ -484,7 +465,7 @@ export function dealListResultOf(value: unknown): DealListResult | null {
 
 	return {
 		asOf,
-		criteria: { status, inactiveForDays, companyId, ownerId },
+		criteria: { status, inactiveForDays, ownerId },
 		deals: deals as DealListItem[],
 		hasMore: result.hasMore === true,
 	};
@@ -598,14 +579,11 @@ export function splitMarkdownTable(markdown: string): {
 
 function dealListItemOf(value: unknown): DealListItem | null {
 	const deal = recordOf(value);
-	const company = recordOf(deal.company);
 	const owner = deal.owner === null ? null : recordOf(deal.owner);
 	const id = stringOf(deal.id);
 	const name = stringOf(deal.name);
 	const stage = stringOf(deal.stage);
 	const currency = stringOf(deal.currency);
-	const companyId = stringOf(company.id);
-	const companyName = stringOf(company.name);
 	const daysSinceLastActivity = numberOf(deal.daysSinceLastActivity);
 	const amount = nullableNumberOf(deal.amount);
 	const expectedCloseDate = nullableStringOf(deal.expectedCloseDate);
@@ -615,8 +593,6 @@ function dealListItemOf(value: unknown): DealListItem | null {
 		!name ||
 		!stage ||
 		!currency ||
-		!companyId ||
-		!companyName ||
 		daysSinceLastActivity === null ||
 		amount === undefined ||
 		expectedCloseDate === undefined
@@ -645,15 +621,6 @@ function dealListItemOf(value: unknown): DealListItem | null {
 		stage,
 		amount,
 		currency,
-		company: {
-			id: companyId,
-			name: companyName,
-			domain: nullableStringOf(company.domain) ?? null,
-			iconUrl: nullableStringOf(company.iconUrl) ?? null,
-			iconDarkUrl: nullableStringOf(company.iconDarkUrl) ?? null,
-			iconTone: nullableStringOf(company.iconTone) ?? null,
-			logoUrl: nullableStringOf(company.logoUrl) ?? null,
-		},
 		owner: parsedOwner as DealListItem["owner"],
 		daysSinceLastActivity,
 		neverActive: deal.neverActive === true,

@@ -65,7 +65,6 @@ async function Deals({
 			trpc.deals.list.queryOptions(dealsSearchParams.toInput(values)),
 		),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
-		queryClient.prefetchQuery(trpc.companies.options.queryOptions({ q: "" })),
 	]);
 
 	return (

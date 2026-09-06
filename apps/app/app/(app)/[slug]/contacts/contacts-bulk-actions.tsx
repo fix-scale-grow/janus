@@ -6,13 +6,10 @@ import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
 } from "@crm/ui/components/dropdown-menu";
 import { formatCount } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
 	BulkActionsMenu,
@@ -20,7 +17,6 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
-import { CompanyMenuSearch } from "@/components/crm/company-picker";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -39,8 +35,6 @@ export function ContactsBulkActions({
 	const cache = useCrmCache();
 	const users = useQuery(trpc.users.list.queryOptions());
 	const [confirming, setConfirming] = useState(false);
-	const [menuOpen, setMenuOpen] = useState(false);
-	const companySearch = useRef<HTMLInputElement>(null);
 
 	const onError = (error: { message: string }) => toast.error(error.message);
 
@@ -49,17 +43,6 @@ export function ContactsBulkActions({
 			onSuccess: async (result) => {
 				await cache.contact();
 				reportBulk(result, (count) => `${contacts(count)} reassigned.`);
-				onDone();
-			},
-			onError,
-		}),
-	);
-
-	const setCompany = useMutation(
-		trpc.contacts.bulkSetCompany.mutationOptions({
-			onSuccess: async (result) => {
-				await cache.contact();
-				reportBulk(result, (count) => `${contacts(count)} moved.`);
 				onDone();
 			},
 			onError,
@@ -92,44 +75,16 @@ export function ContactsBulkActions({
 		}),
 	);
 
-	const pending =
-		assignOwner.isPending ||
-		setCompany.isPending ||
-		enrich.isPending ||
-		remove.isPending;
+	const pending = assignOwner.isPending || enrich.isPending || remove.isPending;
 
 	return (
 		<>
-			<BulkActionsMenu
-				pending={pending}
-				open={menuOpen}
-				onOpenChange={setMenuOpen}
-			>
+			<BulkActionsMenu pending={pending}>
 				<BulkOwnerMenu
 					users={users.data ?? []}
 					unassignedLabel="Nobody"
 					onSelect={(ownerId) => assignOwner.mutate({ ids, ownerId })}
 				/>
-				<DropdownMenuSub>
-					<DropdownMenuSubTrigger>Move to company</DropdownMenuSubTrigger>
-					<DropdownMenuSubContent
-						className="w-64 p-0"
-						onFocus={(event) => {
-							if (event.target === event.currentTarget) {
-								companySearch.current?.focus();
-							}
-						}}
-					>
-						<CompanyMenuSearch
-							none="No company"
-							inputRef={companySearch}
-							onSelect={(companyId) => {
-								setMenuOpen(false);
-								setCompany.mutate({ ids, companyId });
-							}}
-						/>
-					</DropdownMenuSubContent>
-				</DropdownMenuSub>
 				<DropdownMenuGroup>
 					<DropdownMenuItem onSelect={() => enrich.mutate({ ids })}>
 						<Renew />

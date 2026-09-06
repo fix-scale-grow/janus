@@ -68,7 +68,6 @@ import {
 import { type FieldEntity, kindOf } from "./fields-entity";
 
 const COVERAGE_NOUN: Record<FieldEntity, string> = {
-	COMPANY: "companies",
 	CONTACT: "contacts",
 	DEAL: "deals",
 };

@@ -11,7 +11,6 @@ import { formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { CLOSING_OPTIONS } from "@/components/crm/closing-window";
-import { CompanyCell } from "@/components/crm/company-cell";
 import { useFieldColumns } from "@/components/crm/fields/field-columns";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
@@ -34,21 +33,14 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 		header: "Deal",
 		sortable: true,
 		hideable: false,
-		width: "w-[24%]",
+		width: "w-[30%]",
 		cell: (row) => <span className="truncate font-medium">{row.name}</span>,
-	},
-	{
-		id: "company",
-		header: "Company",
-		sortable: true,
-		width: "w-[18%]",
-		cell: (row) => <CompanyCell company={row.company} />,
 	},
 	{
 		id: "stage",
 		header: "Stage",
 		sortable: true,
-		width: "w-[18%]",
+		width: "w-[22%]",
 		cell: (row) => <DealStageMenu dealId={row.id} stage={row.stage} />,
 	},
 	{
@@ -182,7 +174,7 @@ export function DealsTable() {
 	return (
 		<DataTable
 			query={query}
-			search={<ListSearch placeholder="Search deals by name or company…" />}
+			search={<ListSearch placeholder="Search deals by name…" />}
 			columns={columns}
 			rows={rows}
 			total={deals.data?.total ?? 0}

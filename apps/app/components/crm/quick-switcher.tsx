@@ -21,12 +21,11 @@ import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { useTRPC } from "@/lib/trpc/client";
 
 const GROUP_LABEL = {
-	company: "Companies",
 	contact: "Contacts",
 	deal: "Deals",
 } as const;
 
-const KINDS = ["company", "contact", "deal"] as const;
+const KINDS = ["contact", "deal"] as const;
 
 export function QuickSwitcher() {
 	const openRecord = useOpenRecord();
@@ -66,11 +65,11 @@ export function QuickSwitcher() {
 			open={open}
 			onOpenChange={(next) => setOpen(next || null)}
 			title="Search"
-			description="Jump to a company, contact or deal"
+			description="Jump to a contact or deal"
 		>
 			<Command shouldFilter={false}>
 				<CommandInput
-					placeholder="Search companies, contacts and deals…"
+					placeholder="Search contacts and deals…"
 					value={query}
 					onValueChange={setQuery}
 				/>

@@ -25,7 +25,6 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { usePanScroll } from "@/components/board/use-pan-scroll";
-import { CompanyCell } from "@/components/crm/company-cell";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -323,7 +322,6 @@ function JobCardBody({
 							: formatMoney(row.amountCents, row.currency)}
 					</span>
 				</span>
-				<CompanyCell company={row.company} />
 			</button>
 			<div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
 				{row.expectedCloseDate ? (

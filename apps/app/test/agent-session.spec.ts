@@ -109,12 +109,10 @@ describe("eventsOf", () => {
 describe("record context", () => {
 	it("asks about the thing you are actually looking at", () => {
 		expect(recordCopy("contact").title).toBe("Ask about this person");
-		expect(recordCopy("company").title).toBe("Ask about this company");
 		expect(recordCopy("deal").title).toBe("Ask about this deal");
 	});
 
 	it("offers questions that suit the record", () => {
-		expect(recordCopy("company").suggestions.join(" ")).not.toContain("person");
 		expect(recordCopy("deal").suggestions.join(" ")).not.toContain("person");
 		expect(recordCopy("contact").suggestions[0]).toBe("Who is this person?");
 	});
@@ -123,9 +121,6 @@ describe("record context", () => {
 		expect(recordHeader({ kind: "contact", id: "c1" })).toEqual({
 			"x-crm-contact": "c1",
 		});
-		expect(recordHeader({ kind: "company", id: "co1" })).toEqual({
-			"x-crm-company": "co1",
-		});
 		expect(recordHeader({ kind: "deal", id: "d1" })).toEqual({
 			"x-crm-deal": "d1",
 		});
@@ -133,8 +128,8 @@ describe("record context", () => {
 
 	it("files a conversation under one record and no other", () => {
 		expect(recordFilter({ kind: "deal", id: "d1" })).toEqual({ dealId: "d1" });
-		expect(Object.keys(recordFilter({ kind: "company", id: "co1" }))).toEqual([
-			"companyId",
+		expect(Object.keys(recordFilter({ kind: "contact", id: "c1" }))).toEqual([
+			"contactId",
 		]);
 	});
 });
@@ -147,7 +142,7 @@ describe("the panel", () => {
 		);
 
 	it("takes its copy from the record, never from a literal", () => {
-		for (const kind of ["contact", "company", "deal"] as const) {
+		for (const kind of ["contact", "deal"] as const) {
 			const copy = recordCopy(kind);
 			for (const literal of [copy.title, copy.blurb, copy.placeholder]) {
 				expect(source()).not.toContain(literal);
@@ -163,7 +158,7 @@ describe("the panel", () => {
 
 describe("the record sheet", () => {
 	it("keeps the agent tab mounted behind the others", () => {
-		for (const sheet of ["contact", "company", "deal"]) {
+		for (const sheet of ["contact", "deal"]) {
 			const source = readFileSync(
 				new URL(
 					`../components/crm/record-sheet/${sheet}-sheet.tsx`,

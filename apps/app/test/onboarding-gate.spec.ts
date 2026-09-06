@@ -158,7 +158,7 @@ describe("proxy", () => {
 		expect(redirectedTo(await proxy(request("/")))).toBeNull();
 		expect(redirectedTo(await proxy(request("/sign-in")))).toBeNull();
 		expect(redirectedTo(await proxy(request(`/${SLUG}`)))).toBe("/sign-in");
-		expect(redirectedTo(await proxy(request(`/${SLUG}/companies`)))).toBe(
+		expect(redirectedTo(await proxy(request(`/${SLUG}/contacts`)))).toBe(
 			"/sign-in",
 		);
 	});
@@ -201,7 +201,7 @@ describe("proxy", () => {
 		expect(
 			redirectedTo(
 				await proxy(
-					request(`/${SLUG}/companies`, [
+					request(`/${SLUG}/contacts`, [
 						"better-auth.session_token=someone.else",
 					]),
 				),
@@ -213,9 +213,7 @@ describe("proxy", () => {
 		setup({ onboarded: false });
 
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
 		).toBe("/onboarding");
 	});
 
@@ -230,12 +228,12 @@ describe("proxy", () => {
 	it("asks again on every request, and remembers nothing", async () => {
 		const calls = setup();
 
-		const first = await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE]));
+		const first = await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]));
 
 		expect([...first.cookies.getAll()]).toHaveLength(0);
 		expect(calls).toEqual({ workspace: 1, research: 1 });
 
-		await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE]));
+		await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]));
 
 		expect(calls).toEqual({ workspace: 2, research: 2 });
 	});
@@ -243,18 +241,14 @@ describe("proxy", () => {
 	it("notices when the answer changes underneath it", async () => {
 		setup();
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
 		).toBeNull();
 
 		// A reset database, a removed key: the browser is carrying nothing that
 		// could keep saying the gate was satisfied.
 		setup({ onboarded: false });
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
 		).toBe("/onboarding");
 	});
 
@@ -289,9 +283,7 @@ describe("proxy", () => {
 	});
 
 	it("lets a signed-out client sign a contract, with no cookie at all", async () => {
-		expect(
-			redirectedTo(await proxy(request("/sign/abc123"))),
-		).toBeNull();
+		expect(redirectedTo(await proxy(request("/sign/abc123")))).toBeNull();
 	});
 
 	it("never gates the signing link behind onboarding either", async () => {
@@ -308,7 +300,7 @@ describe("proxy", () => {
 		});
 
 		const response = await proxy(
-			request(`/${SLUG}/companies`, [SESSION_COOKIE]),
+			request(`/${SLUG}/contacts`, [SESSION_COOKIE]),
 		);
 
 		expect(redirectedTo(response)).toBeNull();
@@ -328,11 +320,11 @@ describe("the slug the app is served under", () => {
 		setup();
 
 		const response = await proxy(
-			request("/companies?record=contact:abc", [SESSION_COOKIE]),
+			request("/contacts?record=contact:abc", [SESSION_COOKIE]),
 		);
 
 		expect(response.headers.get("location")).toBe(
-			`http://localhost:3000/${SLUG}/companies?record=contact:abc`,
+			`http://localhost:3000/${SLUG}/contacts?record=contact:abc`,
 		);
 	});
 
@@ -360,7 +352,7 @@ describe("the slug the app is served under", () => {
 		setup({ slug: "" });
 
 		expect(
-			redirectedTo(await proxy(request("/companies", [SESSION_COOKIE]))),
+			redirectedTo(await proxy(request("/contacts", [SESSION_COOKIE]))),
 		).toBeNull();
 	});
 });
@@ -370,9 +362,7 @@ describe("the research key gate", () => {
 		setup({ configured: false });
 
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
 		).toBe("/onboarding/research");
 	});
 
@@ -390,9 +380,7 @@ describe("the research key gate", () => {
 		setup({ onboarded: false, configured: false });
 
 		expect(
-			redirectedTo(
-				await proxy(request(`/${SLUG}/companies`, [SESSION_COOKIE])),
-			),
+			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
 		).toBe("/onboarding");
 	});
 

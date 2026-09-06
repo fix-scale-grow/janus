@@ -50,7 +50,7 @@ function Composer() {
 					Dan
 				</Chip>
 				<span className="text-white">
-					when a company misses their invoice deadline
+					when a customer misses their invoice deadline
 				</span>
 			</p>
 

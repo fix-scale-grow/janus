@@ -16,30 +16,17 @@ type Touch = {
 	at: string | null;
 };
 
-export function WebsiteActivity({
-	companyId,
-	contactId,
-}: {
-	companyId?: string;
-	contactId?: string;
-}) {
+export function WebsiteActivity({ contactId }: { contactId?: string }) {
 	const trpc = useTRPC();
-
-	const company = useQuery({
-		...trpc.tracking.companyActivity.queryOptions({
-			companyId: companyId ?? "",
-		}),
-		enabled: Boolean(companyId),
-	});
 
 	const contact = useQuery({
 		...trpc.tracking.contactActivity.queryOptions({
 			contactId: contactId ?? "",
 		}),
-		enabled: Boolean(contactId) && !companyId,
+		enabled: Boolean(contactId),
 	});
 
-	const activity = companyId ? company.data : contact.data;
+	const activity = contact.data;
 
 	if (!activity?.identified) return null;
 	if (activity.pages.length === 0 && !activity.firstTouch) return null;

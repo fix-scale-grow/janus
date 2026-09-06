@@ -12,11 +12,6 @@ export function usePrefetchRecord() {
 	return useCallback(
 		({ kind, id }: RecordRef) => {
 			switch (kind) {
-				case "company":
-					void queryClient.prefetchQuery(
-						trpc.companies.byId.queryOptions({ id }),
-					);
-					return;
 				case "contact":
 					void queryClient.prefetchQuery(
 						trpc.contacts.byId.queryOptions({ id }),

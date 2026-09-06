@@ -1,4 +1,3 @@
-import Building from "@carbon/icons-react/es/Building";
 import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
 import Chat from "@carbon/icons-react/es/Chat";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
@@ -62,14 +61,6 @@ export const JANUS_NAV: JanusModule[] = [
 		icon: Chat,
 		related: ["/agents"],
 		source: "app/(app)/janus",
-	},
-	{
-		title: "Companies",
-		href: "/companies",
-		match: "prefix",
-		status: "live",
-		icon: Building,
-		source: "app/(app)/contacts",
 	},
 	{
 		title: "Contacts",

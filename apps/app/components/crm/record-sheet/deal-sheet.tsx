@@ -9,10 +9,6 @@ import { CURRENCIES, normalizeCurrency } from "@crm/db/currency";
 import type { FieldValueJson } from "@crm/db/fields";
 import { Button } from "@crm/ui/components/button";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
-import {
-	EntityLogo,
-	type EntityLogoTone,
-} from "@crm/ui/components/entity-logo";
 import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
@@ -32,7 +28,6 @@ import { NewEstimateButton } from "@/app/(app)/[slug]/estimates/new-estimate-but
 import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
 import { NewInvoiceButton } from "@/app/(app)/[slug]/invoices/new-invoice-button";
 import { AgentPanel } from "@/components/crm/agent-panel";
-import { InlineCompanyField } from "@/components/crm/company-picker";
 import { contactName } from "@/components/crm/contact-name";
 import { FieldsCog, RecordFields } from "@/components/crm/fields/record-fields";
 import {
@@ -135,7 +130,6 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 
 export function DealSheet({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
-	const openRecord = useOpenRecord();
 	const {
 		tab,
 		setTab,
@@ -210,28 +204,6 @@ export function DealSheet({ dealId }: { dealId: string }) {
 			loading={query.isPending}
 			error={query.error?.message ?? null}
 			title={deal?.name ?? "Deal"}
-			description={
-				deal ? (
-					<button
-						type="button"
-						onClick={() => openRecord({ kind: "company", id: deal.company.id })}
-						className="text-foreground underline-offset-2 hover:underline"
-					>
-						{deal.company.name}
-					</button>
-				) : undefined
-			}
-			media={
-				deal ? (
-					<EntityLogo
-						src={deal.company.iconUrl}
-						darkSrc={deal.company.iconDarkUrl}
-						tone={deal.company.iconTone as EntityLogoTone | null | undefined}
-						name={deal.company.name}
-						size="lg"
-					/>
-				) : null
-			}
 			actions={
 				deal ? (
 					<>
@@ -243,7 +215,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 						<RecordActions
 							record={{ kind: "deal", id: deal.id }}
 							name={deal.name}
-							consequence={`Its stage history, notes and agent conversations go too. ${deal.company.name} and the ${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM.`}
+							consequence={`Its stage history, notes and agent conversations go too. The ${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM.`}
 						/>
 					</>
 				) : null
@@ -374,12 +346,6 @@ function DealOverview({ deal }: { deal: Deal }) {
 						saving={isSaving("expectedCloseDate")}
 						onSave={(next) => save({ expectedCloseDate: next || null })}
 					/>
-					<InlineCompanyField
-						value={deal.company.id}
-						company={deal.company}
-						saving={isSaving("companyId")}
-						onSave={(companyId) => save({ companyId })}
-					/>
 					<InlineSelectField
 						label="Owner"
 						value={deal.owner.id}
@@ -401,7 +367,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 				<InlineTextArea
 					label="Description"
 					value={deal.description}
-					placeholder={`What ${deal.company.name} is buying, why now, and what stands in the way.`}
+					placeholder="What they are buying, why now, and what stands in the way."
 					saving={isSaving("description")}
 					onSave={(description) => save({ description })}
 				/>
@@ -498,7 +464,7 @@ function WhereItStands({ deal }: { deal: Deal }) {
 				<DetailSheetProperty label="On it" wide>
 					{deal.contacts.length === 0 ? (
 						<span className="text-muted-foreground">
-							Nobody from {deal.company.name} is attached yet.
+							Nobody is attached yet.
 						</span>
 					) : (
 						<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
@@ -610,11 +576,7 @@ function DealContacts({
 	);
 
 	const form = adding ? (
-		<AttachDealContact
-			dealId={deal.id}
-			companyName={deal.company.name}
-			onDone={onDone}
-		/>
+		<AttachDealContact dealId={deal.id} onDone={onDone} />
 	) : null;
 
 	if (deal.contacts.length === 0) {
@@ -625,7 +587,7 @@ function DealContacts({
 					<DetailSheetEmpty
 						icon={UserMultiple}
 						title="No contacts on this deal"
-						description={`Nobody from ${deal.company.name} is attached yet. Bring the people you are selling to onto the deal and it says who to chase.`}
+						description="Nobody is attached yet. Bring the people you are selling to onto the deal and it says who to chase."
 						action={
 							<Button variant="outline" size="sm" onClick={onAdd}>
 								<Icon icon={Add} data-icon="inline-start" />
