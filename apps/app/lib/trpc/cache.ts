@@ -31,6 +31,7 @@ export type CrmCache = {
 	template(purpose?: TemplatePurpose, options?: Options): Promise<void>;
 	fields(entity?: RecordKind, options?: Options): Promise<void>;
 	fieldCoverage(id?: string, options?: Options): Promise<void>;
+	pipeline(options?: Options): Promise<void>;
 	removed(record: RemovedRecord): Promise<void>;
 	removedMany(records: RemovedRecords): Promise<void>;
 	conversationRemoved(id: string): Promise<void>;
@@ -142,6 +143,13 @@ export function useCrmCache(): CrmCache {
 						: trpc.fields.coverage.queryKey(),
 				],
 				[],
+				options,
+			),
+
+		pipeline: (options) =>
+			run(
+				[trpc.pipelines.list.queryKey(), trpc.pipelines.stageLabels.queryKey()],
+				[trpc.deals.list.queryKey(), trpc.deals.byId.queryKey()],
 				options,
 			),
 
