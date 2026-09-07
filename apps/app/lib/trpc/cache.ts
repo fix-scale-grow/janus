@@ -149,7 +149,11 @@ export function useCrmCache(): CrmCache {
 		pipeline: (options) =>
 			run(
 				[trpc.pipelines.list.queryKey(), trpc.pipelines.stageLabels.queryKey()],
-				[trpc.deals.list.queryKey(), trpc.deals.byId.queryKey()],
+				[
+					trpc.deals.list.queryKey(),
+					trpc.deals.byId.queryKey(),
+					trpc.dashboard.summary.queryKey(),
+				],
 				options,
 			),
 
