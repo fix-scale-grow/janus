@@ -18,6 +18,7 @@ type RemovedRecords = { kind: RecordKind; ids: string[] };
 
 export type CrmCache = {
 	contact(id?: string, options?: Options): Promise<void>;
+	crews(options?: Options): Promise<void>;
 	deal(id?: string, options?: Options): Promise<void>;
 	drawing(id?: string, options?: Options): Promise<void>;
 	estimate(id?: string, options?: Options): Promise<void>;
@@ -169,6 +170,13 @@ export function useCrmCache(): CrmCache {
 					trpc.dashboard.summary.queryKey(),
 					trpc.currency.settings.queryKey(),
 				],
+				options,
+			),
+
+		crews: (options) =>
+			run(
+				[trpc.crews.list.queryKey()],
+				[trpc.projects.byId.queryKey()],
 				options,
 			),
 

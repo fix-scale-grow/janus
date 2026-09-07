@@ -5,7 +5,7 @@ import { PageShell, PageShellFallback } from "@/components/page-shell";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
-import { ProjectBoard } from "./project-board";
+import { CalendarView } from "./calendar-view";
 import { ProjectHeader } from "./project-header";
 
 export const metadata: Metadata = { title: "Project" };
@@ -34,6 +34,7 @@ async function PrefetchedProject({
 	await Promise.all([
 		queryClient.prefetchQuery(trpc.projects.byId.queryOptions({ id })),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
+		queryClient.prefetchQuery(trpc.crews.list.queryOptions()),
 	]);
 
 	const project = queryClient.getQueryData(trpc.projects.byId.queryKey({ id }));
@@ -43,7 +44,7 @@ async function PrefetchedProject({
 		<PageShell className="min-h-0" contained>
 			<HydrateClient>
 				<ProjectHeader id={id} />
-				<ProjectBoard id={id} />
+				<CalendarView id={id} />
 			</HydrateClient>
 		</PageShell>
 	);
