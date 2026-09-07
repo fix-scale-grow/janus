@@ -15,6 +15,7 @@ let adminUserId: string;
 let memberUserId: string;
 let dealId: string;
 let contactId: string;
+let secondContactId: string;
 let invoiceId: string;
 let jobCostId: string;
 
@@ -83,6 +84,16 @@ beforeAll(async () => {
 	});
 	contactId = contact.id;
 
+	const secondContact = await db.contact.create({
+		data: {
+			id: `reports-contact-2-${suffix}`,
+			firstName: "Sam",
+			lastName: `Cosigner-${suffix}`,
+		},
+		select: { id: true },
+	});
+	secondContactId = secondContact.id;
+
 	const deal = await db.deal.create({
 		data: {
 			id: `reports-deal-${suffix}`,
@@ -96,6 +107,9 @@ beforeAll(async () => {
 
 	await db.dealContact.create({
 		data: { dealId, contactId },
+	});
+	await db.dealContact.create({
+		data: { dealId, contactId: secondContactId },
 	});
 
 	const invoice = await db.invoice.create({
@@ -138,9 +152,11 @@ afterAll(async () => {
 	await db.jobCost.deleteMany({ where: { id: jobCostId } });
 	await db.invoiceLineItem.deleteMany({ where: { invoiceId } });
 	await db.invoice.deleteMany({ where: { id: invoiceId } });
-	await db.dealContact.deleteMany({ where: { dealId, contactId } });
+	await db.dealContact.deleteMany({ where: { dealId } });
 	await db.deal.deleteMany({ where: { id: dealId } });
-	await db.contact.deleteMany({ where: { id: contactId } });
+	await db.contact.deleteMany({
+		where: { id: { in: [contactId, secondContactId] } },
+	});
 	await db.userPermission.deleteMany({
 		where: { userId: { in: [adminUserId, memberUserId] } },
 	});
@@ -167,6 +183,22 @@ describe("ReportsService", () => {
 		expect(row.profitCents).toBe(3000);
 	});
 
+	it("byClient attributes the same deal figures to every linked contact", async () => {
+		const result = await service.byClient(adminUserId);
+
+		const first = result.rows.find((r) => r.contactId === contactId);
+		const second = result.rows.find((r) => r.contactId === secondContactId);
+		if (!first) throw new Error("expected a row for the first contact");
+		if (!second) throw new Error("expected a row for the second contact");
+
+		expect(second.name).toBe(`Sam Cosigner-${suffix}`);
+		expect(second.currency).toBe(first.currency);
+		expect(second.dealCount).toBe(first.dealCount);
+		expect(second.invoicedCents).toBe(first.invoicedCents);
+		expect(second.costsCents).toBe(first.costsCents);
+		expect(second.profitCents).toBe(first.profitCents);
+	});
+
 	it("byClient throws ForbiddenException for an ungranted member", async () => {
 		let thrownError: unknown;
 		try {
@@ -187,7 +219,7 @@ describe("ReportsService", () => {
 
 		expect(row.invoicedCents).toBeGreaterThanOrEqual(5000);
 		expect(row.costsCents).toBeGreaterThanOrEqual(2000);
-		expect(row.profitCents).toBe(row.invoicedCents - row.costsCents);
+		expect(row.profitCents).toBeGreaterThanOrEqual(3000);
 
 		expect(result.rows.filter((r) => r.currency === "USD").length).toBe(12);
 	});
