@@ -11,6 +11,7 @@ import { validateEnv } from "./config/env.validation";
 import { ContactsModule } from "./contacts/contacts.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { ConversationsModule } from "./conversations/conversations.module";
+import { CostsModule } from "./costs/costs.module";
 import { CrewsModule } from "./crews/crews.module";
 import { CrmModule } from "./crm/crm.module";
 import { CurrencyModule } from "./currency/currency.module";
@@ -71,6 +72,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		InvoicesModule,
 		ProjectsModule,
 		CrewsModule,
+		CostsModule,
 		PermissionsModule,
 		ActivitiesModule,
 		AgentModule,

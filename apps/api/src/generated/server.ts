@@ -18,6 +18,7 @@ import { agentReviseInput, agentIdInput, agentSaveFileInput, agentHistoryInput, 
 import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
 import { contractSigningTokenInput, contractSignInput, contractListInput, contractIdInput, contractCreateFromEstimateInput, contractCreateInput, contractUpdateInput, contractSendInput } from "../contracts/contracts.contracts";
 import { conversationListInput, builderResourceSearchInput, conversationIdInput, conversationEventsInput, conversationSaveInput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, sharedConversationInput } from "../conversations/conversations.contracts";
+import { costListInput, costCreateInput, costUpdateInput, costIdInput, profitForDealInput } from "../costs/costs.contracts";
 import { crewCreateInput, crewUpdateInput, crewIdInput } from "../crews/crews.contracts";
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
@@ -44,6 +45,7 @@ import type { ContactsRouter } from "../contacts/contacts.router";
 import type { ContractSigningRouter } from "../contracts/contract-signing.router";
 import type { ContractsRouter } from "../contracts/contracts.router";
 import type { ConversationsRouter } from "../conversations/conversations.router";
+import type { CostsRouter } from "../costs/costs.router";
 import type { CrewsRouter } from "../crews/crews.router";
 import type { CurrencyRouter } from "../currency/currency.router";
 import type { DashboardRouter } from "../dashboard/dashboard.router";
@@ -259,6 +261,23 @@ const appRouter = t.router({
     remove: publicProcedure
       .input(conversationIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["remove"]>>)
+    }),
+  costs: t.router({
+    list: publicProcedure
+      .input(costListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["list"]>>),
+    create: publicProcedure
+      .input(costCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["create"]>>),
+    update: publicProcedure
+      .input(costUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["update"]>>),
+    remove: publicProcedure
+      .input(costIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["remove"]>>),
+    profitForDeal: publicProcedure
+      .input(profitForDealInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["profitForDeal"]>>)
     }),
   crews: t.router({
     list: publicProcedure
