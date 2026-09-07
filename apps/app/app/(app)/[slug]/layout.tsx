@@ -23,7 +23,7 @@ export default function AppLayout({
 
 				<div className="flex min-h-0 flex-1">
 					<Suspense fallback={<AppIconRailFallback />}>
-						<AppIconRail />
+						<AppRail />
 					</Suspense>
 					{children}
 				</div>
@@ -37,6 +37,19 @@ export default function AppLayout({
 				</Suspense>
 			</div>
 		</MobileNavProvider>
+	);
+}
+
+async function AppRail() {
+	await connection();
+	await getServerQueryClient().prefetchQuery(
+		getServerTrpc().permissions.mine.queryOptions(),
+	);
+
+	return (
+		<HydrateClient>
+			<AppIconRail />
+		</HydrateClient>
 	);
 }
 
