@@ -204,47 +204,49 @@ export class PipelinesService {
 	async updateStage(id: string, data: StageUpdateData): Promise<Stage> {
 		if (data.color) this.guardColor(data.color);
 
-		const stage = await this.db.stage.findUnique({ where: { id } });
+		return this.db.$transaction(async (tx) => {
+			const stage = await tx.stage.findUnique({ where: { id } });
 
-		if (!stage) throw new NotFoundException("That stage does not exist.");
+			if (!stage) throw new NotFoundException("That stage does not exist.");
 
-		const nextOutcome = data.outcome ?? stage.outcome;
-		const nextIsEntry = data.isEntry ?? stage.isEntry;
+			const nextOutcome = data.outcome ?? stage.outcome;
+			const nextIsEntry = data.isEntry ?? stage.isEntry;
 
-		if (nextIsEntry && nextOutcome !== StageOutcome.OPEN) {
-			throw new BadRequestException("The entry stage must be an open stage.");
-		}
+			if (nextIsEntry && nextOutcome !== StageOutcome.OPEN) {
+				throw new BadRequestException("The entry stage must be an open stage.");
+			}
 
-		if (stage.isEntry && !nextIsEntry) {
-			throw new BadRequestException(
-				"Every pipeline needs an entry stage. Make another stage the entry first.",
-			);
-		}
+			if (stage.isEntry && !nextIsEntry) {
+				throw new BadRequestException(
+					"Every pipeline needs an entry stage. Make another stage the entry first.",
+				);
+			}
 
-		if (data.outcome && data.outcome !== stage.outcome) {
-			await this.guardOutcomeChange(stage, data.outcome);
-		}
+			if (data.outcome && data.outcome !== stage.outcome) {
+				await this.guardOutcomeChange(tx, stage, data.outcome);
+			}
 
-		if (data.isEntry === true && !stage.isEntry) {
-			await this.db.stage.updateMany({
-				where: {
-					pipelineId: stage.pipelineId,
-					isEntry: true,
-					id: { not: id },
+			if (data.isEntry === true && !stage.isEntry) {
+				await tx.stage.updateMany({
+					where: {
+						pipelineId: stage.pipelineId,
+						isEntry: true,
+						id: { not: id },
+					},
+					data: { isEntry: false },
+				});
+			}
+
+			return tx.stage.update({
+				where: { id },
+				data: {
+					label: data.label,
+					color: data.color,
+					outcome: data.outcome,
+					isEntry: data.isEntry,
 				},
-				data: { isEntry: false },
 			});
-		}
-
-		return this.db.stage.update({
-			where: { id },
-			data: {
-				label: data.label,
-				color: data.color,
-				outcome: data.outcome,
-				isEntry: data.isEntry,
-			},
-		});
+		}, BATCH_OPTIONS);
 	}
 
 	async reorderStages(input: StageReorderInput): Promise<Stage[]> {
@@ -283,7 +285,7 @@ export class PipelinesService {
 			);
 		}
 
-		await this.guardLastOfOutcome(stage, stage.outcome, "archive");
+		await this.guardLastOfOutcome(this.db, stage, stage.outcome, "archive");
 
 		return this.db.stage.update({
 			where: { id },
@@ -335,15 +337,17 @@ export class PipelinesService {
 	}
 
 	private async guardOutcomeChange(
+		client: Db | Prisma.TransactionClient,
 		stage: Stage,
 		nextOutcome: StageOutcome,
 	): Promise<void> {
-		await this.guardLastOfOutcome(stage, stage.outcome, "retype", {
+		await this.guardLastOfOutcome(client, stage, stage.outcome, "retype", {
 			replacedBy: nextOutcome,
 		});
 	}
 
 	private async guardLastOfOutcome(
+		client: Db | Prisma.TransactionClient,
 		stage: Stage,
 		outcome: StageOutcome,
 		action: "archive" | "retype",
@@ -352,7 +356,7 @@ export class PipelinesService {
 		if (options?.replacedBy === outcome) return;
 
 		if (outcome === StageOutcome.WON) {
-			const others = await this.db.stage.count({
+			const others = await client.stage.count({
 				where: {
 					pipelineId: stage.pipelineId,
 					outcome: StageOutcome.WON,
@@ -371,7 +375,7 @@ export class PipelinesService {
 		}
 
 		if (outcome === StageOutcome.LOST) {
-			const others = await this.db.stage.count({
+			const others = await client.stage.count({
 				where: {
 					pipelineId: stage.pipelineId,
 					outcome: StageOutcome.LOST,
