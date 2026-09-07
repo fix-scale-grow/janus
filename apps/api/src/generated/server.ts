@@ -18,6 +18,7 @@ import { agentReviseInput, agentIdInput, agentSaveFileInput, agentHistoryInput, 
 import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
 import { contractSigningTokenInput, contractSignInput, contractListInput, contractIdInput, contractCreateFromEstimateInput, contractCreateInput, contractUpdateInput, contractSendInput } from "../contracts/contracts.contracts";
 import { conversationListInput, builderResourceSearchInput, conversationIdInput, conversationEventsInput, conversationSaveInput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, sharedConversationInput } from "../conversations/conversations.contracts";
+import { crewCreateInput, crewUpdateInput, crewIdInput } from "../crews/crews.contracts";
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
@@ -42,6 +43,7 @@ import type { ContactsRouter } from "../contacts/contacts.router";
 import type { ContractSigningRouter } from "../contracts/contract-signing.router";
 import type { ContractsRouter } from "../contracts/contracts.router";
 import type { ConversationsRouter } from "../conversations/conversations.router";
+import type { CrewsRouter } from "../crews/crews.router";
 import type { CurrencyRouter } from "../currency/currency.router";
 import type { DashboardRouter } from "../dashboard/dashboard.router";
 import type { DealsRouter } from "../deals/deals.router";
@@ -255,6 +257,19 @@ const appRouter = t.router({
     remove: publicProcedure
       .input(conversationIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["remove"]>>)
+    }),
+  crews: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["list"]>>),
+    create: publicProcedure
+      .input(crewCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["create"]>>),
+    update: publicProcedure
+      .input(crewUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["update"]>>),
+    remove: publicProcedure
+      .input(crewIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["remove"]>>)
     }),
   currency: t.router({
     settings: publicProcedure
