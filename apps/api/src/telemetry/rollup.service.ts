@@ -1,11 +1,11 @@
 import {
 	ActivityType,
 	type Db,
-	DealStage,
 	EnrichmentStatus,
 	FactBand,
 	FactStatus,
 	RecordSource,
+	StageOutcome,
 } from "@crm/db";
 import { RETIRED_OUTCOME } from "@crm/db/agent-tasks";
 import { readAgentModel } from "@crm/db/settings";
@@ -43,6 +43,16 @@ const SANDBOX_TOOLS = new Set([
 	"grep",
 	"read_file",
 	"write_file",
+]);
+
+const SEEDED_STAGE_KEYS = new Set([
+	"DEMO_BOOKED",
+	"QUALIFIED_TO_BUY",
+	"DECISION_MAKER_BOUGHT_IN",
+	"CONTRACT_SENT",
+	"CLOSED_WON",
+	"CLOSED_LOST",
+	"UNQUALIFIED_TO_BUY",
 ]);
 
 type Counted = { key: string; count: number };
@@ -449,13 +459,36 @@ export class RollupService {
 		return Number(rows[0]?.count ?? 0);
 	}
 
+	private async dealsByOutcome(): Promise<Record<string, number>> {
+		const stages = await this.db.stage.findMany({
+			select: { id: true, outcome: true },
+		});
+		const outcomeById = new Map(stages.map((row) => [row.id, row.outcome]));
+
+		const groups = await this.db.deal.groupBy({
+			by: ["stageId"],
+			_count: { _all: true },
+		});
+
+		const counts: Counted[] = [];
+		for (const group of groups) {
+			const outcome = outcomeById.get(group.stageId);
+			if (!outcome) continue;
+			counts.push({ key: outcome, count: group._count._all });
+		}
+
+		return countsOf(counts, Object.values(StageOutcome));
+	}
+
 	private async crm(since: Date): Promise<Properties> {
 		const [
 			contacts,
 			deals,
 			activities,
 			contactSources,
-			stages,
+			dealsByOutcome,
+			pipelineCount,
+			customStageCount,
 			types,
 			syncs,
 			threads,
@@ -470,7 +503,14 @@ export class RollupService {
 			this.db.deal.count(),
 			this.db.activity.count(),
 			this.db.contact.groupBy({ by: ["source"], _count: { _all: true } }),
-			this.db.deal.groupBy({ by: ["stage"], _count: { _all: true } }),
+			this.dealsByOutcome(),
+			this.db.pipeline.count({ where: { archivedAt: null } }),
+			this.db.stage.count({
+				where: {
+					archivedAt: null,
+					key: { notIn: [...SEEDED_STAGE_KEYS] },
+				},
+			}),
 			this.db.activity.groupBy({ by: ["type"], _count: { _all: true } }),
 			this.db.mailboxSync.groupBy({ by: ["status"], _count: { _all: true } }),
 			this.db.emailThread.count({ where: { createdAt: { gte: since } } }),
@@ -532,10 +572,9 @@ export class RollupService {
 				})),
 				Object.values(RecordSource),
 			),
-			deals_by_stage: countsOf(
-				stages.map((row) => ({ key: row.stage, count: row._count._all })),
-				Object.values(DealStage),
-			),
+			deals_by_outcome: dealsByOutcome,
+			pipeline_count: pipelineCount,
+			custom_stage_count: customStageCount,
 			activities_by_type: countsOf(
 				types.map((row) => ({ key: row.type, count: row._count._all })),
 				Object.values(ActivityType),

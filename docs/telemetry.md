@@ -151,7 +151,9 @@ sent.
 | --- | --- |
 | `contacts_bucket`, `companies_bucket`, `deals_bucket`, `activities_bucket` | Sizes, in bands |
 | `contacts_by_source`, `companies_by_source` | Counts by `MANUAL` / `IMPORT` / `EMAIL` / `CALENDAR` |
-| `deals_by_stage` | Counts by `DealStage`. Stages, never amounts |
+| `deals_by_outcome` | Deal counts by `StageOutcome` (`OPEN`/`WON`/`LOST`/`DISQUALIFIED`). Stages are owner-named and never sent — only their outcome bucket |
+| `pipeline_count` | How many non-archived pipelines exist. A count, never a name |
+| `custom_stage_count` | Non-archived stages whose `key` is not one of the seven seeded stage keys — how far past the default board an install has customized. Never a label |
 | `activities_by_type` | Counts by `ActivityType` |
 | `mailbox_sync_configured` | Whether any `MailboxSync` row exists |
 | `mailbox_sync_status` | Counts by `GoogleSyncStatus` |

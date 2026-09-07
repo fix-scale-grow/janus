@@ -1,5 +1,4 @@
-import { ActivityType, type Db, DealStage } from "@crm/db";
-import { OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
+import { ActivityType, type Db, StageOutcome } from "@crm/db";
 import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
@@ -11,6 +10,14 @@ const OWNER_SELECT = {
 	name: true,
 	email: true,
 	image: true,
+} as const;
+
+const STAGE_SELECT = {
+	id: true,
+	label: true,
+	color: true,
+	outcome: true,
+	pipelineId: true,
 } as const;
 
 const TREND_MONTHS = 6;
@@ -49,6 +56,21 @@ export class DashboardService {
 
 		const base = await this.conversion.reportingCurrency();
 		const counted = this.conversion.countedWhere(base);
+		const openAnyPipeline = { outcome: StageOutcome.OPEN } as const;
+
+		const pipelineId = input.pipelineId ?? (await this.defaultPipelineId());
+		const pipelineStages = pipelineId
+			? await this.db.stage.findMany({
+					where: {
+						pipelineId,
+						outcome: StageOutcome.OPEN,
+						archivedAt: null,
+					},
+					orderBy: { position: "asc" },
+					select: { id: true, label: true, color: true },
+				})
+			: [];
+		const stageIds = pipelineStages.map((stage) => stage.id);
 
 		const [
 			openByStage,
@@ -61,15 +83,13 @@ export class DashboardService {
 			unconverted,
 		] = await Promise.all([
 			this.db.deal.groupBy({
-				by: ["stage"],
-				where: { ...owned, stage: { in: [...OPEN_DEAL_STAGES] } },
+				by: ["stageId"],
+				where: { ...owned, stageId: { in: stageIds } },
 				_count: { _all: true },
 			}),
 			this.db.deal.groupBy({
-				by: ["stage"],
-				where: {
-					AND: [{ ...owned, stage: { in: [...OPEN_DEAL_STAGES] } }, counted],
-				},
+				by: ["stageId"],
+				where: { AND: [{ ...owned, stageId: { in: stageIds } }, counted] },
 				_sum: { baseAmount: true },
 			}),
 			this.db.deal.findMany({
@@ -83,7 +103,7 @@ export class DashboardService {
 				select: {
 					baseAmount: true,
 					baseCurrency: true,
-					stage: true,
+					stage: { select: { outcome: true } },
 					createdAt: true,
 					closedAt: true,
 				},
@@ -93,7 +113,7 @@ export class DashboardService {
 					AND: [
 						{
 							...owned,
-							stage: { in: [...OPEN_DEAL_STAGES] },
+							stage: openAnyPipeline,
 							expectedCloseDate: { gte: startOfMonth, lt: startOfNextMonth },
 						},
 						counted,
@@ -103,7 +123,7 @@ export class DashboardService {
 				_sum: { baseAmount: true },
 			}),
 			this.db.deal.findMany({
-				where: { ...owned, stage: { in: [...OPEN_DEAL_STAGES] } },
+				where: { ...owned, stage: openAnyPipeline },
 				orderBy: [
 					{ baseAmount: { sort: "desc", nulls: "last" } },
 					{ expectedCloseDate: "asc" },
@@ -112,7 +132,7 @@ export class DashboardService {
 				select: {
 					id: true,
 					name: true,
-					stage: true,
+					stage: { select: STAGE_SELECT },
 					amount: true,
 					currency: true,
 					baseAmount: true,
@@ -156,11 +176,13 @@ export class DashboardService {
 			this.conversion.unconverted(owned),
 		]);
 
-		const stages = OPEN_DEAL_STAGES.map((stage) => {
-			const group = openByStage.find((row) => row.stage === stage);
-			const value = openValueByStage.find((row) => row.stage === stage);
+		const stages = pipelineStages.map((stage) => {
+			const group = openByStage.find((row) => row.stageId === stage.id);
+			const value = openValueByStage.find((row) => row.stageId === stage.id);
 			return {
-				stage: stage as DealStage,
+				id: stage.id,
+				label: stage.label,
+				color: stage.color,
 				count: group?._count._all ?? 0,
 				valueCents: toCents(value?._sum.baseAmount ?? null) ?? 0,
 			};
@@ -191,7 +213,7 @@ export class DashboardService {
 
 			const { closedAt, stage } = deal;
 			if (!closedAt) continue;
-			const won = stage === DealStage.CLOSED_WON;
+			const won = stage.outcome === StageOutcome.WON;
 
 			if (won) {
 				const closed = trend[monthKey(closedAt) - firstBucket];
@@ -214,7 +236,7 @@ export class DashboardService {
 					wonCents += cents;
 				}
 				cycleDays += (closedAt.getTime() - deal.createdAt.getTime()) / DAY_MS;
-			} else if (stage === DealStage.CLOSED_LOST) {
+			} else if (stage.outcome === StageOutcome.LOST) {
 				losses += 1;
 			}
 		}
@@ -226,6 +248,7 @@ export class DashboardService {
 			reportingCurrency: base,
 			unconverted,
 			pipeline: {
+				pipelineId,
 				stages,
 				totalCents: stages.reduce((total, s) => total + s.valueCents, 0),
 				totalDeals: stages.reduce((total, s) => total + s.count, 0),
@@ -274,5 +297,15 @@ export class DashboardService {
 				meta: meta as Record<string, unknown> | null,
 			})),
 		};
+	}
+
+	private async defaultPipelineId(): Promise<string | null> {
+		const pipeline = await this.db.pipeline.findFirst({
+			where: { archivedAt: null },
+			orderBy: { position: "asc" },
+			select: { id: true },
+		});
+
+		return pipeline?.id ?? null;
 	}
 }
