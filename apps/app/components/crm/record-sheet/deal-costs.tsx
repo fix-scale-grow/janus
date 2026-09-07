@@ -103,10 +103,12 @@ async function uploadReceipt(costId: string, file: File): Promise<boolean> {
 	}
 }
 
-function deleteReceipt(costId: string): void {
-	void fetch(`/api/costs/receipt/${costId}`, { method: "DELETE" }).catch(
-		() => undefined,
-	);
+async function deleteReceipt(costId: string): Promise<void> {
+	try {
+		await fetch(`/api/costs/receipt/${costId}`, { method: "DELETE" });
+	} catch {
+		return undefined;
+	}
 }
 
 export function DealCosts({ dealId }: { dealId: string }) {
@@ -351,7 +353,7 @@ function CostRow({ row, dealId }: { row: Cost; dealId: string }) {
 	const remove = useMutation(
 		trpc.costs.remove.mutationOptions({
 			onSuccess: () => {
-				if (row.receiptPath) deleteReceipt(row.id);
+				if (row.receiptPath) void deleteReceipt(row.id);
 				void cache.costs(dealId);
 			},
 			onError: (error) => toast.error(error.message),
@@ -453,7 +455,10 @@ function CostRow({ row, dealId }: { row: Cost; dealId: string }) {
 								<AlertDialogCancel>Cancel</AlertDialogCancel>
 								<AlertDialogAction
 									variant="destructive"
-									onClick={() => remove.mutate({ id: row.id })}
+									onClick={async () => {
+										if (row.receiptPath) await deleteReceipt(row.id);
+										remove.mutate({ id: row.id });
+									}}
 								>
 									Delete
 								</AlertDialogAction>

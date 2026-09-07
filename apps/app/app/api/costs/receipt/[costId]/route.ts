@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
 	COST_ID_PATTERN,
 	contentTypeFor,
+	RECEIPT_TYPES,
 	readReceipt,
 	removeReceipt,
 } from "@/lib/cost-receipts";
@@ -61,15 +62,23 @@ export async function DELETE(
 		where: { id: costId },
 		select: { receiptPath: true },
 	});
-	if (!cost?.receiptPath) {
-		return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+	if (cost?.receiptPath) {
+		await removeReceipt(cost.receiptPath);
+		await db.jobCost.update({
+			where: { id: costId },
+			data: { receiptPath: null },
+		});
+		return NextResponse.json({ ok: true });
 	}
 
-	await removeReceipt(cost.receiptPath);
-	await db.jobCost.update({
-		where: { id: costId },
-		data: { receiptPath: null },
-	});
+	for (const ext of Object.values(RECEIPT_TYPES)) {
+		const fileName = `${costId}.${ext}`;
+		const bytes = await readReceipt(fileName);
+		if (!bytes) continue;
+		await removeReceipt(fileName);
+		return NextResponse.json({ ok: true });
+	}
 
-	return NextResponse.json({ ok: true });
+	return NextResponse.json({ error: "Not found." }, { status: 404 });
 }
