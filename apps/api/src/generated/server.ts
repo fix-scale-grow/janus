@@ -28,6 +28,7 @@ import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldU
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { projectListInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
@@ -53,6 +54,7 @@ import type { FieldsRouter } from "../fields/fields.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
+import type { PermissionsRouter } from "../permissions/permissions.router";
 import type { ProjectsRouter } from "../projects/projects.router";
 import type { SearchRouter } from "../search/search.router";
 import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
@@ -525,6 +527,18 @@ const appRouter = t.router({
     setAutoCreate: publicProcedure
       .input(setOutlookAutoCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["setAutoCreate"]>>)
+    }),
+  permissions: t.router({
+    mine: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["mine"]>>),
+    listUsers: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["listUsers"]>>),
+    grant: publicProcedure
+      .input(permissionGrantInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["grant"]>>),
+    revoke: publicProcedure
+      .input(permissionGrantInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["revoke"]>>)
     }),
   projects: t.router({
     list: publicProcedure
