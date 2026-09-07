@@ -54,10 +54,6 @@ export async function POST(request: Request): Promise<Response> {
 		return NextResponse.json({ error: "No cost found." }, { status: 404 });
 	}
 
-	if (cost.receiptPath && cost.receiptPath !== `${costId}.${ext}`) {
-		await removeReceipt(cost.receiptPath);
-	}
-
 	const bytes = Buffer.from(await file.arrayBuffer());
 	const fileName = await saveReceipt(costId, ext, bytes);
 	if (!fileName) {
@@ -67,10 +63,22 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
-	await db.jobCost.update({
-		where: { id: costId },
-		data: { receiptPath: fileName },
-	});
+	try {
+		await db.jobCost.update({
+			where: { id: costId },
+			data: { receiptPath: fileName },
+		});
+	} catch {
+		await removeReceipt(fileName);
+		return NextResponse.json(
+			{ error: "The receipt could not be saved." },
+			{ status: 500 },
+		);
+	}
+
+	if (cost.receiptPath && cost.receiptPath !== fileName) {
+		await removeReceipt(cost.receiptPath);
+	}
 
 	return NextResponse.json({
 		url: `/api/costs/receipt/${costId}?v=${Date.now()}`,
