@@ -1,11 +1,5 @@
 import { Inject } from "@nestjs/common";
-import {
-	Input,
-	Mutation,
-	Query,
-	Router,
-	UseMiddlewares,
-} from "nestjs-trpc";
+import { Input, Mutation, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { z } from "zod";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {

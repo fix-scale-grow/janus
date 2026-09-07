@@ -11,7 +11,8 @@ import type { CostCreateInput, CostUpdateInput } from "./costs.contracts";
 export class CostsService {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
-		@Inject(PermissionsService) private readonly permissions: PermissionsService,
+		@Inject(PermissionsService)
+		private readonly permissions: PermissionsService,
 	) {}
 
 	async list(input: { dealId: string }) {

@@ -126,7 +126,10 @@ describe("task spans", () => {
 
 	it("counts span days inclusively", () => {
 		expect(
-			spanDays(new Date("2026-09-06T00:00:00Z"), new Date("2026-09-08T00:00:00Z")),
+			spanDays(
+				new Date("2026-09-06T00:00:00Z"),
+				new Date("2026-09-08T00:00:00Z"),
+			),
 		).toBe(3);
 	});
 });

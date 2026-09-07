@@ -10,8 +10,8 @@ import {
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
-	permissionGrantInput,
 	type PermissionGrantInput,
+	permissionGrantInput,
 } from "./permissions.contracts";
 import { PermissionsService } from "./permissions.service";
 
@@ -19,7 +19,8 @@ import { PermissionsService } from "./permissions.service";
 @UseMiddlewares(AuthMiddleware)
 export class PermissionsRouter {
 	constructor(
-		@Inject(PermissionsService) private readonly permissions: PermissionsService,
+		@Inject(PermissionsService)
+		private readonly permissions: PermissionsService,
 	) {}
 
 	@Query()

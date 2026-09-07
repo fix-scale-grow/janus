@@ -128,9 +128,7 @@ describe("CrewsService", () => {
 
 		expect(thrownError).toBeDefined();
 		const err = thrownError as { message?: string };
-		expect(err?.message).toBe(
-			"Tasks still use this crew. Archive it instead.",
-		);
+		expect(err?.message).toBe("Tasks still use this crew. Archive it instead.");
 	});
 
 	it("removes a crew after detaching all tasks", async () => {

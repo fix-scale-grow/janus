@@ -1,5 +1,9 @@
 import { type Db, Prisma } from "@crm/db";
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+	ConflictException,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import type { CrewCreateInput, CrewUpdateInput } from "./crews.contracts";
 

@@ -103,9 +103,15 @@ export const taskCreateInput = z
 			});
 			return;
 		}
-		checkSpan({ startDay: value.startDay, endDay: value.endDay ?? value.startDay }, ctx);
+		checkSpan(
+			{ startDay: value.startDay, endDay: value.endDay ?? value.startDay },
+			ctx,
+		);
 	})
-	.transform((value) => ({ ...value, endDay: value.endDay ?? value.startDay ?? null }));
+	.transform((value) => ({
+		...value,
+		endDay: value.endDay ?? value.startDay ?? null,
+	}));
 
 export type TaskCreateInput = z.infer<typeof taskCreateInput>;
 

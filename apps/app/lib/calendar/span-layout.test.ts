@@ -1,11 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	addDays,
-	dayKey,
-	layoutWeek,
-	monthWeeks,
-	weekOf,
-} from "./span-layout";
+import { addDays, dayKey, layoutWeek, monthWeeks, weekOf } from "./span-layout";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const task = (id: string, start: string, end: string, sortOrder = 0) => ({

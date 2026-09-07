@@ -86,10 +86,7 @@ describe("PermissionsService", () => {
 			key: "profit.view",
 		});
 
-		const afterGrant = await service.hasPermission(
-			memberUserId,
-			"profit.view",
-		);
+		const afterGrant = await service.hasPermission(memberUserId, "profit.view");
 		expect(afterGrant).toBe(true);
 
 		await service.revoke(adminUserId, {
@@ -129,10 +126,7 @@ describe("PermissionsService", () => {
 			key: "profit.view",
 		});
 
-		const result = await service.assertPermission(
-			memberUserId,
-			"profit.view",
-		);
+		const result = await service.assertPermission(memberUserId, "profit.view");
 		expect(result).toBeUndefined();
 
 		await service.revoke(adminUserId, {

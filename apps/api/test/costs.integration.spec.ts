@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
-import { PermissionsService } from "../src/permissions/permissions.service";
 import { CostsService } from "../src/costs/costs.service";
+import { PermissionsService } from "../src/permissions/permissions.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "costs-spec";
 

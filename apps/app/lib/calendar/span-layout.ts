@@ -76,7 +76,9 @@ export function layoutWeek<T extends SpanTask>(
 
 	const laneEnds: number[] = [];
 	const bars: WeekBar<T>[] = [];
-	const overflow: [number, number, number, number, number, number, number] = [0, 0, 0, 0, 0, 0, 0];
+	const overflow: [number, number, number, number, number, number, number] = [
+		0, 0, 0, 0, 0, 0, 0,
+	];
 
 	for (const task of inWeek) {
 		const startCol = Math.max(
@@ -90,7 +92,8 @@ export function layoutWeek<T extends SpanTask>(
 		let lane = laneEnds.findIndex((end) => end < startCol);
 		if (lane === -1) lane = laneEnds.length;
 		if (lane >= maxLanes) {
-			for (let col = startCol; col <= endCol; col += 1) overflow[col] = (overflow[col] ?? 0) + 1;
+			for (let col = startCol; col <= endCol; col += 1)
+				overflow[col] = (overflow[col] ?? 0) + 1;
 			continue;
 		}
 		laneEnds[lane] = endCol;
