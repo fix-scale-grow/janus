@@ -15,6 +15,7 @@ import {
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
@@ -22,12 +23,25 @@ import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-si
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
 import { JANUS_LIVE_NAV, type LiveNavItem } from "@/lib/janus-nav";
+import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type RailItem = LiveNavItem;
 
-// Shell IA is defined once in `@/lib/janus-nav`; the rail renders the live modules.
-const ITEMS: RailItem[] = JANUS_LIVE_NAV;
+function useVisibleItems(): RailItem[] {
+	const trpc = useTRPC();
+	const permissions = useQuery(trpc.permissions.mine.queryOptions());
+	const keys = permissions.data?.keys;
+
+	return useMemo(
+		() =>
+			JANUS_LIVE_NAV.filter(
+				(item) =>
+					!item.permission || (keys?.includes(item.permission) ?? false),
+			),
+		[keys],
+	);
+}
 
 function isActive(item: RailItem, pathname: string): boolean {
 	return (
@@ -160,7 +174,7 @@ export function AppIconRailFallback() {
 			aria-busy="true"
 			className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
 		>
-			{ITEMS.map((item) => (
+			{JANUS_LIVE_NAV.filter((item) => !item.permission).map((item) => (
 				<Button
 					key={item.href}
 					variant="ghost"
@@ -181,16 +195,17 @@ export function AppIconRail() {
 	const workspaceUrl = useWorkspaceUrl();
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
+	const visible = useVisibleItems();
 
 	const items = useMemo(
 		() =>
-			ITEMS.map((item) => ({
+			visible.map((item) => ({
 				...item,
 				section: item.href,
 				href: workspaceUrl(item.href),
 				related: item.related?.map((path) => workspaceUrl(path)),
 			})),
-		[workspaceUrl],
+		[visible, workspaceUrl],
 	);
 	const inChat = items.some(
 		(item) => item.title === "Janus AI" && isActive(item, pathname),
