@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { ActivityType, DealStage, db, EmailDirection } from "@crm/db";
+import { ActivityType, db, EmailDirection } from "@crm/db";
 import { readDealHistory } from "../agent/lib/accounts";
+
+async function salesStage(key: string): Promise<{ id: string; label: string }> {
+	return db.stage.findFirstOrThrow({
+		where: { key, pipeline: { name: "Sales" } },
+		select: { id: true, label: true },
+	});
+}
 
 const suffix = process.env.TEST_RUN_ID ?? "accounts-spec";
 const domain = `fernhill-${suffix}.test`;
@@ -8,6 +15,8 @@ const domain = `fernhill-${suffix}.test`;
 let dealId: string;
 let paulaId: string;
 let userId: string;
+let contractSentLabel: string;
+let qualifiedToBuyLabel: string;
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
 const daysAhead = (days: number) => new Date(Date.now() + days * 86_400_000);
@@ -39,11 +48,16 @@ beforeAll(async () => {
 	});
 	paulaId = paula.id;
 
+	const contractSent = await salesStage("CONTRACT_SENT");
+	const qualifiedToBuy = await salesStage("QUALIFIED_TO_BUY");
+	contractSentLabel = contractSent.label;
+	qualifiedToBuyLabel = qualifiedToBuy.label;
+
 	const deal = await db.deal.create({
 		data: {
 			name: `Fernhill platform ${suffix}`,
 			ownerId: userId,
-			stage: DealStage.CONTRACT_SENT,
+			stageId: contractSent.id,
 			stageChangedAt: daysAgo(42),
 			amount: 48_000,
 			currency: "USD",
@@ -164,7 +178,7 @@ describe("readDealHistory", () => {
 	it("reports the stage clock, not just the stage", async () => {
 		const history = await readDealHistory(dealId);
 
-		expect(history?.deal.stage).toBe("CONTRACT_SENT");
+		expect(history?.deal.stage).toBe(contractSentLabel);
 		expect(history?.deal.open).toBe(true);
 		expect(history?.deal.daysInStage).toBeGreaterThanOrEqual(41);
 	});
@@ -173,8 +187,8 @@ describe("readDealHistory", () => {
 		const history = await readDealHistory(dealId);
 
 		expect(history?.stageHistory.map((change) => change.to)).toEqual([
-			"QUALIFIED_TO_BUY",
-			"CONTRACT_SENT",
+			qualifiedToBuyLabel,
+			contractSentLabel,
 		]);
 	});
 

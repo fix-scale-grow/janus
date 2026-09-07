@@ -79,7 +79,13 @@ export async function contactPreamble(
 				take: 5,
 				select: {
 					role: true,
-					deal: { select: { id: true, name: true, stage: true } },
+					deal: {
+						select: {
+							id: true,
+							name: true,
+							stage: { select: { label: true } },
+						},
+					},
 				},
 			},
 			_count: { select: { emailThreads: true, calendarEvents: true } },
@@ -100,7 +106,7 @@ export async function contactPreamble(
 	const deals = contact.deals
 		.map(
 			({ role, deal }) =>
-				`${deal.name} (${deal.stage}${role ? `, ${role}` : ""}) \`${deal.id}\``,
+				`${deal.name} (${deal.stage.label}${role ? `, ${role}` : ""}) \`${deal.id}\``,
 		)
 		.join("; ");
 
@@ -155,7 +161,7 @@ export async function dealPreamble(
 		select: {
 			name: true,
 			description: true,
-			stage: true,
+			stage: { select: { label: true } },
 			amount: true,
 			currency: true,
 			expectedCloseDate: true,
@@ -191,7 +197,7 @@ export async function dealPreamble(
 		"",
 		fenceUntrusted("deal name", deal.name),
 		"",
-		`Stage: **${deal.stage}**${
+		`Stage: **${deal.stage.label}**${
 			deal.amount
 				? `. Amount: ${deal.amount} ${deal.currency ?? ""}`.trim()
 				: ""

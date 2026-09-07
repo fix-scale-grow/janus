@@ -1,5 +1,4 @@
-import { DealStage, db } from "@crm/db";
-import { LOSING_DEAL_STAGES, OPEN_DEAL_STAGES } from "@crm/db/deal-stage";
+import { db, StageOutcome } from "@crm/db";
 import { normalise } from "./names";
 import { fenceUntrusted } from "./untrusted";
 
@@ -54,18 +53,18 @@ export async function listDeals(options: DealListOptions = {}) {
 			: new Date(
 					now.getTime() - Math.max(options.inactiveForDays, 0) * 86_400_000,
 				);
-	const stages =
+	const outcomes =
 		status === "open"
-			? [...OPEN_DEAL_STAGES]
+			? [StageOutcome.OPEN]
 			: status === "won"
-				? [DealStage.CLOSED_WON]
+				? [StageOutcome.WON]
 				: status === "lost"
-					? [...LOSING_DEAL_STAGES]
+					? [StageOutcome.LOST, StageOutcome.DISQUALIFIED]
 					: null;
 
 	const rows = await db.deal.findMany({
 		where: {
-			...(stages ? { stage: { in: stages } } : {}),
+			...(outcomes ? { stage: { outcome: { in: outcomes } } } : {}),
 			...(options.ownerId ? { ownerId: options.ownerId } : {}),
 			...(cutoff
 				? {
@@ -86,7 +85,7 @@ export async function listDeals(options: DealListOptions = {}) {
 		select: {
 			id: true,
 			name: true,
-			stage: true,
+			stage: { select: { label: true } },
 			amount: true,
 			currency: true,
 			createdAt: true,
@@ -110,7 +109,7 @@ export async function listDeals(options: DealListOptions = {}) {
 			return {
 				id: deal.id,
 				name: fenceUntrusted("deal name", deal.name),
-				stage: deal.stage,
+				stage: deal.stage.label,
 				amount: deal.amount === null ? null : Number(deal.amount),
 				currency: deal.currency,
 				owner: deal.owner,
@@ -236,7 +235,7 @@ async function searchDeals(
 		select: {
 			id: true,
 			name: true,
-			stage: true,
+			stage: { select: { label: true } },
 			amount: true,
 			currency: true,
 		},
@@ -249,7 +248,7 @@ async function searchDeals(
 				kind: "deal" as const,
 				id: row.id,
 				name: fenceUntrusted("deal name", row.name),
-				stage: row.stage,
+				stage: row.stage.label,
 				amount: row.amount === null ? null : Number(row.amount),
 				currency: row.currency,
 			},

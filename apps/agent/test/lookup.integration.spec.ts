@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { DealStage, db } from "@crm/db";
+import { db } from "@crm/db";
 import { listDeals, searchCrm } from "../agent/lib/lookup";
+
+async function salesStage(key: string): Promise<{ id: string; label: string }> {
+	return db.stage.findFirstOrThrow({
+		where: { key, pipeline: { name: "Sales" } },
+		select: { id: true, label: true },
+	});
+}
 
 const suffix = process.env.TEST_RUN_ID ?? "lookup-spec";
 const domain = `northwind-${suffix}.test`;
@@ -53,11 +60,15 @@ beforeAll(async () => {
 	});
 	peterId = peter.id;
 
+	const qualifiedToBuy = await salesStage("QUALIFIED_TO_BUY");
+	const contractSent = await salesStage("CONTRACT_SENT");
+	const closedLost = await salesStage("CLOSED_LOST");
+
 	const deal = await db.deal.create({
 		data: {
 			name: `Northwind renewal ${suffix}`,
 			ownerId: user.id,
-			stage: DealStage.QUALIFIED_TO_BUY,
+			stageId: qualifiedToBuy.id,
 			amount: 12_000,
 			lastActivityAt: new Date("2026-06-01T12:00:00.000Z"),
 		},
@@ -69,7 +80,7 @@ beforeAll(async () => {
 		data: {
 			name: `Fresh expansion ${suffix}`,
 			ownerId: user.id,
-			stage: DealStage.CONTRACT_SENT,
+			stageId: contractSent.id,
 			lastActivityAt: new Date("2026-08-04T12:00:00.000Z"),
 		},
 		select: { id: true },
@@ -80,7 +91,7 @@ beforeAll(async () => {
 		data: {
 			name: `Closed renewal ${suffix}`,
 			ownerId: user.id,
-			stage: DealStage.CLOSED_LOST,
+			stageId: closedLost.id,
 			lastActivityAt: new Date("2026-05-01T12:00:00.000Z"),
 		},
 		select: { id: true },

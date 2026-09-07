@@ -123,7 +123,7 @@ export async function readCrmHistory(
 						select: {
 							id: true,
 							name: true,
-							stage: true,
+							stage: { select: { label: true } },
 							amount: true,
 							currency: true,
 							expectedCloseDate: true,
@@ -214,7 +214,7 @@ export async function readCrmHistory(
 		deals: contact.deals.map(({ role, deal }) => ({
 			id: deal.id,
 			name: fenceUntrusted("deal name", deal.name),
-			stage: deal.stage,
+			stage: deal.stage.label,
 			role,
 			amount: deal.amount === null ? null : Number(deal.amount),
 			currency: deal.currency,
