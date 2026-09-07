@@ -36,7 +36,6 @@ export type JanusModule = {
 	related?: string[];
 	/** v0-suite source route this module ports from (design contract). */
 	source?: string;
-	/** Permission key required to see this module; unset means always visible. */
 	permission?: string;
 };
 

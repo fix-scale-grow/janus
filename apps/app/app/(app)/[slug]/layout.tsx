@@ -44,16 +44,22 @@ async function WorkspaceHeader({
 	params,
 }: Pick<LayoutProps<"/[slug]">, "params">) {
 	await connection();
-	const workspacePromise = getServerQueryClient()
-		.fetchQuery(getServerTrpc().workspace.get.queryOptions())
+	const queryClient = getServerQueryClient();
+	const trpc = getServerTrpc();
+	const workspacePromise = queryClient
+		.fetchQuery(trpc.workspace.get.queryOptions())
 		.catch((error: unknown) => {
 			unstable_rethrow(error);
 			return null;
 		});
+	const permissionsPromise = queryClient.prefetchQuery(
+		trpc.permissions.mine.queryOptions(),
+	);
 	const [{ user }, { slug }, workspace] = await Promise.all([
 		requireMailboxAccess(),
 		params,
 		workspacePromise,
+		permissionsPromise,
 	]);
 
 	if (workspace && workspace.slug !== slug) notFound();
