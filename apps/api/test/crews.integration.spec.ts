@@ -49,7 +49,7 @@ afterAll(async () => {
 		where: { project: { dealId } },
 	});
 	await db.project.deleteMany({ where: { dealId } });
-	await db.crew.deleteMany({ where: { name: { startsWith: `Crew ${suffix}` } } });
+	await db.crew.deleteMany({ where: { name: { contains: suffix } } });
 	await db.deal.deleteMany({ where: { id: dealId } });
 	await db.user.deleteMany({ where: { id: userId } });
 });
