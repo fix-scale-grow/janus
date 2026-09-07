@@ -87,6 +87,7 @@ const STAGE_VALIDATE_SELECT = {
 	...STAGE_SELECT,
 	isEntry: true,
 	archivedAt: true,
+	pipeline: { select: { archivedAt: true } },
 } as const;
 
 const STAGE_NO_LONGER_EXISTS =
@@ -808,16 +809,22 @@ export class DealsService {
 			stageWhere.pipelineId = input.pipelineId;
 		}
 
-		if (Object.keys(stageWhere).length > 0) {
-			where.stage = stageWhere;
-		}
-
 		if (input.stage !== FACET_ALL) {
 			where.stageId = input.stage;
 		}
 
 		if (input.closing !== FACET_ALL) {
-			Object.assign(where, closingFilter(input.closing as ClosingWindow));
+			const { stage: closingStageWhere, ...rest } = closingFilter(
+				input.closing as ClosingWindow,
+			);
+			Object.assign(where, rest);
+			if (closingStageWhere) {
+				Object.assign(stageWhere, closingStageWhere);
+			}
+		}
+
+		if (Object.keys(stageWhere).length > 0) {
+			where.stage = stageWhere;
 		}
 
 		return where;
@@ -894,7 +901,7 @@ export class DealsService {
 			select: STAGE_VALIDATE_SELECT,
 		});
 
-		if (!stage || stage.archivedAt) {
+		if (!stage || stage.archivedAt || stage.pipeline.archivedAt) {
 			throw new BadRequestException(STAGE_NO_LONGER_EXISTS);
 		}
 

@@ -205,7 +205,10 @@ export class PipelinesService {
 		if (data.color) this.guardColor(data.color);
 
 		return this.db.$transaction(async (tx) => {
-			const stage = await tx.stage.findUnique({ where: { id } });
+			const stage = await tx.stage.findUnique({
+				where: { id },
+				include: { pipeline: { select: { archivedAt: true } } },
+			});
 
 			if (!stage) throw new NotFoundException("That stage does not exist.");
 
@@ -216,6 +219,12 @@ export class PipelinesService {
 				throw new BadRequestException("The entry stage must be an open stage.");
 			}
 
+			if (data.isEntry === true && stage.pipeline.archivedAt) {
+				throw new BadRequestException(
+					"That pipeline is archived — restore it before changing its entry stage.",
+				);
+			}
+
 			if (stage.isEntry && !nextIsEntry) {
 				throw new BadRequestException(
 					"Every pipeline needs an entry stage. Make another stage the entry first.",
@@ -223,6 +232,14 @@ export class PipelinesService {
 			}
 
 			if (data.outcome && data.outcome !== stage.outcome) {
+				const dealsOnStage = await tx.deal.count({ where: { stageId: id } });
+
+				if (dealsOnStage > 0) {
+					throw new BadRequestException(
+						"This stage still holds deals — move them before changing what the stage means.",
+					);
+				}
+
 				await this.guardOutcomeChange(tx, stage, data.outcome);
 			}
 

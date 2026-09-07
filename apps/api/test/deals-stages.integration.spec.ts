@@ -253,6 +253,41 @@ describe("create", () => {
 	});
 });
 
+describe("archived pipeline guard", () => {
+	it("rejects setting a deal to a stage on an archived pipeline", async () => {
+		const archivedPipeline = await db.pipeline.create({
+			data: {
+				name: `${prefix}_archived_pipeline`,
+				position: 9002,
+				archivedAt: new Date(),
+			},
+		});
+		const archivedPipelineStage = await db.stage.create({
+			data: {
+				pipelineId: archivedPipeline.id,
+				key: "archived_pipeline_entry",
+				label: "Entry",
+				color: "var(--chart-1)",
+				position: 0,
+				outcome: "OPEN",
+				isEntry: true,
+			},
+			select: { id: true },
+		});
+
+		const deal = await deals.create({
+			name: `${prefix}_archived_pipeline_target`,
+			ownerId,
+			stage: entryA.id,
+		});
+
+		await expectRejects(
+			deals.setStage({ id: deal.id, stage: archivedPipelineStage.id }, ownerId),
+			/no longer exists/,
+		);
+	});
+});
+
 describe("setStage reason guard", () => {
 	it("refuses to close as LOST without a reason", async () => {
 		const deal = await deals.create({
@@ -398,6 +433,44 @@ describe("wonOnly and pipelineId filters", () => {
 		const ids = list.rows.map((row) => (row as { id: string }).id);
 		expect(ids).toContain(inA.id);
 		expect(ids).not.toContain(inB.id);
+	});
+});
+
+describe("closing filter merges with pipeline filter", () => {
+	it("keeps the pipelineId filter when closing is overdue", async () => {
+		const overdue = new Date(
+			Date.now() - 7 * 24 * 60 * 60 * 1000,
+		).toISOString();
+
+		const overdueInA = await deals.create({
+			name: `${prefix}_overdue_pipeline_a`,
+			ownerId,
+			stage: entryA.id,
+			expectedCloseDate: overdue,
+		});
+		const overdueInB = await deals.create({
+			name: `${prefix}_overdue_pipeline_b`,
+			ownerId,
+			stage: entryB.id,
+			expectedCloseDate: overdue,
+		});
+
+		const list = await deals.list({
+			q: prefix,
+			page: 1,
+			pageSize: 25,
+			sort: "",
+			dir: "asc",
+			status: "all",
+			owner: "all",
+			stage: "all",
+			closing: "overdue",
+			pipelineId: pipelineAId,
+		});
+
+		const ids = list.rows.map((row) => (row as { id: string }).id);
+		expect(ids).toContain(overdueInA.id);
+		expect(ids).not.toContain(overdueInB.id);
 	});
 });
 

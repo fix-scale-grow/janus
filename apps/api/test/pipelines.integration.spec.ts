@@ -264,6 +264,52 @@ describe("won/lost invariants", () => {
 	});
 });
 
+describe("outcome retype and deals", () => {
+	it("refuses to retype a stage's outcome while a deal still references it", async () => {
+		const pipeline = await makePipeline("retype-with-deals");
+
+		const extra = await pipelines.createStage({
+			pipelineId: pipeline.id,
+			label: "Qualifying",
+			color: "var(--swatch-4)",
+			outcome: StageOutcome.OPEN,
+		});
+
+		const deal = await db.deal.create({
+			data: {
+				name: `${prefix}_deal_retype_blocked`,
+				ownerId,
+				stageId: extra.id,
+			},
+			select: { id: true },
+		});
+
+		await expectRejects(
+			pipelines.updateStage(extra.id, { outcome: StageOutcome.LOST }),
+			/holds deals/i,
+		);
+
+		await db.deal.delete({ where: { id: deal.id } });
+	});
+
+	it("allows retyping an empty stage's outcome freely", async () => {
+		const pipeline = await makePipeline("retype-empty");
+
+		const extra = await pipelines.createStage({
+			pipelineId: pipeline.id,
+			label: "Qualifying",
+			color: "var(--swatch-4)",
+			outcome: StageOutcome.OPEN,
+		});
+
+		const updated = await pipelines.updateStage(extra.id, {
+			outcome: StageOutcome.LOST,
+		});
+
+		expect(updated.outcome).toBe(StageOutcome.LOST);
+	});
+});
+
 describe("color invariant", () => {
 	it("refuses a color outside the curated swatch set", async () => {
 		const pipeline = await makePipeline("bad-color");
