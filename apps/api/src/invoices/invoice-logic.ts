@@ -33,6 +33,18 @@ export type EstimateLike = {
 	lineItems: EstimateLineItemLike[];
 };
 
+export function lineItemsTotalCents(
+	lineItems: {
+		quantity: Prisma.Decimal | number | string;
+		priceCents: number;
+	}[],
+): number {
+	return lineItems.reduce(
+		(sum, item) => sum + Math.round(Number(item.quantity) * item.priceCents),
+		0,
+	);
+}
+
 export type InvoiceLineItemDraft = {
 	name: string;
 	unit: ServiceUnit;
