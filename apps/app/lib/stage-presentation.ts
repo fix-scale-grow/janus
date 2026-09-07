@@ -33,9 +33,6 @@ export function stageToneFallback(outcome: StageOutcome): StatusTone {
 	return "neutral";
 }
 
-/** Groups a pipeline list's stages by pipeline for menus and pickers. When
- * `activePipelineId` names a pipeline present in the list, its group is moved
- * to the front so "your deal's own pipeline" always sorts first. */
 export function groupStagesByPipeline<TStage extends StagePresentation>(
 	pipelines: readonly PipelineWithStages<TStage>[],
 	options?: {

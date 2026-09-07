@@ -2,12 +2,20 @@
 
 import {
 	Card,
+	CardAction,
 	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@crm/ui/components/card";
 import type { ChartConfig } from "@crm/ui/components/chart";
 import { DashboardRow, StatGroup } from "@crm/ui/components/dashboard";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@crm/ui/components/select";
 import { StatCard, type StatDelta } from "@crm/ui/components/stat-card";
 import {
 	formatCount,
@@ -15,13 +23,16 @@ import {
 	formatMoneyCompact,
 	formatPercent,
 } from "@crm/ui/lib/format";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { AreaTrend, DonutStat } from "@/components/dashboard-charts";
+import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type Summary = RouterOutputs["dashboard"]["summary"];
+type PipelineStages = Summary["pipeline"];
 
 const TREND_CONFIG: ChartConfig = {
 	won: { label: "Closed won", color: "var(--success)" },
@@ -43,6 +54,7 @@ function changeDelta(
 }
 
 export function SalesDashboard({ summary }: { summary: Summary }) {
+	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
 
 	const {
@@ -54,7 +66,30 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 		closingThisMonthTotal,
 		reportingCurrency,
 		unconverted,
+		scope,
 	} = summary;
+
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
+
+	const [selectedPipelineId, setSelectedPipelineId] = useState(
+		pipeline.pipelineId ?? undefined,
+	);
+
+	const chartQuery = useQuery({
+		...trpc.dashboard.summary.queryOptions({
+			scope,
+			pipelineId: selectedPipelineId,
+		}),
+		enabled: selectedPipelineId !== pipeline.pipelineId,
+		placeholderData: (previous) => previous,
+	});
+
+	const chartPipeline: PipelineStages =
+		selectedPipelineId === pipeline.pipelineId
+			? pipeline
+			: (chartQuery.data?.pipeline ?? pipeline);
 
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 	const exact = (value: unknown) =>
@@ -65,7 +100,7 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 
 	const hasTrend = trend.some((point) => point.won > 0 || point.created > 0);
 
-	const stageSlices = pipeline.stages.flatMap((stage) =>
+	const stageSlices = chartPipeline.stages.flatMap((stage) =>
 		stage.valueCents > 0
 			? [
 					{
@@ -169,13 +204,32 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 				<ChartPanel
 					title="Open pipeline by stage"
 					description="Where the value sits right now"
+					action={
+						pipelines.data && pipelines.data.length > 1 ? (
+							<Select
+								value={chartPipeline.pipelineId ?? undefined}
+								onValueChange={setSelectedPipelineId}
+							>
+								<SelectTrigger className="w-40" size="sm">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{pipelines.data.map((option) => (
+										<SelectItem key={option.id} value={option.id}>
+											{option.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						) : null
+					}
 				>
 					{stageSlices.length > 0 ? (
 						<div className="flex flex-1 flex-col justify-between gap-1 pt-4">
 							<DonutStat
 								data={stageSlices}
 								height={168}
-								centerValue={money(pipeline.totalCents)}
+								centerValue={money(chartPipeline.totalCents)}
 								centerLabel="open"
 								formatValue={exact}
 							/>
@@ -217,10 +271,12 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 function ChartPanel({
 	title,
 	description,
+	action,
 	children,
 }: {
 	title: string;
 	description?: string;
+	action?: ReactNode;
 	children: ReactNode;
 }) {
 	return (
@@ -228,6 +284,7 @@ function ChartPanel({
 			<CardHeader>
 				<CardTitle>{title}</CardTitle>
 				{description ? <CardDescription>{description}</CardDescription> : null}
+				{action ? <CardAction>{action}</CardAction> : null}
 			</CardHeader>
 			<div className="flex flex-1 flex-col border">{children}</div>
 		</Card>
