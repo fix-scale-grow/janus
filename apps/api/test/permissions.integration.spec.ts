@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { ForbiddenException } from "@nestjs/common";
 import { PermissionsService } from "../src/permissions/permissions.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "permissions-spec";
@@ -108,6 +109,43 @@ describe("PermissionsService", () => {
 		expect(hasIt).toBe(true);
 	});
 
+	it("assertPermission rejects a member with no grant, exact message", async () => {
+		let thrownError: unknown;
+		try {
+			await service.assertPermission(memberUserId, "profit.view");
+		} catch (error) {
+			thrownError = error;
+		}
+
+		expect(thrownError).toBeInstanceOf(ForbiddenException);
+		expect((thrownError as ForbiddenException).message).toBe(
+			"You do not have access to profit data.",
+		);
+	});
+
+	it("assertPermission resolves for a member with a grant", async () => {
+		await service.grant(adminUserId, {
+			userId: memberUserId,
+			key: "profit.view",
+		});
+
+		const result = await service.assertPermission(
+			memberUserId,
+			"profit.view",
+		);
+		expect(result).toBeUndefined();
+
+		await service.revoke(adminUserId, {
+			userId: memberUserId,
+			key: "profit.view",
+		});
+	});
+
+	it("assertPermission resolves for an admin with no grant row", async () => {
+		const result = await service.assertPermission(adminUserId, "profit.view");
+		expect(result).toBeUndefined();
+	});
+
 	it("throws ForbiddenException when a member tries to grant", async () => {
 		let thrownError: unknown;
 		try {
@@ -119,9 +157,58 @@ describe("PermissionsService", () => {
 			thrownError = error;
 		}
 
-		expect(thrownError).toBeDefined();
-		const err = thrownError as { message?: string };
-		expect(err?.message).toBe("Only an admin can change permissions.");
+		expect(thrownError).toBeInstanceOf(ForbiddenException);
+		expect((thrownError as ForbiddenException).message).toBe(
+			"Only an admin can change permissions.",
+		);
+	});
+
+	it("throws ForbiddenException when a member calls listUsers", async () => {
+		let thrownError: unknown;
+		try {
+			await service.listUsers(memberUserId);
+		} catch (error) {
+			thrownError = error;
+		}
+
+		expect(thrownError).toBeInstanceOf(ForbiddenException);
+		expect((thrownError as ForbiddenException).message).toBe(
+			"Only an admin can change permissions.",
+		);
+	});
+
+	it("listUsers returns fixture rows with the granted key for an admin caller", async () => {
+		await service.grant(adminUserId, {
+			userId: memberUserId,
+			key: "profit.view",
+		});
+
+		const rows = await service.listUsers(adminUserId);
+
+		const memberRow = rows.find((row) => row.userId === memberUserId);
+		const adminRow = rows.find((row) => row.userId === adminUserId);
+
+		expect(memberRow).toEqual({
+			userId: memberUserId,
+			name: "Test Member",
+			email: `member-${suffix}@example.test`,
+			image: null,
+			role: "member",
+			keys: ["profit.view"],
+		});
+		expect(adminRow).toEqual({
+			userId: adminUserId,
+			name: "Test Admin",
+			email: `admin-${suffix}@example.test`,
+			image: null,
+			role: "admin",
+			keys: [],
+		});
+
+		await service.revoke(adminUserId, {
+			userId: memberUserId,
+			key: "profit.view",
+		});
 	});
 
 	it("mine returns all keys for an admin and only granted keys for a member", async () => {

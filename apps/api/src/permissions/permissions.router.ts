@@ -7,10 +7,12 @@ import {
 	Router,
 	UseMiddlewares,
 } from "nestjs-trpc";
-import type { z } from "zod";
-import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
-import { permissionGrantInput } from "./permissions.contracts";
+import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
+import {
+	permissionGrantInput,
+	type PermissionGrantInput,
+} from "./permissions.contracts";
 import { PermissionsService } from "./permissions.service";
 
 @Router({ alias: "permissions" })
@@ -33,7 +35,7 @@ export class PermissionsRouter {
 	@Mutation({ input: permissionGrantInput })
 	async grant(
 		@Ctx() ctx: AuthedTrpcContext,
-		@Input() input: z.infer<typeof permissionGrantInput>,
+		@Input() input: PermissionGrantInput,
 	) {
 		return this.permissions.grant(ctx.user.id, input);
 	}
@@ -41,7 +43,7 @@ export class PermissionsRouter {
 	@Mutation({ input: permissionGrantInput })
 	async revoke(
 		@Ctx() ctx: AuthedTrpcContext,
-		@Input() input: z.infer<typeof permissionGrantInput>,
+		@Input() input: PermissionGrantInput,
 	) {
 		return this.permissions.revoke(ctx.user.id, input);
 	}

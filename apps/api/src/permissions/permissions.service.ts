@@ -1,6 +1,7 @@
 import {
 	canManagePermissions,
 	isWorkspaceAdmin,
+	toWorkspaceRole,
 	WORKSPACE_ID,
 	workspaceRoleOf,
 } from "@crm/auth";
@@ -77,6 +78,7 @@ export class PermissionsService {
 						id: true,
 						name: true,
 						email: true,
+						image: true,
 						permissions: { select: { key: true } },
 					},
 				},
@@ -87,7 +89,8 @@ export class PermissionsService {
 			userId: member.user.id,
 			name: member.user.name,
 			email: member.user.email,
-			role: member.role,
+			image: member.user.image,
+			role: toWorkspaceRole(member.role),
 			keys: member.user.permissions.map((permission) => permission.key),
 		}));
 	}
