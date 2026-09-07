@@ -17,6 +17,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { CALENDAR } from "@/lib/calendar/calendar-config";
 import {
 	addDays,
 	dayKey,
@@ -30,9 +31,10 @@ import type { RouterOutputs } from "@/lib/trpc/types";
 import { AddTaskPanel } from "./add-task-panel";
 import { CalendarGrid } from "./calendar-grid";
 import { barClasses, TASK_BAR_CLASSES } from "./task-bar";
+import { TimelineView } from "./timeline-view";
 import { UnscheduledStrip } from "./unscheduled-strip";
 
-type Project = RouterOutputs["projects"]["byId"];
+export type Project = RouterOutputs["projects"]["byId"];
 export type ProjectTask = Project["tasks"][number];
 export type CalendarTask = Omit<ProjectTask, "startDay" | "endDay"> & {
 	startDay: Date;
@@ -171,10 +173,18 @@ export function CalendarView({ id }: { id: string }) {
 			? (scheduled.find((task) => task.id === activeId) ?? null)
 			: null;
 
+	const timelineStart = useMemo(() => weekOf(anchor)[0] ?? anchor, [anchor]);
+	const timelineEnd = useMemo(
+		() => addDays(timelineStart, CALENDAR.timelineDays - 1),
+		[timelineStart],
+	);
+
 	const rangeLabel =
-		tab === "calendar" && view === "month"
-			? MONTH_LABEL.format(anchor)
-			: `${WEEK_LABEL.format(weeks[0]?.[0] ?? anchor)} – ${WEEK_LABEL.format(weeks[0]?.[6] ?? anchor)}`;
+		tab === "timeline"
+			? `${WEEK_LABEL.format(timelineStart)} – ${WEEK_LABEL.format(timelineEnd)}`
+			: view === "month"
+				? MONTH_LABEL.format(anchor)
+				: `${WEEK_LABEL.format(weeks[0]?.[0] ?? anchor)} – ${WEEK_LABEL.format(weeks[0]?.[6] ?? anchor)}`;
 
 	function shift(direction: 1 | -1) {
 		if (tab === "calendar" && view === "month") {
@@ -266,33 +276,37 @@ export function CalendarView({ id }: { id: string }) {
 				</div>
 			</div>
 
-			<DndContext
-				sensors={sensors}
-				collisionDetection={closestCorners}
-				onDragStart={(event: DragStartEvent) =>
-					setActiveId(String(event.active.id))
-				}
-				onDragEnd={handleDragEnd}
-				onDragCancel={() => setActiveId(null)}
-			>
-				<CalendarGrid
-					weeks={weeks}
-					scheduled={scheduled}
-					view={tab === "calendar" ? view : "week"}
-					today={todayKey}
-					goalKey={goalKey}
-					anchorMonth={anchor.getUTCMonth()}
-					onDayClick={openPanel}
-					projectId={id}
-				/>
-				<DragOverlay dropAnimation={null}>
-					{activeTask ? (
-						<div className={cn(TASK_BAR_CLASSES, barClasses(activeTask))}>
-							{activeTask.name}
-						</div>
-					) : null}
-				</DragOverlay>
-			</DndContext>
+			{tab === "calendar" ? (
+				<DndContext
+					sensors={sensors}
+					collisionDetection={closestCorners}
+					onDragStart={(event: DragStartEvent) =>
+						setActiveId(String(event.active.id))
+					}
+					onDragEnd={handleDragEnd}
+					onDragCancel={() => setActiveId(null)}
+				>
+					<CalendarGrid
+						weeks={weeks}
+						scheduled={scheduled}
+						view={view}
+						today={todayKey}
+						goalKey={goalKey}
+						anchorMonth={anchor.getUTCMonth()}
+						onDayClick={openPanel}
+						projectId={id}
+					/>
+					<DragOverlay dropAnimation={null}>
+						{activeTask ? (
+							<div className={cn(TASK_BAR_CLASSES, barClasses(activeTask))}>
+								{activeTask.name}
+							</div>
+						) : null}
+					</DragOverlay>
+				</DndContext>
+			) : (
+				<TimelineView project={project.data} anchor={anchor} />
+			)}
 
 			<UnscheduledStrip projectId={id} tasks={unscheduled} />
 

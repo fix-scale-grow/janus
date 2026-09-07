@@ -38,19 +38,20 @@ export type ProjectTaskLike = Omit<ProjectTask, "startDay" | "endDay"> & {
 	endDay: string | Date | null;
 };
 
-const STATUS_FLOW: Record<ProjectTask["status"], ProjectTask["status"]> = {
-	TODO: "IN_PROGRESS",
-	IN_PROGRESS: "DONE",
-	DONE: "TODO",
-};
+export const STATUS_FLOW: Record<ProjectTask["status"], ProjectTask["status"]> =
+	{
+		TODO: "IN_PROGRESS",
+		IN_PROGRESS: "DONE",
+		DONE: "TODO",
+	};
 
-const STATUS_LABEL: Record<ProjectTask["status"], string> = {
+export const STATUS_LABEL: Record<ProjectTask["status"], string> = {
 	TODO: "To do",
 	IN_PROGRESS: "In progress",
 	DONE: "Done",
 };
 
-const STATUS_VARIANT: Record<
+export const STATUS_VARIANT: Record<
 	ProjectTask["status"],
 	"outline" | "secondary" | "default"
 > = {
@@ -59,34 +60,12 @@ const STATUS_VARIANT: Record<
 	DONE: "default",
 };
 
-function asDate(value: string | Date): Date {
-	return typeof value === "string" ? new Date(value) : value;
-}
-
-function toDayKey(value: Date | string | null): string | null {
-	return value ? dayKey(asDate(value)) : null;
-}
-
-export function TaskPopover({
-	projectId,
-	task,
-	children,
-}: {
-	projectId: string;
-	task: ProjectTaskLike;
-	children: ReactNode;
-}) {
+export function useCycleTaskStatus(projectId: string) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const cache = useCrmCache();
-	const [open, setOpen] = useState(false);
-	const [name, setName] = useState(task.name);
-	const [note, setNote] = useState(task.note ?? "");
 
-	const users = useQuery(trpc.users.list.queryOptions());
-	const crews = useQuery(trpc.crews.list.queryOptions());
-
-	const cycleStatus = useMutation(
+	return useMutation(
 		trpc.projects.taskUpdate.mutationOptions({
 			onMutate: async ({ id, status }) => {
 				const key = trpc.projects.byId.queryKey({ id: projectId });
@@ -115,6 +94,35 @@ export function TaskPopover({
 			onSettled: () => void cache.project(projectId),
 		}),
 	);
+}
+
+function asDate(value: string | Date): Date {
+	return typeof value === "string" ? new Date(value) : value;
+}
+
+function toDayKey(value: Date | string | null): string | null {
+	return value ? dayKey(asDate(value)) : null;
+}
+
+export function TaskPopover({
+	projectId,
+	task,
+	children,
+}: {
+	projectId: string;
+	task: ProjectTaskLike;
+	children: ReactNode;
+}) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const [open, setOpen] = useState(false);
+	const [name, setName] = useState(task.name);
+	const [note, setNote] = useState(task.note ?? "");
+
+	const users = useQuery(trpc.users.list.queryOptions());
+	const crews = useQuery(trpc.crews.list.queryOptions());
+
+	const cycleStatus = useCycleTaskStatus(projectId);
 
 	const update = useMutation(
 		trpc.projects.taskUpdate.mutationOptions({
