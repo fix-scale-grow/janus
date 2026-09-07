@@ -6,15 +6,14 @@ import {
 	type SimpleTableColumn,
 	SimpleTableRow,
 } from "@crm/ui/components/simple-table";
+import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
 import { formatMoney } from "@crm/ui/lib/format";
-import { DealStageIndicator } from "@/components/crm/deal-stage";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalDay } from "@/components/local-date-time";
 import type { DealListItem, DealListResult } from "@/lib/agent-transcript";
-import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
 
 const COLUMNS: SimpleTableColumn[] = [
 	{ id: "deal", header: "Deal", width: "w-[24%]" },
@@ -122,14 +121,7 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 }
 
 function Stage({ stage }: { stage: string }) {
-	const option = DEAL_STAGE_OPTIONS.find(
-		(candidate) => candidate.value === stage,
-	);
-	return option ? (
-		<DealStageIndicator stage={option.value} />
-	) : (
-		<span className="text-muted-foreground">{humaniseStage(stage)}</span>
-	);
+	return <StatusIndicator tone="neutral" label={humaniseStage(stage)} />;
 }
 
 function tableTitle(result: DealListResult): string {

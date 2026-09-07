@@ -57,8 +57,9 @@ export const WON_JOBS_INPUT = {
 	pageSize: 100,
 	status: "all",
 	owner: "all",
-	stage: "CLOSED_WON",
+	stage: "all",
 	closing: "all",
+	wonOnly: true,
 } as const;
 
 /** Real stages plus the Unscheduled intake column, in board order. */

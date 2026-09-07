@@ -1,7 +1,7 @@
 "use client";
 
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
-import type { DealStage } from "@crm/db/enums";
+import { requiresReason } from "@crm/db/stage-semantics";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -14,22 +14,31 @@ import {
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@crm/ui/components/dropdown-menu";
 import { Field, FieldLabel } from "@crm/ui/components/field";
 import { Icon } from "@crm/ui/components/icon";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useId, useState } from "react";
 import { toast } from "sonner";
-import { DEAL_STAGE_OPTIONS, LOSING_STAGES } from "@/lib/deal-stage";
+import { findStageById, groupStagesByPipeline } from "@/lib/stage-presentation";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/types";
 import { DealStageIndicator } from "./deal-stage";
+
+type Stage = RouterOutputs["deals"]["list"]["rows"][number]["stage"];
 
 const closeReasonParams = {
 	closing: parseAsString,
@@ -57,11 +66,28 @@ export function DealStageMenu({
 	variant = "inline",
 }: {
 	dealId: string;
-	stage: DealStage;
+	stage: Stage;
 	variant?: "inline" | "control";
 }) {
+	const trpc = useTRPC();
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 	const setStage = useStageMutation();
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
+
+	const groups = groupStagesByPipeline(pipelines.data ?? [], {
+		activePipelineId: stage.pipelineId,
+	});
+
+	const choose = (target: Stage) => {
+		if (target.id === stage.id) return;
+		if (requiresReason(target)) {
+			void setCloseParams({ closing: dealId, closingStage: target.id });
+			return;
+		}
+		setStage.mutate({ id: dealId, stage: target.id });
+	};
 
 	return (
 		<DropdownMenu>
@@ -92,25 +118,35 @@ export function DealStageMenu({
 				className="min-w-52"
 				onClick={(event) => event.stopPropagation()}
 			>
-				<DropdownMenuRadioGroup
-					value={stage}
-					onValueChange={(next) => {
-						const chosen = next as DealStage;
-						if (chosen === stage) return;
-						if (LOSING_STAGES.includes(chosen)) {
-							void setCloseParams({
-								closing: dealId,
-								closingStage: chosen,
-							});
-							return;
-						}
-						setStage.mutate({ id: dealId, stage: chosen });
-					}}
-				>
-					{DEAL_STAGE_OPTIONS.map((option) => (
-						<DropdownMenuRadioItem key={option.value} value={option.value}>
-							{option.label}
-						</DropdownMenuRadioItem>
+				<DropdownMenuRadioGroup value={stage.id}>
+					{groups.map((group) => (
+						<DropdownMenuGroup key={group.pipelineId}>
+							{groups.length > 1 ? (
+								<DropdownMenuLabel>{group.pipelineName}</DropdownMenuLabel>
+							) : null}
+							{group.stages.map((candidate) =>
+								candidate.pipelineId === stage.pipelineId ? (
+									<DropdownMenuRadioItem
+										key={candidate.id}
+										value={candidate.id}
+										onSelect={() => choose(candidate)}
+									>
+										{candidate.label}
+									</DropdownMenuRadioItem>
+								) : (
+									<DropdownMenuSub key={candidate.id}>
+										<DropdownMenuSubTrigger>
+											{candidate.label}
+										</DropdownMenuSubTrigger>
+										<DropdownMenuSubContent>
+											<DropdownMenuItem onSelect={() => choose(candidate)}>
+												Move to {group.pipelineName}?
+											</DropdownMenuItem>
+										</DropdownMenuSubContent>
+									</DropdownMenuSub>
+								),
+							)}
+						</DropdownMenuGroup>
 					))}
 				</DropdownMenuRadioGroup>
 			</DropdownMenuContent>
@@ -119,10 +155,14 @@ export function DealStageMenu({
 }
 
 export function CloseReasonDialog() {
+	const trpc = useTRPC();
 	const reasonId = useId();
 	const [{ closing, closingStage }, setCloseParams] =
 		useQueryStates(closeReasonParams);
 	const [reason, setReason] = useState("");
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
 
 	const close = () => {
 		setReason("");
@@ -134,18 +174,25 @@ export function CloseReasonDialog() {
 		close();
 	});
 
-	const stage = closingStage as DealStage | null;
+	const stage = closingStage
+		? findStageById(pipelines.data ?? [], closingStage)
+		: undefined;
 	const open = Boolean(closing && stage);
+	const lost = stage?.outcome === "LOST";
 
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && close()}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>
-						{stage === "CLOSED_LOST" ? "Close as lost" : "Mark as unqualified"}
+						{stage
+							? lost
+								? `Close as ${stage.label}`
+								: `Mark as ${stage.label}`
+							: ""}
 					</DialogTitle>
 					<DialogDescription>
-						{stage === "CLOSED_LOST"
+						{lost
 							? "What did we lose it to? This is the only place that answer gets recorded."
 							: "Why is this not a fit? It goes on the timeline so nobody re-runs the same deal."}
 					</DialogDescription>
@@ -157,7 +204,11 @@ export function CloseReasonDialog() {
 					onSubmit={(event) => {
 						event.preventDefault();
 						if (!closing || !stage) return;
-						setStage.mutate({ id: closing, stage, closedReason: reason });
+						setStage.mutate({
+							id: closing,
+							stage: stage.id,
+							closedReason: reason,
+						});
 					}}
 				>
 					<Field>

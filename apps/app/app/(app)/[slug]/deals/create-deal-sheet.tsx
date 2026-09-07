@@ -15,7 +15,9 @@ import { Input } from "@crm/ui/components/input";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
@@ -35,7 +37,7 @@ import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
-import { dealStageLabel, OPEN_STAGES } from "@/lib/deal-stage";
+import { groupStagesByPipeline } from "@/lib/stage-presentation";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -69,7 +71,7 @@ function CreateDealForm() {
 	);
 	const [name, setName] = useState("");
 	const [ownerId, setOwnerId] = useState(UNSET);
-	const [stage, setStage] = useState<string>("DEMO_BOOKED");
+	const [stage, setStage] = useState(UNSET);
 	const [amount, setAmount] = useState("");
 	const [currency, setCurrency] = useState("");
 	const [closeDate, setCloseDate] = useState("");
@@ -81,10 +83,21 @@ function CreateDealForm() {
 	const users = useQuery(trpc.users.list.queryOptions());
 	const me = useQuery(trpc.users.me.queryOptions());
 	const currencies = useQuery(trpc.currency.settings.queryOptions());
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
 
 	const resolvedOwner = ownerId || me.data?.id || UNSET;
 	const workspaceCurrency = currencies.data?.reportingCurrency;
 	const resolvedCurrency = currency || workspaceCurrency || "USD";
+
+	const openStageGroups = groupStagesByPipeline(pipelines.data ?? [], {
+		filter: (candidate) => candidate.outcome === "OPEN",
+	});
+	const defaultPipeline = pipelines.data?.[0];
+	const defaultStageId =
+		defaultPipeline?.stages.find((candidate) => candidate.isEntry)?.id ?? UNSET;
+	const resolvedStage = stage || defaultStageId;
 
 	const create = useMutation(
 		trpc.deals.create.mutationOptions({
@@ -93,6 +106,7 @@ function CreateDealForm() {
 				toast.success(`${deal.name} added.`);
 				await setOpen(null);
 				setName("");
+				setStage(UNSET);
 				setAmount("");
 				setCurrency("");
 				setCloseDate("");
@@ -126,7 +140,7 @@ function CreateDealForm() {
 						create.mutate({
 							name,
 							ownerId: resolvedOwner,
-							stage: stage as never,
+							stage: resolvedStage || undefined,
 							amountCents: Number.isFinite(parsed)
 								? Math.round(parsed * 100)
 								: null,
@@ -166,15 +180,22 @@ function CreateDealForm() {
 
 						<Field>
 							<FieldLabel htmlFor="create-deal-stage">Stage</FieldLabel>
-							<Select value={stage} onValueChange={setStage}>
+							<Select value={resolvedStage} onValueChange={setStage}>
 								<SelectTrigger id="create-deal-stage">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									{OPEN_STAGES.map((value) => (
-										<SelectItem key={value} value={value}>
-											{dealStageLabel(value)}
-										</SelectItem>
+									{openStageGroups.map((group) => (
+										<SelectGroup key={group.pipelineId}>
+											{openStageGroups.length > 1 ? (
+												<SelectLabel>{group.pipelineName}</SelectLabel>
+											) : null}
+											{group.stages.map((candidate) => (
+												<SelectItem key={candidate.id} value={candidate.id}>
+													{candidate.label}
+												</SelectItem>
+											))}
+										</SelectGroup>
 									))}
 								</SelectContent>
 							</Select>

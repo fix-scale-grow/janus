@@ -18,7 +18,6 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AreaTrend, DonutStat } from "@/components/dashboard-charts";
-import { dealStageColor, dealStageLabel } from "@/lib/deal-stage";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
@@ -70,10 +69,10 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 		stage.valueCents > 0
 			? [
 					{
-						key: stage.stage,
-						label: dealStageLabel(stage.stage),
+						key: stage.id,
+						label: stage.label,
 						value: stage.valueCents,
-						color: dealStageColor(stage.stage),
+						color: stage.color,
 						count: stage.count,
 					},
 				]
