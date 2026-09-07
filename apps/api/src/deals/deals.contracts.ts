@@ -1,4 +1,4 @@
-import { DealStage, ProductionStage } from "@crm/db";
+import { ProductionStage } from "@crm/db";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
 import { currencyCode } from "../currency/currency.contracts";
@@ -30,18 +30,16 @@ export const dealListInput = listInput.extend({
 	owner: z.string().default("all"),
 	stage: z.string().default("all"),
 	closing: z.string().default("all"),
+	pipelineId: z.string().optional(),
+	wonOnly: z.boolean().optional(),
 });
 
 export type DealListInput = z.infer<typeof dealListInput>;
 
-const stageEnum = z.enum(
-	Object.values(DealStage) as [DealStage, ...DealStage[]],
-);
-
 export const dealCreateInput = z.object({
 	name: z.string().trim().min(1, "A deal needs a name."),
 	ownerId: z.string().min(1, "A deal needs an owner."),
-	stage: stageEnum.optional(),
+	stage: z.string().min(1).optional(),
 	amountCents,
 	currency: currencyCode.optional(),
 	expectedCloseDate: z.string().nullable().optional(),
@@ -70,7 +68,7 @@ export const dealIdInput = z.object({ id: z.string() });
 
 export const setStageInput = z.object({
 	id: z.string(),
-	stage: stageEnum,
+	stage: z.string().min(1),
 	closedReason: z.string().trim().optional(),
 });
 
@@ -129,7 +127,7 @@ export const dealBulkOwnerInput = bulkIdsInput.extend({
 export type DealBulkOwnerInput = z.infer<typeof dealBulkOwnerInput>;
 
 export const dealBulkStageInput = bulkIdsInput.extend({
-	stage: stageEnum,
+	stage: z.string().min(1),
 	closedReason: z.string().trim().optional(),
 });
 

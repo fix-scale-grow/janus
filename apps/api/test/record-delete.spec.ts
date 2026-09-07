@@ -30,6 +30,19 @@ const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
 const match = new MailboxMatchService(db, agent, log);
 
+let entryStageId: string | undefined;
+
+async function demoBookedStageId(): Promise<string> {
+	if (!entryStageId) {
+		const stage = await db.stage.findFirstOrThrow({
+			where: { key: "DEMO_BOOKED" },
+			select: { id: true },
+		});
+		entryStageId = stage.id;
+	}
+	return entryStageId;
+}
+
 async function matchContext() {
 	const internal = await match.internalIdentity();
 	return {
@@ -220,7 +233,11 @@ describe("the activity stamps a delete leaves behind", () => {
 			email: `stamped@${stampDomain}`,
 		});
 		const deal = await db.deal.create({
-			data: { name: "Stamped deal", ownerId: userId },
+			data: {
+				name: "Stamped deal",
+				ownerId: userId,
+				stageId: await demoBookedStageId(),
+			},
 			select: { id: true },
 		});
 

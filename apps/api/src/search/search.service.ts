@@ -46,7 +46,7 @@ export class SearchService {
 			this.db.deal.findMany({
 				where: { name: { contains: term, mode: "insensitive" } },
 				take: PER_KIND,
-				orderBy: [{ stage: "asc" }, { name: "asc" }],
+				orderBy: [{ stage: { position: "asc" } }, { name: "asc" }],
 				select: { id: true, name: true },
 			}),
 		]);

@@ -77,8 +77,17 @@ beforeAll(async () => {
 	});
 	contactId = contact.id;
 
+	const entryStage = await db.stage.findFirstOrThrow({
+		where: { key: "DEMO_BOOKED" },
+		select: { id: true },
+	});
+
 	const deal = await db.deal.create({
-		data: { name: `Merge deal ${suffix}`, ownerId: userId },
+		data: {
+			name: `Merge deal ${suffix}`,
+			ownerId: userId,
+			stageId: entryStage.id,
+		},
 		select: { id: true },
 	});
 	dealId = deal.id;
