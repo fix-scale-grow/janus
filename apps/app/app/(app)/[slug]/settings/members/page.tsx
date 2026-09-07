@@ -52,11 +52,17 @@ async function Members({
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
 
+	const workspace = await queryClient.fetchQuery(
+		trpc.workspace.get.queryOptions(),
+	);
+
 	await Promise.all([
-		queryClient.prefetchQuery(trpc.workspace.get.queryOptions()),
 		queryClient.prefetchQuery(
 			trpc.workspace.members.queryOptions(membersSearchParams.toInput(values)),
 		),
+		workspace.viewerRole === "admin" || workspace.viewerRole === "owner"
+			? queryClient.prefetchQuery(trpc.permissions.listUsers.queryOptions())
+			: Promise.resolve(),
 	]);
 
 	return (

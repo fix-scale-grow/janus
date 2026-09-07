@@ -15,7 +15,8 @@ import {
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { Switch } from "@crm/ui/components/switch";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
@@ -33,14 +34,43 @@ const ROLE_LABEL = {
 
 type Role = keyof typeof ROLE_LABEL;
 
+const PROFIT_VIEW_KEY = "profit.view" as const;
+
 type MemberRow = RouterOutputs["workspace"]["members"]["rows"][number];
+
+type PermissionRow = RouterOutputs["permissions"]["listUsers"][number];
+
+function withKey(
+	rows: PermissionRow[] | undefined,
+	userId: string,
+	granted: boolean,
+): PermissionRow[] | undefined {
+	return rows?.map((row) => {
+		if (row.userId !== userId) return row;
+		return {
+			...row,
+			keys: granted
+				? [
+						...row.keys.filter((key) => key !== PROFIT_VIEW_KEY),
+						PROFIT_VIEW_KEY,
+					]
+				: row.keys.filter((key) => key !== PROFIT_VIEW_KEY),
+		};
+	});
+}
 
 function columns(
 	canChangeRoles: boolean,
 	onChangeRole: (member: MemberRow, role: Role) => void,
 	pending: boolean,
+	profit: {
+		viewerIsAdmin: boolean;
+		permissionsByUserId: Map<string, PermissionRow>;
+		pending: boolean;
+		onToggle: (userId: string, next: boolean) => void;
+	},
 ): DataTableColumn<MemberRow>[] {
-	return [
+	const base: DataTableColumn<MemberRow>[] = [
 		{
 			id: "name",
 			header: "Name",
@@ -130,11 +160,38 @@ function columns(
 				) : null,
 		},
 	];
+
+	if (!profit.viewerIsAdmin) return base;
+
+	const profitColumn: DataTableColumn<MemberRow> = {
+		id: "profitView",
+		header: "Can view profit",
+		label: "Can view profit",
+		hideable: false,
+		width: "w-[14%]",
+		cell: (row) => {
+			if (row.role === "admin" || row.role === "owner") {
+				return <span className="text-muted-foreground">Admin — always</span>;
+			}
+			const permissionRow = profit.permissionsByUserId.get(row.userId);
+			const checked = permissionRow?.keys.includes(PROFIT_VIEW_KEY) ?? false;
+			return (
+				<Switch
+					checked={checked}
+					disabled={profit.pending}
+					onCheckedChange={(next) => profit.onToggle(row.userId, next)}
+				/>
+			);
+		},
+	};
+
+	return [...base.slice(0, 3), profitColumn, ...base.slice(3)];
 }
 
 export function MembersTable() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const queryClient = useQueryClient();
 	const { query, input } = useTableQuery(membersSearchParams);
 
 	const workspace = useQuery(trpc.workspace.get.queryOptions());
@@ -143,6 +200,19 @@ export function MembersTable() {
 		placeholderData: (previous) => previous,
 	});
 
+	const viewerIsAdmin =
+		workspace.data?.viewerRole === "admin" ||
+		workspace.data?.viewerRole === "owner";
+
+	const permissions = useQuery({
+		...trpc.permissions.listUsers.queryOptions(),
+		enabled: viewerIsAdmin,
+	});
+
+	const permissionsByUserId = new Map(
+		(permissions.data ?? []).map((row) => [row.userId, row]),
+	);
+
 	const setRole = useMutation(
 		trpc.workspace.setMemberRole.mutationOptions({
 			onSuccess: async () => {
@@ -150,6 +220,58 @@ export function MembersTable() {
 				toast.success("Role changed.");
 			},
 			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const permissionsKey = trpc.permissions.listUsers.queryKey();
+	const mineKey = trpc.permissions.mine.queryKey();
+
+	const settlePermissions = () => {
+		queryClient.invalidateQueries({ queryKey: permissionsKey });
+		queryClient.invalidateQueries({ queryKey: mineKey });
+	};
+
+	const grant = useMutation(
+		trpc.permissions.grant.mutationOptions({
+			onMutate: async ({ userId }) => {
+				await queryClient.cancelQueries({ queryKey: permissionsKey });
+				const previous =
+					queryClient.getQueryData<PermissionRow[]>(permissionsKey);
+				queryClient.setQueryData(
+					permissionsKey,
+					(rows: PermissionRow[] | undefined) => withKey(rows, userId, true),
+				);
+				return { previous };
+			},
+			onError: (error, _variables, context) => {
+				if (context?.previous) {
+					queryClient.setQueryData(permissionsKey, context.previous);
+				}
+				toast.error(error.message);
+			},
+			onSettled: settlePermissions,
+		}),
+	);
+
+	const revoke = useMutation(
+		trpc.permissions.revoke.mutationOptions({
+			onMutate: async ({ userId }) => {
+				await queryClient.cancelQueries({ queryKey: permissionsKey });
+				const previous =
+					queryClient.getQueryData<PermissionRow[]>(permissionsKey);
+				queryClient.setQueryData(
+					permissionsKey,
+					(rows: PermissionRow[] | undefined) => withKey(rows, userId, false),
+				);
+				return { previous };
+			},
+			onError: (error, _variables, context) => {
+				if (context?.previous) {
+					queryClient.setQueryData(permissionsKey, context.previous);
+				}
+				toast.error(error.message);
+			},
+			onSettled: settlePermissions,
 		}),
 	);
 
@@ -168,21 +290,41 @@ export function MembersTable() {
 	];
 
 	return (
-		<DataTable
-			query={query}
-			search={<ListSearch placeholder="Search by name or email…" />}
-			columns={columns(
-				workspace.data?.canChangeRoles ?? false,
-				(member, role) => setRole.mutate({ memberId: member.id, role }),
-				setRole.isPending,
-			)}
-			rows={members.data?.rows ?? []}
-			total={members.data?.total ?? 0}
-			facetCounts={facetCounts}
-			facets={facets}
-			getRowId={(row) => row.id}
-			loading={members.isFetching}
-			empty="Nobody matches this view."
-		/>
+		<div className="flex min-h-0 flex-1 flex-col gap-2">
+			{viewerIsAdmin ? (
+				<p className="text-muted-foreground text-xs">
+					Per-user access controls will grow here.
+				</p>
+			) : null}
+
+			<DataTable
+				query={query}
+				search={<ListSearch placeholder="Search by name or email…" />}
+				columns={columns(
+					workspace.data?.canChangeRoles ?? false,
+					(member, role) => setRole.mutate({ memberId: member.id, role }),
+					setRole.isPending,
+					{
+						viewerIsAdmin,
+						permissionsByUserId,
+						pending: grant.isPending || revoke.isPending,
+						onToggle: (userId, next) => {
+							if (next) {
+								grant.mutate({ userId, key: PROFIT_VIEW_KEY });
+							} else {
+								revoke.mutate({ userId, key: PROFIT_VIEW_KEY });
+							}
+						},
+					},
+				)}
+				rows={members.data?.rows ?? []}
+				total={members.data?.total ?? 0}
+				facetCounts={facetCounts}
+				facets={facets}
+				getRowId={(row) => row.id}
+				loading={members.isFetching}
+				empty="Nobody matches this view."
+			/>
+		</div>
 	);
 }
