@@ -20,7 +20,7 @@ async function signCookieValue(value: string, secret: string): Promise<string> {
 		new TextEncoder().encode(value),
 	);
 	const base64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
-	return encodeURIComponent(`${value}.${base64}`);
+	return `${value}.${base64}`;
 }
 
 export async function GET(request: NextRequest) {
