@@ -78,7 +78,7 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 	);
 
 	const chartQuery = useQuery({
-		...trpc.dashboard.summary.queryOptions({
+		...trpc.dashboard.pipelineStages.queryOptions({
 			scope,
 			pipelineId: selectedPipelineId,
 		}),
@@ -89,7 +89,7 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 	const chartPipeline: PipelineStages =
 		selectedPipelineId === pipeline.pipelineId
 			? pipeline
-			: (chartQuery.data?.pipeline ?? pipeline);
+			: (chartQuery.data ?? pipeline);
 
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 	const exact = (value: unknown) =>

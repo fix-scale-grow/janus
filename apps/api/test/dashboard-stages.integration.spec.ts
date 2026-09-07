@@ -324,6 +324,19 @@ describe("pipeline-by-stage chart", () => {
 		expect(ids).not.toContain(entryA.id);
 		expect(ids).not.toContain(midA.id);
 	});
+
+	it("pipelineStages matches summary's chart for the same pipeline", async () => {
+		const summary = await dashboard.summary(ownerId, {
+			scope: "me",
+			pipelineId: pipelineAId,
+		});
+		const stages = await dashboard.pipelineStages(ownerId, {
+			scope: "me",
+			pipelineId: pipelineAId,
+		});
+
+		expect(stages).toEqual(summary.pipeline);
+	});
 });
 
 describe("money aggregates across all pipelines", () => {

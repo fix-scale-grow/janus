@@ -58,23 +58,8 @@ export class DashboardService {
 		const counted = this.conversion.countedWhere(base);
 		const openAnyPipeline = { outcome: StageOutcome.OPEN } as const;
 
-		const pipelineId = input.pipelineId ?? (await this.defaultPipelineId());
-		const pipelineStages = pipelineId
-			? await this.db.stage.findMany({
-					where: {
-						pipelineId,
-						outcome: StageOutcome.OPEN,
-						archivedAt: null,
-					},
-					orderBy: { position: "asc" },
-					select: { id: true, label: true, color: true },
-				})
-			: [];
-		const stageIds = pipelineStages.map((stage) => stage.id);
-
 		const [
-			openByStage,
-			openValueByStage,
+			pipeline,
 			recentDeals,
 			closingThisMonthTotals,
 			biggestOpen,
@@ -82,16 +67,7 @@ export class DashboardService {
 			recentActivity,
 			unconverted,
 		] = await Promise.all([
-			this.db.deal.groupBy({
-				by: ["stageId"],
-				where: { ...owned, stageId: { in: stageIds } },
-				_count: { _all: true },
-			}),
-			this.db.deal.groupBy({
-				by: ["stageId"],
-				where: { AND: [{ ...owned, stageId: { in: stageIds } }, counted] },
-				_sum: { baseAmount: true },
-			}),
+			this.stageChart(owned, base, input.pipelineId),
 			this.db.deal.findMany({
 				where: {
 					...owned,
@@ -176,18 +152,6 @@ export class DashboardService {
 			this.conversion.unconverted(owned),
 		]);
 
-		const stages = pipelineStages.map((stage) => {
-			const group = openByStage.find((row) => row.stageId === stage.id);
-			const value = openValueByStage.find((row) => row.stageId === stage.id);
-			return {
-				id: stage.id,
-				label: stage.label,
-				color: stage.color,
-				count: group?._count._all ?? 0,
-				valueCents: toCents(value?._sum.baseAmount ?? null) ?? 0,
-			};
-		});
-
 		const firstBucket = monthKey(trendStart);
 		const trend = Array.from({ length: TREND_MONTHS }, (_, index) => ({
 			month: MONTH_LABEL.format(monthStart(trendStart, index)),
@@ -247,12 +211,7 @@ export class DashboardService {
 			scope: input.scope,
 			reportingCurrency: base,
 			unconverted,
-			pipeline: {
-				pipelineId,
-				stages,
-				totalCents: stages.reduce((total, s) => total + s.valueCents, 0),
-				totalDeals: stages.reduce((total, s) => total + s.count, 0),
-			},
+			pipeline,
 			wonThisMonth,
 			wonPrevMonth,
 			performance: {
@@ -296,6 +255,66 @@ export class DashboardService {
 				createdAt: createdAt.toISOString(),
 				meta: meta as Record<string, unknown> | null,
 			})),
+		};
+	}
+
+	async pipelineStages(actingUserId: string, input: DashboardSummaryInput) {
+		const owned =
+			input.scope === "me" ? { ownerId: actingUserId } : ({} as const);
+		const base = await this.conversion.reportingCurrency();
+		return this.stageChart(owned, base, input.pipelineId);
+	}
+
+	private async stageChart(
+		owned: { ownerId?: string },
+		base: string,
+		pipelineId?: string,
+	) {
+		const counted = this.conversion.countedWhere(base);
+		const resolvedPipelineId = pipelineId ?? (await this.defaultPipelineId());
+		const openStages = resolvedPipelineId
+			? await this.db.stage.findMany({
+					where: {
+						pipelineId: resolvedPipelineId,
+						outcome: StageOutcome.OPEN,
+						archivedAt: null,
+					},
+					orderBy: { position: "asc" },
+					select: { id: true, label: true, color: true },
+				})
+			: [];
+		const stageIds = openStages.map((stage) => stage.id);
+
+		const [openByStage, openValueByStage] = await Promise.all([
+			this.db.deal.groupBy({
+				by: ["stageId"],
+				where: { ...owned, stageId: { in: stageIds } },
+				_count: { _all: true },
+			}),
+			this.db.deal.groupBy({
+				by: ["stageId"],
+				where: { AND: [{ ...owned, stageId: { in: stageIds } }, counted] },
+				_sum: { baseAmount: true },
+			}),
+		]);
+
+		const stages = openStages.map((stage) => {
+			const group = openByStage.find((row) => row.stageId === stage.id);
+			const value = openValueByStage.find((row) => row.stageId === stage.id);
+			return {
+				id: stage.id,
+				label: stage.label,
+				color: stage.color,
+				count: group?._count._all ?? 0,
+				valueCents: toCents(value?._sum.baseAmount ?? null) ?? 0,
+			};
+		});
+
+		return {
+			pipelineId: resolvedPipelineId,
+			stages,
+			totalCents: stages.reduce((total, s) => total + s.valueCents, 0),
+			totalDeals: stages.reduce((total, s) => total + s.count, 0),
 		};
 	}
 

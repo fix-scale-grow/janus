@@ -276,7 +276,10 @@ const appRouter = t.router({
   dashboard: t.router({
     summary: publicProcedure
       .input(dashboardSummaryInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["summary"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["summary"]>>),
+    pipelineStages: publicProcedure
+      .input(dashboardSummaryInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["pipelineStages"]>>)
     }),
   deals: t.router({
     list: publicProcedure
