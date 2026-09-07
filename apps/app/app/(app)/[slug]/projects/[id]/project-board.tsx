@@ -74,12 +74,12 @@ export function ProjectBoard({ id }: { id: string }) {
 
 	const taskMove = useMutation(
 		trpc.projects.taskMove.mutationOptions({
-			onMutate: async ({ id: taskId, day, sortOrder }) => {
+			onMutate: async ({ id: taskId, startDay, sortOrder }) => {
 				const key = trpc.projects.byId.queryKey({ id });
 				await queryClient.cancelQueries({ queryKey: key });
 				const previous = queryClient.getQueryData<Project>(key);
 				queryClient.setQueryData<Project>(key, (data) =>
-					moveTask(data, taskId, day as Date | null, sortOrder),
+					moveTask(data, taskId, startDay as Date | null, sortOrder),
 				);
 				return { previous };
 			},
@@ -165,7 +165,7 @@ export function ProjectBoard({ id }: { id: string }) {
 				? null
 				: new Date(`${targetKey}T00:00:00.000Z`);
 		const sortOrder = byColumn.get(targetKey)?.length ?? 0;
-		taskMove.mutate({ id: taskId, day, sortOrder });
+		taskMove.mutate({ id: taskId, startDay: day, endDay: day, sortOrder });
 	}
 
 	return (

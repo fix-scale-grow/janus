@@ -37,7 +37,12 @@ export function AddTaskInput({
 					if (event.key !== "Enter") return;
 					const trimmed = name.trim();
 					if (!trimmed) return;
-					create.mutate({ projectId, name: trimmed, day });
+					create.mutate({
+						projectId,
+						name: trimmed,
+						startDay: day,
+						endDay: day,
+					});
 				}}
 				placeholder="Add a task…"
 				disabled={create.isPending}

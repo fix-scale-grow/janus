@@ -90,9 +90,10 @@ export class ProjectsService {
 					},
 				},
 				tasks: {
-					orderBy: [{ day: "asc" }, { sortOrder: "asc" }],
+					orderBy: [{ startDay: "asc" }, { sortOrder: "asc" }],
 					include: {
 						assignee: { select: { id: true, name: true, image: true } },
+						crew: { select: { id: true, name: true, color: true } },
 					},
 				},
 			},
@@ -161,7 +162,7 @@ export class ProjectsService {
 			}
 
 			const sibling = await tx.projectTask.findFirst({
-				where: { projectId: input.projectId, day: input.day ?? null },
+				where: { projectId: input.projectId, startDay: input.startDay ?? null },
 				orderBy: { sortOrder: "desc" },
 				select: { sortOrder: true },
 			});
@@ -170,7 +171,9 @@ export class ProjectsService {
 				data: {
 					projectId: input.projectId,
 					name: input.name,
-					day: input.day,
+					startDay: input.startDay,
+					endDay: input.endDay,
+					crewId: input.crewId,
 					assigneeId: input.assigneeId,
 					note: input.note,
 					sortOrder: (sibling?.sortOrder ?? -1) + 1,
@@ -206,7 +209,7 @@ export class ProjectsService {
 		return this.db.$transaction(async (tx) => {
 			const task = await tx.projectTask.findUnique({
 				where: { id: input.id },
-				select: { id: true, projectId: true, day: true },
+				select: { id: true, projectId: true, startDay: true },
 			});
 			if (!task) {
 				throw new NotFoundException(`No task with id ${input.id}.`);
@@ -215,7 +218,7 @@ export class ProjectsService {
 			const siblings = await tx.projectTask.findMany({
 				where: {
 					projectId: task.projectId,
-					day: input.day,
+					startDay: input.startDay,
 					id: { not: task.id },
 				},
 				orderBy: { sortOrder: "asc" },
@@ -241,17 +244,21 @@ export class ProjectsService {
 							where: { id },
 							data:
 								id === task.id
-									? { day: input.day, sortOrder: order.indexOf(id) }
+									? {
+											startDay: input.startDay,
+											endDay: input.endDay,
+											sortOrder: order.indexOf(id),
+										}
 									: { sortOrder: order.indexOf(id) },
 						}),
 					),
 			);
 
-			if (!sameDay(task.day, input.day)) {
+			if (!sameDay(task.startDay, input.startDay)) {
 				const orphaned = await tx.projectTask.findMany({
 					where: {
 						projectId: task.projectId,
-						day: task.day,
+						startDay: task.startDay,
 						id: { not: task.id },
 					},
 					orderBy: { sortOrder: "asc" },

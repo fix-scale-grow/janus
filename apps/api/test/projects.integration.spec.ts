@@ -60,27 +60,68 @@ describe("ProjectsService", () => {
 			userId,
 		);
 
-		const day = new Date("2026-09-10T00:00:00.000Z");
+		const startDay = new Date("2026-09-10T00:00:00.000Z");
+		const endDay = new Date("2026-09-11T00:00:00.000Z");
 
 		const first = await service.taskCreate({
 			projectId: project.id,
 			name: "First",
-			day,
+			startDay,
+			endDay,
 		});
 		const second = await service.taskCreate({
 			projectId: project.id,
 			name: "Second",
-			day,
+			startDay,
+			endDay,
 		});
 		const third = await service.taskCreate({
 			projectId: project.id,
 			name: "Third",
-			day,
+			startDay,
+			endDay,
 		});
 
 		expect(first.sortOrder).toBe(0);
 		expect(second.sortOrder).toBe(1);
 		expect(third.sortOrder).toBe(2);
+	});
+
+	it("orders byId tasks by startDay then sortOrder", async () => {
+		const project = await service.create(
+			{ dealId, name: `Order project ${suffix}`, startDate: new Date() },
+			userId,
+		);
+
+		const laterDay = new Date("2026-09-15T00:00:00.000Z");
+		const earlierDay = new Date("2026-09-08T00:00:00.000Z");
+
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Later",
+			startDay: laterDay,
+			endDay: laterDay,
+		});
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Earlier",
+			startDay: earlierDay,
+			endDay: earlierDay,
+		});
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Unscheduled",
+			endDay: null,
+		});
+
+		const found = await service.byId(project.id);
+
+		expect(found.tasks.map((task) => task.name)).toEqual([
+			"Earlier",
+			"Later",
+			"Unscheduled",
+		]);
+		expect(found.tasks.every((task) => "crew" in task)).toBe(true);
 	});
 
 	it("reorders tasks on move, including moving to unscheduled", async () => {
@@ -89,29 +130,38 @@ describe("ProjectsService", () => {
 			userId,
 		);
 
-		const day = new Date("2026-09-11T00:00:00.000Z");
+		const startDay = new Date("2026-09-11T00:00:00.000Z");
+		const otherStartDay = new Date("2026-09-12T00:00:00.000Z");
 
 		const task0 = await service.taskCreate({
 			projectId: project.id,
 			name: "Task 0",
-			day,
+			startDay,
+			endDay: startDay,
 		});
 		await service.taskCreate({
 			projectId: project.id,
 			name: "Task 1",
-			day,
+			startDay,
+			endDay: startDay,
 		});
 		const task2 = await service.taskCreate({
 			projectId: project.id,
 			name: "Task 2",
-			day,
+			startDay,
+			endDay: startDay,
 		});
 
-		await service.taskMove({ id: task2.id, day, sortOrder: 0 });
+		await service.taskMove({
+			id: task2.id,
+			startDay,
+			endDay: startDay,
+			sortOrder: 0,
+		});
 
 		const afterFirstMove = await service.byId(project.id);
 		const dayTasks = afterFirstMove.tasks
-			.filter((task) => task.day !== null)
+			.filter((task) => task.startDay !== null)
 			.sort((a, b) => a.sortOrder - b.sortOrder);
 
 		expect(dayTasks.map((task) => task.name)).toEqual([
@@ -121,19 +171,48 @@ describe("ProjectsService", () => {
 		]);
 		expect(dayTasks.map((task) => task.sortOrder)).toEqual([0, 1, 2]);
 
-		await service.taskMove({ id: task0.id, day: null, sortOrder: 0 });
+		await service.taskMove({
+			id: task0.id,
+			startDay: otherStartDay,
+			endDay: otherStartDay,
+			sortOrder: 0,
+		});
 
-		const afterSecondMove = await service.byId(project.id);
-		const moved = afterSecondMove.tasks.find((task) => task.id === task0.id);
-		expect(moved?.day).toBeNull();
-		expect(moved?.sortOrder).toBe(0);
+		const afterOtherDayMove = await service.byId(project.id);
+		const movedToOtherDay = afterOtherDayMove.tasks.find(
+			(task) => task.id === task0.id,
+		);
+		expect(movedToOtherDay?.startDay).toEqual(otherStartDay);
+		expect(movedToOtherDay?.sortOrder).toBe(0);
 
-		const remaining = afterSecondMove.tasks
-			.filter((task) => task.day !== null)
+		const remainingOnFirstDay = afterOtherDayMove.tasks
+			.filter(
+				(task) =>
+					task.startDay !== null &&
+					task.startDay.getTime() === startDay.getTime(),
+			)
 			.sort((a, b) => a.sortOrder - b.sortOrder);
 
-		expect(remaining.map((task) => task.name)).toEqual(["Task 2", "Task 1"]);
-		expect(remaining.map((task) => task.sortOrder)).toEqual([0, 1]);
+		expect(remainingOnFirstDay.map((task) => task.name)).toEqual([
+			"Task 2",
+			"Task 1",
+		]);
+		expect(remainingOnFirstDay.map((task) => task.sortOrder)).toEqual([0, 1]);
+
+		await service.taskMove({
+			id: task0.id,
+			startDay: null,
+			endDay: null,
+			sortOrder: 0,
+		});
+
+		const afterUnscheduledMove = await service.byId(project.id);
+		const unscheduled = afterUnscheduledMove.tasks.find(
+			(task) => task.id === task0.id,
+		);
+		expect(unscheduled?.startDay).toBeNull();
+		expect(unscheduled?.endDay).toBeNull();
+		expect(unscheduled?.sortOrder).toBe(0);
 	});
 
 	it("reports taskCounts in list and updates them on status change", async () => {
@@ -145,9 +224,18 @@ describe("ProjectsService", () => {
 		const task = await service.taskCreate({
 			projectId: project.id,
 			name: "Countable 1",
+			endDay: null,
 		});
-		await service.taskCreate({ projectId: project.id, name: "Countable 2" });
-		await service.taskCreate({ projectId: project.id, name: "Countable 3" });
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Countable 2",
+			endDay: null,
+		});
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Countable 3",
+			endDay: null,
+		});
 
 		const listBefore = await service.list({
 			dealId,
@@ -194,7 +282,11 @@ describe("ProjectsService", () => {
 			},
 			userId,
 		);
-		await service.taskCreate({ projectId: project.id, name: "Cascade task" });
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Cascade task",
+			endDay: null,
+		});
 
 		await db.deal.delete({ where: { id: secondDeal.id } });
 
