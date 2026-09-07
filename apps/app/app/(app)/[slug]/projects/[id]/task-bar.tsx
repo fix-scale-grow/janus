@@ -11,13 +11,17 @@ import {
 	CREW_COLOR_CLASSES,
 	NO_CREW_CLASSES,
 } from "@/components/crews/crew-colors";
+import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { addDays, dayKey, type WeekBar } from "@/lib/calendar/span-layout";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { CalendarTask } from "./calendar-view";
 import { TaskPopover } from "./task-card";
 
-const MAX_SPAN_DAYS = 30;
+const DAY_MS = 86_400_000;
+
+export const TASK_BAR_CLASSES =
+	"pointer-events-auto flex h-6 items-center gap-1 truncate rounded-sm border px-1.5 text-xs touch-none select-none";
 
 export function barClasses(
 	task: Pick<CalendarTask, "crew" | "status">,
@@ -41,19 +45,23 @@ export function TaskBar({
 			id: bar.task.id,
 			data: { startKey: dayKey(bar.task.startDay) },
 		});
+	const [previewDelta, setPreviewDelta] = useState(0);
 	const done = bar.task.status === "DONE";
+	const displayEndCol = bar.clippedEnd
+		? bar.endCol
+		: Math.max(bar.startCol, Math.min(6, bar.endCol + previewDelta));
 
 	return (
 		<div
 			ref={setNodeRef}
 			data-board-drag=""
 			style={{
-				gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
+				gridColumn: `${bar.startCol + 1} / ${displayEndCol + 2}`,
 				marginTop: `${bar.lane * 1.75}rem`,
 				transform: CSS.Translate.toString(transform),
 			}}
 			className={cn(
-				"pointer-events-auto flex h-6 items-center gap-1 truncate rounded-sm border px-1.5 text-xs touch-none select-none",
+				TASK_BAR_CLASSES,
 				barClasses(bar.task),
 				bar.clippedStart && "rounded-l-none border-l-0",
 				bar.clippedEnd && "rounded-r-none border-r-0",
@@ -69,7 +77,11 @@ export function TaskBar({
 				</span>
 			</TaskPopover>
 			{!bar.clippedEnd ? (
-				<ResizeHandle task={bar.task} projectId={projectId} />
+				<ResizeHandle
+					task={bar.task}
+					projectId={projectId}
+					onPreview={setPreviewDelta}
+				/>
 			) : null}
 		</div>
 	);
@@ -78,18 +90,15 @@ export function TaskBar({
 function ResizeHandle({
 	task,
 	projectId,
+	onPreview,
 }: {
 	task: CalendarTask;
 	projectId: string;
+	onPreview: (deltaDays: number) => void;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
-	const drag = useRef<{
-		startX: number;
-		cellWidth: number;
-		deltaDays: number;
-	} | null>(null);
-	const [, forceRender] = useState(0);
+	const drag = useRef<{ startX: number; cellWidth: number } | null>(null);
 
 	const taskMove = useMutation(
 		trpc.projects.taskMove.mutationOptions({
@@ -98,39 +107,48 @@ function ResizeHandle({
 		}),
 	);
 
-	const clamp = (endDay: Date): Date => {
-		const maxEnd = addDays(task.startDay, MAX_SPAN_DAYS - 1);
+	const clampEnd = (endDay: Date): Date => {
+		const maxEnd = addDays(task.startDay, CALENDAR.maxTaskSpanDays - 1);
 		if (endDay.getTime() < task.startDay.getTime()) return task.startDay;
 		if (endDay.getTime() > maxEnd.getTime()) return maxEnd;
 		return endDay;
 	};
 
+	const rawDeltaDays = (
+		event: { clientX: number },
+		state: { startX: number; cellWidth: number },
+	) => Math.round((event.clientX - state.startX) / state.cellWidth);
+
 	const onPointerDown = (event: ReactPointerEvent<HTMLSpanElement>) => {
 		event.stopPropagation();
 		const row = event.currentTarget.closest("[data-week-row]");
 		const cellWidth = row ? row.getBoundingClientRect().width / 7 : 40;
-		drag.current = { startX: event.clientX, cellWidth, deltaDays: 0 };
+		drag.current = { startX: event.clientX, cellWidth };
 		event.currentTarget.setPointerCapture(event.pointerId);
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
 		const state = drag.current;
 		if (!state) return;
-		state.deltaDays = Math.round(
-			(event.clientX - state.startX) / state.cellWidth,
+		const clampedEnd = clampEnd(
+			addDays(task.endDay, rawDeltaDays(event, state)),
 		);
-		forceRender((n) => n + 1);
+		onPreview(
+			Math.round((clampedEnd.getTime() - task.endDay.getTime()) / DAY_MS),
+		);
 	};
 
 	const onPointerUp = (event: ReactPointerEvent<HTMLSpanElement>) => {
 		const state = drag.current;
 		if (!state) return;
 		drag.current = null;
+		onPreview(0);
 		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
-		if (state.deltaDays === 0) return;
-		const endDay = clamp(addDays(task.endDay, state.deltaDays));
+		const delta = rawDeltaDays(event, state);
+		if (delta === 0) return;
+		const endDay = clampEnd(addDays(task.endDay, delta));
 		taskMove.mutate({
 			id: task.id,
 			startDay: task.startDay,

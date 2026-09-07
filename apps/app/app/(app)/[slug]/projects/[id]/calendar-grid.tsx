@@ -7,6 +7,7 @@ import {
 } from "@crm/ui/components/popover";
 import { cn } from "@crm/ui/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
+import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { dayKey, layoutWeek } from "@/lib/calendar/span-layout";
 import type { CalendarTask } from "./calendar-view";
 import { TaskBar } from "./task-bar";
@@ -33,7 +34,8 @@ export function CalendarGrid({
 	onDayClick: (day: Date) => void;
 	projectId: string;
 }) {
-	const maxLanes = view === "month" ? 4 : 10;
+	const maxLanes =
+		view === "month" ? CALENDAR.monthMaxLanes : CALENDAR.weekMaxLanes;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-lg border border-border">

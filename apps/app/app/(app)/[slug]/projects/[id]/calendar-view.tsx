@@ -3,6 +3,7 @@
 import { Button } from "@crm/ui/components/button";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@crm/ui/components/toggle-group";
+import { cn } from "@crm/ui/lib/utils";
 import {
 	closestCorners,
 	DndContext,
@@ -28,7 +29,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { AddTaskPanel } from "./add-task-panel";
 import { CalendarGrid } from "./calendar-grid";
-import { barClasses } from "./task-bar";
+import { barClasses, TASK_BAR_CLASSES } from "./task-bar";
 import { UnscheduledStrip } from "./unscheduled-strip";
 
 type Project = RouterOutputs["projects"]["byId"];
@@ -286,9 +287,7 @@ export function CalendarView({ id }: { id: string }) {
 				/>
 				<DragOverlay dropAnimation={null}>
 					{activeTask ? (
-						<div
-							className={`flex h-6 items-center gap-1 truncate rounded-sm border px-1.5 text-xs ${barClasses(activeTask)}`}
-						>
+						<div className={cn(TASK_BAR_CLASSES, barClasses(activeTask))}>
 							{activeTask.name}
 						</div>
 					) : null}
