@@ -31,6 +31,7 @@ import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFrom
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { projectListInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
+import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
@@ -58,6 +59,7 @@ import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
 import type { PermissionsRouter } from "../permissions/permissions.router";
 import type { ProjectsRouter } from "../projects/projects.router";
+import type { ReportsRouter } from "../reports/reports.router";
 import type { SearchRouter } from "../search/search.router";
 import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
 import type { SettingsRouter } from "../settings/settings.router";
@@ -587,6 +589,15 @@ const appRouter = t.router({
     taskRemove: publicProcedure
       .input(projectIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskRemove"]>>)
+    }),
+  reports: t.router({
+    byClient: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byClient"]>>),
+    byMonth: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byMonth"]>>),
+    byCategory: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byCategory"]>>)
     }),
   search: t.router({
     quick: publicProcedure

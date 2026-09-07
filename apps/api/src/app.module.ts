@@ -31,6 +31,7 @@ import { MailerModule } from "./mailer/mailer.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { ReportsModule } from "./reports/reports.module";
 import { SearchModule } from "./search/search.module";
 import { ServicesCatalogModule } from "./services-catalog/services-catalog.module";
 import { SettingsModule } from "./settings/settings.module";
@@ -74,6 +75,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		CrewsModule,
 		CostsModule,
 		PermissionsModule,
+		ReportsModule,
 		ActivitiesModule,
 		AgentModule,
 		DashboardModule,
