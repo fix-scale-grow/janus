@@ -24,6 +24,7 @@ const ITEMS: SettingsNavItem[] = [
 	{ title: "Templates", href: `${ROOT}/templates` },
 	{ title: "Fields", href: `${ROOT}/fields` },
 	{ title: "Pipeline", href: `${ROOT}/pipeline` },
+	{ title: "Forms", href: `${ROOT}/forms` },
 	{ title: "Members", href: `${ROOT}/members` },
 	{ title: "SSO", href: `${ROOT}/sso` },
 ];
