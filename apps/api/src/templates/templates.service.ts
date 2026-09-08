@@ -6,7 +6,11 @@ import { FieldsService } from "../fields/fields.service";
 import { MailerService } from "../mailer/mailer.service";
 import { MergeContextService } from "./merge-context.service";
 import { collectTokens, missingMerges } from "./merge-guard";
-import { applyMergeFields, renderEmailHtml } from "./render-email";
+import {
+	applyMergeFields,
+	renderEmailHtml,
+	resolveEmailBrand,
+} from "./render-email";
 import { parseTemplateBlocks } from "./template-blocks";
 import {
 	DEFAULT_TEMPLATES,
@@ -156,7 +160,8 @@ export class TemplatesService {
 			? applyMergeFields(template.subject, context)
 			: "";
 		const mode = input.purpose === "CONTRACT_BODY" ? "document" : "email";
-		const { html } = renderEmailHtml(blocks, context, mode);
+		const brand = await resolveEmailBrand(this.db);
+		const { html } = renderEmailHtml(blocks, context, mode, brand);
 
 		const registry = await this.mergeRegistry();
 		const tokens = collectTokens(template.subject ?? "", blocks);
@@ -201,7 +206,13 @@ export class TemplatesService {
 		const subject = template.subject
 			? applyMergeFields(template.subject, sampleContext)
 			: "";
-		const { html, text } = renderEmailHtml(blocks, sampleContext);
+		const brand = await resolveEmailBrand(this.db);
+		const { html, text } = renderEmailHtml(
+			blocks,
+			sampleContext,
+			"email",
+			brand,
+		);
 
 		const result = await this.mailer.send({
 			to: input.to,

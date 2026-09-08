@@ -40,6 +40,7 @@ export interface Workspace {
 	name: string;
 	website: string | null;
 	brandColor: string | null;
+	logoUrl: string | null;
 	onboarded: boolean;
 	viewerRole: WorkspaceRole | null;
 	canRename: boolean;
@@ -112,6 +113,7 @@ export class WorkspaceService {
 			name: row.name,
 			website: row.website,
 			brandColor: row.brandColor,
+			logoUrl: row.logo,
 			onboarded: isOnboarded(row.metadata),
 			viewerRole: role,
 			canRename: canRenameWorkspace(role),
@@ -314,6 +316,7 @@ export class WorkspaceService {
 				name: true,
 				website: true,
 				brandColor: true,
+				logo: true,
 				metadata: true,
 			},
 		});

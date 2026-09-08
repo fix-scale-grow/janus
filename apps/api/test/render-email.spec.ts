@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import type { EmailBrand } from "../src/templates/render-email";
 import {
 	applyMergeFields,
 	renderEmailHtml,
@@ -195,5 +196,73 @@ describe("renderEmailHtml", () => {
 		expect(text).toContain("Hello there");
 		expect(text).toContain("Hi Jane, welcome.");
 		expect(text).toContain("View estimate");
+	});
+});
+
+describe("renderEmailHtml brand", () => {
+	const darkBrand: EmailBrand = {
+		color: "#1a1a1a",
+		foreground: "#ffffff",
+		logoUrl: null,
+	};
+
+	const paleBrand: EmailBrand = {
+		color: "#fffbe6",
+		foreground: "#171717",
+		logoUrl: null,
+	};
+
+	const logoBrand: EmailBrand = {
+		color: "#006b4f",
+		foreground: "#ffffff",
+		logoUrl: "https://app.example.com/api/workspace/logo/file?v=123",
+	};
+
+	it("renders an <img> logo block with an absolute URL when logoUrl is given", () => {
+		const blocks: TemplateBlocks = [{ kind: "logo" }];
+		const { html } = renderEmailHtml(blocks, CONTEXT, "email", logoBrand);
+
+		expect(html).toContain(
+			'<img src="https://app.example.com/api/workspace/logo/file?v=123"',
+		);
+		expect(html).not.toContain("AR");
+	});
+
+	it("falls back to the initials circle when logoUrl is absent", () => {
+		const blocks: TemplateBlocks = [{ kind: "logo" }];
+		const { html } = renderEmailHtml(blocks, CONTEXT, "email", darkBrand);
+
+		expect(html).not.toContain("<img");
+		expect(html).toContain("AR");
+	});
+
+	it("uses white text on a dark brand color for the button and initials circle", () => {
+		const blocks: TemplateBlocks = [
+			{ kind: "logo" },
+			{ kind: "button", label: "Sign" },
+		];
+		const { html } = renderEmailHtml(blocks, CONTEXT, "email", darkBrand);
+
+		expect(html).toContain("background:#1a1a1a");
+		expect(html).toContain("color:#ffffff");
+	});
+
+	it("uses dark text on a pale brand color for the button and initials circle", () => {
+		const blocks: TemplateBlocks = [
+			{ kind: "logo" },
+			{ kind: "button", label: "Sign" },
+		];
+		const { html } = renderEmailHtml(blocks, CONTEXT, "email", paleBrand);
+
+		expect(html).toContain("background:#fffbe6");
+		expect(html).toContain("color:#171717");
+	});
+
+	it("defaults to the standard green brand when no brand is given", () => {
+		const blocks: TemplateBlocks = [{ kind: "button", label: "Sign" }];
+		const { html } = renderEmailHtml(blocks, CONTEXT);
+
+		expect(html).toContain("background:#006b4f");
+		expect(html).toContain("color:#ffffff");
 	});
 });
