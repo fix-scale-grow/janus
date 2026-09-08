@@ -8,6 +8,7 @@
 		"./agent-tasks": "./src/agent-tasks.ts",
 		"./attribution": "./src/attribution.ts",
 		"./blob": "./src/blob.ts",
+		"./brand": "./src/brand.ts",
 		"./client": "./src/client.ts",
 		"./currency": "./src/currency.ts",
 		"./crm-events": "./src/crm-events.ts",

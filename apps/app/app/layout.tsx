@@ -1,6 +1,6 @@
 import "@crm/ui/globals.css";
 import { db } from "@crm/db";
-import { readBrandTheme } from "@crm/db/workspace";
+import { readBrandTheme } from "@crm/db/brand";
 import { Toaster } from "@crm/ui/components/sonner";
 import { TooltipProvider } from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
