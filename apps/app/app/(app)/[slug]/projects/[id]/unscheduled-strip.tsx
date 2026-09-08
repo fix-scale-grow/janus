@@ -22,11 +22,17 @@ export function UnscheduledStrip({
 	density?: BoardDensity;
 }) {
 	const [open, setOpen] = useState(true);
+	const compact = density === "compact";
 
 	if (tasks.length === 0) return null;
 
 	return (
-		<div className="flex flex-col gap-2 rounded-lg border border-border p-2">
+		<div
+			className={cn(
+				"flex flex-col rounded-lg border border-border",
+				compact ? "gap-1.5 p-1.5" : "gap-2 p-2",
+			)}
+		>
 			<button
 				type="button"
 				onClick={() => setOpen((prev) => !prev)}
@@ -36,7 +42,7 @@ export function UnscheduledStrip({
 				Unscheduled · {tasks.length}
 			</button>
 			{open ? (
-				<div className="flex flex-wrap gap-1.5">
+				<div className={cn("flex flex-wrap", compact ? "gap-1" : "gap-1.5")}>
 					{tasks.map((task) => {
 						const colors = task.crew
 							? (CREW_COLOR_CLASSES[task.crew.color] ?? NO_CREW_CLASSES)
@@ -51,7 +57,8 @@ export function UnscheduledStrip({
 								<button
 									type="button"
 									className={cn(
-										"flex items-center gap-1.5 truncate rounded-sm border px-2 py-1 text-xs",
+										"flex items-center truncate rounded-sm border text-xs",
+										compact ? "gap-1 px-1.5 py-0.5" : "gap-1.5 px-2 py-1",
 										colors.bar,
 									)}
 								>

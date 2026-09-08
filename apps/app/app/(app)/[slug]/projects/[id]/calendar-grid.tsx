@@ -39,6 +39,7 @@ export function CalendarGrid({
 }) {
 	const maxLanes =
 		view === "month" ? CALENDAR.monthMaxLanes : CALENDAR.weekMaxLanes;
+	const compact = density === "compact";
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-lg border border-border">
@@ -53,12 +54,20 @@ export function CalendarGrid({
 				const weekStart = week[0];
 				if (!weekStart) return null;
 				const { bars, overflow } = layoutWeek(scheduled, weekStart, maxLanes);
+				const minHeight =
+					view === "week"
+						? compact
+							? "16rem"
+							: "20rem"
+						: compact
+							? "6rem"
+							: "7.5rem";
 				return (
 					<div
 						key={dayKey(weekStart)}
 						data-week-row=""
 						className="relative grid grid-cols-7 border-b border-border"
-						style={{ minHeight: view === "week" ? "20rem" : "7.5rem" }}
+						style={{ minHeight }}
 					>
 						{week.map((day, index) => (
 							<DayCell
@@ -80,7 +89,12 @@ export function CalendarGrid({
 								density={density}
 							/>
 						))}
-						<div className="pointer-events-none col-span-7 row-start-1 grid grid-cols-7 pt-7">
+						<div
+							className={cn(
+								"pointer-events-none col-span-7 row-start-1 grid grid-cols-7",
+								compact ? "pt-6" : "pt-7",
+							)}
+						>
 							{bars.map((bar) => (
 								<TaskBar
 									key={bar.task.id}
@@ -121,6 +135,7 @@ function DayCell({
 }) {
 	const key = dayKey(day);
 	const { setNodeRef, isOver } = useDroppable({ id: key });
+	const compact = density === "compact";
 
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: droppable day cell also contains a nested "+N more" button and task chips
@@ -133,7 +148,8 @@ function DayCell({
 				if (event.key === "Enter" || event.key === " ") onDayClick(day);
 			}}
 			className={cn(
-				"flex cursor-pointer flex-col gap-1 border-r border-border p-1 transition-colors last:border-r-0",
+				"flex cursor-pointer flex-col border-r border-border transition-colors last:border-r-0",
+				compact ? "gap-0.5 p-0.5" : "gap-1 p-1",
 				!inAnchorMonth && "bg-muted/30 text-muted-foreground",
 				isOver && "bg-accent/60 ring-2 ring-primary/30",
 			)}

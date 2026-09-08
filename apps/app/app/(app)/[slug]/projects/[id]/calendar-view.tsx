@@ -35,7 +35,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { AddTaskPanel } from "./add-task-panel";
 import { CalendarGrid } from "./calendar-grid";
-import { barClasses, TASK_BAR_CLASSES } from "./task-bar";
+import { barClasses, taskBarClasses } from "./task-bar";
 import { TimelineView } from "./timeline-view";
 import { UnscheduledStrip } from "./unscheduled-strip";
 
@@ -315,7 +315,9 @@ export function CalendarView({
 					/>
 					<DragOverlay dropAnimation={null}>
 						{activeTask ? (
-							<div className={cn(TASK_BAR_CLASSES, barClasses(activeTask))}>
+							<div
+								className={cn(taskBarClasses(density), barClasses(activeTask))}
+							>
 								{activeTask.name}
 							</div>
 						) : null}
