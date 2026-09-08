@@ -19,6 +19,7 @@ export const updateWorkspaceInput = z.object({
 		.max(MAX_SLUG)
 		.regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 		.optional(),
+	brandColor: z.string().trim().max(32).nullish(),
 });
 
 export const setMemberRoleInput = z.object({

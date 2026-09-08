@@ -28,6 +28,7 @@
 		"@crm/drawings": "workspace:*",
 		"@crm/env": "workspace:*",
 		"@crm/telemetry": "workspace:*",
+		"@crm/ui": "workspace:*",
 		"@crm/validation": "workspace:*",
 		"@keyv/redis": "^5.1.6",
 		"@nestjs/cache-manager": "^3.1.3",

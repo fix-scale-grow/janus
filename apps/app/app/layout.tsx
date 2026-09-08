@@ -1,14 +1,19 @@
 import "@crm/ui/globals.css";
+import { db } from "@crm/db";
+import { readBrandTheme } from "@crm/db/workspace";
 import { Toaster } from "@crm/ui/components/sonner";
 import { TooltipProvider } from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { cache } from "react";
 import { BrandTheme } from "@/components/brand-theme";
 import { LocalDateTimeHydrator } from "@/components/local-date-time";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TRPCReactProvider } from "@/lib/trpc/client";
+
+const readInstallBrandTheme = cache(() => readBrandTheme(db));
 
 const fontSans = Geist({
 	variable: "--font-geist-sans",
@@ -36,11 +41,13 @@ export const metadata: Metadata = {
 	manifest: "/site.webmanifest",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const theme = await readInstallBrandTheme();
+
 	return (
 		<html
 			lang="en"
@@ -48,7 +55,7 @@ export default function RootLayout({
 			className={cn(fontSans.variable, fontMono.variable, "h-full antialiased")}
 		>
 			<head>
-				<BrandTheme />
+				<BrandTheme brandColor={theme?.brandColor} />
 			</head>
 			<body className="flex min-h-full flex-col font-sans">
 				<NuqsAdapter>

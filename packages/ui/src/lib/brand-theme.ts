@@ -87,5 +87,9 @@ export function brandThemeCss(
 		`--sidebar-primary-foreground:${fg}`,
 		`--sidebar-ring:${hex}`,
 	].join(";");
-	return `${selector}{${decls};}`;
+	const ring = `oklch(from ${hex} calc(l + 0.18) c h)`;
+	const darkDecls = [`--ring:${ring}`, `--sidebar-ring:${ring}`].join(";");
+	const darkSelector =
+		selector === ":root" ? ".dark" : `.dark ${selector}, ${selector}.dark`;
+	return `${selector}{${decls};}${darkSelector}{${darkDecls};}`;
 }

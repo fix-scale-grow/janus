@@ -1702,6 +1702,7 @@ model Organization {
   name        String
   slug        String
   logo        String?
+  brandColor  String?
   createdAt   DateTime
   metadata    String?
   website     String?
