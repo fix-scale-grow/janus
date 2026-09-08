@@ -406,7 +406,9 @@ export function SymbolsTable() {
 												<span className="font-medium text-sm">
 													{category.label}
 												</span>
-												<Badge variant="outline">{category.symbols.length}</Badge>
+												<Badge variant="outline">
+													{category.symbols.length}
+												</Badge>
 											</button>
 										</CollapsibleTrigger>
 										<Checkbox

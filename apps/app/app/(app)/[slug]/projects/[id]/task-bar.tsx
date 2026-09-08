@@ -1,5 +1,7 @@
 "use client";
 
+import Draggable from "@carbon/icons-react/es/Draggable";
+import { Icon } from "@crm/ui/components/icon";
 import { cn } from "@crm/ui/lib/utils";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -21,7 +23,7 @@ import { TaskPopover } from "./task-card";
 const DAY_MS = 86_400_000;
 
 export const TASK_BAR_CLASSES =
-	"pointer-events-auto flex h-6 items-center gap-1 truncate rounded-sm border px-1.5 text-xs touch-none select-none";
+	"pointer-events-auto flex h-6 cursor-grab items-center gap-1 truncate rounded-sm border px-1.5 text-xs touch-none select-none active:cursor-grabbing";
 
 export function barClasses(
 	task: Pick<CalendarTask, "crew" | "status">,
@@ -70,6 +72,9 @@ export function TaskBar({
 			{...attributes}
 			{...listeners}
 		>
+			{!bar.clippedStart ? (
+				<Icon icon={Draggable} className="size-3 shrink-0 opacity-60" />
+			) : null}
 			<TaskPopover projectId={projectId} task={bar.task}>
 				<span className="truncate">
 					{done ? "✓ " : ""}
