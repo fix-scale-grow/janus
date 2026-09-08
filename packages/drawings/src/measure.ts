@@ -18,6 +18,7 @@ export type ScopedShape = {
 	pitch: PitchKey | null;
 	adj?: ShapeAdjustment | null;
 	symbol: string | null;
+	manualQty?: number | null;
 };
 
 export type MeasuredQuantity =
@@ -140,11 +141,25 @@ function areaFactor(scope: ScopeCustomData): number {
 	return 1;
 }
 
+export function manualQuantityFor(
+	kind: ScopedShape["kind"],
+	manualQty: number,
+): MeasuredQuantity {
+	if (kind === "area") {
+		return { areaSqFt: manualQty, squares: manualQty / SQFT_PER_SQUARE };
+	}
+	if (kind === "line") return { lengthFt: manualQty };
+	return { count: manualQty };
+}
+
 function measureElement(
 	element: ExcalidrawElement,
 	scope: ScopeCustomData,
 	scale: DrawingScale | null,
 ): MeasuredQuantity | null {
+	if (scope.manualQty != null) {
+		return manualQuantityFor(scope.kind, scope.manualQty);
+	}
 	if (scope.kind === "pin") return { count: 1 };
 	if (!scale) return null;
 	const points = shapePoints(element);
@@ -160,6 +175,9 @@ function measureSatelliteFeature(
 	feature: SatelliteFeature,
 	scope: ScopeCustomData,
 ): MeasuredQuantity | null {
+	if (scope.manualQty != null) {
+		return manualQuantityFor(scope.kind, scope.manualQty);
+	}
 	if (!feature.measured) return null;
 	if ("lengthFt" in feature.measured) {
 		return { lengthFt: feature.measured.lengthFt };
@@ -182,6 +200,7 @@ export function measureSatellite(
 			pitch: (feature.scope.pitch as PitchKey | undefined) ?? null,
 			adj: feature.scope.adj ?? null,
 			symbol: null,
+			manualQty: feature.scope.manualQty ?? null,
 			quantity: measureSatelliteFeature(feature, feature.scope),
 		});
 	}
@@ -205,6 +224,7 @@ export function measureScene(
 				pitch: (scope.pitch as PitchKey | undefined) ?? null,
 				adj: scope.adj ?? null,
 				symbol: scope.symbol ?? null,
+				manualQty: scope.manualQty ?? null,
 				quantity: measureElement(element, scope, scale),
 			});
 		} else {

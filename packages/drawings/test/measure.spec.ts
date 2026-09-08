@@ -447,3 +447,67 @@ describe("measureScene", () => {
 		});
 	});
 });
+
+describe("manual quantity override", () => {
+	const rect = (customData: Record<string, unknown>) => ({
+		id: "rect-1",
+		type: "rectangle",
+		x: 0,
+		y: 0,
+		width: 100,
+		height: 100,
+		isDeleted: false,
+		customData,
+	});
+
+	it("measures an unscaled area shape from a typed square footage", () => {
+		const scene = {
+			excalidraw: {
+				elements: [
+					rect({ scopeId: "s1", kind: "area", manualQty: 2000 }),
+				],
+				appState: {},
+				files: {},
+			},
+			satellite: null,
+		};
+		const measured = measureScene(scene as never, null);
+		expect(measured[0]?.quantity).toEqual({ areaSqFt: 2000, squares: 20 });
+		expect(measured[0]?.manualQty).toBe(2000);
+	});
+
+	it("prefers the typed value over the drawn geometry", () => {
+		const scene = {
+			excalidraw: {
+				elements: [
+					rect({ scopeId: "s1", kind: "area", manualQty: 300 }),
+				],
+				appState: {},
+				files: {},
+			},
+			satellite: null,
+		};
+		const measured = measureScene(scene as never, {
+			pixelsPerFoot: 10,
+			referenceElementId: null,
+		});
+		expect(measured[0]?.quantity).toEqual({ areaSqFt: 300, squares: 3 });
+	});
+
+	it("overrides a line and a pin in their own units", () => {
+		const scene = {
+			excalidraw: {
+				elements: [
+					rect({ scopeId: "l1", kind: "line", manualQty: 42 }),
+					rect({ scopeId: "p1", kind: "pin", manualQty: 6 }),
+				],
+				appState: {},
+				files: {},
+			},
+			satellite: null,
+		};
+		const measured = measureScene(scene as never, null);
+		expect(measured[0]?.quantity).toEqual({ lengthFt: 42 });
+		expect(measured[1]?.quantity).toEqual({ count: 6 });
+	});
+});

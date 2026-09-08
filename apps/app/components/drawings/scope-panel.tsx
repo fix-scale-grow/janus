@@ -3,6 +3,7 @@
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import ChevronLeft from "@carbon/icons-react/es/ChevronLeft";
 import ChevronRight from "@carbon/icons-react/es/ChevronRight";
+import Reset from "@carbon/icons-react/es/Reset";
 import {
 	DRAWINGS,
 	type MeasuredShape,
@@ -61,6 +62,7 @@ export type ScopeShapeUpdate = {
 	label?: string | null;
 	adj?: ShapeAdjustment | null;
 	serviceId?: string | null;
+	manualQty?: number | null;
 };
 
 export type ScopePanelProps = {
@@ -73,17 +75,6 @@ export type ScopePanelProps = {
 	generating: boolean;
 	hasEstimate: boolean;
 };
-
-function quantityLabel(shape: MeasuredShape): string | null {
-	if (!shape.quantity) return null;
-	if ("areaSqFt" in shape.quantity) {
-		return `${shape.quantity.areaSqFt.toFixed(1)} sq ft · ${shape.quantity.squares.toFixed(1)} sq`;
-	}
-	if ("lengthFt" in shape.quantity) {
-		return `${Math.round(shape.quantity.lengthFt)} ln ft`;
-	}
-	return `${shape.quantity.count} pin${shape.quantity.count === 1 ? "" : "s"}`;
-}
 
 function kindLabel(kind: MeasuredShape["kind"]): string {
 	if (kind === "area") return "Area";
@@ -259,6 +250,107 @@ function ScopeLabelField({
 	);
 }
 
+function quantityValue(shape: MeasuredShape): number | null {
+	if (!shape.quantity) return null;
+	if ("areaSqFt" in shape.quantity) {
+		return Math.round(shape.quantity.areaSqFt * 10) / 10;
+	}
+	if ("lengthFt" in shape.quantity) {
+		return Math.round(shape.quantity.lengthFt * 10) / 10;
+	}
+	return shape.quantity.count;
+}
+
+function quantityUnit(kind: MeasuredShape["kind"]): string {
+	if (kind === "area") return "sq ft";
+	if (kind === "line") return "ln ft";
+	return "count";
+}
+
+function ScopeQuantityField({
+	onUpdateShape,
+	shape,
+}: {
+	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
+	shape: MeasuredShape;
+}) {
+	const value = quantityValue(shape);
+	const [draft, setDraft] = useState(value === null ? "" : String(value));
+	const focusedRef = useRef(false);
+	const timerRef = useRef<number | undefined>(undefined);
+
+	useEffect(() => {
+		if (!focusedRef.current) setDraft(value === null ? "" : String(value));
+	}, [value]);
+
+	useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+	const commit = (raw: string) => {
+		window.clearTimeout(timerRef.current);
+		const parsed = Number(raw);
+		const next =
+			raw.trim() === "" || !Number.isFinite(parsed) || parsed <= 0
+				? null
+				: Math.min(parsed, 9_999_999);
+		if (next !== (shape.manualQty ?? null) || (next === null && !raw.trim())) {
+			onUpdateShape(shape.scopeId, { manualQty: next });
+		}
+	};
+
+	const squares =
+		shape.kind === "area" && shape.quantity && "squares" in shape.quantity
+			? shape.quantity.squares.toFixed(1)
+			: null;
+
+	return (
+		<div className="flex items-center gap-1.5">
+			<div className="w-20">
+				<Input
+					aria-label={`Quantity in ${quantityUnit(shape.kind)}`}
+					inputMode="decimal"
+					onBlur={(event) => {
+						focusedRef.current = false;
+						commit(event.target.value);
+					}}
+					onChange={(event) => {
+						const raw = event.target.value;
+						setDraft(raw);
+						window.clearTimeout(timerRef.current);
+						timerRef.current = window.setTimeout(
+							() => commit(raw),
+							DRAWINGS.scopePanel.labelCommitDebounceMs,
+						);
+					}}
+					onFocus={() => {
+						focusedRef.current = true;
+					}}
+					placeholder={quantityUnit(shape.kind)}
+					value={draft}
+				/>
+			</div>
+			<span className="whitespace-nowrap text-muted-foreground text-xs">
+				{quantityUnit(shape.kind)}
+				{squares ? ` · ${squares} sq` : ""}
+			</span>
+			{shape.manualQty != null && (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							aria-label="Use the drawing's own measurement"
+							onClick={() => onUpdateShape(shape.scopeId, { manualQty: null })}
+							size="icon"
+							variant="ghost"
+						>
+							<Icon icon={Reset} />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Typed by hand. Click to re-measure.</TooltipContent>
+				</Tooltip>
+			)}
+		</div>
+	);
+}
+
 export function ScopePanel(props: ScopePanelProps) {
 	const [open, setOpen] = useState(true);
 
@@ -365,9 +457,10 @@ export function ScopePanel(props: ScopePanelProps) {
 							>
 								<div className="flex items-center justify-between gap-2">
 									<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
-									<span className="text-muted-foreground text-xs">
-										{quantityLabel(shape) ?? "unmeasured — set scale"}
-									</span>
+									<ScopeQuantityField
+										onUpdateShape={props.onUpdateShape}
+										shape={shape}
+									/>
 								</div>
 
 								<ScopeLabelField

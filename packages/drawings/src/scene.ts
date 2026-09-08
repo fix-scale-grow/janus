@@ -38,6 +38,7 @@ export const scopeCustomData = z.object({
 	adj: shapeAdjustment.nullish(),
 	symbol: z.string().min(1).nullish(),
 	linear: z.boolean().optional(),
+	manualQty: z.number().positive().max(9_999_999).nullish(),
 });
 
 export type ScopeCustomData = z.infer<typeof scopeCustomData>;
