@@ -31,6 +31,50 @@ function logoFile(ext: string): string {
 	return join(dataDir(), `logo.${ext}`);
 }
 
+const MAGIC_BYTE_CHECKS: Record<string, (bytes: Buffer) => boolean> = {
+	"image/png": (bytes) =>
+		bytes.length >= 4 &&
+		bytes[0] === 0x89 &&
+		bytes[1] === 0x50 &&
+		bytes[2] === 0x4e &&
+		bytes[3] === 0x47,
+	"image/jpeg": (bytes) =>
+		bytes.length >= 3 &&
+		bytes[0] === 0xff &&
+		bytes[1] === 0xd8 &&
+		bytes[2] === 0xff,
+	"image/webp": (bytes) =>
+		bytes.length >= 12 &&
+		bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+		bytes.subarray(8, 12).toString("ascii") === "WEBP",
+	"image/svg+xml": (bytes) => {
+		const head = bytes
+			.subarray(0, 512)
+			.toString("utf8")
+			.replace(/^﻿/, "")
+			.trimStart();
+		return /^(<\?xml|<svg)/i.test(head);
+	},
+};
+
+export function matchesDeclaredType(mimeType: string, bytes: Buffer): boolean {
+	const check = MAGIC_BYTE_CHECKS[mimeType];
+	return check ? check(bytes) : false;
+}
+
+const SVG_UNSAFE_PATTERNS = [
+	/<script[\s>]/i,
+	/<foreignobject[\s>]/i,
+	/\son\w+\s*=/i,
+	/(?:xlink:href|href)\s*=\s*["']\s*javascript:/i,
+	/(?:xlink:href|href)\s*=\s*["']\s*(?:https?:)?\/\//i,
+];
+
+export function isSvgSafe(bytes: Buffer): boolean {
+	const text = bytes.toString("utf8");
+	return !SVG_UNSAFE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export async function saveLogo(
 	ext: string,
 	bytes: Buffer,

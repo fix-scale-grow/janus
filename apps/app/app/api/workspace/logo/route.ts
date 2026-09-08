@@ -2,7 +2,13 @@ import { canRenameWorkspace, WORKSPACE_ID, workspaceRoleOf } from "@crm/auth";
 import { db } from "@crm/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { LOGO_TYPES, removeLogo, saveLogo } from "@/lib/workspace-logo";
+import {
+	isSvgSafe,
+	LOGO_TYPES,
+	matchesDeclaredType,
+	removeLogo,
+	saveLogo,
+} from "@/lib/workspace-logo";
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
@@ -58,6 +64,24 @@ export async function POST(request: Request): Promise<Response> {
 	}
 
 	const bytes = Buffer.from(await file.arrayBuffer());
+
+	if (!matchesDeclaredType(file.type, bytes)) {
+		return NextResponse.json(
+			{ error: "The file content does not match its declared type." },
+			{ status: 400 },
+		);
+	}
+
+	if (file.type === "image/svg+xml" && !isSvgSafe(bytes)) {
+		return NextResponse.json(
+			{
+				error:
+					"That SVG contains scripting or an external reference and cannot be used as a logo.",
+			},
+			{ status: 400 },
+		);
+	}
+
 	const url = await saveLogo(ext, bytes);
 	if (!url) {
 		return NextResponse.json(

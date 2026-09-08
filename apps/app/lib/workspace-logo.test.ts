@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readLogo, removeLogo, saveLogo } from "./workspace-logo";
+import {
+	isSvgSafe,
+	matchesDeclaredType,
+	readLogo,
+	removeLogo,
+	saveLogo,
+} from "./workspace-logo";
 
 let dir: string;
 
@@ -63,5 +69,85 @@ describe("workspace-logo", () => {
 
 	it("removing when nothing exists does not throw", async () => {
 		await removeLogo();
+	});
+});
+
+describe("matchesDeclaredType", () => {
+	it("accepts real PNG magic bytes declared as PNG", () => {
+		const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		expect(matchesDeclaredType("image/png", png)).toBe(true);
+	});
+
+	it("rejects a PNG file declared as SVG", () => {
+		const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		expect(matchesDeclaredType("image/svg+xml", png)).toBe(false);
+	});
+
+	it("accepts real JPEG magic bytes declared as JPEG", () => {
+		const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
+		expect(matchesDeclaredType("image/jpeg", jpeg)).toBe(true);
+	});
+
+	it("accepts a real WebP RIFF header declared as WebP", () => {
+		const webp = Buffer.concat([
+			Buffer.from("RIFF", "ascii"),
+			Buffer.from([0, 0, 0, 0]),
+			Buffer.from("WEBP", "ascii"),
+		]);
+		expect(matchesDeclaredType("image/webp", webp)).toBe(true);
+	});
+
+	it("accepts a real SVG document declared as SVG", () => {
+		const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+		expect(matchesDeclaredType("image/svg+xml", svg)).toBe(true);
+	});
+
+	it("rejects an SVG-labeled upload whose bytes are not SVG or XML", () => {
+		const notSvg = Buffer.from("not an svg document");
+		expect(matchesDeclaredType("image/svg+xml", notSvg)).toBe(false);
+	});
+});
+
+describe("isSvgSafe", () => {
+	it("allows a plain SVG with no scripting", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(true);
+	});
+
+	it("rejects an SVG containing a <script> element", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("rejects an SVG with an on* event handler attribute", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("rejects an SVG containing a foreignObject element", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><body xmlns="http://www.w3.org/1999/xhtml">hi</body></foreignObject></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("rejects an SVG with an external href reference", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><image href="https://evil.example/x.png"/></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("rejects an SVG with a javascript: xlink:href reference", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><a xlink:href="javascript:alert(1)"><rect width="1" height="1"/></a></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
 	});
 });
