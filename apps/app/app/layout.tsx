@@ -12,6 +12,8 @@ import { readInstallBrandTheme } from "@/lib/brand";
 import { TRPCReactProvider } from "@/lib/trpc/client";
 import { workspaceLabel } from "@/lib/workspace-label";
 
+export const instant = false;
+
 const fontSans = Geist({
 	variable: "--font-geist-sans",
 	subsets: ["latin"],
