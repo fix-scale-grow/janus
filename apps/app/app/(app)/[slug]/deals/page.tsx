@@ -62,16 +62,14 @@ async function Deals({
 		queryClient.fetchQuery(
 			trpc.views.get.queryOptions({ tableId: "deals-board" }),
 		),
+		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
 	]);
 	const params = dealsSearchParams(savedState ?? undefined);
 	const values = await params.load(searchParams);
 
-	await Promise.all([
-		queryClient.prefetchQuery(
-			trpc.deals.list.queryOptions(params.toInput(values)),
-		),
-		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
-	]);
+	await queryClient.prefetchQuery(
+		trpc.deals.list.queryOptions(params.toInput(values)),
+	);
 
 	return (
 		<HydrateClient>

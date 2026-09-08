@@ -8,7 +8,7 @@ import {
 	workspaceRoleOf,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
-import { normalizeHex } from "@crm/db/brand";
+import { normalizeHex } from "@crm/db/brand-color";
 import { isOnboarded, markOnboarded, workspaceSlug } from "@crm/db/workspace";
 import {
 	BadRequestException,

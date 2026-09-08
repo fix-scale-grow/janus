@@ -138,7 +138,7 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
 	const pipelines = useQuery(
-		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+		trpc.pipelines.list.queryOptions({ includeArchived: true }),
 	);
 
 	const rows = deals.data?.rows ?? [];
@@ -148,6 +148,8 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 
 	const facetCounts = deals.data?.facetCounts;
 	const stageMeta = deals.data?.stages ?? [];
+	const selectedPipeline = input.pipeline;
+	const selectedStage = input.stage;
 
 	const facets: DataTableFacet[] = [
 		{
@@ -163,7 +165,17 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 			id: "stage",
 			label: "Stage",
 			options: stageMeta
-				.filter((stage) => (facetCounts?.stage?.[stage.id] ?? 0) > 0)
+				.filter(
+					(stage) =>
+						selectedPipeline === "all" ||
+						stage.pipelineId === selectedPipeline ||
+						stage.id === selectedStage,
+				)
+				.filter(
+					(stage) =>
+						(facetCounts?.stage?.[stage.id] ?? 0) > 0 ||
+						stage.id === selectedStage,
+				)
 				.map((stage) => ({ value: stage.id, label: stage.label })),
 		},
 		{
@@ -178,10 +190,15 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 		{
 			id: "pipeline",
 			label: "Pipeline",
-			options: (pipelines.data ?? []).map((pipeline) => ({
-				value: pipeline.id,
-				label: pipeline.name,
-			})),
+			options: (pipelines.data ?? [])
+				.filter(
+					(pipeline) =>
+						pipeline.archivedAt === null || pipeline.id === selectedPipeline,
+				)
+				.map((pipeline) => ({
+					value: pipeline.id,
+					label: pipeline.name,
+				})),
 		},
 	];
 

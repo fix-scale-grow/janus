@@ -12,7 +12,7 @@ import {
 import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { addDays, dayKey, weekOf } from "@/lib/calendar/span-layout";
 import type { CalendarTask, Project } from "./calendar-view";
-import { barClasses, TASK_BAR_CLASSES } from "./task-bar";
+import { barClasses, taskBarClasses } from "./task-bar";
 import {
 	STATUS_FLOW,
 	STATUS_LABEL,
@@ -199,7 +199,10 @@ function TimelineRow({
 			</div>
 			<div
 				className="relative"
-				style={{ width: `${trackWidthRem}rem`, height: "2.25rem" }}
+				style={{
+					width: `${trackWidthRem}rem`,
+					height: compact ? "1.75rem" : "2.25rem",
+				}}
 			>
 				{outside ? null : (
 					<TaskPopover projectId={projectId} task={task} density={density}>
@@ -210,7 +213,7 @@ function TimelineRow({
 								width: `${spanDays * DAY_WIDTH_REM}rem`,
 							}}
 							className={cn(
-								TASK_BAR_CLASSES,
+								taskBarClasses(density),
 								barClasses(task),
 								"absolute top-1/2 -translate-y-1/2",
 							)}
