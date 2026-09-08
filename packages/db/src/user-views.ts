@@ -10,6 +10,7 @@ export const VIEW_TABLE_IDS = [
 	"deals-board",
 	"production-board",
 	"project-board",
+	"nav",
 ] as const;
 
 export type ViewTableId = (typeof VIEW_TABLE_IDS)[number];
@@ -25,6 +26,7 @@ export const viewStateSchema = z
 		hiddenColumns: z.array(z.string()).optional(),
 		pageSize: z.number().int().positive().optional(),
 		density: z.enum(["comfortable", "compact"]).optional(),
+		navOrder: z.array(z.string().max(100)).max(40).optional(),
 	})
 	.strip();
 
