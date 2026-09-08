@@ -26,7 +26,7 @@ import type {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { JanusExcalidraw } from "@/components/drawings/janus-excalidraw";
@@ -44,6 +44,8 @@ import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 const NONE = "none";
+
+const NEW_CATEGORY = "__new__";
 
 const TRADE_MAX_LENGTH = 60;
 
@@ -118,6 +120,9 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 		...trpc.symbols.byId.queryOptions({ id: symbolId }),
 		enabled: !isNew,
 	});
+	const symbolsList = useQuery(
+		trpc.symbols.list.queryOptions({ pageSize: 100 }),
+	);
 
 	const symbolData: unknown = symbolQuery.data;
 	const symbol = isNew || !symbolData ? null : parseSymbolDetail(symbolData);
@@ -125,6 +130,22 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 	const [values, setValues] = useState<FormValues>(() =>
 		symbol ? formFromRow(symbol) : emptyForm(),
 	);
+	const [addingCategory, setAddingCategory] = useState(false);
+
+	const categories = useMemo(() => {
+		const byKey = new Map<string, string>();
+		for (const row of symbolsList.data?.rows ?? []) {
+			const trade = typeof row.trade === "string" ? row.trade.trim() : "";
+			if (!trade) continue;
+			const key = trade.toLowerCase();
+			if (!byKey.has(key)) byKey.set(key, trade);
+		}
+		const trade = values.trade.trim();
+		if (trade) byKey.set(trade.toLowerCase(), trade);
+		return Array.from(byKey.entries())
+			.sort((a, b) => a[0].localeCompare(b[0]))
+			.map(([key, label]) => ({ key, label }));
+	}, [symbolsList.data, values.trade]);
 
 	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
 	const excalidrawApiRef = useCallback((api: ExcalidrawImperativeAPI) => {
@@ -287,15 +308,64 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 						</Field>
 
 						<Field>
-							<FieldLabel htmlFor={tradeId}>Trade</FieldLabel>
-							<Input
-								id={tradeId}
-								maxLength={TRADE_MAX_LENGTH}
-								onChange={(event) =>
-									setValues((prev) => ({ ...prev, trade: event.target.value }))
-								}
-								value={values.trade}
-							/>
+							<FieldLabel htmlFor={tradeId}>Category</FieldLabel>
+							{addingCategory ? (
+								<div className="flex flex-col gap-1.5">
+									<Input
+										autoFocus
+										id={tradeId}
+										maxLength={TRADE_MAX_LENGTH}
+										onChange={(event) =>
+											setValues((prev) => ({
+												...prev,
+												trade: event.target.value,
+											}))
+										}
+										placeholder="New category"
+										value={values.trade}
+									/>
+									{categories.length > 0 && (
+										<Button
+											className="self-start"
+											onClick={() => {
+												setAddingCategory(false);
+												setValues((prev) => ({
+													...prev,
+													trade: categories[0]?.label ?? prev.trade,
+												}));
+											}}
+											size="sm"
+											variant="link"
+										>
+											Choose existing category
+										</Button>
+									)}
+								</div>
+							) : (
+								<Select
+									onValueChange={(next) => {
+										if (next === NEW_CATEGORY) {
+											setAddingCategory(true);
+											setValues((prev) => ({ ...prev, trade: "" }));
+											return;
+										}
+										setValues((prev) => ({ ...prev, trade: next }));
+									}}
+									value={values.trade}
+								>
+									<SelectTrigger className="w-full" id={tradeId}>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{categories.map((category) => (
+											<SelectItem key={category.key} value={category.label}>
+												{category.label}
+											</SelectItem>
+										))}
+										<SelectItem value={NEW_CATEGORY}>New category…</SelectItem>
+									</SelectContent>
+								</Select>
+							)}
 						</Field>
 
 						<div className="grid grid-cols-2 gap-3">
