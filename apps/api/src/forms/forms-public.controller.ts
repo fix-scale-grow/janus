@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import type { Response } from "express";
+import { isFormId } from "./forms.config";
 import { formSubmitInput } from "./forms.contracts";
 import { FormsService } from "./forms.service";
 
@@ -27,6 +28,8 @@ export class FormsPublicController {
 	) {
 		response.setHeader("cross-origin-resource-policy", "cross-origin");
 		response.setHeader("access-control-allow-origin", "*");
+
+		if (!isFormId(formId)) return { config: null };
 
 		const config = await this.forms.publicConfig(formId);
 

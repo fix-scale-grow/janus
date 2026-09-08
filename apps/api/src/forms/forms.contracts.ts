@@ -1,6 +1,7 @@
 import { FORMS, formFieldOptions, formFieldTypeEnum } from "@crm/db/forms";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
+import { FORM_ID_SHAPE } from "./forms.config";
 
 export const formFieldInput = z.object({
 	id: z.string().optional(),
@@ -85,7 +86,7 @@ const rawTouch = z
 	.optional();
 
 export const formSubmitInput = z.object({
-	formId: z.string(),
+	formId: z.string().regex(FORM_ID_SHAPE, "Not a valid form id."),
 	answers: z
 		.record(z.string(), z.string().max(FORMS.field.answerMax))
 		.default({}),

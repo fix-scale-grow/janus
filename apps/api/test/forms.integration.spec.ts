@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
 import { NotFoundException } from "@nestjs/common";
+import type { Response } from "express";
 import type {
 	AgentTriggerService,
 	CrmEventInput,
@@ -23,8 +24,10 @@ import { FieldsService } from "../src/fields/fields.service";
 import {
 	FORMS_SUBMIT_PER_MINUTE,
 	formSubmitWindowKey,
+	isFormId,
 } from "../src/forms/forms.config";
 import { FormsService } from "../src/forms/forms.service";
+import { FormsPublicController } from "../src/forms/forms-public.controller";
 import { MailerService } from "../src/mailer/mailer.service";
 import { MergeContextService } from "../src/templates/merge-context.service";
 import { TemplatesService } from "../src/templates/templates.service";
@@ -414,6 +417,108 @@ describe("submitting a website form", () => {
 		expect(envelope.to).toBe(`${userId}@example.test`);
 		expect(envelope.subject).toContain(form.name);
 		expect(envelope.html).toContain("Shingle");
+	});
+
+	it("still emails the second notify address when the first send throws", async () => {
+		const form = await createForm(`Two recipients ${suffix}`);
+		const email = `tworecipients-${suffix}@${domain}`;
+
+		const secondMemberId = `forms-member2-${suffix}`;
+		const secondUserId = `forms-user2-${suffix}`;
+		const secondEmail = `${secondUserId}@example.test`;
+		const badEmail = `${userId}@example.test`;
+
+		await db.user.create({
+			data: { id: secondUserId, name: "Second Admin", email: secondEmail },
+		});
+		await db.member.create({
+			data: {
+				id: secondMemberId,
+				organizationId: WORKSPACE_ID,
+				userId: secondUserId,
+				role: "admin",
+				createdAt: new Date(),
+			},
+		});
+
+		const sent: string[] = [];
+		const stubMailer = {
+			isConfigured: () => true,
+			send: async ({ to }: { to: string }) => {
+				if (to === badEmail) throw new Error("The bad address always fails.");
+				sent.push(to);
+				return { delivered: true };
+			},
+		} as unknown as MailerService;
+
+		const stubForms = new FormsService(
+			db,
+			filing,
+			counters,
+			fields,
+			deals,
+			templates,
+			stubMailer,
+			stamp,
+		);
+
+		try {
+			const result = await stubForms.submit({
+				formId: form.id,
+				answers: { [fieldId(form, "Email")]: email },
+				honeypot: "",
+				renderedAt: Date.now() - 5_000,
+				host,
+				path: "/two",
+			});
+
+			expect(result).toEqual({ ok: true });
+			expect(sent).toContain(secondEmail);
+		} finally {
+			await db.member.deleteMany({ where: { id: secondMemberId } });
+			await db.user.deleteMany({ where: { id: secondUserId } });
+		}
+	});
+});
+
+describe("the public form id guard", () => {
+	it("rejects a garbage id without touching the database", async () => {
+		let dbTouched = false;
+		const stubForms = {
+			publicConfig: async () => {
+				dbTouched = true;
+				return null;
+			},
+		} as unknown as FormsService;
+		const controller = new FormsPublicController(stubForms);
+		const fakeResponse = { setHeader: () => undefined } as unknown as Response;
+
+		const result = await controller.config("../../etc/passwd", fakeResponse);
+
+		expect(result).toEqual({ config: null });
+		expect(dbTouched).toBe(false);
+	});
+
+	it("still reaches the service for a well-shaped id", async () => {
+		let dbTouched = false;
+		const stubForms = {
+			publicConfig: async () => {
+				dbTouched = true;
+				return null;
+			},
+		} as unknown as FormsService;
+		const controller = new FormsPublicController(stubForms);
+		const fakeResponse = { setHeader: () => undefined } as unknown as Response;
+
+		await controller.config("cabcdefghij0123456789", fakeResponse);
+
+		expect(dbTouched).toBe(true);
+	});
+
+	it("classifies id shapes the same way the controller does", () => {
+		expect(isFormId("../../etc/passwd")).toBe(false);
+		expect(isFormId("' OR 1=1--")).toBe(false);
+		expect(isFormId("cabcdefghij0123456789")).toBe(true);
 	});
 });
 

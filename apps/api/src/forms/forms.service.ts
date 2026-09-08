@@ -674,7 +674,14 @@ export class FormsService {
 		);
 
 		for (const to of addresses) {
-			await this.mailer.send({ to, subject, html, text });
+			try {
+				await this.mailer.send({ to, subject, html, text });
+			} catch (error) {
+				this.logger.error(
+					{ message: "Could not send the form notification to one address" },
+					error instanceof Error ? error.stack : String(error),
+				);
+			}
 		}
 	}
 
