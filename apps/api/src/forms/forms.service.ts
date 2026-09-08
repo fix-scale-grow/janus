@@ -298,6 +298,7 @@ export class FormsService {
 					fields: true,
 					email: true,
 					contactId: true,
+					dealId: true,
 					filedAt: true,
 					skipReason: true,
 					createdAt: true,
@@ -428,14 +429,17 @@ export class FormsService {
 
 			if (outcome.filed) {
 				if (form.createLead) {
-					await this.leadOrAttach(form, outcome.contactId, answers).catch(
-						(error: unknown) => {
-							this.logger.error(
-								{ message: "Could not create or attach the lead" },
-								error instanceof Error ? error.stack : String(error),
-							);
-						},
-					);
+					await this.leadOrAttach(
+						form,
+						submission.id,
+						outcome.contactId,
+						answers,
+					).catch((error: unknown) => {
+						this.logger.error(
+							{ message: "Could not create or attach the lead" },
+							error instanceof Error ? error.stack : String(error),
+						);
+					});
 				}
 
 				await this.notify(form, outcome.contactId, answers).catch(
@@ -532,6 +536,7 @@ export class FormsService {
 
 	private async leadOrAttach(
 		form: { id: string; name: string },
+		submissionId: string,
 		contactId: string,
 		answers: FormSubmissionAnswer[],
 	): Promise<void> {
@@ -582,6 +587,10 @@ export class FormsService {
 				{ contactId, dealId: duplicate.dealId },
 				activity.createdAt,
 			);
+			await this.db.formSubmission.update({
+				where: { id: submissionId },
+				data: { dealId: duplicate.dealId },
+			});
 			return;
 		}
 
@@ -615,6 +624,10 @@ export class FormsService {
 		});
 
 		await this.stamp.touch({ contactId, dealId: deal.id }, activity.createdAt);
+		await this.db.formSubmission.update({
+			where: { id: submissionId },
+			data: { dealId: deal.id },
+		});
 	}
 
 	private async notify(

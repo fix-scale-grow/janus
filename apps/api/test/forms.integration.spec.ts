@@ -236,6 +236,12 @@ describe("submitting a website form", () => {
 		});
 		expect(dealContact).toBeTruthy();
 
+		const submission = await db.formSubmission.findFirst({
+			where: { formId: form.id, email },
+			select: { dealId: true },
+		});
+		expect(submission?.dealId).toBe(dealContact?.dealId ?? null);
+
 		const updatedForm = await db.form.findUnique({
 			where: { id: form.id },
 			select: { submissionCount: true },
@@ -265,6 +271,11 @@ describe("submitting a website form", () => {
 		});
 		expect(firstDealCount).toBe(1);
 
+		const firstDealContact = await db.dealContact.findFirst({
+			where: { contactId: contact?.id },
+			select: { dealId: true },
+		});
+
 		const result = await forms.submit({
 			formId: form.id,
 			answers: { [fieldId(form, "Email")]: email },
@@ -280,6 +291,12 @@ describe("submitting a website form", () => {
 			where: { contactId: contact?.id },
 		});
 		expect(secondDealCount).toBe(1);
+
+		const secondSubmission = await db.formSubmission.findFirst({
+			where: { formId: form.id, path: "/second" },
+			select: { dealId: true },
+		});
+		expect(secondSubmission?.dealId).toBe(firstDealContact?.dealId ?? null);
 
 		const activities = await db.activity.count({
 			where: {

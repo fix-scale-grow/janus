@@ -949,17 +949,18 @@ model Deal {
 
   lastActivityAt DateTime?
 
-  contacts    DealContact[]
-  activities  Activity[]
-  fieldValues FieldValue[]
-  drawings    Drawing[]
-  estimates   Estimate[]
-  invoices    Invoice[]
-  projects    Project[]
-  contracts   Contract[]
-  jobCosts    JobCost[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  contacts        DealContact[]
+  activities      Activity[]
+  fieldValues     FieldValue[]
+  drawings        Drawing[]
+  estimates       Estimate[]
+  invoices        Invoice[]
+  projects        Project[]
+  contracts       Contract[]
+  jobCosts        JobCost[]
+  formSubmissions FormSubmission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([ownerId])
   @@index([stageId])
@@ -1715,6 +1716,9 @@ model FormSubmission {
   formId String?
   form   Form?   @relation(fields: [formId], references: [id], onDelete: SetNull)
 
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
   host  String
   path  String
   email String?
@@ -1733,6 +1737,7 @@ model FormSubmission {
   @@index([contactId])
   @@index([createdAt])
   @@index([formId])
+  @@index([dealId])
   @@map("formSubmission")
 }
 
