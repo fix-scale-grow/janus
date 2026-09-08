@@ -19,7 +19,6 @@ import { DealStageMenu } from "@/components/crm/stage-change";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
-import { DEAL_STAGE_OPTIONS } from "@/lib/deal-stage";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { DealsBulkActions } from "./deals-bulk-actions";
@@ -121,11 +120,19 @@ export function DealsTable() {
 	const prefetchRecord = usePrefetchRecord();
 	const { query, input } = useTableQuery(dealsSearchParams);
 
+	const dealsInput = {
+		...input,
+		pipelineId: input.pipeline === "all" ? undefined : input.pipeline,
+	};
+
 	const deals = useQuery({
-		...trpc.deals.list.queryOptions(input),
+		...trpc.deals.list.queryOptions(dealsInput),
 		placeholderData: (previous) => previous,
 	});
 	const users = useQuery(trpc.users.list.queryOptions());
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
 
 	const rows = deals.data?.rows ?? [];
 	const selection = useTableSelection(
@@ -133,6 +140,7 @@ export function DealsTable() {
 	);
 
 	const facetCounts = deals.data?.facetCounts;
+	const stageMeta = deals.data?.stages ?? [];
 
 	const facets: DataTableFacet[] = [
 		{
@@ -147,9 +155,9 @@ export function DealsTable() {
 		{
 			id: "stage",
 			label: "Stage",
-			options: DEAL_STAGE_OPTIONS.filter(
-				(option) => (facetCounts?.stage?.[option.value] ?? 0) > 0,
-			),
+			options: stageMeta
+				.filter((stage) => (facetCounts?.stage?.[stage.id] ?? 0) > 0)
+				.map((stage) => ({ value: stage.id, label: stage.label })),
 		},
 		{
 			id: "closing",
@@ -159,6 +167,14 @@ export function DealsTable() {
 					? [{ value: option.value, label: option.label }]
 					: [],
 			),
+		},
+		{
+			id: "pipeline",
+			label: "Pipeline",
+			options: (pipelines.data ?? []).map((pipeline) => ({
+				value: pipeline.id,
+				label: pipeline.name,
+			})),
 		},
 	];
 

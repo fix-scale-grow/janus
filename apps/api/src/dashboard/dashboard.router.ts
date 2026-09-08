@@ -20,4 +20,12 @@ export class DashboardRouter {
 	) {
 		return this.dashboard.summary(ctx.user.id, input);
 	}
+
+	@Query({ input: dashboardSummaryInput })
+	async pipelineStages(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof dashboardSummaryInput>,
+	) {
+		return this.dashboard.pipelineStages(ctx.user.id, input);
+	}
 }

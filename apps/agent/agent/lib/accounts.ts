@@ -1,4 +1,5 @@
 import { ActivityType, db, EmailDirection } from "@crm/db";
+import { isClosedStage } from "@crm/db/stage-semantics";
 import { fenceUntrusted } from "./untrusted";
 
 const BODY_LIMIT = 4000;
@@ -84,7 +85,9 @@ export async function readDealHistory(
 			id: true,
 			name: true,
 			description: true,
-			stage: true,
+			stage: {
+				select: { key: true, label: true, outcome: true, pipelineId: true },
+			},
 			stageChangedAt: true,
 			amount: true,
 			currency: true,
@@ -118,7 +121,7 @@ export async function readDealHistory(
 	const contactIds = deal.contacts.map(({ contact }) => contact.id);
 	const hasContacts = contactIds.length > 0;
 
-	const [stageChanges, threads, meetings, notes, lastInbound] =
+	const [stageChanges, threads, meetings, notes, lastInbound, pipelineStages] =
 		await Promise.all([
 			db.activity.findMany({
 				where: { dealId, type: ActivityType.STAGE_CHANGE },
@@ -181,7 +184,15 @@ export async function readDealHistory(
 						select: { sentAt: true, fromEmail: true, fromName: true },
 					})
 				: Promise.resolve(null),
+			db.stage.findMany({
+				where: { pipelineId: deal.stage.pipelineId },
+				select: { key: true, label: true },
+			}),
 		]);
+
+	const stagesByKey = new Map(
+		pipelineStages.map((stage) => [stage.key, stage.label]),
+	);
 
 	const now = new Date();
 
@@ -192,8 +203,8 @@ export async function readDealHistory(
 			description: deal.description
 				? fenceUntrusted("deal description", deal.description)
 				: null,
-			stage: deal.stage,
-			open: isOpen(deal.stage),
+			stage: deal.stage.label,
+			open: !isClosedStage(deal.stage),
 			daysInStage: daysSince(deal.stageChangedAt, now),
 			stageChangedAt: deal.stageChangedAt.toISOString(),
 			amount: deal.amount === null ? null : Number(deal.amount),
@@ -217,9 +228,11 @@ export async function readDealHistory(
 		})),
 		stageHistory: stageChanges.map((change) => {
 			const meta = (change.meta ?? {}) as { from?: unknown; to?: unknown };
+			const fromKey = typeof meta.from === "string" ? meta.from : null;
+			const toKey = typeof meta.to === "string" ? meta.to : null;
 			return {
-				from: typeof meta.from === "string" ? meta.from : null,
-				to: typeof meta.to === "string" ? meta.to : null,
+				from: fromKey ? (stagesByKey.get(fromKey) ?? fromKey) : null,
+				to: toKey ? (stagesByKey.get(toKey) ?? toKey) : null,
 				at: change.createdAt.toISOString(),
 			};
 		}),
@@ -250,14 +263,6 @@ export async function readDealHistory(
 					: "Nobody is attached to this deal, so there is no connected correspondence to read. Attaching the people on it would make this answer sharper."
 				: "Connected email and calendar history are outside this agent version's approved data sources.",
 	};
-}
-
-function isOpen(stage: string): boolean {
-	return (
-		stage !== "CLOSED_WON" &&
-		stage !== "CLOSED_LOST" &&
-		stage !== "UNQUALIFIED_TO_BUY"
-	);
 }
 
 async function recentNotes(dealId: string): Promise<AccountNote[]> {

@@ -30,6 +30,7 @@ import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInpu
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
+import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
@@ -58,6 +59,7 @@ import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
 import type { PermissionsRouter } from "../permissions/permissions.router";
+import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
 import type { ReportsRouter } from "../reports/reports.router";
 import type { SearchRouter } from "../search/search.router";
@@ -312,7 +314,10 @@ const appRouter = t.router({
   dashboard: t.router({
     summary: publicProcedure
       .input(dashboardSummaryInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["summary"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["summary"]>>),
+    pipelineStages: publicProcedure
+      .input(dashboardSummaryInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["pipelineStages"]>>)
     }),
   deals: t.router({
     list: publicProcedure
@@ -560,6 +565,46 @@ const appRouter = t.router({
     revoke: publicProcedure
       .input(permissionGrantInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["revoke"]>>)
+    }),
+  pipelines: t.router({
+    list: publicProcedure
+      .input(pipelineListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["list"]>>),
+    stageLabels: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["stageLabels"]>>),
+    createPipeline: publicProcedure
+      .input(pipelineCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["createPipeline"]>>),
+    updatePipeline: publicProcedure
+      .input(pipelineUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["updatePipeline"]>>),
+    reorderPipelines: publicProcedure
+      .input(pipelineReorderInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["reorderPipelines"]>>),
+    archivePipeline: publicProcedure
+      .input(pipelineIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["archivePipeline"]>>),
+    restorePipeline: publicProcedure
+      .input(pipelineIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["restorePipeline"]>>),
+    createStage: publicProcedure
+      .input(stageCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["createStage"]>>),
+    updateStage: publicProcedure
+      .input(stageUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["updateStage"]>>),
+    reorderStages: publicProcedure
+      .input(stageReorderInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["reorderStages"]>>),
+    archiveStage: publicProcedure
+      .input(stageIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["archiveStage"]>>),
+    restoreStage: publicProcedure
+      .input(stageIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["restoreStage"]>>),
+    deleteStage: publicProcedure
+      .input(stageIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PipelinesRouter["deleteStage"]>>)
     }),
   projects: t.router({
     list: publicProcedure

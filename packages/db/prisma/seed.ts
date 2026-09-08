@@ -2,10 +2,11 @@ import { db } from "../src/client";
 import { DEFAULT_REPORTING_CURRENCY } from "../src/currency";
 import {
 	ActivityType,
-	DealStage,
 	RateSource,
+	StageOutcome,
 } from "../src/generated/prisma/enums";
 import { readReportingCurrency, SETTINGS_ID } from "../src/settings";
+import { requiresReason } from "../src/stage-semantics";
 
 function makeRandom(seed: number): () => number {
 	let a = seed;
@@ -244,18 +245,192 @@ const TITLES = [
 	"Chief of Staff",
 ] as const;
 
-const OPEN_STAGES = [
-	DealStage.DEMO_BOOKED,
-	DealStage.QUALIFIED_TO_BUY,
-	DealStage.DECISION_MAKER_BOUGHT_IN,
-	DealStage.CONTRACT_SENT,
-] as const;
+type SeedStageDef = {
+	id: string;
+	key: string;
+	label: string;
+	color: string;
+	position: number;
+	outcome: StageOutcome;
+	isEntry: boolean;
+};
 
-const CLOSED_STAGES = [
-	DealStage.CLOSED_WON,
-	DealStage.CLOSED_LOST,
-	DealStage.UNQUALIFIED_TO_BUY,
-] as const;
+const SALES_STAGES: readonly SeedStageDef[] = [
+	{
+		id: "stage_seed_demo_booked",
+		key: "DEMO_BOOKED",
+		label: "New lead",
+		color: "var(--chart-1)",
+		position: 0,
+		outcome: StageOutcome.OPEN,
+		isEntry: true,
+	},
+	{
+		id: "stage_seed_qualified_to_buy",
+		key: "QUALIFIED_TO_BUY",
+		label: "Inspection scheduled",
+		color: "var(--chart-2)",
+		position: 1,
+		outcome: StageOutcome.OPEN,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_decision_maker_bought_in",
+		key: "DECISION_MAKER_BOUGHT_IN",
+		label: "Estimate sent",
+		color: "var(--chart-3)",
+		position: 2,
+		outcome: StageOutcome.OPEN,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_contract_sent",
+		key: "CONTRACT_SENT",
+		label: "Contract sent",
+		color: "var(--chart-4)",
+		position: 3,
+		outcome: StageOutcome.OPEN,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_closed_won",
+		key: "CLOSED_WON",
+		label: "Won",
+		color: "var(--swatch-1)",
+		position: 4,
+		outcome: StageOutcome.WON,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_closed_lost",
+		key: "CLOSED_LOST",
+		label: "Lost",
+		color: "var(--swatch-2)",
+		position: 5,
+		outcome: StageOutcome.LOST,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_unqualified_to_buy",
+		key: "UNQUALIFIED_TO_BUY",
+		label: "Unqualified",
+		color: "var(--swatch-3)",
+		position: 6,
+		outcome: StageOutcome.DISQUALIFIED,
+		isEntry: false,
+	},
+];
+
+const INSURANCE_STAGES: readonly SeedStageDef[] = [
+	{
+		id: "stage_seed_insurance_new_claim",
+		key: "NEW_CLAIM",
+		label: "New claim",
+		color: "var(--chart-1)",
+		position: 0,
+		outcome: StageOutcome.OPEN,
+		isEntry: true,
+	},
+	{
+		id: "stage_seed_insurance_adjuster_meeting",
+		key: "ADJUSTER_MEETING",
+		label: "Adjuster meeting",
+		color: "var(--chart-2)",
+		position: 1,
+		outcome: StageOutcome.OPEN,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_insurance_approved",
+		key: "APPROVED",
+		label: "Approved",
+		color: "var(--chart-3)",
+		position: 2,
+		outcome: StageOutcome.OPEN,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_insurance_won",
+		key: "CLAIM_WON",
+		label: "Won",
+		color: "var(--swatch-1)",
+		position: 3,
+		outcome: StageOutcome.WON,
+		isEntry: false,
+	},
+	{
+		id: "stage_seed_insurance_lost",
+		key: "CLAIM_LOST",
+		label: "Lost",
+		color: "var(--swatch-2)",
+		position: 4,
+		outcome: StageOutcome.LOST,
+		isEntry: false,
+	},
+];
+
+type SeededStage = {
+	id: string;
+	key: string;
+	outcome: StageOutcome;
+	pipelineId: string;
+};
+
+async function seedPipelines(): Promise<{
+	open: SeededStage[];
+	closed: SeededStage[];
+	entryKeyByPipelineId: Record<string, string>;
+}> {
+	await db.pipeline.upsert({
+		where: { id: "pipeline_seed_sales" },
+		create: { id: "pipeline_seed_sales", name: "Sales", position: 0 },
+		update: {},
+	});
+
+	await db.pipeline.upsert({
+		where: { id: "pipeline_seed_insurance" },
+		create: { id: "pipeline_seed_insurance", name: "Insurance", position: 1 },
+		update: {},
+	});
+
+	const stages: SeededStage[] = [];
+	const entryKeyByPipelineId: Record<string, string> = {};
+
+	for (const [pipelineId, defs] of [
+		["pipeline_seed_sales", SALES_STAGES],
+		["pipeline_seed_insurance", INSURANCE_STAGES],
+	] as const) {
+		for (const def of defs) {
+			await db.stage.upsert({
+				where: { id: def.id },
+				create: {
+					id: def.id,
+					pipelineId,
+					key: def.key,
+					label: def.label,
+					color: def.color,
+					position: def.position,
+					outcome: def.outcome,
+					isEntry: def.isEntry,
+				},
+				update: {},
+			});
+			stages.push({
+				id: def.id,
+				key: def.key,
+				outcome: def.outcome,
+				pipelineId,
+			});
+			if (def.isEntry) entryKeyByPipelineId[pipelineId] = def.key;
+		}
+	}
+
+	return {
+		open: stages.filter((stage) => stage.outcome === StageOutcome.OPEN),
+		closed: stages.filter((stage) => stage.outcome !== StageOutcome.OPEN),
+		entryKeyByPipelineId,
+	};
+}
 
 const DEAL_DESCRIPTIONS = [
 	"Replacing a spreadsheet-and-Drive evidence process before their first SOC 2 audit. Security owns the decision, finance signs.",
@@ -404,6 +579,8 @@ type SeededDeal = {
 	ownerId: string;
 	closed: boolean;
 	contactIds: string[];
+	stageKey: string;
+	pipelineId: string;
 };
 
 const SEED_RATES: Record<string, number> = {
@@ -488,6 +665,7 @@ function money(usdAmount: number, currency: string) {
 async function seedDeals(
 	contacts: SeededContact[],
 	ownerIds: string[],
+	stages: { open: SeededStage[]; closed: SeededStage[] },
 ): Promise<SeededDeal[]> {
 	const deals: SeededDeal[] = [];
 
@@ -500,7 +678,7 @@ async function seedDeals(
 		for (let n = 0; n < count; n++) {
 			const id = `seed-deal-${slug(company.name)}-${n}`;
 			const closed = chance(0.35);
-			const stage = closed ? pick(CLOSED_STAGES) : pick(OPEN_STAGES);
+			const stage = closed ? pick(stages.closed) : pick(stages.open);
 			const ownerId = pick(ownerIds);
 			const createdDaysAgo = integer(20, 210);
 			const createdAt = daysFromNow(-createdDaysAgo, 12);
@@ -522,7 +700,7 @@ async function seedDeals(
 							: `${company.name} — expansion`,
 					description: pick(DEAL_DESCRIPTIONS),
 					ownerId,
-					stage,
+					stageId: stage.id,
 					stageChangedAt,
 					...(() => {
 						const { amount, currency, baseAmount, baseCurrency, fxRate } =
@@ -542,11 +720,7 @@ async function seedDeals(
 							: -closedDaysAgo + integer(-4, 9),
 					),
 					closedAt: closed ? stageChangedAt : null,
-					closedReason:
-						stage === DealStage.CLOSED_LOST ||
-						stage === DealStage.UNQUALIFIED_TO_BUY
-							? pick(LOST_REASONS)
-							: null,
+					closedReason: requiresReason(stage) ? pick(LOST_REASONS) : null,
 					createdAt,
 				},
 				update: {},
@@ -566,14 +740,24 @@ async function seedDeals(
 				dealContactIds.push(contact.id);
 			}
 
-			deals.push({ id, ownerId, closed, contactIds: dealContactIds });
+			deals.push({
+				id,
+				ownerId,
+				closed,
+				contactIds: dealContactIds,
+				stageKey: stage.key,
+				pipelineId: stage.pipelineId,
+			});
 		}
 	}
 
 	return deals;
 }
 
-async function seedActivities(deals: SeededDeal[]): Promise<number> {
+async function seedActivities(
+	deals: SeededDeal[],
+	entryKeyByPipelineId: Record<string, string>,
+): Promise<number> {
 	const existing = await db.activity.count();
 	if (existing > 0) {
 		console.log(`Activities already seeded (${existing}) — skipping.`);
@@ -591,7 +775,7 @@ async function seedActivities(deals: SeededDeal[]): Promise<number> {
 		dealId: string | null;
 		createdById: string;
 		createdAt: Date;
-		meta?: { from: DealStage; to: DealStage };
+		meta?: { from: string; to: string };
 	};
 
 	const rows: ActivityRow[] = [];
@@ -642,8 +826,8 @@ async function seedActivities(deals: SeededDeal[]): Promise<number> {
 			dealId: deal.id,
 			subject: "Stage changed",
 			meta: {
-				from: DealStage.DEMO_BOOKED,
-				to: deal.closed ? DealStage.CLOSED_WON : DealStage.QUALIFIED_TO_BUY,
+				from: entryKeyByPipelineId[deal.pipelineId] ?? deal.stageKey,
+				to: deal.stageKey,
 			},
 		});
 	}
@@ -675,14 +859,16 @@ async function seedActivities(deals: SeededDeal[]): Promise<number> {
 }
 
 async function main() {
+	const stages = await seedPipelines();
 	const rates = await seedRates();
 	const ownerIds = await seedOwners();
 	const contacts = await seedContacts(ownerIds);
-	const deals = await seedDeals(contacts, ownerIds);
-	const activities = await seedActivities(deals);
+	const deals = await seedDeals(contacts, ownerIds, stages);
+	const activities = await seedActivities(deals, stages.entryKeyByPipelineId);
 
 	console.log(
-		`Seeded ${contacts.length} contacts, ${deals.length} deals, ` +
+		`Seeded 2 pipelines, ${stages.open.length + stages.closed.length} stages, ` +
+			`${contacts.length} contacts, ${deals.length} deals, ` +
 			`${activities} activities, ${rates} exchange rates.`,
 	);
 }

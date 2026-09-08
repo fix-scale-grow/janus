@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { DealStage, db } from "@crm/db";
+import { db } from "@crm/db";
 import {
 	composeClosing,
 	contactPreamble,
@@ -18,8 +18,16 @@ const companyName = `Fernhill Systems ${suffix}`;
 let dealId: string;
 let paulaId: string;
 let userId: string;
+let contractSentLabel: string;
 
 const rep = { dispatched: false };
+
+async function salesStage(key: string): Promise<{ id: string; label: string }> {
+	return db.stage.findFirstOrThrow({
+		where: { key, pipeline: { name: "Sales" } },
+		select: { id: true, label: true },
+	});
+}
 
 beforeAll(async () => {
 	await cleanup();
@@ -48,11 +56,14 @@ beforeAll(async () => {
 	});
 	paulaId = paula.id;
 
+	const contractSent = await salesStage("CONTRACT_SENT");
+	contractSentLabel = contractSent.label;
+
 	const deal = await db.deal.create({
 		data: {
 			name: `Fernhill platform ${suffix}`,
 			ownerId: user.id,
-			stage: DealStage.CONTRACT_SENT,
+			stageId: contractSent.id,
 			amount: 48_000,
 			contacts: { create: [{ contactId: paulaId, role: "Champion" }] },
 		},
@@ -81,7 +92,9 @@ describe("contactPreamble", () => {
 	it("lists the deals they are on", async () => {
 		const { markdown } = await contactPreamble(paulaId, rep);
 
-		expect(markdown).toContain(`(CONTRACT_SENT, Champion) \`${dealId}\``);
+		expect(markdown).toContain(
+			`(${contractSentLabel}, Champion) \`${dealId}\``,
+		);
 	});
 
 	it("offers a way out when they have no deal or company", async () => {

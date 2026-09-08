@@ -1,7 +1,7 @@
 "use client";
 
 import TrashCan from "@carbon/icons-react/es/TrashCan";
-import type { DealStage } from "@crm/db/enums";
+import { requiresReason } from "@crm/db/stage-semantics";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -14,6 +14,7 @@ import {
 import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
+	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuSub,
 	DropdownMenuSubContent,
@@ -32,7 +33,7 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
-import { DEAL_STAGE_OPTIONS, LOSING_STAGES } from "@/lib/deal-stage";
+import { findStageById, groupStagesByPipeline } from "@/lib/stage-presentation";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -50,9 +51,12 @@ export function DealsBulkActions({
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const users = useQuery(trpc.users.list.queryOptions());
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
 	const reasonId = useId();
 	const [confirming, setConfirming] = useState(false);
-	const [closing, setClosing] = useState<DealStage | null>(null);
+	const [closingStageId, setClosingStageId] = useState<string | null>(null);
 	const [reason, setReason] = useState("");
 
 	const onError = (error: { message: string }) => toast.error(error.message);
@@ -73,7 +77,7 @@ export function DealsBulkActions({
 			onSuccess: async (result) => {
 				await cache.deal();
 				reportBulk(result, (count) => `${deals(count)} moved.`);
-				setClosing(null);
+				setClosingStageId(null);
 				setReason("");
 				onDone();
 			},
@@ -96,6 +100,12 @@ export function DealsBulkActions({
 	const pending =
 		assignOwner.isPending || setStage.isPending || remove.isPending;
 
+	const groups = groupStagesByPipeline(pipelines.data ?? []);
+	const closingStage = closingStageId
+		? findStageById(pipelines.data ?? [], closingStageId)
+		: undefined;
+	const lost = closingStage?.outcome === "LOST";
+
 	return (
 		<>
 			<BulkActionsMenu pending={pending}>
@@ -108,22 +118,27 @@ export function DealsBulkActions({
 				<DropdownMenuSub>
 					<DropdownMenuSubTrigger>Change stage</DropdownMenuSubTrigger>
 					<DropdownMenuSubContent className="max-h-72 overflow-y-auto">
-						<DropdownMenuGroup>
-							{DEAL_STAGE_OPTIONS.map((option) => (
-								<DropdownMenuItem
-									key={option.value}
-									onSelect={() => {
-										if (LOSING_STAGES.includes(option.value)) {
-											setClosing(option.value);
-											return;
-										}
-										setStage.mutate({ ids, stage: option.value });
-									}}
-								>
-									{option.label}
-								</DropdownMenuItem>
-							))}
-						</DropdownMenuGroup>
+						{groups.map((group) => (
+							<DropdownMenuGroup key={group.pipelineId}>
+								{groups.length > 1 ? (
+									<DropdownMenuLabel>{group.pipelineName}</DropdownMenuLabel>
+								) : null}
+								{group.stages.map((stage) => (
+									<DropdownMenuItem
+										key={stage.id}
+										onSelect={() => {
+											if (requiresReason(stage)) {
+												setClosingStageId(stage.id);
+												return;
+											}
+											setStage.mutate({ ids, stage: stage.id });
+										}}
+									>
+										{stage.label}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuGroup>
+						))}
 					</DropdownMenuSubContent>
 				</DropdownMenuSub>
 				<DropdownMenuSeparator />
@@ -139,19 +154,21 @@ export function DealsBulkActions({
 			</BulkActionsMenu>
 
 			<Dialog
-				open={closing !== null}
+				open={closingStageId !== null}
 				onOpenChange={(next) => {
 					if (next) return;
-					setClosing(null);
+					setClosingStageId(null);
 					setReason("");
 				}}
 			>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>
-							{closing === "CLOSED_LOST"
-								? `Close ${deals(ids.length)} as lost`
-								: `Mark ${deals(ids.length)} as unqualified`}
+							{closingStage
+								? lost
+									? `Close ${deals(ids.length)} as ${closingStage.label}`
+									: `Mark ${deals(ids.length)} as ${closingStage.label}`
+								: ""}
 						</DialogTitle>
 						<DialogDescription>
 							The same reason goes on every one of them, so keep it to what they
@@ -164,8 +181,12 @@ export function DealsBulkActions({
 						className="px-4"
 						onSubmit={(event) => {
 							event.preventDefault();
-							if (!closing) return;
-							setStage.mutate({ ids, stage: closing, closedReason: reason });
+							if (!closingStageId) return;
+							setStage.mutate({
+								ids,
+								stage: closingStageId,
+								closedReason: reason,
+							});
 						}}
 					>
 						<Field>
@@ -192,7 +213,7 @@ export function DealsBulkActions({
 						<Button
 							variant="outline"
 							onClick={() => {
-								setClosing(null);
+								setClosingStageId(null);
 								setReason("");
 							}}
 						>

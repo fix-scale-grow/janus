@@ -3,12 +3,11 @@
 import { Checkbox } from "@crm/ui/components/checkbox";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { cn } from "@crm/ui/lib/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { LocalDateTime, LocalRelativeTime } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
-import { dealStageLabel } from "@/lib/deal-stage";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -45,6 +44,7 @@ export function TimelineEntry({
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const stageLabels = useQuery(trpc.pipelines.stageLabels.queryOptions());
 
 	const complete = useMutation(
 		trpc.activities.complete.mutationOptions({
@@ -71,8 +71,10 @@ export function TimelineEntry({
 			: "via Calendar"
 		: entry.createdBy.name;
 
+	const stageLabel = (key: string) => stageLabels.data?.[key] ?? key;
+
 	const headline = change
-		? `${dealStageLabel(change.from as never)} → ${dealStageLabel(change.to as never)}`
+		? `${stageLabel(change.from)} → ${stageLabel(change.to)}`
 		: entry.subject;
 
 	const here = anchorId(anchor);

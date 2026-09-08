@@ -28,6 +28,22 @@ const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
 const deals = new DealsService(db, agent, stamp, conversion, fields);
 
+async function expectRejects(
+	promise: Promise<unknown>,
+	match?: RegExp,
+): Promise<void> {
+	let caught: unknown;
+
+	try {
+		await promise;
+	} catch (error) {
+		caught = error;
+	}
+
+	expect(caught).toBeInstanceOf(Error);
+	if (match) expect((caught as Error).message).toMatch(match);
+}
+
 async function clean() {
 	await db.deal.deleteMany({
 		where: { ownerId: { in: [ownerId, secondOwnerId] } },
@@ -40,6 +56,8 @@ async function clean() {
 	await db.user.deleteMany({ where: { id: { in: [ownerId, secondOwnerId] } } });
 }
 
+let closedLostStageId: string;
+
 beforeAll(async () => {
 	await clean();
 
@@ -49,6 +67,12 @@ beforeAll(async () => {
 			{ id: secondOwnerId, name: "Second Rep", email: `second@${domain}` },
 		],
 	});
+
+	const stage = await db.stage.findFirstOrThrow({
+		where: { key: "CLOSED_LOST" },
+		select: { id: true },
+	});
+	closedLostStageId = stage.id;
 });
 
 afterAll(clean);
@@ -100,12 +124,13 @@ describe("assigning an owner to a selection", () => {
 			email: `alan@${domain}`,
 		});
 
-		await expect(
+		await expectRejects(
 			contacts.bulkAssignOwner({
 				ids: [contact.id],
 				ownerId: `nobody-${suffix}`,
 			}),
-		).rejects.toThrow(/does not work here/);
+			/does not work here/,
+		);
 
 		expect(
 			await db.contact.findUnique({
@@ -168,16 +193,17 @@ describe("moving a selection of deals to a stage", () => {
 			ownerId,
 		});
 
-		await expect(
-			deals.bulkSetStage({ ids: [deal.id], stage: "CLOSED_LOST" }, ownerId),
-		).rejects.toThrow(/teaches nobody anything/);
+		await expectRejects(
+			deals.bulkSetStage({ ids: [deal.id], stage: closedLostStageId }, ownerId),
+			/teaches nobody anything/,
+		);
 
 		expect(
 			await db.deal.findUnique({
 				where: { id: deal.id },
-				select: { stage: true },
+				select: { stage: { select: { key: true } } },
 			}),
-		).toEqual({ stage: "DEMO_BOOKED" });
+		).toEqual({ stage: { key: "DEMO_BOOKED" } });
 	});
 
 	it("writes the one reason onto every deal's timeline", async () => {
@@ -194,7 +220,7 @@ describe("moving a selection of deals to a stage", () => {
 			await deals.bulkSetStage(
 				{
 					ids: [first.id, second.id],
-					stage: "CLOSED_LOST",
+					stage: closedLostStageId,
 					closedReason: "Budget pulled",
 				},
 				ownerId,
@@ -203,10 +229,14 @@ describe("moving a selection of deals to a stage", () => {
 
 		const closed = await db.deal.findMany({
 			where: { id: { in: [first.id, second.id] } },
-			select: { stage: true, closedReason: true, closedAt: true },
+			select: {
+				stage: { select: { key: true } },
+				closedReason: true,
+				closedAt: true,
+			},
 		});
 
-		expect(closed.every((deal) => deal.stage === "CLOSED_LOST")).toBe(true);
+		expect(closed.every((deal) => deal.stage.key === "CLOSED_LOST")).toBe(true);
 		expect(closed.every((deal) => deal.closedReason === "Budget pulled")).toBe(
 			true,
 		);

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { DealStage, db, RateSource } from "@crm/db";
+import { db, RateSource } from "@crm/db";
 import { normalizeCurrency } from "@crm/db/currency";
 import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
@@ -29,6 +29,9 @@ const deals = new DealsService(
 const dashboard = new DashboardService(db, conversion);
 
 let previousReportingCurrency: string | null = null;
+let entryStageId: string;
+let closedWonStageId: string;
+let demoBookedStageId: string;
 
 const MILLION = 100_000_000;
 const HALF_MILLION = 50_000_000;
@@ -89,6 +92,20 @@ beforeAll(async () => {
 	});
 
 	await rate("EUR", "1.10", RateSource.FETCHED);
+
+	const [entry, won] = await Promise.all([
+		db.stage.findFirstOrThrow({
+			where: { key: "DEMO_BOOKED" },
+			select: { id: true },
+		}),
+		db.stage.findFirstOrThrow({
+			where: { key: "CLOSED_WON" },
+			select: { id: true },
+		}),
+	]);
+	entryStageId = entry.id;
+	demoBookedStageId = entry.id;
+	closedWonStageId = won.id;
 });
 
 afterAll(async () => {
@@ -283,6 +300,7 @@ describe("a converted figure knows which currency it is in", () => {
 			data: {
 				name: `Orphan ${suffix}`,
 				ownerId: userId,
+				stageId: entryStageId,
 				amount: 50_000,
 				currency: "USD",
 				baseAmount: 50_000,
@@ -316,6 +334,7 @@ describe("a converted figure knows which currency it is in", () => {
 					data: {
 						name: `Variant ${index} ${suffix}`,
 						ownerId: userId,
+						stageId: entryStageId,
 						amount: 1000,
 						currency,
 					},
@@ -385,6 +404,7 @@ describe("a converted figure knows which currency it is in", () => {
 			data: {
 				name: `Stranded ${suffix}`,
 				ownerId: userId,
+				stageId: entryStageId,
 				amount: 1000,
 				currency: "EUR",
 			},
@@ -433,14 +453,12 @@ describe("the dashboard only values what it can convert", () => {
 		await db.user.deleteMany({ where: { id: analystId } });
 	});
 
-	async function stale(name: string, stage: DealStage) {
-		const closed = stage === DealStage.CLOSED_WON;
-
+	async function stale(name: string, stageId: string, closed: boolean) {
 		return db.deal.create({
 			data: {
 				name: `${name} ${suffix}`,
 				ownerId: analystId,
-				stage,
+				stageId,
 				amount: 9_000,
 				currency: "USD",
 				baseAmount: 9_000,
@@ -459,10 +477,10 @@ describe("the dashboard only values what it can convert", () => {
 			ownerId: analystId,
 			amountCents: 10_000,
 			currency: "USD",
-			stage: DealStage.CLOSED_WON,
+			stage: closedWonStageId,
 		});
 
-		const unvalued = await stale("Stale win", DealStage.CLOSED_WON);
+		const unvalued = await stale("Stale win", closedWonStageId, true);
 
 		const summary = await dashboard.summary(analystId, { scope: "me" });
 
@@ -481,7 +499,7 @@ describe("the dashboard only values what it can convert", () => {
 			currency: "USD",
 		});
 
-		const unvalued = await stale("Stale open", DealStage.DEMO_BOOKED);
+		const unvalued = await stale("Stale open", demoBookedStageId, false);
 
 		const summary = await dashboard.summary(analystId, { scope: "me" });
 

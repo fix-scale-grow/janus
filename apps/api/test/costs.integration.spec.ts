@@ -14,6 +14,7 @@ let adminUserId: string;
 let memberUserId: string;
 let dealId: string;
 let secondDealId: string;
+let seededStageId: string;
 
 beforeAll(async () => {
 	await db.organization.upsert({
@@ -67,12 +68,19 @@ beforeAll(async () => {
 		},
 	});
 
+	const seededStage = await db.stage.findFirstOrThrow({
+		where: { key: "DEMO_BOOKED" },
+		select: { id: true },
+	});
+	seededStageId = seededStage.id;
+
 	const deal = await db.deal.create({
 		data: {
 			id: `costs-deal-${suffix}`,
 			name: `Costs Deal ${suffix}`,
 			ownerId: adminUserId,
 			currency: "USD",
+			stageId: seededStageId,
 		},
 		select: { id: true },
 	});
@@ -84,6 +92,7 @@ beforeAll(async () => {
 			name: `Costs Deal 2 ${suffix}`,
 			ownerId: adminUserId,
 			currency: "EUR",
+			stageId: seededStageId,
 		},
 		select: { id: true },
 	});
@@ -121,6 +130,7 @@ describe("CostsService", () => {
 				name: `Costs Deal Create ${suffix}`,
 				ownerId: adminUserId,
 				currency: "USD",
+				stageId: seededStageId,
 			},
 		});
 
@@ -167,6 +177,7 @@ describe("CostsService", () => {
 				name: `Costs Deal List ${suffix}`,
 				ownerId: adminUserId,
 				currency: "USD",
+				stageId: seededStageId,
 			},
 		});
 
@@ -443,6 +454,7 @@ describe("CostsService", () => {
 				name: `Costs Deal Zero ${suffix}`,
 				ownerId: adminUserId,
 				currency: "USD",
+				stageId: seededStageId,
 			},
 		});
 

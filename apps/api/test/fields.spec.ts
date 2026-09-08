@@ -41,6 +41,22 @@ const deals = new DealsService(db, agent, stamp, conversion, fields);
 let contactId: string;
 let bridgeSecret: string | undefined;
 
+async function expectRejects(
+	promise: Promise<unknown>,
+	match?: RegExp,
+): Promise<void> {
+	let caught: unknown;
+
+	try {
+		await promise;
+	} catch (error) {
+		caught = error;
+	}
+
+	expect(caught).toBeInstanceOf(Error);
+	if (match) expect((caught as Error).message).toMatch(match);
+}
+
 async function clean() {
 	const owned = await db.contact.findMany({
 		where: { email: { endsWith: domain } },
@@ -123,7 +139,7 @@ describe("field definitions", () => {
 	});
 
 	it("refuses a duplicate key", async () => {
-		await expect(
+		await expectRejects(
 			fields.create({
 				entity: "CONTACT",
 				label: "Spec runs on",
@@ -135,7 +151,8 @@ describe("field definitions", () => {
 				showOnSheet: true,
 				showOnTable: false,
 			}),
-		).rejects.toThrow(/already a field/);
+			/already a field/,
+		);
 	});
 
 	it("keeps the same key when the label is renamed", async () => {
@@ -154,7 +171,8 @@ describe("field definitions", () => {
 			spec_runs_on: "AWS",
 		});
 
-		await expect(fields.update(field.id, { type: "TEXT" })).rejects.toThrow(
+		await expectRejects(
+			fields.update(field.id, { type: "TEXT" }),
 			/cannot change/,
 		);
 	});
@@ -172,7 +190,8 @@ describe("field definitions", () => {
 			showOnTable: false,
 		});
 
-		await expect(fields.update(field.id, { type: "SELECT" })).rejects.toThrow(
+		await expectRejects(
+			fields.update(field.id, { type: "SELECT" }),
 			/at least one option/,
 		);
 	});
@@ -196,9 +215,9 @@ describe("field definitions", () => {
 	it("says a field is missing without swallowing other failures", async () => {
 		const missing = `missing-${suffix}`;
 
-		await expect(fields.archive(missing)).rejects.toThrow(/does not exist/);
-		await expect(fields.restore(missing)).rejects.toThrow(/does not exist/);
-		await expect(fields.delete(missing)).rejects.toThrow(/does not exist/);
+		await expectRejects(fields.archive(missing), /does not exist/);
+		await expectRejects(fields.restore(missing), /does not exist/);
+		await expectRejects(fields.delete(missing), /does not exist/);
 	});
 
 	it("reorders inside one entity only", async () => {
@@ -228,9 +247,10 @@ describe("field definitions", () => {
 			keys.indexOf("spec_runs_on"),
 		);
 
-		await expect(
+		await expectRejects(
 			fields.reorder({ entity: "DEAL", ids: [first.id] }),
-		).rejects.toThrow(/not on this record type/);
+			/not on this record type/,
+		);
 	});
 });
 
@@ -272,9 +292,10 @@ describe("field values", () => {
 		expect(renewal?.value).toBe("2027-03-31T12:30:00.000Z");
 
 		for (const raw of ["2027/03/31", "03-31-2027", "31 March 2027"]) {
-			await expect(
+			await expectRejects(
 				fields.applyValues(db, "CONTACT", record, { spec_renewal: raw }),
-			).rejects.toThrow(/takes a date/);
+				/takes a date/,
+			);
 		}
 
 		expect(
@@ -285,26 +306,29 @@ describe("field values", () => {
 	});
 
 	it("rejects a value the type cannot hold", async () => {
-		await expect(
+		await expectRejects(
 			fields.applyValues(db, "CONTACT", contactId, { spec_seats: "loads" }),
-		).rejects.toThrow(/takes a number/);
+			/takes a number/,
+		);
 	});
 
 	it("rejects an unknown key", async () => {
-		await expect(
+		await expectRejects(
 			fields.applyValues(db, "CONTACT", contactId, { nope: "x" }),
-		).rejects.toThrow(/no field called/);
+			/no field called/,
+		);
 	});
 
 	it("writes none of a batch when one value in it is refused", async () => {
 		const record = await makeContact("batch");
 
-		await expect(
+		await expectRejects(
 			fields.applyValues(db, "CONTACT", record, {
 				spec_seats: "12",
 				spec_renewal: "the spring",
 			}),
-		).rejects.toThrow(/takes a date/);
+			/takes a date/,
+		);
 
 		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 	});
@@ -324,12 +348,13 @@ describe("field values", () => {
 			showOnTable: false,
 		});
 
-		await expect(
+		await expectRejects(
 			fields.applyValues(db, "CONTACT", record, {
 				spec_seats: "12",
 				spec_champion: `nobody-${suffix}`,
 			}),
-		).rejects.toThrow(/works here/);
+			/works here/,
+		);
 
 		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 
@@ -406,9 +431,10 @@ describe("a select option that was taken away", () => {
 			),
 		).toEqual(["Silver"]);
 
-		await expect(
+		await expectRejects(
 			fields.applyValues(db, "CONTACT", record, { spec_tier: "Gold" }),
-		).rejects.toThrow(/no option/);
+			/no option/,
+		);
 	});
 
 	it("still reads as a label in a table, not as an option id", async () => {
@@ -456,12 +482,12 @@ describe("a record update that fails", () => {
 			showOnTable: false,
 		});
 
-		await expect(
+		await expectRejects(
 			contacts.update(record, {
 				ownerId: `nobody-${suffix}`,
 				fields: { spec_note: "Reads the docs" },
 			}),
-		).rejects.toThrow();
+		);
 
 		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
 	});
@@ -479,17 +505,22 @@ describe("a record update that fails", () => {
 			showOnTable: false,
 		});
 
-		const deal = await db.deal.create({
-			data: { name: `Spec deal ${suffix}`, ownerId },
+		const entryStage = await db.stage.findFirstOrThrow({
+			where: { key: "DEMO_BOOKED" },
 			select: { id: true },
 		});
 
-		await expect(
+		const deal = await db.deal.create({
+			data: { name: `Spec deal ${suffix}`, ownerId, stageId: entryStage.id },
+			select: { id: true },
+		});
+
+		await expectRejects(
 			deals.update(deal.id, {
 				ownerId: `nobody-${suffix}`,
 				fields: { spec_risk: "Champion left" },
 			}),
-		).rejects.toThrow();
+		);
 
 		expect(await db.fieldValue.count({ where: { dealId: deal.id } })).toBe(0);
 

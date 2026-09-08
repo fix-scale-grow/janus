@@ -309,7 +309,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 				) : null}
 			</DetailSheetSection>
 
-			{deal.stage === "CLOSED_WON" ? <ProductionStatus deal={deal} /> : null}
+			{deal.stage.outcome === "WON" ? <ProductionStatus deal={deal} /> : null}
 
 			<DetailSheetSection title="Details" action={<FieldsCog kind="deal" />}>
 				<DetailSheetProperties>

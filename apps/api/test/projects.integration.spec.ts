@@ -8,6 +8,7 @@ const service = new ProjectsService(db);
 
 let userId: string;
 let dealId: string;
+let entryStageId: string;
 
 beforeAll(async () => {
 	const user = await db.user.create({
@@ -20,11 +21,18 @@ beforeAll(async () => {
 	});
 	userId = user.id;
 
+	const stage = await db.stage.findFirstOrThrow({
+		where: { key: "DEMO_BOOKED" },
+		select: { id: true },
+	});
+	entryStageId = stage.id;
+
 	const deal = await db.deal.create({
 		data: {
 			id: `deal-${suffix}`,
 			name: `Deal ${suffix}`,
 			ownerId: userId,
+			stageId: entryStageId,
 		},
 		select: { id: true },
 	});
@@ -270,6 +278,7 @@ describe("ProjectsService", () => {
 				id: `deal-cascade-${suffix}`,
 				name: `Cascade Deal ${suffix}`,
 				ownerId: userId,
+				stageId: entryStageId,
 			},
 			select: { id: true },
 		});
