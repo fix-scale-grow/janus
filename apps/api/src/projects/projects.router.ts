@@ -11,6 +11,7 @@ import type { z } from "zod";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
+	projectCalendarInput,
 	projectCreateInput,
 	projectIdInput,
 	projectListInput,
@@ -31,6 +32,11 @@ export class ProjectsRouter {
 	@Query({ input: projectListInput })
 	async list(@Input() input: z.infer<typeof projectListInput>) {
 		return this.projects.list(input);
+	}
+
+	@Query({ input: projectCalendarInput })
+	async calendarRange(@Input() input: z.infer<typeof projectCalendarInput>) {
+		return this.projects.calendarRange(input);
 	}
 
 	@Query({ input: projectIdInput })

@@ -4,6 +4,7 @@ import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import { Icon } from "@crm/ui/components/icon";
 import { cn } from "@crm/ui/lib/utils";
+import { useDraggable } from "@dnd-kit/core";
 import { useState } from "react";
 import {
 	CREW_COLOR_CLASSES,
@@ -34,29 +35,47 @@ export function UnscheduledStrip({
 			</button>
 			{open ? (
 				<div className="flex flex-wrap gap-1.5">
-					{tasks.map((task) => {
-						const colors = task.crew
-							? (CREW_COLOR_CLASSES[task.crew.color] ?? NO_CREW_CLASSES)
-							: NO_CREW_CLASSES;
-						return (
-							<TaskPopover key={task.id} projectId={projectId} task={task}>
-								<button
-									type="button"
-									className={cn(
-										"flex items-center gap-1.5 truncate rounded-sm border px-2 py-1 text-xs",
-										colors.bar,
-									)}
-								>
-									<span
-										className={cn("size-1.5 shrink-0 rounded-full", colors.dot)}
-									/>
-									<span className="truncate">{task.name}</span>
-								</button>
-							</TaskPopover>
-						);
-					})}
+					{tasks.map((task) => (
+						<UnscheduledChip key={task.id} projectId={projectId} task={task} />
+					))}
 				</div>
 			) : null}
+		</div>
+	);
+}
+
+function UnscheduledChip({
+	projectId,
+	task,
+}: {
+	projectId: string;
+	task: ProjectTaskLike;
+}) {
+	const colors = task.crew
+		? (CREW_COLOR_CLASSES[task.crew.color] ?? NO_CREW_CLASSES)
+		: NO_CREW_CLASSES;
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+		id: task.id,
+	});
+
+	return (
+		<div
+			ref={setNodeRef}
+			data-board-drag=""
+			className={cn(
+				"flex cursor-grab items-center gap-1.5 truncate rounded-sm border px-2 py-1 text-xs touch-none select-none",
+				colors.bar,
+				isDragging && "opacity-40",
+			)}
+			{...attributes}
+			{...listeners}
+		>
+			<span className={cn("size-1.5 shrink-0 rounded-full", colors.dot)} />
+			<TaskPopover projectId={projectId} task={task}>
+				<button type="button" className="truncate">
+					{task.name}
+				</button>
+			</TaskPopover>
 		</div>
 	);
 }

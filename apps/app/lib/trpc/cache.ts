@@ -242,7 +242,7 @@ export function useCrmCache(): CrmCache {
 						? trpc.projects.byId.queryKey({ id })
 						: trpc.projects.byId.queryKey(),
 				],
-				[trpc.projects.list.queryKey()],
+				[trpc.projects.list.queryKey(), trpc.projects.calendarRange.queryKey()],
 				options,
 			),
 

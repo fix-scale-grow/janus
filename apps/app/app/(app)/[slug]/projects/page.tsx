@@ -16,7 +16,7 @@ import {
 	normalizeProjectStatus,
 	projectsSearchParams,
 } from "./projects-search-params";
-import { ProjectsTable } from "./projects-table";
+import { ProjectsView } from "./projects-view";
 
 export const metadata: Metadata = {
 	title: "Projects",
@@ -66,7 +66,7 @@ async function Projects({
 
 	return (
 		<HydrateClient>
-			<ProjectsTable />
+			<ProjectsView />
 		</HydrateClient>
 	);
 }

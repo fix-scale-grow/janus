@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	projectCalendarInput,
 	projectCreateInput,
 	spanDays,
 	taskCreateInput,
@@ -31,6 +32,49 @@ describe("projectCreateInput", () => {
 		});
 
 		expect(result.success).toBe(false);
+	});
+});
+
+describe("projectCalendarInput", () => {
+	it("accepts a range and floors both ends to midnight UTC", () => {
+		const result = projectCalendarInput.safeParse({
+			from: "2026-09-01T14:30:00Z",
+			to: "2026-10-12T08:00:00Z",
+		});
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.from.toISOString()).toBe("2026-09-01T00:00:00.000Z");
+			expect(result.data.to.toISOString()).toBe("2026-10-12T00:00:00.000Z");
+		}
+	});
+
+	it("rejects a range that ends before it starts", () => {
+		const result = projectCalendarInput.safeParse({
+			from: "2026-09-10",
+			to: "2026-09-08",
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects a range over the cap", () => {
+		const result = projectCalendarInput.safeParse({
+			from: "2026-01-01",
+			to: "2026-06-01",
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("accepts an optional status filter", () => {
+		const result = projectCalendarInput.safeParse({
+			from: "2026-09-01",
+			to: "2026-09-30",
+			status: "ACTIVE",
+		});
+
+		expect(result.success).toBe(true);
 	});
 });
 

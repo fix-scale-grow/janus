@@ -60,6 +60,28 @@ export const projectListInput = listInput.extend({
 
 export type ProjectListInput = z.infer<typeof projectListInput>;
 
+export const projectCalendarInput = z
+	.object({
+		from: dayInput,
+		to: dayInput,
+		status: statusEnum.optional(),
+	})
+	.superRefine((value, ctx) => {
+		if (value.to.getTime() < value.from.getTime()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "The end of the range is before the start.",
+			});
+		} else if (spanDays(value.from, value.to) > PROJECTS.calendar.maxRangeDays) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `A calendar range spans at most ${PROJECTS.calendar.maxRangeDays} days.`,
+			});
+		}
+	});
+
+export type ProjectCalendarInput = z.infer<typeof projectCalendarInput>;
+
 export const projectIdInput = z.object({ id: z.string().min(1) });
 
 export type ProjectIdInput = z.infer<typeof projectIdInput>;

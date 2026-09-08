@@ -61,6 +61,7 @@ export function CalendarGrid({
 							<DayCell
 								key={dayKey(day)}
 								day={day}
+								column={index + 1}
 								inAnchorMonth={
 									view !== "month" || day.getUTCMonth() === anchorMonth
 								}
@@ -76,7 +77,7 @@ export function CalendarGrid({
 								onDayClick={onDayClick}
 							/>
 						))}
-						<div className="pointer-events-none col-span-7 row-start-1 grid grid-cols-7 pt-7">
+						<div className="pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7 pt-7">
 							{bars.map((bar) => (
 								<TaskBar
 									key={bar.task.id}
@@ -95,6 +96,7 @@ export function CalendarGrid({
 
 function DayCell({
 	day,
+	column,
 	inAnchorMonth,
 	isToday,
 	isGoal,
@@ -104,6 +106,7 @@ function DayCell({
 	onDayClick,
 }: {
 	day: Date;
+	column: number;
 	inAnchorMonth: boolean;
 	isToday: boolean;
 	isGoal: boolean;
@@ -121,12 +124,13 @@ function DayCell({
 			ref={setNodeRef}
 			role="button"
 			tabIndex={0}
+			style={{ gridColumn: column }}
 			onClick={() => onDayClick(day)}
 			onKeyDown={(event) => {
 				if (event.key === "Enter" || event.key === " ") onDayClick(day);
 			}}
 			className={cn(
-				"flex cursor-pointer flex-col gap-1 border-r border-border p-1 transition-colors last:border-r-0",
+				"row-start-1 flex cursor-pointer flex-col gap-1 border-r border-border p-1 transition-colors last:border-r-0",
 				!inAnchorMonth && "bg-muted/30 text-muted-foreground",
 				isOver && "bg-accent/60 ring-2 ring-primary/30",
 			)}

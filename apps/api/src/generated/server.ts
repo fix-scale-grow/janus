@@ -31,7 +31,7 @@ import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFrom
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
-import { projectListInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
+import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
@@ -610,6 +610,9 @@ const appRouter = t.router({
     list: publicProcedure
       .input(projectListInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["list"]>>),
+    calendarRange: publicProcedure
+      .input(projectCalendarInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["calendarRange"]>>),
     byId: publicProcedure
       .input(projectIdInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["byId"]>>),

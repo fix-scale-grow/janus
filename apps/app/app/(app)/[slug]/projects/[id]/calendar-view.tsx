@@ -170,7 +170,7 @@ export function CalendarView({ id }: { id: string }) {
 
 	const activeTask =
 		activeId != null
-			? (scheduled.find((task) => task.id === activeId) ?? null)
+			? (tasks.find((task) => task.id === activeId) ?? null)
 			: null;
 
 	const timelineStart = useMemo(() => weekOf(anchor)[0] ?? anchor, [anchor]);
@@ -217,8 +217,22 @@ export function CalendarView({ id }: { id: string }) {
 		const overId = event.over?.id;
 		if (overId == null) return;
 		const targetKey = String(overId);
+		const taskId = String(event.active.id);
 		const startKey = event.active.data.current?.startKey as string | undefined;
-		if (!startKey || startKey === targetKey) return;
+
+		if (!startKey) {
+			if (!unscheduled.some((row) => row.id === taskId)) return;
+			const day = fromDayKey(targetKey);
+			taskMove.mutate({
+				id: taskId,
+				startDay: day,
+				endDay: day,
+				sortOrder: 0,
+			});
+			return;
+		}
+
+		if (startKey === targetKey) return;
 
 		const deltaDays = Math.round(
 			(fromDayKey(targetKey).getTime() - fromDayKey(startKey).getTime()) /
@@ -226,7 +240,6 @@ export function CalendarView({ id }: { id: string }) {
 		);
 		if (deltaDays === 0) return;
 
-		const taskId = String(event.active.id);
 		const task = scheduled.find((row) => row.id === taskId);
 		if (!task) return;
 
@@ -276,16 +289,16 @@ export function CalendarView({ id }: { id: string }) {
 				</div>
 			</div>
 
-			{tab === "calendar" ? (
-				<DndContext
-					sensors={sensors}
-					collisionDetection={closestCorners}
-					onDragStart={(event: DragStartEvent) =>
-						setActiveId(String(event.active.id))
-					}
-					onDragEnd={handleDragEnd}
-					onDragCancel={() => setActiveId(null)}
-				>
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCorners}
+				onDragStart={(event: DragStartEvent) =>
+					setActiveId(String(event.active.id))
+				}
+				onDragEnd={handleDragEnd}
+				onDragCancel={() => setActiveId(null)}
+			>
+				{tab === "calendar" ? (
 					<CalendarGrid
 						weeks={weeks}
 						scheduled={scheduled}
@@ -296,19 +309,20 @@ export function CalendarView({ id }: { id: string }) {
 						onDayClick={openPanel}
 						projectId={id}
 					/>
-					<DragOverlay dropAnimation={null}>
-						{activeTask ? (
-							<div className={cn(TASK_BAR_CLASSES, barClasses(activeTask))}>
-								{activeTask.name}
-							</div>
-						) : null}
-					</DragOverlay>
-				</DndContext>
-			) : (
-				<TimelineView project={project.data} anchor={anchor} />
-			)}
+				) : (
+					<TimelineView project={project.data} anchor={anchor} />
+				)}
 
-			<UnscheduledStrip projectId={id} tasks={unscheduled} />
+				<UnscheduledStrip projectId={id} tasks={unscheduled} />
+
+				<DragOverlay dropAnimation={null}>
+					{activeTask ? (
+						<div className={cn(TASK_BAR_CLASSES, barClasses(activeTask))}>
+							{activeTask.name}
+						</div>
+					) : null}
+				</DragOverlay>
+			</DndContext>
 
 			<AddTaskPanel
 				projectId={id}
