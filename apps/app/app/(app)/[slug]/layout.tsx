@@ -23,7 +23,7 @@ export default function AppLayout({
 
 				<div className="flex min-h-0 flex-1">
 					<Suspense fallback={<AppIconRailFallback />}>
-						<AppIconRail />
+						<AppRail />
 					</Suspense>
 					{children}
 				</div>
@@ -40,20 +40,39 @@ export default function AppLayout({
 	);
 }
 
+async function AppRail() {
+	await connection();
+	await getServerQueryClient().prefetchQuery(
+		getServerTrpc().permissions.mine.queryOptions(),
+	);
+
+	return (
+		<HydrateClient>
+			<AppIconRail />
+		</HydrateClient>
+	);
+}
+
 async function WorkspaceHeader({
 	params,
 }: Pick<LayoutProps<"/[slug]">, "params">) {
 	await connection();
-	const workspacePromise = getServerQueryClient()
-		.fetchQuery(getServerTrpc().workspace.get.queryOptions())
+	const queryClient = getServerQueryClient();
+	const trpc = getServerTrpc();
+	const workspacePromise = queryClient
+		.fetchQuery(trpc.workspace.get.queryOptions())
 		.catch((error: unknown) => {
 			unstable_rethrow(error);
 			return null;
 		});
+	const permissionsPromise = queryClient.prefetchQuery(
+		trpc.permissions.mine.queryOptions(),
+	);
 	const [{ user }, { slug }, workspace] = await Promise.all([
 		requireMailboxAccess(),
 		params,
 		workspacePromise,
+		permissionsPromise,
 	]);
 
 	if (workspace && workspace.slug !== slug) notFound();

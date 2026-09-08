@@ -20,6 +20,7 @@ const ITEMS: SettingsNavItem[] = [
 	{ title: "Connections", href: `${ROOT}/connections` },
 	{ title: "Currencies", href: `${ROOT}/currencies` },
 	{ title: "Price book", href: `${ROOT}/price-book` },
+	{ title: "Crews", href: `${ROOT}/crews` },
 	{ title: "Symbols", href: `${ROOT}/symbols` },
 	{ title: "Templates", href: `${ROOT}/templates` },
 	{ title: "Fields", href: `${ROOT}/fields` },

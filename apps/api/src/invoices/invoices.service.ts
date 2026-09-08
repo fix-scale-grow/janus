@@ -17,7 +17,11 @@ import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
 import { parseTemplateBlocks } from "../templates/template-blocks";
 import { TemplatesService } from "../templates/templates.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
-import { agingBucket, linesFromEstimate } from "./invoice-logic";
+import {
+	agingBucket,
+	lineItemsTotalCents,
+	linesFromEstimate,
+} from "./invoice-logic";
 import { renderInvoicePdf } from "./invoice-pdf";
 import { INVOICES } from "./invoices.config";
 import type {
@@ -69,18 +73,6 @@ function contactName(
 ): string | null {
 	if (!contact) return null;
 	return [contact.firstName, contact.lastName].filter(Boolean).join(" ");
-}
-
-function lineItemsTotalCents(
-	lineItems: {
-		quantity: Prisma.Decimal | number | string;
-		priceCents: number;
-	}[],
-): number {
-	return lineItems.reduce(
-		(sum, item) => sum + Math.round(Number(item.quantity) * item.priceCents),
-		0,
-	);
 }
 
 @Injectable()

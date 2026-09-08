@@ -11,6 +11,8 @@ import { validateEnv } from "./config/env.validation";
 import { ContactsModule } from "./contacts/contacts.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { ConversationsModule } from "./conversations/conversations.module";
+import { CostsModule } from "./costs/costs.module";
+import { CrewsModule } from "./crews/crews.module";
 import { CrmModule } from "./crm/crm.module";
 import { CurrencyModule } from "./currency/currency.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
@@ -27,7 +29,9 @@ import { logAuthRoute } from "./logging/request-logger.middleware";
 import { MailboxModule } from "./mailbox/mailbox.module";
 import { MailerModule } from "./mailer/mailer.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
+import { PermissionsModule } from "./permissions/permissions.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { ReportsModule } from "./reports/reports.module";
 import { SearchModule } from "./search/search.module";
 import { ServicesCatalogModule } from "./services-catalog/services-catalog.module";
 import { SettingsModule } from "./settings/settings.module";
@@ -68,6 +72,10 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		FieldsModule,
 		InvoicesModule,
 		ProjectsModule,
+		CrewsModule,
+		CostsModule,
+		PermissionsModule,
+		ReportsModule,
 		ActivitiesModule,
 		AgentModule,
 		DashboardModule,

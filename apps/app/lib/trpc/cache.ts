@@ -18,12 +18,14 @@ type RemovedRecords = { kind: RecordKind; ids: string[] };
 
 export type CrmCache = {
 	contact(id?: string, options?: Options): Promise<void>;
+	crews(options?: Options): Promise<void>;
 	deal(id?: string, options?: Options): Promise<void>;
 	drawing(id?: string, options?: Options): Promise<void>;
 	estimate(id?: string, options?: Options): Promise<void>;
 	invoice(id?: string, options?: Options): Promise<void>;
 	project(id?: string, options?: Options): Promise<void>;
 	contract(id?: string, options?: Options): Promise<void>;
+	costs(dealId: string, options?: Options): Promise<void>;
 	service(id?: string, options?: Options): Promise<void>;
 	symbol(id?: string, options?: Options): Promise<void>;
 	template(purpose?: TemplatePurpose, options?: Options): Promise<void>;
@@ -169,6 +171,20 @@ export function useCrmCache(): CrmCache {
 					trpc.dashboard.summary.queryKey(),
 					trpc.currency.settings.queryKey(),
 				],
+				options,
+			),
+
+		crews: (options) =>
+			run(
+				[trpc.crews.list.queryKey()],
+				[trpc.projects.byId.queryKey()],
+				options,
+			),
+
+		costs: (dealId, options) =>
+			run(
+				[trpc.costs.list.queryKey({ dealId })],
+				[trpc.costs.profitForDeal.queryKey({ dealId })],
 				options,
 			),
 

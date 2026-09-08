@@ -54,6 +54,10 @@ model User {
   createdProjects Project[]     @relation("ProjectCreator")
   projectTasks    ProjectTask[] @relation("ProjectTaskAssignee")
 
+  jobCosts           JobCost[]        @relation("JobCostCreator")
+  permissions        UserPermission[] @relation("PermissionHolder")
+  grantedPermissions UserPermission[] @relation("PermissionGrantor")
+
   @@unique([email])
   @@map("user")
 }
@@ -905,6 +909,7 @@ model Deal {
   invoices    Invoice[]
   projects    Project[]
   contracts   Contract[]
+  jobCosts    JobCost[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -1194,14 +1199,20 @@ model ProjectTask {
   name       String
   note       String?
   day        DateTime?
+  startDay   DateTime?
+  endDay     DateTime?
   status     ProjectTaskStatus @default(TODO)
   sortOrder  Int               @default(0)
   assigneeId String?
   assignee   User?             @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  crewId     String?
+  crew       Crew?             @relation(fields: [crewId], references: [id], onDelete: SetNull)
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
   @@index([projectId, day])
+  @@index([projectId, startDay])
+  @@index([crewId, startDay])
   @@map("project_task")
 }
 
@@ -1799,4 +1810,59 @@ model Contract {
   @@index([estimateId])
   @@index([status])
   @@map("contract")
+}
+
+enum JobCostCategory {
+  MATERIALS
+  LABOR
+  SUBCONTRACTOR
+  EQUIPMENT
+  PERMITS_FEES
+  OTHER
+}
+
+model Crew {
+  id        String        @id @default(cuid())
+  name      String
+  color     String
+  archived  Boolean       @default(false)
+  tasks     ProjectTask[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("crew")
+}
+
+model JobCost {
+  id          String          @id @default(cuid())
+  dealId      String
+  deal        Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  date        DateTime
+  amountCents Int
+  currency    String
+  category    JobCostCategory
+  note        String?
+  receiptPath String?
+  createdById String
+  createdBy   User            @relation("JobCostCreator", fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([dealId, date])
+  @@index([category])
+  @@index([date])
+  @@map("job_cost")
+}
+
+model UserPermission {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation("PermissionHolder", fields: [userId], references: [id], onDelete: Cascade)
+  key         String
+  grantedById String
+  grantedBy   User     @relation("PermissionGrantor", fields: [grantedById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, key])
+  @@map("user_permission")
 }

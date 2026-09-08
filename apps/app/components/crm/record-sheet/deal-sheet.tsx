@@ -66,6 +66,7 @@ import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { DealCosts } from "./deal-costs";
 import { AttachDealContact } from "./quick-add";
 import { RecordActions } from "./record-actions";
 import { AddRow, RecordSheetFrame } from "./record-parts";
@@ -179,6 +180,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "invoices",
 					label: "Invoices",
 					content: <DealInvoices deal={deal} />,
+				},
+				{
+					value: "costs",
+					label: "Costs",
+					content: <DealCosts dealId={deal.id} />,
 				},
 				{
 					value: "projects",

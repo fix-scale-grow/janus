@@ -1,0 +1,1 @@
+Merge-day only. After this branch merges to janus/foundation and every session has rebased, wrap this file in a normal migration (timestamped last) and remove `day` from ProjectTask in schema.prisma. Until then no code on this branch reads or writes `day`.

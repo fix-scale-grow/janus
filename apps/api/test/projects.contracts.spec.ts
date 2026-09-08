@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
 	projectCreateInput,
+	spanDays,
+	taskCreateInput,
 	taskMoveInput,
 	taskUpdateInput,
 	toDay,
@@ -33,10 +35,11 @@ describe("projectCreateInput", () => {
 });
 
 describe("taskMoveInput", () => {
-	it("accepts day: null", () => {
+	it("accepts startDay/endDay: null", () => {
 		const result = taskMoveInput.safeParse({
 			id: "task_1",
-			day: null,
+			startDay: null,
+			endDay: null,
 			sortOrder: 0,
 		});
 
@@ -46,7 +49,8 @@ describe("taskMoveInput", () => {
 	it("rejects a negative sortOrder", () => {
 		const result = taskMoveInput.safeParse({
 			id: "task_1",
-			day: null,
+			startDay: null,
+			endDay: null,
 			sortOrder: -1,
 		});
 
@@ -62,5 +66,70 @@ describe("taskUpdateInput", () => {
 		});
 
 		expect(result.success).toBe(true);
+	});
+});
+
+describe("task spans", () => {
+	it("fills endDay from startDay on create", () => {
+		const result = taskCreateInput.safeParse({
+			projectId: "p1",
+			name: "Tear-off",
+			startDay: "2026-09-08T10:00:00Z",
+		});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.endDay?.toISOString()).toBe(
+				"2026-09-08T00:00:00.000Z",
+			);
+		}
+	});
+
+	it("rejects an end day before the start day", () => {
+		const result = taskMoveInput.safeParse({
+			id: "t1",
+			startDay: "2026-09-10",
+			endDay: "2026-09-08",
+			sortOrder: 0,
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects a span over the cap", () => {
+		const result = taskMoveInput.safeParse({
+			id: "t1",
+			startDay: "2026-01-01",
+			endDay: "2026-03-01",
+			sortOrder: 0,
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects one-sided spans on move", () => {
+		const result = taskMoveInput.safeParse({
+			id: "t1",
+			startDay: "2026-09-10",
+			endDay: null,
+			sortOrder: 0,
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("moves to unscheduled with both days null", () => {
+		const result = taskMoveInput.safeParse({
+			id: "t1",
+			startDay: null,
+			endDay: null,
+			sortOrder: 0,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("counts span days inclusively", () => {
+		expect(
+			spanDays(
+				new Date("2026-09-06T00:00:00Z"),
+				new Date("2026-09-08T00:00:00Z"),
+			),
+		).toBe(3);
 	});
 });

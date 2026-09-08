@@ -1,0 +1,236 @@
+import type { Db } from "@crm/db";
+import { Inject, Injectable } from "@nestjs/common";
+import { InjectDatabase } from "../database/database.constants";
+import { lineItemsTotalCents } from "../invoices/invoice-logic";
+import { INVOICES } from "../invoices/invoices.config";
+import { PERMISSION_KEYS } from "../permissions/permissions.config";
+import { PermissionsService } from "../permissions/permissions.service";
+import { toDay } from "../projects/projects.contracts";
+import type { ReportRangeInput } from "./reports.contracts";
+
+const TRAILING_MONTHS = 12;
+
+function monthKey(date: Date): string {
+	return date.toISOString().slice(0, 7);
+}
+
+function monthStart(from: Date, monthsBack: number): Date {
+	return toDay(
+		new Date(
+			Date.UTC(from.getUTCFullYear(), from.getUTCMonth() - monthsBack, 1),
+		),
+	);
+}
+
+function monthSeries(start: Date, count: number): string[] {
+	return Array.from({ length: count }, (_, index) =>
+		monthKey(
+			new Date(
+				Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + index, 1),
+			),
+		),
+	);
+}
+
+type ClientBucket = {
+	contactId: string;
+	name: string;
+	currency: string;
+	dealCount: number;
+	invoicedCents: number;
+	costsCents: number;
+};
+
+type MonthBucket = { invoicedCents: number; costsCents: number };
+
+@Injectable()
+export class ReportsService {
+	constructor(
+		@InjectDatabase() private readonly db: Db,
+		@Inject(PermissionsService)
+		private readonly permissions: PermissionsService,
+	) {}
+
+	async byClient(userId: string) {
+		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+
+		const deals = await this.db.deal.findMany({
+			select: {
+				id: true,
+				currency: true,
+				contacts: {
+					select: {
+						contact: { select: { id: true, firstName: true, lastName: true } },
+					},
+				},
+				invoices: {
+					where: { status: { in: [...INVOICES.revenueStatuses] } },
+					select: {
+						currency: true,
+						lineItems: { select: { quantity: true, priceCents: true } },
+					},
+				},
+				jobCosts: { select: { currency: true, amountCents: true } },
+			},
+		});
+
+		const buckets = new Map<string, ClientBucket>();
+		const bucket = (contactId: string, name: string, currency: string) => {
+			const key = `${contactId}\u0000${currency}`;
+			const existing = buckets.get(key);
+			if (existing) return existing;
+			const created: ClientBucket = {
+				contactId,
+				name,
+				currency,
+				dealCount: 0,
+				invoicedCents: 0,
+				costsCents: 0,
+			};
+			buckets.set(key, created);
+			return created;
+		};
+
+		for (const deal of deals) {
+			const contacts = deal.contacts.map((link) => link.contact);
+			if (contacts.length === 0) continue;
+
+			for (const contact of contacts) {
+				const name = [contact.firstName, contact.lastName]
+					.filter(Boolean)
+					.join(" ");
+
+				bucket(contact.id, name, deal.currency).dealCount += 1;
+
+				for (const invoice of deal.invoices) {
+					const total = lineItemsTotalCents(invoice.lineItems);
+					bucket(contact.id, name, invoice.currency).invoicedCents += total;
+				}
+				for (const cost of deal.jobCosts) {
+					bucket(contact.id, name, cost.currency).costsCents +=
+						cost.amountCents;
+				}
+			}
+		}
+
+		return {
+			rows: [...buckets.values()]
+				.map((row) => {
+					const profitCents = row.invoicedCents - row.costsCents;
+					return {
+						...row,
+						profitCents,
+						marginPct:
+							row.invoicedCents > 0
+								? (profitCents / row.invoicedCents) * 100
+								: null,
+					};
+				})
+				.sort((a, b) => b.profitCents - a.profitCents),
+		};
+	}
+
+	async byMonth(userId: string) {
+		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+
+		const now = new Date();
+		const start = monthStart(now, TRAILING_MONTHS - 1);
+
+		const [invoices, costs] = await Promise.all([
+			this.db.invoice.findMany({
+				where: {
+					status: { in: [...INVOICES.revenueStatuses] },
+					OR: [
+						{ issuedAt: { gte: start } },
+						{ issuedAt: null, createdAt: { gte: start } },
+					],
+				},
+				select: {
+					issuedAt: true,
+					createdAt: true,
+					currency: true,
+					lineItems: { select: { quantity: true, priceCents: true } },
+				},
+			}),
+			this.db.jobCost.findMany({
+				where: { date: { gte: start } },
+				select: { date: true, currency: true, amountCents: true },
+			}),
+		]);
+
+		const byCurrency = new Map<string, Map<string, MonthBucket>>();
+		const currencies = new Set<string>();
+		const cell = (currency: string, month: string) => {
+			currencies.add(currency);
+			let months = byCurrency.get(currency);
+			if (!months) {
+				months = new Map();
+				byCurrency.set(currency, months);
+			}
+			let value = months.get(month);
+			if (!value) {
+				value = { invoicedCents: 0, costsCents: 0 };
+				months.set(month, value);
+			}
+			return value;
+		};
+
+		for (const invoice of invoices) {
+			const date = invoice.issuedAt ?? invoice.createdAt;
+			const total = lineItemsTotalCents(invoice.lineItems);
+			cell(invoice.currency, monthKey(date)).invoicedCents += total;
+		}
+		for (const cost of costs) {
+			cell(cost.currency, monthKey(cost.date)).costsCents += cost.amountCents;
+		}
+
+		const months = monthSeries(start, TRAILING_MONTHS);
+		const rows: {
+			month: string;
+			currency: string;
+			invoicedCents: number;
+			costsCents: number;
+			profitCents: number;
+		}[] = [];
+		for (const currency of currencies) {
+			for (const month of months) {
+				const value = byCurrency.get(currency)?.get(month) ?? {
+					invoicedCents: 0,
+					costsCents: 0,
+				};
+				rows.push({
+					month,
+					currency,
+					invoicedCents: value.invoicedCents,
+					costsCents: value.costsCents,
+					profitCents: value.invoicedCents - value.costsCents,
+				});
+			}
+		}
+
+		return { rows };
+	}
+
+	async byCategory(userId: string, input: ReportRangeInput) {
+		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+
+		const now = new Date();
+		const defaultStart = monthStart(now, TRAILING_MONTHS - 1);
+		const from = input.from ?? defaultStart;
+		const to = input.to ?? now;
+
+		const grouped = await this.db.jobCost.groupBy({
+			by: ["category", "currency"],
+			where: { date: { gte: from, lte: to } },
+			_sum: { amountCents: true },
+		});
+
+		return {
+			rows: grouped.map((row) => ({
+				category: row.category,
+				currency: row.currency,
+				totalCents: row._sum.amountCents ?? 0,
+			})),
+		};
+	}
+}

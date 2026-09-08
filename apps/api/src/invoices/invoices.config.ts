@@ -1,4 +1,5 @@
 export const INVOICES = {
 	defaultNetDays: 30,
 	dueSoonDays: 7,
+	revenueStatuses: ["SENT", "PAID"],
 } as const;

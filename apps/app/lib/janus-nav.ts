@@ -1,4 +1,5 @@
 import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
+import ChartColumn from "@carbon/icons-react/es/ChartColumn";
 import Chat from "@carbon/icons-react/es/Chat";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Dashboard from "@carbon/icons-react/es/Dashboard";
@@ -35,6 +36,7 @@ export type JanusModule = {
 	related?: string[];
 	/** v0-suite source route this module ports from (design contract). */
 	source?: string;
+	permission?: string;
 };
 
 /** A module already wired to a real engine route; guaranteed to carry an icon. */
@@ -101,6 +103,15 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: EventSchedule,
 		source: "app/(app)/projects",
+	},
+	{
+		title: "Reports",
+		href: "/reports",
+		match: "prefix",
+		status: "live",
+		icon: ChartColumn,
+		source: "app/(app)/reports",
+		permission: "profit.view",
 	},
 	{
 		title: "Field",

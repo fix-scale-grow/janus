@@ -139,6 +139,14 @@ export function ProjectHeader({ id }: { id: string }) {
 						>
 							{project.deal.name}
 						</button>
+						<span>·</span>
+						<button
+							type="button"
+							onClick={() => openRecord({ kind: "deal", id: project.deal.id })}
+							className="truncate text-muted-foreground underline-offset-2 hover:underline"
+						>
+							Job costs
+						</button>
 					</div>
 				</div>
 
