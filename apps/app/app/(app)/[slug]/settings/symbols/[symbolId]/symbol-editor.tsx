@@ -45,9 +45,12 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 const NONE = "none";
 
+const TRADE_MAX_LENGTH = 60;
+
 const symbolDetailRow = z.object({
 	id: z.string().min(1),
 	name: z.string().min(1),
+	trade: z.string().min(1),
 	elements: excalidrawElement.array(),
 	widthFt: z.coerce.number().positive().nullable(),
 	heightFt: z.coerce.number().positive().nullable(),
@@ -72,6 +75,7 @@ function parseOptionalPositiveFt(value: string): number | null | undefined {
 
 type FormValues = {
 	name: string;
+	trade: string;
 	widthFt: string;
 	heightFt: string;
 	serviceId: string;
@@ -79,12 +83,20 @@ type FormValues = {
 };
 
 function emptyForm(): FormValues {
-	return { name: "", widthFt: "", heightFt: "", serviceId: NONE, active: true };
+	return {
+		name: "",
+		trade: "roofing",
+		widthFt: "",
+		heightFt: "",
+		serviceId: NONE,
+		active: true,
+	};
 }
 
 function formFromRow(row: z.infer<typeof symbolDetailRow>): FormValues {
 	return {
 		name: row.name,
+		trade: row.trade,
 		widthFt: row.widthFt ? String(row.widthFt) : "",
 		heightFt: row.heightFt ? String(row.heightFt) : "",
 		serviceId: row.serviceId ?? NONE,
@@ -120,6 +132,7 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 	}, []);
 
 	const nameId = useId();
+	const tradeId = useId();
 	const widthId = useId();
 	const heightId = useId();
 	const serviceFieldId = useId();
@@ -153,6 +166,8 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 			toast.error("A symbol needs a name.");
 			return;
 		}
+
+		const trade = values.trade.trim() || "roofing";
 
 		const widthFt = parseOptionalPositiveFt(values.widthFt);
 		if (widthFt === undefined) {
@@ -206,6 +221,7 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 		if (isNew) {
 			create.mutate({
 				name,
+				trade,
 				elements,
 				widthFt,
 				heightFt,
@@ -217,6 +233,7 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 				id: symbolId,
 				data: {
 					name,
+					trade,
 					elements,
 					widthFt,
 					heightFt,
@@ -266,6 +283,18 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 									setValues((prev) => ({ ...prev, name: event.target.value }))
 								}
 								value={values.name}
+							/>
+						</Field>
+
+						<Field>
+							<FieldLabel htmlFor={tradeId}>Trade</FieldLabel>
+							<Input
+								id={tradeId}
+								maxLength={TRADE_MAX_LENGTH}
+								onChange={(event) =>
+									setValues((prev) => ({ ...prev, trade: event.target.value }))
+								}
+								value={values.trade}
 							/>
 						</Field>
 
