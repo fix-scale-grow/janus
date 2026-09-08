@@ -11,10 +11,18 @@ export const costCategoryEnum = z.enum(
 
 export const costListInput = z.object({ dealId: z.string().min(1) });
 
+const AMOUNT_TOO_LARGE = "That amount is too large to record.";
+
+const amountCents = z
+	.number()
+	.int(AMOUNT_TOO_LARGE)
+	.min(1)
+	.max(COSTS.maxAmountCents, AMOUNT_TOO_LARGE);
+
 export const costCreateInput = z.object({
 	dealId: z.string().min(1),
 	date: dayInput,
-	amountCents: z.number().int().min(1).max(COSTS.maxAmountCents),
+	amountCents,
 	category: costCategoryEnum,
 	note: z.string().trim().max(COSTS.noteMax).optional(),
 });
@@ -23,7 +31,7 @@ export type CostCreateInput = z.infer<typeof costCreateInput>;
 export const costUpdateInput = z.object({
 	id: z.string().min(1),
 	date: dayInput.optional(),
-	amountCents: z.number().int().min(1).max(COSTS.maxAmountCents).optional(),
+	amountCents: amountCents.optional(),
 	category: costCategoryEnum.optional(),
 	note: z.string().trim().max(COSTS.noteMax).nullable().optional(),
 });

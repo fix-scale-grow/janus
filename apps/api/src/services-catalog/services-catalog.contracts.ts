@@ -8,7 +8,13 @@ const unitEnum = z.enum(
 	Object.values(ServiceUnit) as [ServiceUnit, ...ServiceUnit[]],
 );
 
-const cents = z.number().int().min(0).max(99_999_999);
+const PRICE_TOO_LARGE = "That price is too large to record.";
+
+const cents = z
+	.number()
+	.int(PRICE_TOO_LARGE)
+	.min(0)
+	.max(99_999_999, PRICE_TOO_LARGE);
 
 const modifierField: z.ZodOptional<z.ZodNullable<z.ZodType<ServiceModifier>>> =
 	serviceModifier.nullish();

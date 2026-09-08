@@ -25,6 +25,19 @@ describe("serviceCreateInput", () => {
 
 		expect(result.success).toBe(true);
 	});
+
+	it("gives one human message for a price far past the cap", () => {
+		const result = serviceCreateInput.safeParse({
+			name: "Tear-off",
+			unit: "PER_SQUARE",
+			unitPriceCents: 1e99,
+		});
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		const messages = new Set(result.error.issues.map((issue) => issue.message));
+		expect(messages).toEqual(new Set(["That price is too large to record."]));
+	});
 });
 
 describe("serviceUpdateInput", () => {
