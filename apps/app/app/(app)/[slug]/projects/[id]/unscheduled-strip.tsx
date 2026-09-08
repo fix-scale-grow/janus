@@ -2,6 +2,7 @@
 
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import ChevronRight from "@carbon/icons-react/es/ChevronRight";
+import Draggable from "@carbon/icons-react/es/Draggable";
 import { Icon } from "@crm/ui/components/icon";
 import { cn } from "@crm/ui/lib/utils";
 import { useDraggable } from "@dnd-kit/core";
@@ -25,14 +26,21 @@ export function UnscheduledStrip({
 
 	return (
 		<div className="flex flex-col gap-2 rounded-lg border border-border p-2">
-			<button
-				type="button"
-				onClick={() => setOpen((prev) => !prev)}
-				className="flex items-center gap-1 text-sm font-medium text-foreground"
-			>
-				<Icon icon={open ? ChevronDown : ChevronRight} className="size-4" />
-				Unscheduled · {tasks.length}
-			</button>
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					onClick={() => setOpen((prev) => !prev)}
+					className="flex items-center gap-1 text-sm font-medium text-foreground"
+				>
+					<Icon icon={open ? ChevronDown : ChevronRight} className="size-4" />
+					Unscheduled · {tasks.length}
+				</button>
+				{open ? (
+					<span className="text-xs text-muted-foreground">
+						Drag a task onto a day to schedule it
+					</span>
+				) : null}
+			</div>
 			{open ? (
 				<div className="flex flex-wrap gap-1.5">
 					{tasks.map((task) => (
@@ -63,13 +71,14 @@ function UnscheduledChip({
 			ref={setNodeRef}
 			data-board-drag=""
 			className={cn(
-				"flex cursor-grab items-center gap-1.5 truncate rounded-sm border px-2 py-1 text-xs touch-none select-none",
+				"flex cursor-grab items-center gap-1.5 truncate rounded-sm border px-2 py-1 text-xs touch-none select-none active:cursor-grabbing",
 				colors.bar,
 				isDragging && "opacity-40",
 			)}
 			{...attributes}
 			{...listeners}
 		>
+			<Icon icon={Draggable} className="size-3 shrink-0 opacity-60" />
 			<span className={cn("size-1.5 shrink-0 rounded-full", colors.dot)} />
 			<TaskPopover projectId={projectId} task={task}>
 				<button type="button" className="truncate">

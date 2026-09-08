@@ -1,5 +1,6 @@
 "use client";
 
+import Draggable from "@carbon/icons-react/es/Draggable";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -11,6 +12,7 @@ import {
 	AlertDialogTitle,
 } from "@crm/ui/components/alert-dialog";
 import { Button } from "@crm/ui/components/button";
+import { Icon } from "@crm/ui/components/icon";
 import {
 	Popover,
 	PopoverContent,
@@ -344,7 +346,17 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 				</div>
 				<DragOverlay dropAnimation={null}>
 					{activeSpan ? (
-						<div className={cn(BAR_CLASSES, NO_CREW_CLASSES.bar)}>
+						<div
+							className={cn(
+								BAR_CLASSES,
+								NO_CREW_CLASSES.bar,
+								"cursor-grabbing",
+							)}
+						>
+							<Icon
+								icon={Draggable}
+								className="size-3 shrink-0 text-muted-foreground"
+							/>
 							{projectLabel(activeSpan)}
 						</div>
 					) : null}
@@ -432,7 +444,7 @@ function ProjectBar({
 			className={cn(
 				BAR_CLASSES,
 				NO_CREW_CLASSES.bar,
-				"cursor-pointer hover:bg-accent",
+				"group cursor-grab hover:bg-accent active:cursor-grabbing",
 				span.status === "COMPLETE" && "opacity-60",
 				bar.clippedStart && "rounded-l-none border-l-0",
 				bar.clippedEnd && "rounded-r-none border-r-0",
@@ -441,6 +453,10 @@ function ProjectBar({
 			{...attributes}
 			{...listeners}
 		>
+			<Icon
+				icon={Draggable}
+				className="size-3 shrink-0 text-muted-foreground group-hover:text-foreground"
+			/>
 			<span className="truncate">{projectLabel(span)}</span>
 		</button>
 	);
