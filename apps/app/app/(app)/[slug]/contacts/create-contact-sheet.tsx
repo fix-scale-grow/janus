@@ -134,6 +134,7 @@ function CreateContactForm() {
 								value={firstName}
 								onChange={(event) => setFirstName(event.target.value)}
 								autoComplete="off"
+								maxLength={120}
 								required
 							/>
 						</Field>
@@ -145,6 +146,7 @@ function CreateContactForm() {
 								value={lastName}
 								onChange={(event) => setLastName(event.target.value)}
 								autoComplete="off"
+								maxLength={120}
 							/>
 						</Field>
 

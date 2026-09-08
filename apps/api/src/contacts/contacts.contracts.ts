@@ -17,8 +17,16 @@ export const contactOptionsInput = z.object({
 export type ContactOptionsInput = z.infer<typeof contactOptionsInput>;
 
 export const contactCreateInput = z.object({
-	firstName: z.string().trim().min(1, "A contact needs a first name."),
-	lastName: z.string().trim().optional(),
+	firstName: z
+		.string()
+		.trim()
+		.min(1, "A contact needs a first name.")
+		.max(120, "That first name is too long."),
+	lastName: z
+		.string()
+		.trim()
+		.max(120, "That last name is too long.")
+		.optional(),
 	email: z.email("That is not an email address.").optional().or(z.literal("")),
 	phone: z.string().trim().optional(),
 	title: z.string().trim().optional(),
@@ -33,8 +41,17 @@ export const contactCreateInput = z.object({
 export type ContactCreateInput = z.infer<typeof contactCreateInput>;
 
 const contactUpdateInput = z.object({
-	firstName: z.string().trim().min(1).optional(),
-	lastName: z.string().optional(),
+	firstName: z
+		.string()
+		.trim()
+		.min(1)
+		.max(120, "That first name is too long.")
+		.optional(),
+	lastName: z
+		.string()
+		.trim()
+		.max(120, "That last name is too long.")
+		.optional(),
 	email: z.string().optional(),
 	phone: z.string().optional(),
 	title: z.string().optional(),
