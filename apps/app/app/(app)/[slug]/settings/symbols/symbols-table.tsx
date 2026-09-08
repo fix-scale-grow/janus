@@ -2,6 +2,7 @@
 
 import Add from "@carbon/icons-react/es/Add";
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
+import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import PaintBrush from "@carbon/icons-react/es/PaintBrush";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
@@ -14,6 +15,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@crm/ui/components/alert-dialog";
+import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import {
 	Card,
@@ -23,6 +25,12 @@ import {
 	CardTitle,
 } from "@crm/ui/components/card";
 import { CardTableEmpty } from "@crm/ui/components/card-table";
+import { Checkbox } from "@crm/ui/components/checkbox";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@crm/ui/components/collapsible";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -45,6 +53,7 @@ import {
 import { Spinner } from "@crm/ui/components/spinner";
 import { Switch } from "@crm/ui/components/switch";
 import { TableCell } from "@crm/ui/components/table";
+import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -54,6 +63,7 @@ import { parseSymbolRowsWith, symbolRowBase } from "@/lib/symbol-rows";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+import { SymbolsBulkActions } from "./symbols-bulk-actions";
 
 type SymbolRow = z.infer<typeof symbolRowBase>;
 
@@ -69,8 +79,8 @@ function reportError(error: { message: string }) {
 }
 
 const COLUMNS: SimpleTableColumn[] = [
+	{ id: "select", srLabel: "Select", width: "w-10" },
 	{ id: "name", header: "Name" },
-	{ id: "trade", header: "Trade", width: "w-32" },
 	{ id: "size", header: "Size", width: "w-32" },
 	{ id: "service", header: "Service", width: "w-40" },
 	{ id: "active", header: "Active", width: "w-16", align: "center" },
@@ -85,6 +95,34 @@ const SYMBOL_PACKS = [
 	{ key: "building", label: "General building" },
 ] as const;
 
+const CATEGORIES_OPEN_KEY = "janus.settings.symbolCategoriesOpen";
+
+function readCategoriesOpen(): Record<string, boolean> {
+	try {
+		const stored = window.localStorage.getItem(CATEGORIES_OPEN_KEY);
+		if (!stored) return {};
+		const parsed: unknown = JSON.parse(stored);
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+			return {};
+		}
+		const result: Record<string, boolean> = {};
+		for (const [key, value] of Object.entries(
+			parsed as Record<string, unknown>,
+		)) {
+			if (typeof value === "boolean") result[key] = value;
+		}
+		return result;
+	} catch {
+		return {};
+	}
+}
+
+function writeCategoriesOpen(open: Record<string, boolean>): void {
+	try {
+		window.localStorage.setItem(CATEGORIES_OPEN_KEY, JSON.stringify(open));
+	} catch {}
+}
+
 function sizeLabel(row: SymbolRow): string {
 	if (row.widthFt && row.heightFt) {
 		return `${row.widthFt} × ${row.heightFt} ft`;
@@ -94,12 +132,37 @@ function sizeLabel(row: SymbolRow): string {
 	return "—";
 }
 
+type CategoryGroup = { key: string; label: string; symbols: SymbolRow[] };
+
+function groupByCategory(rows: SymbolRow[]): CategoryGroup[] {
+	const byKey = new Map<string, CategoryGroup>();
+	for (const row of rows) {
+		const label = row.trade.trim();
+		const key = label.toLowerCase();
+		const existing = byKey.get(key);
+		if (existing) {
+			existing.symbols.push(row);
+		} else {
+			byKey.set(key, { key, label, symbols: [row] });
+		}
+	}
+	return Array.from(byKey.values()).sort((a, b) => a.key.localeCompare(b.key));
+}
+
 export function SymbolsTable() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
 	const [deleting, setDeleting] = useState<SymbolRow | null>(null);
+	const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+	const [categoriesOpen, setCategoriesOpen] = useState<Record<string, boolean>>(
+		{},
+	);
+
+	useEffect(() => {
+		setCategoriesOpen(readCategoriesOpen());
+	}, []);
 
 	const symbols = useQuery(
 		trpc.symbols.list.queryOptions({
@@ -160,6 +223,49 @@ export function SymbolsTable() {
 		reportedFailureRef.current = failed;
 	}, [failed]);
 
+	const rowIds = useMemo(() => new Set(rows.map((row) => row.id)), [rows]);
+	useEffect(() => {
+		setSelected((prev) => {
+			if (prev.size === 0) return prev;
+			const next = new Set<string>();
+			for (const id of prev) if (rowIds.has(id)) next.add(id);
+			return next.size === prev.size ? prev : next;
+		});
+	}, [rowIds]);
+
+	const categories = useMemo(() => groupByCategory(rows), [rows]);
+
+	const setCategoryOpen = (key: string, isOpen: boolean) => {
+		setCategoriesOpen((prev) => {
+			const next = { ...prev, [key]: isOpen };
+			writeCategoriesOpen(next);
+			return next;
+		});
+	};
+
+	const toggleRow = (id: string, checked: boolean) => {
+		setSelected((prev) => {
+			const next = new Set(prev);
+			if (checked) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+	};
+
+	const toggleGroup = (group: CategoryGroup, checked: boolean) => {
+		setSelected((prev) => {
+			const next = new Set(prev);
+			for (const symbol of group.symbols) {
+				if (checked) next.add(symbol.id);
+				else next.delete(symbol.id);
+			}
+			return next;
+		});
+	};
+
+	const selectedIds = useMemo(() => Array.from(selected), [selected]);
+	const clearSelection = () => setSelected(new Set());
+
 	return (
 		<Card>
 			<CardHeader>
@@ -214,52 +320,135 @@ export function SymbolsTable() {
 					</EmptyHeader>
 				</Empty>
 			) : (
-				<SimpleTable columns={COLUMNS}>
-					{rows.map((row) => (
-						<SimpleTableRow
-							clickable
-							key={row.id}
-							onClick={() =>
-								router.push(workspaceUrl(`/settings/symbols/${row.id}`))
-							}
-						>
-							<TableCell className={`${CELL} font-medium`}>
-								{row.name}
-							</TableCell>
-							<TableCell className={`${CELL} text-muted-foreground`}>
-								{row.trade}
-							</TableCell>
-							<TableCell className={`${CELL} text-muted-foreground`}>
-								{sizeLabel(row)}
-							</TableCell>
-							<TableCell className={`${CELL} truncate text-muted-foreground`}>
-								{row.serviceName ?? "—"}
-							</TableCell>
-							<TableCell className={`${CELL} text-center`}>
-								<Switch
-									checked={row.active}
-									disabled={toggleActive.isPending}
-									onCheckedChange={(active) =>
-										toggleActive.mutate({ id: row.id, data: { active } })
-									}
-									onClick={(event) => event.stopPropagation()}
-								/>
-							</TableCell>
-							<TableCell className={`${CELL} text-right`}>
-								<Button
-									onClick={(event) => {
-										event.stopPropagation();
-										setDeleting(row);
-									}}
-									size="icon-sm"
-									variant="ghost"
-								>
-									<Icon icon={TrashCan} />
-								</Button>
-							</TableCell>
-						</SimpleTableRow>
-					))}
-				</SimpleTable>
+				<div className="flex flex-col gap-3">
+					{selectedIds.length > 0 && (
+						<SymbolsBulkActions
+							categories={categories}
+							ids={selectedIds}
+							onDone={clearSelection}
+						/>
+					)}
+
+					{categories.map((category) => {
+						const isOpen = categoriesOpen[category.key] ?? true;
+						const selectedInGroup = category.symbols.filter((symbol) =>
+							selected.has(symbol.id),
+						).length;
+						const groupAllSelected =
+							selectedInGroup === category.symbols.length;
+						const groupChecked: boolean | "indeterminate" = groupAllSelected
+							? true
+							: selectedInGroup > 0
+								? "indeterminate"
+								: false;
+
+						return (
+							<Collapsible
+								key={category.key}
+								onOpenChange={(next) => setCategoryOpen(category.key, next)}
+								open={isOpen}
+							>
+								<div className="overflow-hidden rounded-lg border bg-card">
+									<CollapsibleTrigger asChild>
+										<button
+											className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/40"
+											type="button"
+										>
+											<Icon
+												className={cn(
+													"size-4 shrink-0 text-muted-foreground transition-transform",
+													isOpen && "rotate-90",
+												)}
+												icon={ChevronRight}
+											/>
+											<span className="font-medium text-sm">
+												{category.label}
+											</span>
+											<Badge variant="outline">{category.symbols.length}</Badge>
+											<span className="flex-1" />
+											<Checkbox
+												aria-label={`Select all in ${category.label}`}
+												checked={groupChecked}
+												onCheckedChange={(checked) =>
+													toggleGroup(category, checked === true)
+												}
+												onClick={(event) => event.stopPropagation()}
+											/>
+										</button>
+									</CollapsibleTrigger>
+
+									<CollapsibleContent>
+										<SimpleTable
+											columns={COLUMNS}
+											containerClassName="rounded-none border-0 border-t"
+										>
+											{category.symbols.map((row) => (
+												<SimpleTableRow
+													clickable
+													key={row.id}
+													onClick={() =>
+														router.push(
+															workspaceUrl(`/settings/symbols/${row.id}`),
+														)
+													}
+												>
+													<TableCell className={CELL}>
+														<Checkbox
+															aria-label={`Select ${row.name}`}
+															checked={selected.has(row.id)}
+															onCheckedChange={(checked) =>
+																toggleRow(row.id, checked === true)
+															}
+															onClick={(event) => event.stopPropagation()}
+														/>
+													</TableCell>
+													<TableCell className={`${CELL} font-medium`}>
+														{row.name}
+													</TableCell>
+													<TableCell
+														className={`${CELL} text-muted-foreground`}
+													>
+														{sizeLabel(row)}
+													</TableCell>
+													<TableCell
+														className={`${CELL} truncate text-muted-foreground`}
+													>
+														{row.serviceName ?? "—"}
+													</TableCell>
+													<TableCell className={`${CELL} text-center`}>
+														<Switch
+															checked={row.active}
+															disabled={toggleActive.isPending}
+															onCheckedChange={(active) =>
+																toggleActive.mutate({
+																	id: row.id,
+																	data: { active },
+																})
+															}
+															onClick={(event) => event.stopPropagation()}
+														/>
+													</TableCell>
+													<TableCell className={`${CELL} text-right`}>
+														<Button
+															onClick={(event) => {
+																event.stopPropagation();
+																setDeleting(row);
+															}}
+															size="icon-sm"
+															variant="ghost"
+														>
+															<Icon icon={TrashCan} />
+														</Button>
+													</TableCell>
+												</SimpleTableRow>
+											))}
+										</SimpleTable>
+									</CollapsibleContent>
+								</div>
+							</Collapsible>
+						);
+					})}
+				</div>
 			)}
 
 			<AlertDialog
