@@ -55,14 +55,16 @@ export default function InvoicesPage({
 async function Invoices({
 	searchParams,
 }: Pick<PageProps<"/[slug]/invoices">, "searchParams">) {
-	const [, values] = await Promise.all([
-		requireSession(),
-		invoicesSearchParams.load(searchParams),
-	]);
+	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const input = invoicesSearchParams.toInput(values);
+	const savedState = await queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "invoices" }),
+	);
+	const params = invoicesSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+	const input = params.toInput(values);
 	const status = input.status as InvoiceStatusFilter;
 	await queryClient.prefetchQuery(
 		trpc.invoices.list.queryOptions({
@@ -73,7 +75,7 @@ async function Invoices({
 
 	return (
 		<HydrateClient>
-			<InvoicesTable />
+			<InvoicesTable savedState={savedState ?? undefined} />
 		</HydrateClient>
 	);
 }

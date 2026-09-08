@@ -3,20 +3,22 @@
 import type { TableQueryState } from "@crm/ui/lib/table-query";
 import { useQueryStates } from "nuqs";
 import type {
+	ListFactoryDefaults,
 	ListInput,
 	ListSearchParams,
 	ListSearchValues,
 } from "./list-search-params";
 
-export type TableQuery<TKey extends string> = {
+export type TableQuery<TTab extends string, TFacet extends string> = {
 	query: TableQueryState;
-	input: ListInput<TKey>;
+	input: ListInput<TTab | TFacet>;
+	factoryDefaults: ListFactoryDefaults<TTab, TFacet>;
 };
 
 export function useTableQuery<TTab extends string, TFacet extends string>(
 	searchParams: ListSearchParams<TTab, TFacet>,
-): TableQuery<TTab | TFacet> {
-	const { parsers, config, toInput } = searchParams;
+): TableQuery<TTab, TFacet> {
+	const { parsers, config, toInput, factoryDefaults } = searchParams;
 	const { defaultDir, pageSize, tabId, facetIds, facetDefaults } = config;
 
 	const [state, setState] = useQueryStates(parsers);
@@ -54,7 +56,13 @@ export function useTableQuery<TTab extends string, TFacet extends string>(
 		},
 		setFilter: (id, value) =>
 			setState((prev) => ({ ...prev, [id]: value, page: 1 })),
+		clearSticky: () => {
+			const cleared: Record<string, null> = { sort: null, dir: null };
+			if (tabId) cleared[tabId] = null;
+			for (const id of facetIds ?? []) cleared[id] = null;
+			void setState(cleared as unknown as Parameters<typeof setState>[0]);
+		},
 	};
 
-	return { query, input: toInput(values) };
+	return { query, input: toInput(values), factoryDefaults };
 }

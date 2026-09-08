@@ -55,14 +55,16 @@ export default function EstimatesPage({
 async function Estimates({
 	searchParams,
 }: Pick<PageProps<"/[slug]/estimates">, "searchParams">) {
-	const [, values] = await Promise.all([
-		requireSession(),
-		estimatesSearchParams.load(searchParams),
-	]);
+	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const input = estimatesSearchParams.toInput(values);
+	const savedState = await queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "estimates" }),
+	);
+	const params = estimatesSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+	const input = params.toInput(values);
 	const status = input.status as EstimateStatusFilter;
 	await queryClient.prefetchQuery(
 		trpc.estimates.list.queryOptions({
@@ -73,7 +75,7 @@ async function Estimates({
 
 	return (
 		<HydrateClient>
-			<EstimatesTable />
+			<EstimatesTable savedState={savedState ?? undefined} />
 		</HydrateClient>
 	);
 }

@@ -41,10 +41,12 @@ import { TableCell } from "@crm/ui/components/table";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ListSearch } from "@/components/data-table/list-search";
+import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
+import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -88,22 +90,29 @@ function StatusBadge({ status }: { status: EstimateRow["status"] }) {
 export function EstimatesTable({
 	dealId,
 	contactId,
+	savedState,
 }: {
 	dealId?: string;
 	contactId?: string;
+	savedState?: SavedTableView;
 } = {}) {
 	return dealId || contactId ? (
 		<EmbeddedEstimatesTable dealId={dealId} contactId={contactId} />
 	) : (
-		<PageEstimatesTable />
+		<PageEstimatesTable savedState={savedState} />
 	);
 }
 
-function PageEstimatesTable() {
+function PageEstimatesTable({ savedState }: { savedState?: SavedTableView }) {
 	const router = useRouter();
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
-	const { query, input } = useTableQuery(estimatesSearchParams);
+	const searchParams = useMemo(
+		() => estimatesSearchParams(savedState),
+		[savedState],
+	);
+	const { query, input, factoryDefaults } = useTableQuery(searchParams);
+	const { onViewChange, onReset } = useViewSync("estimates", query.clearSticky);
 	const status = input.status as EstimateStatusFilter;
 
 	const estimates = useQuery({
@@ -179,6 +188,18 @@ function PageEstimatesTable() {
 		},
 	];
 
+	const viewDefaults = useMemo(
+		() => ({
+			sort: factoryDefaults.sort,
+			dir: factoryDefaults.dir,
+			tab: factoryDefaults.tab,
+			facets: factoryDefaults.facets,
+			hiddenColumns: [],
+			pageSize: factoryDefaults.pageSize,
+		}),
+		[factoryDefaults],
+	);
+
 	return (
 		<DataTable
 			query={query}
@@ -186,6 +207,10 @@ function PageEstimatesTable() {
 			columns={columns}
 			rows={rows}
 			total={estimates.data?.total ?? 0}
+			hiddenColumnsDefault={savedState?.hiddenColumns}
+			viewDefaults={viewDefaults}
+			onViewChange={onViewChange}
+			onReset={onReset}
 			tabs={{
 				id: "status",
 				allLabel: "All estimates",

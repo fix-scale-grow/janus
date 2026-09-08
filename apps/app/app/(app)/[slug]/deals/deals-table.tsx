@@ -17,7 +17,9 @@ import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu } from "@/components/crm/stage-change";
 import { ListSearch } from "@/components/data-table/list-search";
+import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
+import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -114,11 +116,16 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 	},
 ];
 
-export function DealsTable() {
+export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 	const openRecord = useOpenRecord();
 	const trpc = useTRPC();
 	const prefetchRecord = usePrefetchRecord();
-	const { query, input } = useTableQuery(dealsSearchParams);
+	const searchParams = useMemo(
+		() => dealsSearchParams(savedState),
+		[savedState],
+	);
+	const { query, input, factoryDefaults } = useTableQuery(searchParams);
+	const { onViewChange, onReset } = useViewSync("deals", query.clearSticky);
 
 	const dealsInput = {
 		...input,
@@ -186,6 +193,21 @@ export function DealsTable() {
 
 	const fieldColumns = useFieldColumns<DealRow>("DEAL");
 	const columns = useMemo(() => [...COLUMNS, ...fieldColumns], [fieldColumns]);
+	const defaultHiddenColumns = useMemo(
+		() => columns.filter((column) => column.defaultHidden).map((c) => c.id),
+		[columns],
+	);
+	const viewDefaults = useMemo(
+		() => ({
+			sort: factoryDefaults.sort,
+			dir: factoryDefaults.dir,
+			tab: factoryDefaults.tab,
+			facets: factoryDefaults.facets,
+			hiddenColumns: defaultHiddenColumns,
+			pageSize: factoryDefaults.pageSize,
+		}),
+		[factoryDefaults, defaultHiddenColumns],
+	);
 
 	return (
 		<DataTable
@@ -196,6 +218,10 @@ export function DealsTable() {
 			total={deals.data?.total ?? 0}
 			facetCounts={facetCounts}
 			facets={facets}
+			hiddenColumnsDefault={savedState?.hiddenColumns}
+			viewDefaults={viewDefaults}
+			onViewChange={onViewChange}
+			onReset={onReset}
 			tabs={{
 				id: "status",
 				allLabel: "All deals",

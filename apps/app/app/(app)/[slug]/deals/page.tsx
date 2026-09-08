@@ -53,23 +53,26 @@ export default function DealsPage({
 async function Deals({
 	searchParams,
 }: Pick<PageProps<"/[slug]/deals">, "searchParams">) {
-	const [, values] = await Promise.all([
-		requireSession(),
-		dealsSearchParams.load(searchParams),
-	]);
+	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
+	const savedState = await queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "deals" }),
+	);
+	const params = dealsSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+
 	await Promise.all([
 		queryClient.prefetchQuery(
-			trpc.deals.list.queryOptions(dealsSearchParams.toInput(values)),
+			trpc.deals.list.queryOptions(params.toInput(values)),
 		),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
 	]);
 
 	return (
 		<HydrateClient>
-			<DealsView />
+			<DealsView savedState={savedState ?? undefined} />
 		</HydrateClient>
 	);
 }

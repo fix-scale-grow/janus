@@ -37,6 +37,7 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { DealStageMenu } from "@/components/crm/stage-change";
+import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay } from "@/components/local-date-time";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -89,14 +90,18 @@ function moveRowStage(
  * uses) so a reason is still captured. The per-card `DealStageMenu` stays as
  * the keyboard-accessible path to the same mutation.
  */
-export function DealsBoard() {
+export function DealsBoard({ savedState }: { savedState?: SavedTableView }) {
 	const { ref: panRef, handlers: panHandlers } = usePanScroll<HTMLDivElement>();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const cache = useCrmCache();
 	const openRecord = useOpenRecord();
 	const prefetchRecord = usePrefetchRecord();
-	const { input, query } = useTableQuery(dealsSearchParams);
+	const searchParams = useMemo(
+		() => dealsSearchParams(savedState),
+		[savedState],
+	);
+	const { input, query } = useTableQuery(searchParams);
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 	const [activeId, setActiveId] = useState<string | null>(null);
 

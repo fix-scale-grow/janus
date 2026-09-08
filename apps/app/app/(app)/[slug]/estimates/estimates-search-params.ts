@@ -1,4 +1,7 @@
-import { createListSearchParams } from "@/components/data-table/list-search-params";
+import {
+	createListSearchParams,
+	type SavedTableView,
+} from "@/components/data-table/list-search-params";
 
 export type EstimateStatusFilter =
 	| "all"
@@ -7,8 +10,13 @@ export type EstimateStatusFilter =
 	| "ACCEPTED"
 	| "DECLINED";
 
-export const estimatesSearchParams = createListSearchParams({
-	defaultSort: "updatedAt",
-	defaultDir: "desc",
-	tabId: "status",
-});
+export function estimatesSearchParams(savedState?: SavedTableView) {
+	return createListSearchParams(
+		{
+			defaultSort: "updatedAt",
+			defaultDir: "desc",
+			tabId: "status",
+		},
+		savedState,
+	);
+}

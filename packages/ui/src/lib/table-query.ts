@@ -14,4 +14,5 @@ export type TableQueryState = {
 	setPage: (page: number) => void;
 	setTab: (value: string) => void;
 	setFilter: (id: string, value: string) => void;
+	clearSticky: () => void;
 };

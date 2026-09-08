@@ -1,7 +1,15 @@
-import { createListSearchParams } from "@/components/data-table/list-search-params";
+import {
+	createListSearchParams,
+	type SavedTableView,
+} from "@/components/data-table/list-search-params";
 
-export const contactsSearchParams = createListSearchParams({
-	defaultSort: "createdAt",
-	defaultDir: "desc",
-	facetIds: ["owner"] as const,
-});
+export function contactsSearchParams(savedState?: SavedTableView) {
+	return createListSearchParams(
+		{
+			defaultSort: "createdAt",
+			defaultDir: "desc",
+			facetIds: ["owner"] as const,
+		},
+		savedState,
+	);
+}

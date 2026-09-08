@@ -2,6 +2,7 @@
 
 import { ToggleGroup, ToggleGroupItem } from "@crm/ui/components/toggle-group";
 import { useQueryState } from "nuqs";
+import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { DealsBoard } from "./deals-board";
 import { DealsTable } from "./deals-table";
 import { DEAL_VIEWS, type DealView, dealViewParser } from "./deals-view-params";
@@ -41,7 +42,11 @@ export function DealsViewSwitch() {
 }
 
 /** Renders the active deals view. Both views read the same `deals.list` cache. */
-export function DealsView() {
+export function DealsView({ savedState }: { savedState?: SavedTableView }) {
 	const [view] = useQueryState("view", dealViewParser);
-	return view === "board" ? <DealsBoard /> : <DealsTable />;
+	return view === "board" ? (
+		<DealsBoard savedState={savedState} />
+	) : (
+		<DealsTable savedState={savedState} />
+	);
 }

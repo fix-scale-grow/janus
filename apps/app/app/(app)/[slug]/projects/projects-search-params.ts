@@ -1,4 +1,7 @@
-import { createListSearchParams } from "@/components/data-table/list-search-params";
+import {
+	createListSearchParams,
+	type SavedTableView,
+} from "@/components/data-table/list-search-params";
 
 export type ProjectStatusFilter = "all" | "ACTIVE" | "ON_HOLD" | "COMPLETE";
 
@@ -10,8 +13,13 @@ export function normalizeProjectStatus(value: string): ProjectStatusFilter {
 		: "all";
 }
 
-export const projectsSearchParams = createListSearchParams({
-	defaultSort: "updatedAt",
-	defaultDir: "desc",
-	tabId: "status",
-});
+export function projectsSearchParams(savedState?: SavedTableView) {
+	return createListSearchParams(
+		{
+			defaultSort: "updatedAt",
+			defaultDir: "desc",
+			tabId: "status",
+		},
+		savedState,
+	);
+}
