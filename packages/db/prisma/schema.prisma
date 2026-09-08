@@ -58,8 +58,22 @@ model User {
   permissions        UserPermission[] @relation("PermissionHolder")
   grantedPermissions UserPermission[] @relation("PermissionGrantor")
 
+  views UserView[]
+
   @@unique([email])
   @@map("user")
+}
+
+model UserView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tableId   String
+  state     Json
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, tableId])
+  @@map("user_view")
 }
 
 model SlackMemberMatch {

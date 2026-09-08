@@ -45,6 +45,7 @@ import { TemplatesModule } from "./templates/templates.module";
 import { TrackingModule } from "./tracking/tracking.module";
 import { TrpcModule } from "./trpc/trpc.module";
 import { UsersModule } from "./users/users.module";
+import { ViewsModule } from "./views/views.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
 
 @Module({
@@ -97,6 +98,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		TelemetryModule,
 		TemplatesModule,
 		TrackingModule,
+		ViewsModule,
 	],
 })
 export class AppModule {}
