@@ -40,6 +40,7 @@ import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { groupStagesByPipeline } from "@/lib/stage-presentation";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 
 const UNSET = "";
 
@@ -99,6 +100,8 @@ function CreateDealForm() {
 		defaultPipeline?.stages.find((candidate) => candidate.isEntry)?.id ?? UNSET;
 	const resolvedStage = stage || defaultStageId;
 
+	const submitGuard = useSubmitGuard();
+
 	const create = useMutation(
 		trpc.deals.create.mutationOptions({
 			onSuccess: async (deal) => {
@@ -113,6 +116,7 @@ function CreateDealForm() {
 				openRecord({ kind: "deal", id: deal.id });
 			},
 			onError: (error) => toast.error(error.message),
+			onSettled: () => submitGuard.release(),
 		}),
 	);
 
@@ -136,16 +140,18 @@ function CreateDealForm() {
 					className="flex-1 overflow-y-auto px-4"
 					onSubmit={(event) => {
 						event.preventDefault();
-						const parsed = Number.parseFloat(amount);
-						create.mutate({
-							name,
-							ownerId: resolvedOwner,
-							stage: resolvedStage || undefined,
-							amountCents: Number.isFinite(parsed)
-								? Math.round(parsed * 100)
-								: null,
-							currency: currency || workspaceCurrency,
-							expectedCloseDate: closeDate || null,
+						submitGuard.guard(() => {
+							const parsed = Number.parseFloat(amount);
+							create.mutate({
+								name,
+								ownerId: resolvedOwner,
+								stage: resolvedStage || undefined,
+								amountCents: Number.isFinite(parsed)
+									? Math.round(parsed * 100)
+									: null,
+								currency: currency || workspaceCurrency,
+								expectedCloseDate: closeDate || null,
+							});
 						});
 					}}
 				>

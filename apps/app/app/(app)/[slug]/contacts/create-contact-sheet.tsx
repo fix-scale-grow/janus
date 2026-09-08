@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 
 const NONE = "none";
 
@@ -72,6 +73,7 @@ function CreateContactForm() {
 	const titleId = useId();
 
 	const users = useQuery(trpc.users.list.queryOptions());
+	const submitGuard = useSubmitGuard();
 
 	const create = useMutation(
 		trpc.contacts.create.mutationOptions({
@@ -89,6 +91,7 @@ function CreateContactForm() {
 				openRecord({ kind: "contact", id: contact.id });
 			},
 			onError: (error) => toast.error(error.message),
+			onSettled: () => submitGuard.release(),
 		}),
 	);
 
@@ -111,13 +114,15 @@ function CreateContactForm() {
 					className="flex-1 overflow-y-auto px-4"
 					onSubmit={(event) => {
 						event.preventDefault();
-						create.mutate({
-							firstName,
-							lastName: lastName || undefined,
-							email: email || undefined,
-							title: title || undefined,
-							companyName: companyName || undefined,
-							ownerId: ownerId === NONE ? null : ownerId,
+						submitGuard.guard(() => {
+							create.mutate({
+								firstName,
+								lastName: lastName || undefined,
+								email: email || undefined,
+								title: title || undefined,
+								companyName: companyName || undefined,
+								ownerId: ownerId === NONE ? null : ownerId,
+							});
 						});
 					}}
 				>
