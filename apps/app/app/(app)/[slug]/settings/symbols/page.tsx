@@ -32,7 +32,9 @@ export default function SymbolsSettingsPage() {
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>
-					<NewSymbolButton />
+					<Suspense fallback={null}>
+						<NewSymbolButton />
+					</Suspense>
 				</PageShellActions>
 			</PageShellHeader>
 
