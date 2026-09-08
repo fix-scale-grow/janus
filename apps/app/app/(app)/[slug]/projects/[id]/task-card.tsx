@@ -144,7 +144,10 @@ export function TaskPopover({
 
 	const remove = useMutation(
 		trpc.projects.taskRemove.mutationOptions({
-			onSuccess: () => cache.project(projectId, { settle: "record" }),
+			onSuccess: () => {
+				void cache.project(projectId, { settle: "record" });
+				void cache.crews();
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
