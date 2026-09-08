@@ -8,6 +8,7 @@ import { InjectDatabase } from "../database/database.constants";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
 import { PROJECTS } from "./projects.config";
 import type {
+	ProjectCalendarInput,
 	ProjectCreateInput,
 	ProjectListInput,
 	ProjectUpdateInput,
@@ -77,6 +78,42 @@ export class ProjectsService {
 			total,
 			facetCounts: {},
 		};
+	}
+
+	async calendarRange(input: ProjectCalendarInput) {
+		const rows = await this.db.project.findMany({
+			where: {
+				...(input.status ? { status: input.status } : {}),
+				startDate: { lte: input.to },
+				OR: [{ goalDate: { gte: input.from } }, { goalDate: null }],
+			},
+			orderBy: [{ startDate: "asc" }, { name: "asc" }],
+			select: {
+				id: true,
+				name: true,
+				status: true,
+				startDate: true,
+				goalDate: true,
+				deal: { select: { id: true, name: true } },
+				tasks: {
+					where: { endDay: { not: null } },
+					orderBy: { endDay: "desc" },
+					take: 1,
+					select: { endDay: true },
+				},
+			},
+		});
+
+		return rows
+			.map(({ tasks, ...row }) => {
+				const fallbackEnd = row.goalDate ?? tasks[0]?.endDay ?? row.startDate;
+				const endDate =
+					fallbackEnd.getTime() < row.startDate.getTime()
+						? row.startDate
+						: fallbackEnd;
+				return { ...row, endDate };
+			})
+			.filter((row) => row.endDate.getTime() >= input.from.getTime());
 	}
 
 	async byId(id: string) {

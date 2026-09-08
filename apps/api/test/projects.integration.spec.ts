@@ -272,6 +272,173 @@ describe("ProjectsService", () => {
 		expect(rowAfter?.taskCounts).toEqual({ total: 3, done: 1 });
 	});
 
+	it("returns calendar rows for projects overlapping the range", async () => {
+		const from = new Date("2027-03-01T00:00:00.000Z");
+		const to = new Date("2027-03-31T00:00:00.000Z");
+
+		const spanning = await service.create(
+			{
+				dealId,
+				name: `Cal spanning ${suffix}`,
+				startDate: new Date("2027-02-20T00:00:00.000Z"),
+				goalDate: new Date("2027-03-05T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const before = await service.create(
+			{
+				dealId,
+				name: `Cal before ${suffix}`,
+				startDate: new Date("2027-01-01T00:00:00.000Z"),
+				goalDate: new Date("2027-02-01T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const after = await service.create(
+			{
+				dealId,
+				name: `Cal after ${suffix}`,
+				startDate: new Date("2027-04-10T00:00:00.000Z"),
+				goalDate: new Date("2027-04-20T00:00:00.000Z"),
+			},
+			userId,
+		);
+
+		const rows = await service.calendarRange({ from, to });
+		const ids = rows.map((row) => row.id);
+
+		expect(ids).toContain(spanning.id);
+		expect(ids).not.toContain(before.id);
+		expect(ids).not.toContain(after.id);
+
+		const found = rows.find((row) => row.id === spanning.id);
+		expect(found?.endDate).toEqual(new Date("2027-03-05T00:00:00.000Z"));
+		expect(found?.deal.id).toBe(dealId);
+	});
+
+	it("falls back to the last scheduled task end when there is no goal date", async () => {
+		const from = new Date("2027-05-01T00:00:00.000Z");
+		const to = new Date("2027-05-31T00:00:00.000Z");
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Cal taskend ${suffix}`,
+				startDate: new Date("2027-04-25T00:00:00.000Z"),
+			},
+			userId,
+		);
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Early",
+			startDay: new Date("2027-04-26T00:00:00.000Z"),
+			endDay: new Date("2027-04-28T00:00:00.000Z"),
+		});
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Late",
+			startDay: new Date("2027-05-02T00:00:00.000Z"),
+			endDay: new Date("2027-05-04T00:00:00.000Z"),
+		});
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.endDate).toEqual(new Date("2027-05-04T00:00:00.000Z"));
+	});
+
+	it("excludes a goal-less project whose start and tasks all end before the range", async () => {
+		const from = new Date("2027-07-01T00:00:00.000Z");
+		const to = new Date("2027-07-31T00:00:00.000Z");
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Cal stale ${suffix}`,
+				startDate: new Date("2027-06-01T00:00:00.000Z"),
+			},
+			userId,
+		);
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Done early",
+			startDay: new Date("2027-06-02T00:00:00.000Z"),
+			endDay: new Date("2027-06-03T00:00:00.000Z"),
+		});
+
+		const rows = await service.calendarRange({ from, to });
+
+		expect(rows.map((row) => row.id)).not.toContain(project.id);
+	});
+
+	it("uses the start date alone for a goal-less project with no scheduled tasks", async () => {
+		const from = new Date("2027-08-01T00:00:00.000Z");
+		const to = new Date("2027-08-31T00:00:00.000Z");
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Cal bare ${suffix}`,
+				startDate: new Date("2027-08-15T00:00:00.000Z"),
+			},
+			userId,
+		);
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.endDate).toEqual(new Date("2027-08-15T00:00:00.000Z"));
+	});
+
+	it("filters the calendar by status", async () => {
+		const from = new Date("2027-09-01T00:00:00.000Z");
+		const to = new Date("2027-09-30T00:00:00.000Z");
+
+		const active = await service.create(
+			{
+				dealId,
+				name: `Cal active ${suffix}`,
+				startDate: new Date("2027-09-10T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const held = await service.create(
+			{
+				dealId,
+				name: `Cal held ${suffix}`,
+				startDate: new Date("2027-09-10T00:00:00.000Z"),
+			},
+			userId,
+		);
+		await service.update({ id: held.id, status: "ON_HOLD" });
+
+		const rows = await service.calendarRange({ from, to, status: "ACTIVE" });
+		const ids = rows.map((row) => row.id);
+
+		expect(ids).toContain(active.id);
+		expect(ids).not.toContain(held.id);
+	});
+
+	it("clamps the end date to the start date when the goal precedes it", async () => {
+		const from = new Date("2027-10-01T00:00:00.000Z");
+		const to = new Date("2027-10-31T00:00:00.000Z");
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Cal clamp ${suffix}`,
+				startDate: new Date("2027-10-20T00:00:00.000Z"),
+				goalDate: new Date("2027-10-05T00:00:00.000Z"),
+			},
+			userId,
+		);
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.endDate).toEqual(new Date("2027-10-20T00:00:00.000Z"));
+	});
+
 	it("cascades the deletion of a deal to its project and tasks", async () => {
 		const secondDeal = await db.deal.create({
 			data: {
