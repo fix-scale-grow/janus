@@ -30,7 +30,7 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { parseAsString, useQueryStates } from "nuqs";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BoardDensityToggle } from "@/components/board/board-density-toggle";
 import {
@@ -57,8 +57,8 @@ type Pipeline = RouterOutputs["pipelines"]["list"][number];
 /** Same nuqs keys the `DealStageMenu` uses, so a drag into a losing column drives
  * the globally-mounted `CloseReasonDialog` instead of moving silently. */
 const closeReasonParams = {
-	closing: parseAsString,
-	closingStage: parseAsString,
+	closeDealId: parseAsString,
+	closeStageId: parseAsString,
 };
 
 /** Move one row into `stageId` inside a cached `deals.list` payload. Returns the
@@ -116,6 +116,7 @@ export function DealsBoard({
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const { density, setDensity } = useBoardDensity("deals-board", boardDensity);
+	const dndId = useId();
 
 	const sensors = useSensors(
 		// Distance activation lets a plain click still open the record; only a
@@ -204,7 +205,7 @@ export function DealsBoard({
 		const dealId = String(event.active.id);
 		if (requiresReason(target)) {
 			// Losing moves need a recorded reason — hand off to CloseReasonDialog.
-			void setCloseParams({ closing: dealId, closingStage: target.id });
+			void setCloseParams({ closeDealId: dealId, closeStageId: target.id });
 			return;
 		}
 		setStage.mutate({ id: dealId, stage: target.id });
@@ -236,6 +237,7 @@ export function DealsBoard({
 			</div>
 
 			<DndContext
+				id={dndId}
 				sensors={sensors}
 				collisionDetection={closestCorners}
 				onDragStart={(event: DragStartEvent) =>

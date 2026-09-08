@@ -41,8 +41,8 @@ import { DealStageIndicator } from "./deal-stage";
 type Stage = RouterOutputs["deals"]["list"]["rows"][number]["stage"];
 
 const closeReasonParams = {
-	closing: parseAsString,
-	closingStage: parseAsString,
+	closeDealId: parseAsString,
+	closeStageId: parseAsString,
 };
 
 function useStageMutation(onDone?: () => void) {
@@ -83,7 +83,7 @@ export function DealStageMenu({
 	const choose = (target: Stage) => {
 		if (target.id === stage.id) return;
 		if (requiresReason(target)) {
-			void setCloseParams({ closing: dealId, closingStage: target.id });
+			void setCloseParams({ closeDealId: dealId, closeStageId: target.id });
 			return;
 		}
 		setStage.mutate({ id: dealId, stage: target.id });
@@ -157,7 +157,7 @@ export function DealStageMenu({
 export function CloseReasonDialog() {
 	const trpc = useTRPC();
 	const reasonId = useId();
-	const [{ closing, closingStage }, setCloseParams] =
+	const [{ closeDealId, closeStageId }, setCloseParams] =
 		useQueryStates(closeReasonParams);
 	const [reason, setReason] = useState("");
 	const pipelines = useQuery(
@@ -166,7 +166,7 @@ export function CloseReasonDialog() {
 
 	const close = () => {
 		setReason("");
-		void setCloseParams({ closing: null, closingStage: null });
+		void setCloseParams({ closeDealId: null, closeStageId: null });
 	};
 
 	const setStage = useStageMutation(() => {
@@ -174,10 +174,10 @@ export function CloseReasonDialog() {
 		close();
 	});
 
-	const stage = closingStage
-		? findStageById(pipelines.data ?? [], closingStage)
+	const stage = closeStageId
+		? findStageById(pipelines.data ?? [], closeStageId)
 		: undefined;
-	const open = Boolean(closing && stage);
+	const open = Boolean(closeDealId && stage);
 	const lost = stage?.outcome === "LOST";
 
 	return (
@@ -203,9 +203,9 @@ export function CloseReasonDialog() {
 					className="px-4"
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (!closing || !stage) return;
+						if (!closeDealId || !stage) return;
 						setStage.mutate({
-							id: closing,
+							id: closeDealId,
 							stage: stage.id,
 							closedReason: reason,
 						});
