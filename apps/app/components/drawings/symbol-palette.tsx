@@ -257,7 +257,16 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 				center,
 			);
 
-			const inserted = convertToExcalidrawElements(positioned as never, {
+			const placementGroup = crypto.randomUUID();
+			const grouped = positioned.map((element) => {
+				const existing = (element as { groupIds?: unknown }).groupIds;
+				const groupIds = Array.isArray(existing)
+					? [...existing, placementGroup]
+					: [placementGroup];
+				return { ...element, groupIds };
+			});
+
+			const inserted = convertToExcalidrawElements(grouped as never, {
 				regenerateIds: true,
 			});
 			const [first, ...rest] = inserted;
