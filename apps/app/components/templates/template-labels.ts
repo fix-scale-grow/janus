@@ -27,6 +27,11 @@ export const TEMPLATE_LABELS: Record<TemplatePurpose, TemplateLabel> = {
 		usedFor: "The agreement text a contract is built from.",
 		slug: "contract-body",
 	},
+	[TemplatePurpose.FORM_NOTIFY]: {
+		name: "Form notification",
+		usedFor: "Sent to the workspace when a website form is submitted.",
+		slug: "form-notify",
+	},
 };
 
 export const TEMPLATE_PURPOSE_ORDER: TemplatePurpose[] = [
@@ -34,6 +39,7 @@ export const TEMPLATE_PURPOSE_ORDER: TemplatePurpose[] = [
 	TemplatePurpose.INVOICE_SEND,
 	TemplatePurpose.CONTRACT_SEND,
 	TemplatePurpose.CONTRACT_BODY,
+	TemplatePurpose.FORM_NOTIFY,
 ];
 
 const SLUG_TO_PURPOSE: Record<string, TemplatePurpose> = Object.fromEntries(

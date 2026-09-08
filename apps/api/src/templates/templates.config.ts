@@ -27,6 +27,7 @@ export const MERGE_FIELDS = {
 	invoice: ["invoice.number", "invoice.total", "invoice.due_date"],
 	contract: ["contract.number", "contract.title"],
 	send: ["signing_link", "personal_note"],
+	form: ["form.name"],
 } as const;
 
 export type MergeFieldToken =
@@ -100,6 +101,11 @@ export const STATIC_MERGE_FIELD_GROUPS: StaticMergeFieldGroup[] = [
 			{ token: "personal_note", label: "Personal note" },
 		],
 	},
+	{
+		id: "form",
+		label: "Form",
+		fields: [{ token: "form.name", label: "Form name" }],
+	},
 ];
 
 export const SAMPLE_MERGE_CONTEXT: Record<MergeFieldToken, string> = {
@@ -121,6 +127,7 @@ export const SAMPLE_MERGE_CONTEXT: Record<MergeFieldToken, string> = {
 	"contract.title": "Roof replacement agreement",
 	signing_link: "https://app.example.com/sign/abc123",
 	personal_note: "Thanks again for choosing us, see you Tuesday!",
+	"form.name": "Roofing contact form",
 };
 
 const estimateSendBlocks: TemplateBlocks = [
@@ -164,6 +171,16 @@ const contractSendBlocks: TemplateBlocks = [
 		kind: "text",
 		html: "If the button does not work, open this link: {{signing_link}}. {{personal_note}}<br>Reply to this email with any questions.<br>{{sender.name}}, {{business.name}}",
 	},
+];
+
+const formNotifyBlocks: TemplateBlocks = [
+	{ kind: "logo" },
+	{ kind: "heading", text: "New lead from {{form.name}}" },
+	{
+		kind: "text",
+		html: "{{form.name}} was just submitted by {{contact.full_name}} ({{contact.email}}).",
+	},
+	{ kind: "divider" },
 ];
 
 const contractBodyBlocks: TemplateBlocks = [
@@ -221,5 +238,11 @@ export const DEFAULT_TEMPLATES: Record<
 		type: TemplateType.CONTRACT,
 		subject: null,
 		blocks: contractBodyBlocks,
+	},
+	[TemplatePurpose.FORM_NOTIFY]: {
+		name: "Form notification",
+		type: TemplateType.EMAIL,
+		subject: "New lead from {{form.name}}",
+		blocks: formNotifyBlocks,
 	},
 };

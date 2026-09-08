@@ -1853,6 +1853,7 @@ enum TemplatePurpose {
   INVOICE_SEND
   CONTRACT_SEND
   CONTRACT_BODY
+  FORM_NOTIFY
 }
 
 model Template {
