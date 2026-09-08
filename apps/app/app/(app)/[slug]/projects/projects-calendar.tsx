@@ -37,7 +37,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { parseAsString, useQueryState } from "nuqs";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { NO_CREW_CLASSES } from "@/components/crews/crew-colors";
 import { CALENDAR } from "@/lib/calendar/calendar-config";
@@ -130,6 +130,7 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
 	);
+	const dndId = useId();
 
 	const weeks = useMemo(
 		() => (view === "month" ? monthWeeks(anchor) : [weekOf(anchor)]),
@@ -283,6 +284,7 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 			</div>
 
 			<DndContext
+				id={dndId}
 				sensors={sensors}
 				collisionDetection={closestCorners}
 				onDragStart={(event: DragStartEvent) => {

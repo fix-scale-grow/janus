@@ -15,7 +15,7 @@ import {
 	useSensors,
 } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BoardDensityToggle } from "@/components/board/board-density-toggle";
 import {
@@ -113,6 +113,7 @@ export function CalendarView({
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
 	);
+	const dndId = useId();
 
 	const project = useQuery(trpc.projects.byId.queryOptions({ id }));
 	useQuery(trpc.crews.list.queryOptions());
@@ -306,6 +307,7 @@ export function CalendarView({
 			</div>
 
 			<DndContext
+				id={dndId}
 				sensors={sensors}
 				collisionDetection={closestCorners}
 				onDragStart={(event: DragStartEvent) =>
