@@ -814,6 +814,11 @@ export class DealsService {
 		}
 
 		if (input.closing !== FACET_ALL) {
+			if (!CLOSING_WINDOWS.includes(input.closing as ClosingWindow)) {
+				throw new BadRequestException(
+					`"${input.closing}" is not a closing window.`,
+				);
+			}
 			const { stage: closingStageWhere, ...rest } = closingFilter(
 				input.closing as ClosingWindow,
 			);
@@ -978,6 +983,8 @@ function closingFilter(window: ClosingWindow): Prisma.DealWhereInput {
 			return { expectedCloseDate: { gte: startOfMonthAfter } };
 		case "none":
 			return { expectedCloseDate: null };
+		default:
+			throw new BadRequestException(`"${window}" is not a closing window.`);
 	}
 }
 

@@ -526,6 +526,25 @@ describe("cross-pipeline setStage", () => {
 	});
 });
 
+describe("closing filter guard", () => {
+	it("rejects a closing value that is not a closing window, instead of a 500", async () => {
+		await expectRejects(
+			deals.list({
+				q: prefix,
+				page: 1,
+				pageSize: 25,
+				sort: "",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "cksomeactualdealidnotawindow",
+			}),
+			/is not a closing window/,
+		);
+	});
+});
+
 describe("sort by stage position", () => {
 	it("orders by the stage's position within its pipeline", async () => {
 		const last = await deals.create({
