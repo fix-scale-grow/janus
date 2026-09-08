@@ -1,5 +1,7 @@
 "use client";
 
+import Add from "@carbon/icons-react/es/Add";
+import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import {
 	type DrawingScale,
 	type ExcalidrawElement,
@@ -7,25 +9,35 @@ import {
 } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
 import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@crm/ui/components/collapsible";
+import {
 	Command,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
 	CommandList,
+	CommandSeparator,
 } from "@crm/ui/components/command";
+import { Icon } from "@crm/ui/components/icon";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "@crm/ui/components/popover";
+import { cn } from "@crm/ui/lib/utils";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { z } from "zod";
 import { parseSymbolRowsWith, symbolRowBase } from "@/lib/symbol-rows";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 const symbolRow = symbolRowBase.extend({
 	elements: excalidrawElement.array(),
@@ -46,6 +58,55 @@ export type SymbolPaletteProps = {
 	queueSave: () => void;
 	services: { id: string; unit: string }[];
 };
+
+const RECENT_SYMBOLS_KEY = "janus.drawings.recentSymbols";
+const CATEGORIES_OPEN_KEY = "janus.drawings.symbolCategoriesOpen";
+const RECENT_SYMBOLS_STORE_LIMIT = 8;
+const RECENT_SYMBOLS_SHOW_LIMIT = 4;
+
+function readRecentSymbolIds(): string[] {
+	try {
+		const stored = window.localStorage.getItem(RECENT_SYMBOLS_KEY);
+		if (!stored) return [];
+		const parsed: unknown = JSON.parse(stored);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter((id): id is string => typeof id === "string");
+	} catch {
+		return [];
+	}
+}
+
+function writeRecentSymbolIds(ids: string[]): void {
+	try {
+		window.localStorage.setItem(RECENT_SYMBOLS_KEY, JSON.stringify(ids));
+	} catch {}
+}
+
+function readCategoriesOpen(): Record<string, boolean> {
+	try {
+		const stored = window.localStorage.getItem(CATEGORIES_OPEN_KEY);
+		if (!stored) return {};
+		const parsed: unknown = JSON.parse(stored);
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+			return {};
+		}
+		const result: Record<string, boolean> = {};
+		for (const [key, value] of Object.entries(
+			parsed as Record<string, unknown>,
+		)) {
+			if (typeof value === "boolean") result[key] = value;
+		}
+		return result;
+	} catch {
+		return {};
+	}
+}
+
+function writeCategoriesOpen(open: Record<string, boolean>): void {
+	try {
+		window.localStorage.setItem(CATEGORIES_OPEN_KEY, JSON.stringify(open));
+	} catch {}
+}
 
 function symbolPoints(element: ExcalidrawElement): [number, number][] {
 	if (element.points && element.points.length > 1) return element.points;
@@ -179,10 +240,43 @@ function SymbolThumbnail(props: { symbol: SymbolRow }) {
 	);
 }
 
+function SymbolCommandItem(props: { symbol: SymbolRow; onSelect: () => void }) {
+	return (
+		<CommandItem
+			onSelect={props.onSelect}
+			value={`${props.symbol.name} ${props.symbol.serviceName ?? ""}`}
+		>
+			<SymbolThumbnail symbol={props.symbol} />
+			<div className="flex flex-col">
+				<span>{props.symbol.name}</span>
+				<span className="text-muted-foreground text-xs">
+					{props.symbol.serviceName ?? "no service"}
+				</span>
+			</div>
+		</CommandItem>
+	);
+}
+
+type CategoryGroup = { key: string; label: string; symbols: SymbolRow[] };
+
 export function SymbolPalette(props: SymbolPaletteProps) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const router = useRouter();
+	const workspaceUrl = useWorkspaceUrl();
 	const [open, setOpen] = useState(false);
+	const [search, setSearch] = useState("");
+	const [recentIds, setRecentIds] = useState<string[]>([]);
+	const [categoriesOpen, setCategoriesOpen] = useState<Record<string, boolean>>(
+		{},
+	);
+
+	useEffect(() => {
+		setRecentIds(readRecentSymbolIds());
+		setCategoriesOpen(readCategoriesOpen());
+	}, []);
+
+	const newSymbolHref = workspaceUrl("/settings/symbols/new");
 
 	const list = useQuery(
 		trpc.symbols.list.queryOptions({ active: true, pageSize: 100 }),
@@ -217,15 +311,41 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 		[props.services],
 	);
 
-	const grouped = useMemo(() => {
-		const byTrade = new Map<string, SymbolRow[]>();
+	const categories = useMemo<CategoryGroup[]>(() => {
+		const byKey = new Map<string, CategoryGroup>();
 		for (const row of rows) {
-			const bucket = byTrade.get(row.trade) ?? [];
-			bucket.push(row);
-			byTrade.set(row.trade, bucket);
+			const label = row.trade.trim();
+			const key = label.toLowerCase();
+			const existing = byKey.get(key);
+			if (existing) {
+				existing.symbols.push(row);
+			} else {
+				byKey.set(key, { key, label, symbols: [row] });
+			}
 		}
-		return Array.from(byTrade.entries());
+		return Array.from(byKey.values()).sort((a, b) =>
+			a.key.localeCompare(b.key),
+		);
 	}, [rows]);
+
+	const recentSymbols = useMemo(() => {
+		const byId = new Map(rows.map((row) => [row.id, row] as const));
+		const found: SymbolRow[] = [];
+		for (const id of recentIds) {
+			const row = byId.get(id);
+			if (row) found.push(row);
+			if (found.length >= RECENT_SYMBOLS_SHOW_LIMIT) break;
+		}
+		return found;
+	}, [recentIds, rows]);
+
+	const setCategoryOpen = useCallback((key: string, isOpen: boolean) => {
+		setCategoriesOpen((prev) => {
+			const next = { ...prev, [key]: isOpen };
+			writeCategoriesOpen(next);
+			return next;
+		});
+	}, []);
 
 	const placeSymbol = useCallback(
 		async (symbol: SymbolRow) => {
@@ -288,10 +408,22 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 				captureUpdate: CaptureUpdateAction.IMMEDIATELY,
 			});
 			props.queueSave();
+
+			setRecentIds((prev) => {
+				const next = [
+					symbol.id,
+					...prev.filter((id) => id !== symbol.id),
+				].slice(0, RECENT_SYMBOLS_STORE_LIMIT);
+				writeRecentSymbolIds(next);
+				return next;
+			});
+
 			setOpen(false);
 		},
 		[props.apiRef, props.scale, props.queueSave, serviceUnitById],
 	);
+
+	const isSearching = search.trim().length > 0;
 
 	return (
 		<Popover onOpenChange={setOpen} open={open}>
@@ -300,7 +432,11 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80" size="fit">
 				<Command>
-					<CommandInput placeholder="Search symbols" />
+					<CommandInput
+						onValueChange={setSearch}
+						placeholder="Search symbols"
+						value={search}
+					/>
 					<CommandList>
 						{!list.isLoading && rows.length === 0 && (
 							<div className="flex flex-col items-center gap-2 p-4 text-center">
@@ -314,25 +450,85 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 								</Button>
 							</div>
 						)}
-						{grouped.map(([trade, symbols]) => (
-							<CommandGroup heading={trade} key={trade}>
-								{symbols.map((symbol) => (
-									<CommandItem
+
+						{!isSearching && recentSymbols.length > 0 && (
+							<CommandGroup heading="Recently used">
+								{recentSymbols.map((symbol) => (
+									<SymbolCommandItem
 										key={symbol.id}
 										onSelect={() => void placeSymbol(symbol)}
-										value={`${symbol.name} ${symbol.serviceName ?? ""}`}
-									>
-										<SymbolThumbnail symbol={symbol} />
-										<div className="flex flex-col">
-											<span>{symbol.name}</span>
-											<span className="text-muted-foreground text-xs">
-												{symbol.serviceName ?? "no service"}
-											</span>
-										</div>
-									</CommandItem>
+										symbol={symbol}
+									/>
 								))}
 							</CommandGroup>
-						))}
+						)}
+
+						{isSearching
+							? categories.map((category) => (
+									<CommandGroup heading={category.label} key={category.key}>
+										{category.symbols.map((symbol) => (
+											<SymbolCommandItem
+												key={symbol.id}
+												onSelect={() => void placeSymbol(symbol)}
+												symbol={symbol}
+											/>
+										))}
+									</CommandGroup>
+								))
+							: categories.map((category) => {
+									const isOpen = categoriesOpen[category.key] ?? true;
+									return (
+										<Collapsible
+											key={category.key}
+											onOpenChange={(next) =>
+												setCategoryOpen(category.key, next)
+											}
+											open={isOpen}
+										>
+											<CollapsibleTrigger asChild>
+												<button
+													className="flex w-full items-center gap-1 px-2 py-1.5 text-left text-muted-foreground text-xs hover:text-foreground"
+													type="button"
+												>
+													<Icon
+														className={cn(
+															"size-3.5 transition-transform",
+															isOpen && "rotate-90",
+														)}
+														icon={ChevronRight}
+													/>
+													{category.label}
+												</button>
+											</CollapsibleTrigger>
+											<CollapsibleContent>
+												<CommandGroup>
+													{category.symbols.map((symbol) => (
+														<SymbolCommandItem
+															key={symbol.id}
+															onSelect={() => void placeSymbol(symbol)}
+															symbol={symbol}
+														/>
+													))}
+												</CommandGroup>
+											</CollapsibleContent>
+										</Collapsible>
+									);
+								})}
+
+						<CommandSeparator />
+						<CommandGroup forceMount>
+							<CommandItem
+								forceMount
+								onSelect={() => {
+									setOpen(false);
+									router.push(newSymbolHref);
+								}}
+								value="new-symbol"
+							>
+								<Icon icon={Add} />
+								New symbol
+							</CommandItem>
+						</CommandGroup>
 					</CommandList>
 				</Command>
 			</PopoverContent>
