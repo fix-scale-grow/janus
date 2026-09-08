@@ -340,7 +340,10 @@ export function DetailSheetProperty({
 }) {
 	return (
 		<div className={cn(PROPERTY_ROW, "items-start", wide && "sm:col-span-2")}>
-			<span className={cn(PROPERTY_LABEL, PROPERTY_CELL, "text-xs/5")}>
+			<span
+				className={cn(PROPERTY_LABEL, PROPERTY_CELL, "text-xs/5")}
+				title={typeof label === "string" ? label : undefined}
+			>
 				{label}
 			</span>
 			<div className={cn(PROPERTY_CELL, "min-w-0 px-2 text-xs/5")}>
