@@ -390,33 +390,33 @@ export function SymbolsTable() {
 								open={isOpen}
 							>
 								<div className="overflow-hidden rounded-lg border bg-card">
-									<CollapsibleTrigger asChild>
-										<button
-											className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/40"
-											type="button"
-										>
-											<Icon
-												className={cn(
-													"size-4 shrink-0 text-muted-foreground transition-transform",
-													isOpen && "rotate-90",
-												)}
-												icon={ChevronRight}
-											/>
-											<span className="font-medium text-sm">
-												{category.label}
-											</span>
-											<Badge variant="outline">{category.symbols.length}</Badge>
-											<span className="flex-1" />
-											<Checkbox
-												aria-label={`Select all in ${category.label}`}
-												checked={groupChecked}
-												onCheckedChange={(checked) =>
-													toggleGroup(category, checked === true)
-												}
-												onClick={(event) => event.stopPropagation()}
-											/>
-										</button>
-									</CollapsibleTrigger>
+									<div className="flex w-full items-center gap-2 pr-3 hover:bg-muted/40">
+										<CollapsibleTrigger asChild>
+											<button
+												className="flex flex-1 items-center gap-2 px-3 py-2.5 text-left"
+												type="button"
+											>
+												<Icon
+													className={cn(
+														"size-4 shrink-0 text-muted-foreground transition-transform",
+														isOpen && "rotate-90",
+													)}
+													icon={ChevronRight}
+												/>
+												<span className="font-medium text-sm">
+													{category.label}
+												</span>
+												<Badge variant="outline">{category.symbols.length}</Badge>
+											</button>
+										</CollapsibleTrigger>
+										<Checkbox
+											aria-label={`Select all in ${category.label}`}
+											checked={groupChecked}
+											onCheckedChange={(checked) =>
+												toggleGroup(category, checked === true)
+											}
+										/>
+									</div>
 
 									<CollapsibleContent>
 										<SimpleTable
