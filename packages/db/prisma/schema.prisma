@@ -60,6 +60,8 @@ model User {
 
   views UserView[]
 
+  createdForms Form[] @relation("FormCreator")
+
   @@unique([email])
   @@map("user")
 }
@@ -265,6 +267,7 @@ enum RecordSource {
   EMAIL
   CALENDAR
   TRACKING
+  FORM
 }
 
 enum DrawingBackground {
@@ -946,17 +949,18 @@ model Deal {
 
   lastActivityAt DateTime?
 
-  contacts    DealContact[]
-  activities  Activity[]
-  fieldValues FieldValue[]
-  drawings    Drawing[]
-  estimates   Estimate[]
-  invoices    Invoice[]
-  projects    Project[]
-  contracts   Contract[]
-  jobCosts    JobCost[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  contacts        DealContact[]
+  activities      Activity[]
+  fieldValues     FieldValue[]
+  drawings        Drawing[]
+  estimates       Estimate[]
+  invoices        Invoice[]
+  projects        Project[]
+  contracts       Contract[]
+  jobCosts        JobCost[]
+  formSubmissions FormSubmission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([ownerId])
   @@index([stageId])
@@ -1655,12 +1659,65 @@ model TrackedPageDaily {
   @@map("trackedPageDaily")
 }
 
+model Form {
+  id              String           @id @default(cuid())
+  name            String
+  intro           String?
+  buttonLabel     String           @default("Send")
+  confirmation    String           @default("Thanks — we'll be in touch shortly.")
+  active          Boolean          @default(true)
+  createLead      Boolean          @default(true)
+  notifyEmails    String?
+  fields          FormField[]
+  submissions     FormSubmission[]
+  submissionCount Int              @default(0)
+  createdById     String
+  createdBy       User             @relation("FormCreator", fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([active])
+  @@map("form")
+}
+
+enum FormFieldType {
+  TEXT
+  MESSAGE
+  EMAIL
+  PHONE
+  ADDRESS
+  SELECT
+}
+
+model FormField {
+  id              String        @id @default(cuid())
+  formId          String
+  form            Form          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  type            FormFieldType
+  label           String
+  required        Boolean       @default(false)
+  options         Json?
+  contactFieldKey String?
+  position        Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([formId, position])
+  @@map("form_field")
+}
+
 model FormSubmission {
   id String @id @default(cuid())
 
   visitorId String?
   contactId String?
   contact   Contact? @relation("SubmissionContact", fields: [contactId], references: [id], onDelete: SetNull)
+
+  formId String?
+  form   Form?   @relation(fields: [formId], references: [id], onDelete: SetNull)
+
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
 
   host  String
   path  String
@@ -1679,6 +1736,8 @@ model FormSubmission {
 
   @@index([contactId])
   @@index([createdAt])
+  @@index([formId])
+  @@index([dealId])
   @@map("formSubmission")
 }
 
@@ -1799,6 +1858,7 @@ enum TemplatePurpose {
   INVOICE_SEND
   CONTRACT_SEND
   CONTRACT_BODY
+  FORM_NOTIFY
 }
 
 model Template {

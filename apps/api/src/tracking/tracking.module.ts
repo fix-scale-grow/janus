@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AgentModule } from "../agent/agent.module";
+import { FieldsModule } from "../fields/fields.module";
 import { TrpcModule } from "../trpc/trpc.module";
 import {
 	TrackingController,
@@ -14,7 +15,7 @@ import { TrackingIngestService } from "./tracking-ingest.service";
 import { TrackingRollupService } from "./tracking-rollup.service";
 
 @Module({
-	imports: [TrpcModule, AgentModule],
+	imports: [TrpcModule, AgentModule, FieldsModule],
 	controllers: [TrackingController, TrackingRetentionController],
 	providers: [
 		TrackingConfigService,
@@ -25,6 +26,10 @@ import { TrackingRollupService } from "./tracking-rollup.service";
 		TrackingService,
 		TrackingRouter,
 	],
-	exports: [TrackingConfigService],
+	exports: [
+		TrackingConfigService,
+		TrackingFilingService,
+		TrackingCounterService,
+	],
 })
 export class TrackingModule {}

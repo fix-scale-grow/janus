@@ -14,6 +14,7 @@ import {
 } from "@crm/db/tracking";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
+import { FieldsService } from "../src/fields/fields.service";
 import { TrackingCounterService } from "../src/tracking/tracking-counter.service";
 import { TrackingFilingService } from "../src/tracking/tracking-filing.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
@@ -33,7 +34,8 @@ const agent = {
 
 const stamp = new ActivityStampService(db);
 const counters = new TrackingCounterService(db);
-const filing = new TrackingFilingService(db, counters, agent, stamp);
+const fields = new FieldsService(db, agent);
+const filing = new TrackingFilingService(db, counters, agent, stamp, fields);
 
 let userId: string;
 

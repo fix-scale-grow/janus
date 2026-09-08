@@ -11,6 +11,7 @@ import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { normalizeEmail } from "../crm/values";
 import { InjectDatabase } from "../database/database.constants";
+import { FieldsService } from "../fields/fields.service";
 import { isMachineDomain } from "../mailbox/domain";
 import {
 	isAutomatedAddress,
@@ -18,6 +19,12 @@ import {
 	splitName,
 } from "../mailbox/participants";
 import { TrackingCounterService } from "./tracking-counter.service";
+
+export type FilingOrigin = {
+	formId: string;
+	source: RecordSource;
+	contactFields?: Record<string, string>;
+};
 
 function columns(
 	touch: Touch | undefined,
@@ -50,17 +57,21 @@ export class TrackingFilingService {
 		private readonly counters: TrackingCounterService,
 		private readonly agent: AgentTriggerService,
 		private readonly stamp: ActivityStampService,
+		private readonly fields: FieldsService,
 	) {}
 
-	async file(submission: {
-		id: string;
-		email: string | null;
-		host: string;
-		visitorId: string | null;
-		name: string | null;
-		firstTouch?: Touch;
-		lastTouch?: Touch;
-	}): Promise<FilingOutcome> {
+	async file(
+		submission: {
+			id: string;
+			email: string | null;
+			host: string;
+			visitorId: string | null;
+			name: string | null;
+			firstTouch?: Touch;
+			lastTouch?: Touch;
+		},
+		origin?: FilingOrigin,
+	): Promise<FilingOutcome> {
 		const email = normalizeEmail(submission.email ?? "");
 		if (!email) return this.skip(submission.id, "No email address");
 
@@ -99,18 +110,46 @@ export class TrackingFilingService {
 		}
 
 		const { firstName, lastName } = splitName(submission.name, email);
+		const now = new Date();
 
 		let contact: { id: string };
 		try {
-			contact = await this.db.contact.create({
-				data: {
-					firstName,
-					lastName,
-					email,
-					source: RecordSource.TRACKING,
-					lastActivityAt: new Date(),
-				},
-				select: { id: true },
+			contact = await this.agent.withCrmEvents(async (tx, emit) => {
+				const created = await tx.contact.create({
+					data: {
+						firstName,
+						lastName,
+						email,
+						source: origin?.source ?? RecordSource.TRACKING,
+						lastActivityAt: now,
+					},
+					select: { id: true },
+				});
+
+				if (
+					origin?.contactFields &&
+					Object.keys(origin.contactFields).length > 0
+				) {
+					await this.fields.applyValues(
+						tx,
+						"CONTACT",
+						created.id,
+						origin.contactFields,
+					);
+				}
+
+				await emit({
+					type: "contact.created",
+					record: { kind: "contact", id: created.id },
+					occurredAt: now,
+					data: {
+						via: origin ? "form" : "tracking",
+						host: submission.host,
+						...(origin?.formId ? { formId: origin.formId } : {}),
+					},
+				});
+
+				return created;
 			});
 		} catch (error) {
 			await this.counters.release(window);

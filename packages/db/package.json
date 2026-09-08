@@ -16,6 +16,7 @@
 		"./favicon": "./src/favicon.ts",
 		"./fields": "./src/fields.ts",
 		"./fields-shape": "./src/fields-shape.ts",
+		"./forms": "./src/forms.ts",
 		"./fx": "./src/fx.ts",
 		"./images": "./src/images.ts",
 		"./idempotency": "./src/idempotency.ts",

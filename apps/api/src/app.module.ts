@@ -21,6 +21,7 @@ import { DealsModule } from "./deals/deals.module";
 import { DrawingsModule } from "./drawings/drawings.module";
 import { EstimatesModule } from "./estimates/estimates.module";
 import { FieldsModule } from "./fields/fields.module";
+import { FormsModule } from "./forms/forms.module";
 import { GoogleModule } from "./google/google.module";
 import { HealthModule } from "./health/health.module";
 import { InvoicesModule } from "./invoices/invoices.module";
@@ -59,7 +60,11 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		AppCacheModule,
 		DatabaseModule,
 		CrmModule,
-		BetterAuthModule.forRoot({ auth, middleware: logAuthRoute }),
+		BetterAuthModule.forRoot({
+			auth,
+			middleware: logAuthRoute,
+			disableTrustedOriginsCors: true,
+		}),
 		AuthModule,
 		HealthModule,
 		TrpcModule,
@@ -72,6 +77,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		DrawingsModule,
 		EstimatesModule,
 		FieldsModule,
+		FormsModule,
 		InvoicesModule,
 		PipelinesModule,
 		ProjectsModule,
