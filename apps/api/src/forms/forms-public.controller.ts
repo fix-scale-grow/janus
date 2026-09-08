@@ -93,7 +93,8 @@ async function read(
 		return existing.length > limit ? null : existing;
 	}
 	if (existing && typeof existing === "object") {
-		return JSON.stringify(existing);
+		const serialized = JSON.stringify(existing);
+		return Buffer.byteLength(serialized, "utf8") > limit ? null : serialized;
 	}
 
 	return new Promise((resolve) => {

@@ -7,11 +7,13 @@ import {
 	it,
 } from "bun:test";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import type { IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
-import { NotFoundException } from "@nestjs/common";
+import { FORMS } from "@crm/db/forms";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import type { Response } from "express";
 import type {
 	AgentTriggerService,
@@ -495,6 +497,345 @@ describe("submitting a website form", () => {
 			await db.member.deleteMany({ where: { id: secondMemberId } });
 			await db.user.deleteMany({ where: { id: secondUserId } });
 		}
+	});
+});
+
+describe("a contact-field mapping never breaks a submission", () => {
+	it("degrades an archived contactFieldKey to unmapped instead of failing the submission", async () => {
+		const archivedKey = `archived_field_${keySuffix}`;
+		const definition = await db.fieldDefinition.create({
+			data: {
+				entity: "CONTACT",
+				key: archivedKey,
+				label: `Archived field ${suffix}`,
+				type: "TEXT",
+				position: 961,
+			},
+		});
+
+		const form = await forms.create(
+			{
+				name: `Archived mapping ${suffix}`,
+				buttonLabel: "Send",
+				confirmation: "Thanks!",
+				createLead: true,
+				fields: [
+					{ type: "EMAIL", label: "Email", required: true },
+					{
+						type: "TEXT",
+						label: "Roof age",
+						required: false,
+						contactFieldKey: archivedKey,
+					},
+				],
+			},
+			userId,
+		);
+
+		await db.fieldDefinition.update({
+			where: { id: definition.id },
+			data: { archivedAt: new Date() },
+		});
+
+		const email = `archived-${suffix}@${domain}`;
+
+		try {
+			const result = await forms.submit({
+				formId: form.id,
+				answers: {
+					[fieldId(form, "Email")]: email,
+					[fieldId(form, "Roof age")]: "20 years",
+				},
+				honeypot: "",
+				renderedAt: Date.now() - 5_000,
+				host,
+				path: "/archived",
+			});
+
+			expect(result).toEqual({ ok: true });
+
+			const contact = await db.contact.findUnique({
+				where: { email },
+				select: { id: true },
+			});
+			expect(contact).toBeTruthy();
+
+			const value = await db.fieldValue.findFirst({
+				where: { contactId: contact?.id, field: { key: archivedKey } },
+			});
+			expect(value).toBeNull();
+		} finally {
+			await db.fieldDefinition.delete({ where: { id: definition.id } });
+		}
+	});
+
+	it("drops a mapping whose value fails the target field's type coercion, filing everything else", async () => {
+		const numberKey = `roof_age_${keySuffix}`;
+		const definition = await db.fieldDefinition.create({
+			data: {
+				entity: "CONTACT",
+				key: numberKey,
+				label: `Roof age ${suffix}`,
+				type: "NUMBER",
+				position: 962,
+			},
+		});
+
+		const form = await forms.create(
+			{
+				name: `Type mismatch ${suffix}`,
+				buttonLabel: "Send",
+				confirmation: "Thanks!",
+				createLead: true,
+				fields: [
+					{ type: "EMAIL", label: "Email", required: true },
+					{
+						type: "TEXT",
+						label: "Roof type",
+						required: false,
+						contactFieldKey: fieldKey,
+					},
+					{
+						type: "TEXT",
+						label: "Roof age",
+						required: false,
+						contactFieldKey: numberKey,
+					},
+				],
+			},
+			userId,
+		);
+
+		const email = `mismatch-${suffix}@${domain}`;
+
+		try {
+			const result = await forms.submit({
+				formId: form.id,
+				answers: {
+					[fieldId(form, "Email")]: email,
+					[fieldId(form, "Roof type")]: "Metal",
+					[fieldId(form, "Roof age")]: "not a number",
+				},
+				honeypot: "",
+				renderedAt: Date.now() - 5_000,
+				host,
+				path: "/mismatch",
+			});
+
+			expect(result).toEqual({ ok: true });
+
+			const contact = await db.contact.findUnique({
+				where: { email },
+				select: { id: true },
+			});
+			expect(contact).toBeTruthy();
+
+			const roofType = await db.fieldValue.findFirst({
+				where: { contactId: contact?.id, field: { key: fieldKey } },
+				select: { text: true },
+			});
+			expect(roofType?.text).toBe("Metal");
+
+			const roofAge = await db.fieldValue.findFirst({
+				where: { contactId: contact?.id, field: { key: numberKey } },
+			});
+			expect(roofAge).toBeNull();
+		} finally {
+			await db.fieldDefinition.delete({ where: { id: definition.id } });
+		}
+	});
+
+	it("rejects a contactFieldKey that names no live contact field, at save time", async () => {
+		let caught: unknown;
+		try {
+			await forms.create(
+				{
+					name: `Bad mapping ${suffix}`,
+					buttonLabel: "Send",
+					confirmation: "Thanks!",
+					createLead: true,
+					fields: [
+						{ type: "EMAIL", label: "Email", required: true },
+						{
+							type: "TEXT",
+							label: "Nonsense",
+							required: false,
+							contactFieldKey: `nope_${keySuffix}`,
+						},
+					],
+				},
+				userId,
+			);
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+	});
+
+	it("rejects an already-archived contactFieldKey at save time", async () => {
+		const archivedKey = `archived_at_save_${keySuffix}`;
+		const definition = await db.fieldDefinition.create({
+			data: {
+				entity: "CONTACT",
+				key: archivedKey,
+				label: "Archived at save",
+				type: "TEXT",
+				position: 963,
+				archivedAt: new Date(),
+			},
+		});
+
+		let caught: unknown;
+		try {
+			await forms.create(
+				{
+					name: `Archived-at-save mapping ${suffix}`,
+					buttonLabel: "Send",
+					confirmation: "Thanks!",
+					createLead: true,
+					fields: [
+						{ type: "EMAIL", label: "Email", required: true },
+						{
+							type: "TEXT",
+							label: "Nonsense",
+							required: false,
+							contactFieldKey: archivedKey,
+						},
+					],
+				},
+				userId,
+			);
+		} catch (error) {
+			caught = error;
+		} finally {
+			await db.fieldDefinition.delete({ where: { id: definition.id } });
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+	});
+});
+
+describe("two forms on the same page do not swallow each other's submissions", () => {
+	it("files a separate submission and a separate lead for each form, same email, same minute", async () => {
+		const formA = await createForm(`Form A ${suffix}`);
+		const formB = await createForm(`Form B ${suffix}`);
+		const email = `dual-${suffix}@${domain}`;
+		const renderedAt = Date.now() - 5_000;
+
+		const resultA = await forms.submit({
+			formId: formA.id,
+			answers: { [fieldId(formA, "Email")]: email },
+			honeypot: "",
+			renderedAt,
+			host,
+			path: "/a",
+		});
+		const resultB = await forms.submit({
+			formId: formB.id,
+			answers: { [fieldId(formB, "Email")]: email },
+			honeypot: "",
+			renderedAt,
+			host,
+			path: "/b",
+		});
+
+		expect(resultA).toEqual({ ok: true });
+		expect(resultB).toEqual({ ok: true });
+
+		const submissionCount = await db.formSubmission.count({
+			where: { email, host },
+		});
+		expect(submissionCount).toBe(2);
+
+		const contact = await db.contact.findUnique({
+			where: { email },
+			select: { id: true },
+		});
+		const dealContactCount = await db.dealContact.count({
+			where: { contactId: contact?.id },
+		});
+		expect(dealContactCount).toBe(2);
+	});
+});
+
+describe("the notify email keeps answer text out of merge substitution", () => {
+	it("does not substitute a token-looking string typed into an answer", async () => {
+		const form = await createForm(`Token contact ${suffix}`);
+		const email = `token-${suffix}@${domain}`;
+		const payload = "Contact {{contact.email}} at {{business.name}} please";
+
+		await forms.submit({
+			formId: form.id,
+			answers: {
+				[fieldId(form, "Email")]: email,
+				[fieldId(form, "Roof type")]: payload,
+			},
+			honeypot: "",
+			renderedAt: Date.now() - 5_000,
+			host,
+			path: "/token",
+		});
+
+		const entries = await readdir(outboxDir);
+		const latest = entries.sort().at(-1) ?? "";
+		const envelopeRaw = await readFile(
+			join(outboxDir, latest, "envelope.json"),
+			"utf8",
+		);
+		const envelope = JSON.parse(envelopeRaw) as { html: string | null };
+
+		expect(envelope.html).toContain("&#123;&#123;contact.email&#125;&#125;");
+		expect(envelope.html).toContain("&#123;&#123;business.name&#125;&#125;");
+	});
+});
+
+describe("the public submit endpoint enforces the body cap on a pre-parsed body", () => {
+	it("rejects a pre-parsed body over the cap", async () => {
+		const stubForms = {
+			submit: async () => ({ ok: true }),
+		} as unknown as FormsService;
+		const controller = new FormsPublicController(stubForms);
+		const fakeResponse = { setHeader: () => undefined } as unknown as Response;
+		const big = "x".repeat(FORMS.submit.maxBodyBytes);
+		const fakeRequest = {
+			body: { answers: { a: big } },
+		} as unknown as IncomingMessage;
+
+		const result = await controller.submit(fakeRequest, fakeResponse);
+
+		expect(result).toEqual({
+			ok: false,
+			errors: { _form: "The submission was too large." },
+		});
+	});
+
+	it("accepts a pre-parsed body under the cap", async () => {
+		let received: unknown;
+		const stubForms = {
+			submit: async (input: unknown) => {
+				received = input;
+				return { ok: true };
+			},
+		} as unknown as FormsService;
+		const controller = new FormsPublicController(stubForms);
+		const fakeResponse = { setHeader: () => undefined } as unknown as Response;
+
+		const body = {
+			formId: "cabcdefghij0123456789",
+			answers: { a: "x".repeat(2000) },
+			honeypot: "",
+			renderedAt: Date.now(),
+			host: "example.test",
+			path: "/",
+		};
+		expect(JSON.stringify(body).length).toBeLessThan(FORMS.submit.maxBodyBytes);
+
+		const fakeRequest = { body } as unknown as IncomingMessage;
+		const result = await controller.submit(fakeRequest, fakeResponse);
+
+		expect(result).toEqual({ ok: true });
+		expect(received).toMatchObject({ formId: body.formId });
 	});
 });
 

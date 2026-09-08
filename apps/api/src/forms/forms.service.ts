@@ -12,6 +12,7 @@ import { classifyTouch, type RawTouch, type Touch } from "@crm/db/attribution";
 import {
 	FORMS,
 	type FormSubmissionAnswer,
+	formFieldOptions,
 	formSubmissionAnswers,
 	type PublicFormConfig,
 } from "@crm/db/forms";
@@ -121,6 +122,7 @@ export class FormsService {
 
 	async create(input: FormCreateInput, userId: string) {
 		requireExactlyOneEmailField(input.fields);
+		await this.requireLiveContactFieldKeys(input.fields);
 
 		return this.db.form.create({
 			data: {
@@ -181,6 +183,7 @@ export class FormsService {
 
 	async updateFields(input: FormUpdateFieldsInput) {
 		requireExactlyOneEmailField(input.fields);
+		await this.requireLiveContactFieldKeys(input.fields);
 
 		const form = await this.db.form.findUnique({
 			where: { id: input.formId },
@@ -335,7 +338,7 @@ export class FormsService {
 				type: field.type,
 				label: field.label,
 				required: field.required,
-				options: (field.options as string[] | null) ?? undefined,
+				options: parseFormFieldOptions(field.options),
 			})),
 		};
 	}
@@ -372,11 +375,15 @@ export class FormsService {
 		if ("errors" in validated) return { ok: false, errors: validated.errors };
 
 		const { answers, email, contactFields, name } = validated;
+		const sanitizedContactFields = await this.fields.sanitizeValues(
+			"CONTACT",
+			contactFields,
+		);
 
 		const host = normalizeHost(input.host) ?? input.host.toLowerCase().trim();
 		const path = normalizePath(input.path);
 		const now = new Date();
-		const key = dedupeKey({ host, path, email, at: now });
+		const key = dedupeKey({ host, path, email, at: now, formId: form.id });
 
 		const firstTouch = input.firstTouch
 			? classifyTouch(arriving(input.firstTouch), now)
@@ -423,7 +430,7 @@ export class FormsService {
 				{
 					formId: form.id,
 					source: RecordSource.FORM,
-					contactFields,
+					contactFields: sanitizedContactFields,
 				},
 			);
 
@@ -508,9 +515,7 @@ export class FormsService {
 			}
 
 			if (field.type === "SELECT") {
-				const options = Array.isArray(field.options)
-					? (field.options as string[])
-					: [];
+				const options = parseFormFieldOptions(field.options) ?? [];
 				if (!options.includes(value)) {
 					errors[field.id] = "Choose one of the listed options.";
 					continue;
@@ -741,6 +746,29 @@ export class FormsService {
 
 		return anyUser?.id ?? null;
 	}
+
+	private async requireLiveContactFieldKeys(
+		fields: FormFieldInput[],
+	): Promise<void> {
+		const wanted = [
+			...new Set(
+				fields.flatMap((field) =>
+					field.contactFieldKey ? [field.contactFieldKey] : [],
+				),
+			),
+		];
+		if (wanted.length === 0) return;
+
+		const definitions = await this.fields.definitionsFor("CONTACT");
+		const live = new Set(definitions.map((definition) => definition.key));
+		const unknown = wanted.filter((key) => !live.has(key));
+
+		if (unknown.length > 0) {
+			throw new BadRequestException(
+				`Not a contact field: ${unknown.join(", ")}.`,
+			);
+		}
+	}
 }
 
 function requireExactlyOneEmailField(fields: FormFieldInput[]): void {
@@ -788,5 +816,14 @@ function escapeAnswer(value: string): string {
 	return value
 		.replace(/&/g, "&amp;")
 		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
+		.replace(/>/g, "&gt;")
+		.replace(/\{/g, "&#123;")
+		.replace(/\}/g, "&#125;");
+}
+
+function parseFormFieldOptions(value: unknown): string[] | undefined {
+	if (value === null || value === undefined) return undefined;
+
+	const result = formFieldOptions.safeParse(value);
+	return result.success ? result.data : undefined;
 }

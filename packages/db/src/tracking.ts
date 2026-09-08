@@ -239,11 +239,14 @@ export function dedupeKey(parts: {
 	path: string;
 	email: string | null;
 	at: Date;
+	formId?: string;
 }): string {
 	const minute = Math.floor(parts.at.getTime() / 60_000);
 
 	return createHash("sha256")
-		.update(`${parts.host}|${parts.path}|${parts.email ?? ""}|${minute}`)
+		.update(
+			`${parts.host}|${parts.path}|${parts.email ?? ""}|${minute}|${parts.formId ?? ""}`,
+		)
 		.digest("hex");
 }
 

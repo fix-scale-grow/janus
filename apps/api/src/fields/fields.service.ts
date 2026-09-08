@@ -6,6 +6,7 @@ import {
 } from "@crm/db";
 import {
 	attachValues,
+	coerceValue,
 	type FieldDefinitionWithOptions,
 	FieldValueError,
 	type FieldValueJson,
@@ -396,6 +397,35 @@ export class FieldsService {
 		}
 
 		return byRecord;
+	}
+
+	async sanitizeValues<V>(
+		entity: FieldEntity,
+		values: Record<string, V>,
+	): Promise<Record<string, V>> {
+		if (Object.keys(values).length === 0) return values;
+
+		const definitions = await this.definitionsFor(entity);
+		const byKey = new Map(
+			definitions.map((definition) => [definition.key, definition]),
+		);
+		const sanitized: Record<string, V> = {};
+
+		for (const [key, value] of Object.entries(values)) {
+			const definition = byKey.get(key);
+			if (!definition) continue;
+
+			try {
+				coerceValue(definition, value);
+			} catch (error) {
+				if (error instanceof FieldValueError) continue;
+				throw error;
+			}
+
+			sanitized[key] = value;
+		}
+
+		return sanitized;
 	}
 
 	async applyValues(
