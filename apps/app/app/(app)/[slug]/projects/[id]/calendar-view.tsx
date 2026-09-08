@@ -334,7 +334,11 @@ export function CalendarView({
 					/>
 				)}
 
-				<UnscheduledStrip projectId={id} tasks={unscheduled} density={density} />
+				<UnscheduledStrip
+					projectId={id}
+					tasks={unscheduled}
+					density={density}
+				/>
 
 				<DragOverlay dropAnimation={null}>
 					{activeTask ? (
