@@ -24,7 +24,11 @@ import {
 	collectTokens,
 	missingMerges,
 } from "../templates/merge-guard";
-import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
+import {
+	applyMergeFields,
+	renderEmailHtml,
+	resolveEmailBrand,
+} from "../templates/render-email";
 import { parseTemplateBlocks } from "../templates/template-blocks";
 import { TemplatesService } from "../templates/templates.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
@@ -385,7 +389,8 @@ export class ContractsService {
 				? applyMergeFields(template.subject, context)
 				: `Please sign: ${contract.title}`);
 
-		const { html, text } = renderEmailHtml(blocks, context);
+		const brand = await resolveEmailBrand(this.db);
+		const { html, text } = renderEmailHtml(blocks, context, "email", brand);
 
 		const result = await this.mailer.send({ to, subject, text, html });
 
@@ -513,12 +518,14 @@ export class ContractsService {
 			contractId: contract.id,
 		});
 
+		const brand = await resolveEmailBrand(this.db);
 		let html: string;
 		try {
 			({ html } = renderEmailHtml(
 				parseTemplateBlocks(contract.body),
 				context,
 				"document",
+				brand,
 			));
 		} catch {
 			throw new ConflictException("This contract can no longer be signed.");

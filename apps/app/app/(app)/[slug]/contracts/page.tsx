@@ -55,14 +55,16 @@ export default function ContractsPage({
 async function Contracts({
 	searchParams,
 }: Pick<PageProps<"/[slug]/contracts">, "searchParams">) {
-	const [, values] = await Promise.all([
-		requireSession(),
-		contractsSearchParams.load(searchParams),
-	]);
+	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const input = contractsSearchParams.toInput(values);
+	const savedState = await queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "contracts" }),
+	);
+	const params = contractsSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+	const input = params.toInput(values);
 	const status = input.status as ContractStatusFilter;
 	await queryClient.prefetchQuery(
 		trpc.contracts.list.queryOptions({
@@ -73,7 +75,7 @@ async function Contracts({
 
 	return (
 		<HydrateClient>
-			<ContractsTable />
+			<ContractsTable savedState={savedState ?? undefined} />
 		</HydrateClient>
 	);
 }

@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import {
 	CREW_COLOR_CLASSES,
 	NO_CREW_CLASSES,
@@ -107,12 +108,15 @@ function toDayKey(value: Date | string | null): string | null {
 export function TaskPopover({
 	projectId,
 	task,
+	density = "comfortable",
 	children,
 }: {
 	projectId: string;
 	task: ProjectTaskLike;
+	density?: BoardDensity;
 	children: ReactNode;
 }) {
+	const compact = density === "compact";
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const [open, setOpen] = useState(false);
@@ -209,107 +213,110 @@ export function TaskPopover({
 			<PopoverTrigger asChild>{children}</PopoverTrigger>
 			<PopoverContent
 				align="start"
-				className="flex flex-col gap-2.5"
 				onClick={(event) => event.stopPropagation()}
 			>
-				<button
-					type="button"
-					onClick={() =>
-						cycleStatus.mutate({
-							id: task.id,
-							status: STATUS_FLOW[task.status],
-						})
-					}
-					disabled={cycleStatus.isPending}
-					className="self-start"
-				>
-					<Badge variant={STATUS_VARIANT[task.status]}>
-						{STATUS_LABEL[task.status]}
-					</Badge>
-				</button>
-				<Input
-					value={name}
-					onChange={(event) => setName(event.target.value)}
-					onBlur={commitName}
-					placeholder="Task name"
-				/>
-				<Textarea
-					value={note}
-					onChange={(event) => setNote(event.target.value)}
-					onBlur={commitNote}
-					placeholder="Note"
-					rows={3}
-				/>
-				<Select
-					value={task.assignee?.id ?? "unassigned"}
-					onValueChange={(value) =>
-						update.mutate({
-							id: task.id,
-							assigneeId: value === "unassigned" ? null : value,
-						})
-					}
-				>
-					<SelectTrigger size="sm" className="w-full">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="unassigned">Unassigned</SelectItem>
-						{(users.data ?? []).map((user) => (
-							<SelectItem key={user.id} value={user.id}>
-								{user.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				<Select
-					value={task.crew?.id ?? "none"}
-					onValueChange={(value) =>
-						update.mutate({
-							id: task.id,
-							crewId: value === "none" ? null : value,
-						})
-					}
-				>
-					<SelectTrigger size="sm" className="w-full">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="none">No crew</SelectItem>
-						{(crews.data ?? [])
-							.filter((crew) => !crew.archived)
-							.map((crew) => (
-								<SelectItem key={crew.id} value={crew.id}>
-									<span
-										className={cn(
-											"size-2 shrink-0 rounded-full",
-											(CREW_COLOR_CLASSES[crew.color] ?? NO_CREW_CLASSES).dot,
-										)}
-									/>
-									{crew.name}
+				<div className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2.5")}>
+					<button
+						type="button"
+						onClick={() =>
+							cycleStatus.mutate({
+								id: task.id,
+								status: STATUS_FLOW[task.status],
+							})
+						}
+						disabled={cycleStatus.isPending}
+						className="self-start"
+					>
+						<Badge variant={STATUS_VARIANT[task.status]}>
+							{STATUS_LABEL[task.status]}
+						</Badge>
+					</button>
+					<Input
+						value={name}
+						onChange={(event) => setName(event.target.value)}
+						onBlur={commitName}
+						placeholder="Task name"
+					/>
+					{compact ? null : (
+						<Textarea
+							value={note}
+							onChange={(event) => setNote(event.target.value)}
+							onBlur={commitNote}
+							placeholder="Note"
+							rows={3}
+						/>
+					)}
+					<Select
+						value={task.assignee?.id ?? "unassigned"}
+						onValueChange={(value) =>
+							update.mutate({
+								id: task.id,
+								assigneeId: value === "unassigned" ? null : value,
+							})
+						}
+					>
+						<SelectTrigger size="sm" className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="unassigned">Unassigned</SelectItem>
+							{(users.data ?? []).map((user) => (
+								<SelectItem key={user.id} value={user.id}>
+									{user.name}
 								</SelectItem>
 							))}
-					</SelectContent>
-				</Select>
-				<div className="flex items-center gap-2">
-					<DatePicker
-						value={toDayKey(task.startDay)}
-						onChange={commitStart}
-						placeholder="Start"
-					/>
-					<DatePicker
-						value={toDayKey(task.endDay)}
-						onChange={commitEnd}
-						placeholder="End"
-					/>
+						</SelectContent>
+					</Select>
+					<Select
+						value={task.crew?.id ?? "none"}
+						onValueChange={(value) =>
+							update.mutate({
+								id: task.id,
+								crewId: value === "none" ? null : value,
+							})
+						}
+					>
+						<SelectTrigger size="sm" className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="none">No crew</SelectItem>
+							{(crews.data ?? [])
+								.filter((crew) => !crew.archived)
+								.map((crew) => (
+									<SelectItem key={crew.id} value={crew.id}>
+										<span
+											className={cn(
+												"size-2 shrink-0 rounded-full",
+												(CREW_COLOR_CLASSES[crew.color] ?? NO_CREW_CLASSES).dot,
+											)}
+										/>
+										{crew.name}
+									</SelectItem>
+								))}
+						</SelectContent>
+					</Select>
+					<div className="flex items-center gap-2">
+						<DatePicker
+							value={toDayKey(task.startDay)}
+							onChange={commitStart}
+							placeholder="Start"
+						/>
+						<DatePicker
+							value={toDayKey(task.endDay)}
+							onChange={commitEnd}
+							placeholder="End"
+						/>
+					</div>
+					<Button
+						variant="destructive"
+						size="sm"
+						disabled={remove.isPending}
+						onClick={() => remove.mutate({ id: task.id })}
+					>
+						Remove task
+					</Button>
 				</div>
-				<Button
-					variant="destructive"
-					size="sm"
-					disabled={remove.isPending}
-					onClick={() => remove.mutate({ id: task.id })}
-				>
-					Remove task
-				</Button>
 			</PopoverContent>
 		</Popover>
 	);

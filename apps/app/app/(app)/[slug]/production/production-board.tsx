@@ -24,6 +24,11 @@ import {
 } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { BoardDensityToggle } from "@/components/board/board-density-toggle";
+import {
+	type BoardDensity,
+	useBoardDensity,
+} from "@/components/board/use-board-density";
 import { usePanScroll } from "@/components/board/use-pan-scroll";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
@@ -82,7 +87,11 @@ function moveRowColumn(
  * with an optimistic move + rollback. Dropping into "Unscheduled" clears the
  * stage. Clicking a card opens the deal record.
  */
-export function ProductionBoard() {
+export function ProductionBoard({
+	boardDensity,
+}: {
+	boardDensity?: BoardDensity;
+}) {
 	const { ref: panRef, handlers: panHandlers } = usePanScroll<HTMLDivElement>();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -90,6 +99,10 @@ export function ProductionBoard() {
 	const openRecord = useOpenRecord();
 	const prefetchRecord = usePrefetchRecord();
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const { density, setDensity } = useBoardDensity(
+		"production-board",
+		boardDensity,
+	);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -160,36 +173,44 @@ export function ProductionBoard() {
 	}
 
 	return (
-		<DndContext
-			sensors={sensors}
-			collisionDetection={closestCorners}
-			onDragStart={(event: DragStartEvent) =>
-				setActiveId(String(event.active.id))
-			}
-			onDragEnd={handleDragEnd}
-			onDragCancel={() => setActiveId(null)}
-		>
-			<div
-				ref={panRef}
-				{...panHandlers}
-				className="flex min-h-0 flex-1 cursor-grab gap-3 overflow-x-auto pb-4 active:cursor-grabbing"
-			>
-				{PRODUCTION_COLUMNS.map((column) => (
-					<BoardColumn
-						key={column.id}
-						column={column.id}
-						label={column.label}
-						rows={byColumn.get(column.id) ?? []}
-						reportingCurrency={reportingCurrency}
-						onOpen={(id) => openRecord({ kind: "deal", id })}
-						onHover={(id) => prefetchRecord({ kind: "deal", id })}
-					/>
-				))}
+		<div className="flex min-h-0 flex-1 flex-col gap-3">
+			<div className="flex items-center justify-end">
+				<BoardDensityToggle density={density} onDensityChange={setDensity} />
 			</div>
-			<DragOverlay dropAnimation={null}>
-				{activeRow ? <JobCardBody row={activeRow} dragging /> : null}
-			</DragOverlay>
-		</DndContext>
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCorners}
+				onDragStart={(event: DragStartEvent) =>
+					setActiveId(String(event.active.id))
+				}
+				onDragEnd={handleDragEnd}
+				onDragCancel={() => setActiveId(null)}
+			>
+				<div
+					ref={panRef}
+					{...panHandlers}
+					className="flex min-h-0 flex-1 cursor-grab gap-3 overflow-x-auto pb-4 active:cursor-grabbing"
+				>
+					{PRODUCTION_COLUMNS.map((column) => (
+						<BoardColumn
+							key={column.id}
+							column={column.id}
+							label={column.label}
+							rows={byColumn.get(column.id) ?? []}
+							reportingCurrency={reportingCurrency}
+							density={density}
+							onOpen={(id) => openRecord({ kind: "deal", id })}
+							onHover={(id) => prefetchRecord({ kind: "deal", id })}
+						/>
+					))}
+				</div>
+				<DragOverlay dropAnimation={null}>
+					{activeRow ? (
+						<JobCardBody row={activeRow} density={density} dragging />
+					) : null}
+				</DragOverlay>
+			</DndContext>
+		</div>
 	);
 }
 
@@ -198,6 +219,7 @@ function BoardColumn({
 	label,
 	rows,
 	reportingCurrency,
+	density,
 	onOpen,
 	onHover,
 }: {
@@ -205,6 +227,7 @@ function BoardColumn({
 	label: string;
 	rows: DealRow[];
 	reportingCurrency: string;
+	density: BoardDensity;
 	onOpen: (id: string) => void;
 	onHover: (id: string) => void;
 }) {
@@ -242,6 +265,7 @@ function BoardColumn({
 						key={row.id}
 						row={row}
 						column={column}
+						density={density}
 						onOpen={() => onOpen(row.id)}
 						onHover={() => onHover(row.id)}
 					/>
@@ -259,11 +283,13 @@ function BoardColumn({
 function DraggableJobCard({
 	row,
 	column,
+	density,
 	onOpen,
 	onHover,
 }: {
 	row: DealRow;
 	column: ProductionColumn;
+	density: BoardDensity;
 	onOpen: () => void;
 	onHover: () => void;
 }) {
@@ -283,26 +309,35 @@ function DraggableJobCard({
 			}}
 			className="cursor-grab touch-none select-none active:cursor-grabbing"
 		>
-			<JobCardBody row={row} onOpen={onOpen} onHover={onHover} />
+			<JobCardBody
+				row={row}
+				density={density}
+				onOpen={onOpen}
+				onHover={onHover}
+			/>
 		</div>
 	);
 }
 
 function JobCardBody({
 	row,
+	density = "comfortable",
 	onOpen,
 	onHover,
 	dragging = false,
 }: {
 	row: DealRow;
+	density?: BoardDensity;
 	onOpen?: () => void;
 	onHover?: () => void;
 	dragging?: boolean;
 }) {
+	const compact = density === "compact";
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40",
+				"flex flex-col rounded-lg border border-border bg-card transition-colors hover:border-primary/40 hover:bg-accent/40",
+				compact ? "gap-1 px-2 py-1.5" : "gap-2 px-3 py-2.5",
 				dragging && "rotate-2 cursor-grabbing shadow-xl",
 			)}
 		>
@@ -323,12 +358,14 @@ function JobCardBody({
 					</span>
 				</span>
 			</button>
-			<div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-				{row.expectedCloseDate ? (
-					<LocalDay date={row.expectedCloseDate} />
-				) : null}
-				<OwnerCell owner={row.owner} />
-			</div>
+			{compact ? null : (
+				<div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+					{row.expectedCloseDate ? (
+						<LocalDay date={row.expectedCloseDate} />
+					) : null}
+					<OwnerCell owner={row.owner} />
+				</div>
+			)}
 		</div>
 	);
 }

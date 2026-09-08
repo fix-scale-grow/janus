@@ -40,6 +40,7 @@ import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput 
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolBulkSetServiceInput, symbolPackInput } from "../symbols/symbols.contracts";
 import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, templateSendTestInput } from "../templates/templates.contracts";
 import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, contactActivityInput } from "../tracking/tracking.contracts";
+import { viewGetInput, viewSaveInput, viewResetInput } from "../views/views.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
@@ -71,6 +72,7 @@ import type { SymbolsRouter } from "../symbols/symbols.router";
 import type { TemplatesRouter } from "../templates/templates.router";
 import type { TrackingRouter } from "../tracking/tracking.router";
 import type { UsersRouter } from "../users/users.router";
+import type { ViewsRouter } from "../views/views.router";
 import type { WorkspaceRouter } from "../workspace/workspace.router";
 
 const appRouter = t.router({
@@ -804,6 +806,17 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<UsersRouter["me"]>>),
     list: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<UsersRouter["list"]>>)
+    }),
+  views: t.router({
+    get: publicProcedure
+      .input(viewGetInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ViewsRouter["get"]>>),
+    save: publicProcedure
+      .input(viewSaveInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ViewsRouter["save"]>>),
+    reset: publicProcedure
+      .input(viewResetInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ViewsRouter["reset"]>>)
     }),
   workspace: t.router({
     get: publicProcedure

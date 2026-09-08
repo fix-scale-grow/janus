@@ -78,4 +78,20 @@ describe("brandThemeCss", () => {
 		expect(css.startsWith(".janus-preview{")).toBe(true);
 		expect(css).toContain("--primary:#00bb55");
 	});
+
+	test("emits a lightened .dark ring without touching --primary", () => {
+		const css = brandThemeCss("#006b4f");
+		expect(css).toContain(
+			".dark{--ring:oklch(from #006b4f calc(l + 0.18) c h);--sidebar-ring:oklch(from #006b4f calc(l + 0.18) c h);}",
+		);
+		const rootBlock = css.slice(0, css.indexOf(".dark{"));
+		expect(rootBlock).toContain("--primary:#006b4f");
+		expect(rootBlock).not.toContain(".dark");
+	});
+
+	test("scopes the .dark ring block under a custom selector", () => {
+		const css = brandThemeCss("#c8102e", { selector: ".janus-preview" });
+		expect(css).toContain(".dark .janus-preview, .janus-preview.dark{");
+		expect(css).toContain("--ring:oklch(from #c8102e calc(l + 0.18) c h)");
+	});
 });

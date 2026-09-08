@@ -45,14 +45,17 @@ async function Production() {
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	await Promise.all([
+	const [boardState] = await Promise.all([
+		queryClient.fetchQuery(
+			trpc.views.get.queryOptions({ tableId: "production-board" }),
+		),
 		queryClient.prefetchQuery(trpc.deals.list.queryOptions(WON_JOBS_INPUT)),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
 	]);
 
 	return (
 		<HydrateClient>
-			<ProductionBoard />
+			<ProductionBoard boardDensity={boardState?.density} />
 		</HydrateClient>
 	);
 }

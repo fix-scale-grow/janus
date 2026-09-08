@@ -3,8 +3,11 @@
 import { DataTable, type DataTableColumn } from "@crm/ui/components/data-table";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import { ListSearch } from "@/components/data-table/list-search";
+import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
+import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -23,11 +26,16 @@ const STATUS_TABS: { value: ProjectStatusFilter; label: string }[] = [
 	{ value: "COMPLETE", label: "Complete" },
 ];
 
-export function ProjectsTable() {
+export function ProjectsTable({ savedState }: { savedState?: SavedTableView }) {
 	const router = useRouter();
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
-	const { query, input } = useTableQuery(projectsSearchParams);
+	const searchParams = useMemo(
+		() => projectsSearchParams(savedState),
+		[savedState],
+	);
+	const { query, input, factoryDefaults } = useTableQuery(searchParams);
+	const { onViewChange, onReset } = useViewSync("projects", query.clearSticky);
 	const status = normalizeProjectStatus(input.status);
 
 	const projects = useQuery({
@@ -99,6 +107,18 @@ export function ProjectsTable() {
 		},
 	];
 
+	const viewDefaults = useMemo(
+		() => ({
+			sort: factoryDefaults.sort,
+			dir: factoryDefaults.dir,
+			tab: factoryDefaults.tab,
+			facets: factoryDefaults.facets,
+			hiddenColumns: [],
+			pageSize: factoryDefaults.pageSize,
+		}),
+		[factoryDefaults],
+	);
+
 	return (
 		<DataTable
 			query={query}
@@ -106,6 +126,10 @@ export function ProjectsTable() {
 			columns={columns}
 			rows={rows}
 			total={projects.data?.total ?? 0}
+			hiddenColumnsDefault={savedState?.hiddenColumns}
+			viewDefaults={viewDefaults}
+			onViewChange={onViewChange}
+			onReset={onReset}
 			tabs={{
 				id: "status",
 				allLabel: "All projects",

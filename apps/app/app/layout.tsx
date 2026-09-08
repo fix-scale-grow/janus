@@ -8,7 +8,9 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { BrandTheme } from "@/components/brand-theme";
 import { LocalDateTimeHydrator } from "@/components/local-date-time";
 import { ThemeProvider } from "@/components/theme-provider";
+import { readInstallBrandTheme } from "@/lib/brand";
 import { TRPCReactProvider } from "@/lib/trpc/client";
+import { workspaceLabel } from "@/lib/workspace-label";
 
 const fontSans = Geist({
 	variable: "--font-geist-sans",
@@ -20,27 +22,34 @@ const fontMono = Geist_Mono({
 	subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-	title: {
-		default: "Janus - CRM",
-		template: "%s · Janus CRM",
-	},
-	description: "Customer Relationship Management for Janus",
-	icons: {
-		icon: [
-			{ url: "/favicon.svg", type: "image/svg+xml" },
-			{ url: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
-		],
-		apple: "/apple-touch-icon.png",
-	},
-	manifest: "/site.webmanifest",
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const theme = await readInstallBrandTheme();
+	const label = workspaceLabel(theme?.name);
 
-export default function RootLayout({
+	return {
+		title: {
+			default: label,
+			template: `%s · ${label}`,
+		},
+		description: `Customer Relationship Management for ${label}`,
+		icons: {
+			icon: [
+				{ url: "/favicon.svg", type: "image/svg+xml" },
+				{ url: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
+			],
+			apple: "/apple-touch-icon.png",
+		},
+		manifest: "/site.webmanifest",
+	};
+}
+
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const theme = await readInstallBrandTheme();
+
 	return (
 		<html
 			lang="en"
@@ -48,7 +57,7 @@ export default function RootLayout({
 			className={cn(fontSans.variable, fontMono.variable, "h-full antialiased")}
 		>
 			<head>
-				<BrandTheme />
+				<BrandTheme brandColor={theme?.brandColor} />
 			</head>
 			<body className="flex min-h-full flex-col font-sans">
 				<NuqsAdapter>

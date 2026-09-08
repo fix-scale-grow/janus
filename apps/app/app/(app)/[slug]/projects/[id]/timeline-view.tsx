@@ -3,6 +3,7 @@
 import { Badge } from "@crm/ui/components/badge";
 import { cn } from "@crm/ui/lib/utils";
 import { useMemo } from "react";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import { usePanScroll } from "@/components/board/use-pan-scroll";
 import {
 	CREW_COLOR_CLASSES,
@@ -38,9 +39,11 @@ function todayUtc(): Date {
 export function TimelineView({
 	project,
 	anchor,
+	density,
 }: {
 	project: Project;
 	anchor: Date;
+	density?: BoardDensity;
 }) {
 	const { ref, handlers } = usePanScroll<HTMLDivElement>();
 
@@ -113,6 +116,7 @@ export function TimelineView({
 						windowStart={windowStart}
 						windowEnd={windowEnd}
 						trackWidthRem={trackWidthRem}
+						density={density}
 					/>
 				))}
 			</div>
@@ -126,13 +130,16 @@ function TimelineRow({
 	windowStart,
 	windowEnd,
 	trackWidthRem,
+	density,
 }: {
 	task: CalendarTask;
 	projectId: string;
 	windowStart: Date;
 	windowEnd: Date;
 	trackWidthRem: number;
+	density?: BoardDensity;
 }) {
+	const compact = density === "compact";
 	const cycleStatus = useCycleTaskStatus(projectId);
 	const colors = task.crew
 		? (CREW_COLOR_CLASSES[task.crew.color] ?? NO_CREW_CLASSES)
@@ -172,28 +179,30 @@ function TimelineRow({
 				{rangeLabel ? (
 					<span className="shrink-0 text-muted-foreground">{rangeLabel}</span>
 				) : null}
-				<button
-					type="button"
-					onClick={() =>
-						cycleStatus.mutate({
-							id: task.id,
-							status: STATUS_FLOW[task.status],
-						})
-					}
-					disabled={cycleStatus.isPending}
-					className="shrink-0"
-				>
-					<Badge variant={STATUS_VARIANT[task.status]}>
-						{STATUS_LABEL[task.status]}
-					</Badge>
-				</button>
+				{compact ? null : (
+					<button
+						type="button"
+						onClick={() =>
+							cycleStatus.mutate({
+								id: task.id,
+								status: STATUS_FLOW[task.status],
+							})
+						}
+						disabled={cycleStatus.isPending}
+						className="shrink-0"
+					>
+						<Badge variant={STATUS_VARIANT[task.status]}>
+							{STATUS_LABEL[task.status]}
+						</Badge>
+					</button>
+				)}
 			</div>
 			<div
 				className="relative"
 				style={{ width: `${trackWidthRem}rem`, height: "2.25rem" }}
 			>
 				{outside ? null : (
-					<TaskPopover projectId={projectId} task={task}>
+					<TaskPopover projectId={projectId} task={task} density={density}>
 						<button
 							type="button"
 							style={{

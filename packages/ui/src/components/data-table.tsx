@@ -44,7 +44,12 @@ import {
 } from "@crm/ui/components/table";
 import type { TableSelection } from "@crm/ui/hooks/use-table-selection";
 import { ROW_ACCENT, ROW_ACCENT_EXPANDABLE } from "@crm/ui/lib/row-accent";
-import type { TableQueryState } from "@crm/ui/lib/table-query";
+import {
+	composeStickyFacets,
+	decideStickySave,
+	type SortDirection,
+	type TableQueryState,
+} from "@crm/ui/lib/table-query";
 import { cn } from "@crm/ui/lib/utils";
 import { parseAsArrayOf, parseAsString, useQueryState } from "nuqs";
 import {
@@ -52,10 +57,23 @@ import {
 	Fragment,
 	type ReactNode,
 	useDeferredValue,
+	useEffect,
 	useId,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
+
+export type DataTableStickyView = {
+	sort: string;
+	dir: SortDirection;
+	tab?: string;
+	facets: Record<string, string>;
+	hiddenColumns: string[];
+	pageSize: number;
+};
+
+const VIEW_CHANGE_DEBOUNCE_MS = 1500;
 
 export type DataTableColumn<TRow> = {
 	id: string;
@@ -124,6 +142,10 @@ export type DataTableProps<TRow, TSub> = {
 	empty?: ReactNode;
 	className?: string;
 	tableClassName?: string;
+	hiddenColumnsDefault?: string[];
+	viewDefaults?: DataTableStickyView;
+	onViewChange?: (view: DataTableStickyView) => void;
+	onReset?: () => void;
 };
 
 const HIDE_BELOW_CLASS = {
@@ -279,6 +301,10 @@ export function DataTable<TRow, TSub = unknown>({
 	empty,
 	className,
 	tableClassName,
+	hiddenColumnsDefault,
+	viewDefaults,
+	onViewChange,
+	onReset,
 }: DataTableProps<TRow, TSub>) {
 	const [expandedIds, setExpandedIds] = useQueryState(
 		"expand",
@@ -289,12 +315,75 @@ export function DataTable<TRow, TSub = unknown>({
 		() => columns.filter((column) => column.defaultHidden).map((c) => c.id),
 		[columns],
 	);
+	const hideDefault = hiddenColumnsDefault ?? defaultHiddenIds;
 	const [hidden, setHidden] = useQueryState(
 		"hide",
-		parseAsArrayOf(parseAsString).withDefault(defaultHiddenIds),
+		parseAsArrayOf(parseAsString).withDefault(hideDefault),
 	);
 	const [filtersOpen, setFiltersOpen] = useState(false);
 	const filtersId = useId();
+
+	const currentView: DataTableStickyView = useMemo(
+		() => ({
+			sort: query.sort,
+			dir: query.dir,
+			tab: query.tabId ? query.tab : undefined,
+			facets: composeStickyFacets(query.filters, query.tabId),
+			hiddenColumns: hidden,
+			pageSize: query.pageSize,
+		}),
+		[
+			query.sort,
+			query.dir,
+			query.tab,
+			query.tabId,
+			query.filters,
+			hidden,
+			query.pageSize,
+		],
+	);
+
+	const mounted = useRef(false);
+	const resetting = useRef(false);
+	const lastPersisted = useRef<string | null>(null);
+
+	useEffect(() => {
+		const serialized = JSON.stringify(currentView);
+		const decision = decideStickySave({
+			serialized,
+			mounted: mounted.current,
+			resetting: resetting.current,
+			lastPersisted: lastPersisted.current,
+		});
+
+		if (decision.action === "seed") {
+			mounted.current = true;
+			lastPersisted.current = decision.serialized;
+			return;
+		}
+		if (decision.action === "settle") {
+			resetting.current = false;
+			return;
+		}
+		if (decision.action === "skip" || !onViewChange) return;
+
+		const handle = setTimeout(() => {
+			lastPersisted.current = decision.serialized;
+			onViewChange(currentView);
+		}, VIEW_CHANGE_DEBOUNCE_MS);
+		return () => clearTimeout(handle);
+	}, [currentView, onViewChange]);
+
+	const isDirty =
+		viewDefaults != null &&
+		JSON.stringify(currentView) !== JSON.stringify(viewDefaults);
+
+	const handleReset = () => {
+		resetting.current = true;
+		if (viewDefaults) lastPersisted.current = JSON.stringify(viewDefaults);
+		setHidden(null);
+		onReset?.();
+	};
 
 	const hideable = columns.filter((column) => column.hideable !== false);
 	const visibleColumns = columns.filter(
@@ -562,6 +651,16 @@ export function DataTable<TRow, TSub = unknown>({
 									))}
 								</DropdownMenuContent>
 							</DropdownMenu>
+						)}
+						{onReset && isDirty && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={handleReset}
+							>
+								Reset view
+							</Button>
 						)}
 						{actions}
 					</div>

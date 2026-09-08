@@ -16,7 +16,9 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { ListSearch } from "@/components/data-table/list-search";
+import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
+import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -122,11 +124,16 @@ const COLUMNS: DataTableColumn<ContactRow>[] = [
 	},
 ];
 
-export function ContactsTable() {
+export function ContactsTable({ savedState }: { savedState?: SavedTableView }) {
 	const openRecord = useOpenRecord();
 	const trpc = useTRPC();
 	const prefetchRecord = usePrefetchRecord();
-	const { query, input } = useTableQuery(contactsSearchParams);
+	const searchParams = useMemo(
+		() => contactsSearchParams(savedState),
+		[savedState],
+	);
+	const { query, input, factoryDefaults } = useTableQuery(searchParams);
+	const { onViewChange, onReset } = useViewSync("contacts", query.clearSticky);
 
 	const contacts = useQuery({
 		...trpc.contacts.list.queryOptions(input),
@@ -157,6 +164,21 @@ export function ContactsTable() {
 
 	const fieldColumns = useFieldColumns<ContactRow>("CONTACT");
 	const columns = useMemo(() => [...COLUMNS, ...fieldColumns], [fieldColumns]);
+	const defaultHiddenColumns = useMemo(
+		() => columns.filter((column) => column.defaultHidden).map((c) => c.id),
+		[columns],
+	);
+	const viewDefaults = useMemo(
+		() => ({
+			sort: factoryDefaults.sort,
+			dir: factoryDefaults.dir,
+			tab: factoryDefaults.tab,
+			facets: factoryDefaults.facets,
+			hiddenColumns: defaultHiddenColumns,
+			pageSize: factoryDefaults.pageSize,
+		}),
+		[factoryDefaults, defaultHiddenColumns],
+	);
 
 	return (
 		<DataTable
@@ -167,6 +189,10 @@ export function ContactsTable() {
 			total={contacts.data?.total ?? 0}
 			facetCounts={facetCounts}
 			facets={facets}
+			hiddenColumnsDefault={savedState?.hiddenColumns}
+			viewDefaults={viewDefaults}
+			onViewChange={onViewChange}
+			onReset={onReset}
 			selection={{
 				state: selection,
 				actions: (

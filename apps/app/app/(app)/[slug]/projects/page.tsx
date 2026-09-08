@@ -48,14 +48,16 @@ export default function ProjectsPage({
 async function Projects({
 	searchParams,
 }: Pick<PageProps<"/[slug]/projects">, "searchParams">) {
-	const [, values] = await Promise.all([
-		requireSession(),
-		projectsSearchParams.load(searchParams),
-	]);
+	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const input = projectsSearchParams.toInput(values);
+	const savedState = await queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "projects" }),
+	);
+	const params = projectsSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+	const input = params.toInput(values);
 	const status = normalizeProjectStatus(input.status);
 	await queryClient.prefetchQuery(
 		trpc.projects.list.queryOptions({
@@ -66,7 +68,7 @@ async function Projects({
 
 	return (
 		<HydrateClient>
-			<ProjectsView />
+			<ProjectsView savedState={savedState ?? undefined} />
 		</HydrateClient>
 	);
 }

@@ -9,6 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import {
 	CREW_COLOR_CLASSES,
 	NO_CREW_CLASSES,
@@ -25,6 +26,18 @@ const DAY_MS = 86_400_000;
 export const TASK_BAR_CLASSES =
 	"pointer-events-auto flex h-6 cursor-grab items-center gap-1 truncate rounded-sm border px-1.5 text-xs touch-none select-none active:cursor-grabbing";
 
+const TASK_BAR_CLASSES_COMPACT =
+	"pointer-events-auto flex h-5 items-center gap-0.5 truncate rounded-sm border px-1 text-xs touch-none select-none";
+
+export function taskBarClasses(density?: BoardDensity): string {
+	return density === "compact" ? TASK_BAR_CLASSES_COMPACT : TASK_BAR_CLASSES;
+}
+
+const LANE_HEIGHT_REM: Record<BoardDensity, number> = {
+	comfortable: 1.75,
+	compact: 1.375,
+};
+
 export function barClasses(
 	task: Pick<CalendarTask, "crew" | "status">,
 ): string {
@@ -37,10 +50,12 @@ export function barClasses(
 export function TaskBar({
 	bar,
 	projectId,
+	density,
 }: {
 	bar: WeekBar<CalendarTask>;
 	weekStart: Date;
 	projectId: string;
+	density?: BoardDensity;
 }) {
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
 		useDraggable({
@@ -59,11 +74,11 @@ export function TaskBar({
 			data-board-drag=""
 			style={{
 				gridColumn: `${bar.startCol + 1} / ${displayEndCol + 2}`,
-				marginTop: `${bar.lane * 1.75}rem`,
+				marginTop: `${bar.lane * LANE_HEIGHT_REM[density ?? "comfortable"]}rem`,
 				transform: CSS.Translate.toString(transform),
 			}}
 			className={cn(
-				TASK_BAR_CLASSES,
+				taskBarClasses(density),
 				barClasses(bar.task),
 				bar.clippedStart && "rounded-l-none border-l-0",
 				bar.clippedEnd && "rounded-r-none border-r-0",
@@ -75,7 +90,7 @@ export function TaskBar({
 			{!bar.clippedStart ? (
 				<Icon icon={Draggable} className="size-3 shrink-0 opacity-60" />
 			) : null}
-			<TaskPopover projectId={projectId} task={bar.task}>
+			<TaskPopover projectId={projectId} task={bar.task} density={density}>
 				<span className="truncate">
 					{done ? "✓ " : ""}
 					{bar.task.name}

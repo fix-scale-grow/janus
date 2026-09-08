@@ -1,5 +1,8 @@
 import { parseAsStringLiteral } from "nuqs/server";
-import { createListSearchParams } from "@/components/data-table/list-search-params";
+import {
+	createListSearchParams,
+	type SavedTableView,
+} from "@/components/data-table/list-search-params";
 
 export const PROJECTS_VIEWS = ["table", "calendar"] as const;
 
@@ -18,8 +21,13 @@ export function normalizeProjectStatus(value: string): ProjectStatusFilter {
 		: "all";
 }
 
-export const projectsSearchParams = createListSearchParams({
-	defaultSort: "updatedAt",
-	defaultDir: "desc",
-	tabId: "status",
-});
+export function projectsSearchParams(savedState?: SavedTableView) {
+	return createListSearchParams(
+		{
+			defaultSort: "updatedAt",
+			defaultDir: "desc",
+			tabId: "status",
+		},
+		savedState,
+	);
+}

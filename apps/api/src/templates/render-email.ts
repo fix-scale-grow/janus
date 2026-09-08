@@ -1,10 +1,34 @@
+import { appUrl, WORKSPACE_ID } from "@crm/auth";
+import type { Db } from "@crm/db";
+import { normalizeHex, readableForeground } from "@crm/db/brand";
 import type { TemplateBlocks } from "./template-blocks";
 import { EMAIL_RENDER } from "./templates.config";
 
 export const MERGE_TOKEN_PATTERN = /{{\s*([\w.]+)\s*}}/g;
 
 const { tableWidth: TABLE_WIDTH, cellPadding: CELL_PADDING } = EMAIL_RENDER;
-const { brandGreen: BRAND_GREEN, logoSize: LOGO_SIZE } = EMAIL_RENDER;
+const { logoSize: LOGO_SIZE } = EMAIL_RENDER;
+
+export interface EmailBrand {
+	color: string;
+	foreground: string;
+	logoUrl: string | null;
+}
+
+export async function resolveEmailBrand(db: Db): Promise<EmailBrand> {
+	const row = await db.organization.findUnique({
+		where: { id: WORKSPACE_ID },
+		select: { brandColor: true, logo: true },
+	});
+
+	const color = normalizeHex(row?.brandColor) ?? EMAIL_RENDER.brandGreen;
+
+	return {
+		color,
+		foreground: readableForeground(color),
+		logoUrl: row?.logo ? `${appUrl}${row.logo}` : null,
+	};
+}
 
 export function applyMergeFields(
 	input: string,
@@ -54,6 +78,7 @@ function renderBlockHtml(
 	block: TemplateBlocks[number],
 	context: Record<string, string>,
 	mode: RenderMode,
+	brand: EmailBrand,
 ): string {
 	switch (block.kind) {
 		case "heading": {
@@ -73,11 +98,11 @@ function renderBlockHtml(
 			const href = escapeAttribute(context.signing_link ?? "#");
 			if (mode === "document") {
 				return renderRow(
-					`<a href="${href}" style="display:inline-block;padding:12px 24px;background:${BRAND_GREEN};border-radius:5px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a>`,
+					`<a href="${href}" style="display:inline-block;padding:12px 24px;background:${brand.color};border-radius:5px;color:${brand.foreground};text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a>`,
 				);
 			}
 			return renderRow(
-				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:${BRAND_GREEN};border-radius:5px;" bgcolor="${BRAND_GREEN}"><a href="${href}" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a></td></tr></table>`,
+				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:${brand.color};border-radius:5px;" bgcolor="${brand.color}"><a href="${href}" style="display:inline-block;padding:12px 24px;color:${brand.foreground};text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a></td></tr></table>`,
 			);
 		}
 		case "divider":
@@ -85,9 +110,15 @@ function renderBlockHtml(
 		case "spacer":
 			return `<tr><td style="padding:0;height:${block.height}px;line-height:${block.height}px;font-size:1px;">&nbsp;</td></tr>`;
 		case "logo": {
+			if (brand.logoUrl) {
+				const src = escapeAttribute(brand.logoUrl);
+				return renderRow(
+					`<img src="${src}" alt="" width="${LOGO_SIZE}" height="${LOGO_SIZE}" style="max-height:${LOGO_SIZE}px;width:auto;display:block;">`,
+				);
+			}
 			const initials = initialsFromBusinessName(context);
 			return renderRow(
-				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="${LOGO_SIZE}" height="${LOGO_SIZE}" style="width:${LOGO_SIZE}px;height:${LOGO_SIZE}px;border-radius:${LOGO_SIZE / 2}px;background:${BRAND_GREEN};color:#ffffff;text-align:center;vertical-align:middle;font-family:Arial,sans-serif;font-size:16px;" bgcolor="${BRAND_GREEN}">${initials}</td></tr></table>`,
+				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="${LOGO_SIZE}" height="${LOGO_SIZE}" style="width:${LOGO_SIZE}px;height:${LOGO_SIZE}px;border-radius:${LOGO_SIZE / 2}px;background:${brand.color};color:${brand.foreground};text-align:center;vertical-align:middle;font-family:Arial,sans-serif;font-size:16px;" bgcolor="${brand.color}">${initials}</td></tr></table>`,
 			);
 		}
 	}
@@ -128,13 +159,20 @@ export type RenderMode = "email" | "document";
 
 const DOCUMENT_WIDTH = 640;
 
+const DEFAULT_BRAND: EmailBrand = {
+	color: EMAIL_RENDER.brandGreen,
+	foreground: "#ffffff",
+	logoUrl: null,
+};
+
 export function renderEmailHtml(
 	blocks: TemplateBlocks,
 	context: Record<string, string>,
 	mode: RenderMode = "email",
+	brand: EmailBrand = DEFAULT_BRAND,
 ): { html: string; text: string } {
 	const rows = blocks
-		.map((block) => renderBlockHtml(block, context, mode))
+		.map((block) => renderBlockHtml(block, context, mode, brand))
 		.join("");
 
 	const width = mode === "document" ? DOCUMENT_WIDTH : TABLE_WIDTH;

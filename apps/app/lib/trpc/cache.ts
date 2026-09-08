@@ -1,6 +1,7 @@
 "use client";
 
 import type { TemplatePurpose } from "@crm/db/enums";
+import type { ViewTableId } from "@crm/db/user-views";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "./client";
 
@@ -44,6 +45,7 @@ export type CrmCache = {
 	slack(options?: Options): Promise<void>;
 	sso(options?: Options): Promise<void>;
 	tracking(options?: Options): Promise<void>;
+	views(tableId?: ViewTableId, options?: Options): Promise<void>;
 	everything(): Promise<void>;
 };
 
@@ -393,6 +395,17 @@ export function useCrmCache(): CrmCache {
 				[trpc.tracking.settings.queryKey()],
 				[trpc.tracking.sources.queryKey()],
 				options,
+			),
+
+		views: (tableId, options) =>
+			run(
+				[
+					tableId
+						? trpc.views.get.queryKey({ tableId })
+						: trpc.views.get.queryKey(),
+				],
+				[],
+				{ settle: "record", ...options },
 			),
 
 		everything: () => queryClient.invalidateQueries(),

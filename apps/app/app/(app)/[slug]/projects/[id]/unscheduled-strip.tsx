@@ -7,6 +7,7 @@ import { Icon } from "@crm/ui/components/icon";
 import { cn } from "@crm/ui/lib/utils";
 import { useDraggable } from "@dnd-kit/core";
 import { useState } from "react";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import {
 	CREW_COLOR_CLASSES,
 	NO_CREW_CLASSES,
@@ -16,16 +17,24 @@ import { type ProjectTaskLike, TaskPopover } from "./task-card";
 export function UnscheduledStrip({
 	projectId,
 	tasks,
+	density,
 }: {
 	projectId: string;
 	tasks: ProjectTaskLike[];
+	density?: BoardDensity;
 }) {
 	const [open, setOpen] = useState(true);
+	const compact = density === "compact";
 
 	if (tasks.length === 0) return null;
 
 	return (
-		<div className="flex flex-col gap-2 rounded-lg border border-border p-2">
+		<div
+			className={cn(
+				"flex flex-col rounded-lg border border-border",
+				compact ? "gap-1.5 p-1.5" : "gap-2 p-2",
+			)}
+		>
 			<div className="flex items-center gap-2">
 				<button
 					type="button"
@@ -42,9 +51,14 @@ export function UnscheduledStrip({
 				) : null}
 			</div>
 			{open ? (
-				<div className="flex flex-wrap gap-1.5">
+				<div className={cn("flex flex-wrap", compact ? "gap-1" : "gap-1.5")}>
 					{tasks.map((task) => (
-						<UnscheduledChip key={task.id} projectId={projectId} task={task} />
+						<UnscheduledChip
+							key={task.id}
+							projectId={projectId}
+							task={task}
+							density={density}
+						/>
 					))}
 				</div>
 			) : null}
@@ -55,13 +69,16 @@ export function UnscheduledStrip({
 function UnscheduledChip({
 	projectId,
 	task,
+	density,
 }: {
 	projectId: string;
 	task: ProjectTaskLike;
+	density?: BoardDensity;
 }) {
 	const colors = task.crew
 		? (CREW_COLOR_CLASSES[task.crew.color] ?? NO_CREW_CLASSES)
 		: NO_CREW_CLASSES;
+	const compact = density === "compact";
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 		id: task.id,
 	});
@@ -71,7 +88,8 @@ function UnscheduledChip({
 			ref={setNodeRef}
 			data-board-drag=""
 			className={cn(
-				"flex cursor-grab items-center gap-1.5 truncate rounded-sm border px-2 py-1 text-xs touch-none select-none active:cursor-grabbing",
+				"flex cursor-grab items-center truncate rounded-sm border text-xs touch-none select-none active:cursor-grabbing",
+				compact ? "gap-1 px-1.5 py-0.5" : "gap-1.5 px-2 py-1",
 				colors.bar,
 				isDragging && "opacity-40",
 			)}
@@ -80,7 +98,7 @@ function UnscheduledChip({
 		>
 			<Icon icon={Draggable} className="size-3 shrink-0 opacity-60" />
 			<span className={cn("size-1.5 shrink-0 rounded-full", colors.dot)} />
-			<TaskPopover projectId={projectId} task={task}>
+			<TaskPopover projectId={projectId} task={task} density={density}>
 				<button type="button" className="truncate">
 					{task.name}
 				</button>

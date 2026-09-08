@@ -50,23 +50,26 @@ export default function ContactsPage({
 async function Contacts({
 	searchParams,
 }: Pick<PageProps<"/[slug]/contacts">, "searchParams">) {
-	const [, values] = await Promise.all([
-		requireSession(),
-		contactsSearchParams.load(searchParams),
-	]);
+	await requireSession();
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
+	const savedState = await queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "contacts" }),
+	);
+	const params = contactsSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+
 	await Promise.all([
 		queryClient.prefetchQuery(
-			trpc.contacts.list.queryOptions(contactsSearchParams.toInput(values)),
+			trpc.contacts.list.queryOptions(params.toInput(values)),
 		),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
 	]);
 
 	return (
 		<HydrateClient>
-			<ContactsTable />
+			<ContactsTable savedState={savedState ?? undefined} />
 		</HydrateClient>
 	);
 }

@@ -8,6 +8,7 @@ import {
 	workspaceRoleOf,
 } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
+import { normalizeHex } from "@crm/db/brand";
 import { isOnboarded, markOnboarded, workspaceSlug } from "@crm/db/workspace";
 import {
 	BadRequestException,
@@ -38,6 +39,8 @@ export interface Workspace {
 	slug: string;
 	name: string;
 	website: string | null;
+	brandColor: string | null;
+	logoUrl: string | null;
 	onboarded: boolean;
 	viewerRole: WorkspaceRole | null;
 	canRename: boolean;
@@ -109,6 +112,8 @@ export class WorkspaceService {
 			slug: row.slug,
 			name: row.name,
 			website: row.website,
+			brandColor: row.brandColor,
+			logoUrl: row.logo,
 			onboarded: isOnboarded(row.metadata),
 			viewerRole: role,
 			canRename: canRenameWorkspace(role),
@@ -141,12 +146,27 @@ export class WorkspaceService {
 			);
 		}
 
+		let brandColor: string | null | undefined;
+
+		if (input.brandColor === null) {
+			brandColor = null;
+		} else if (input.brandColor !== undefined) {
+			brandColor = normalizeHex(input.brandColor);
+
+			if (!brandColor) {
+				throw new BadRequestException(
+					"That is not a color. Enter a hex color, like #006b4f.",
+				);
+			}
+		}
+
 		await this.db.organization.update({
 			where: { id: WORKSPACE_ID },
 			data: {
 				name: input.name,
 				slug: workspaceSlug(input.slug ?? input.name),
 				website,
+				...(brandColor !== undefined ? { brandColor } : {}),
 				metadata: markOnboarded(before?.metadata ?? null, new Date()),
 			},
 		});
@@ -295,6 +315,8 @@ export class WorkspaceService {
 				slug: true,
 				name: true,
 				website: true,
+				brandColor: true,
+				logo: true,
 				metadata: true,
 			},
 		});

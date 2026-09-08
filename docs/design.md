@@ -15,9 +15,10 @@
 
 ## Colour
 
-Flat white, neutral greys, and one brand green (`#006B4F`). The greys are
-untinted on purpose: there is no scene to tint them toward, and a tinted grey
-without a reason reads as indecision.
+Flat white, neutral greys, and one brand accent — `#006B4F` by default, but
+each install can pick its own from Settings › General. The greys are untinted
+on purpose: there is no scene to tint them toward, and a tinted grey without a
+reason reads as indecision.
 
 **Only two things are filled**: `primary` for the action you want, `destructive`
 for the one you cannot undo. Everything else — secondary, outline, ghost — is a
@@ -27,5 +28,14 @@ landing on *go* or *stop* and skimming past the rest.
 `--primary` and `--destructive` hold the **same value in both themes**. A brand
 colour that changes per theme is not one colour, it is two, and both then need
 maintaining. The single exception is `--ring`, which lightens in dark: a fill
-carries the brand, but a ring only has to be seen, and `#006B4F` is too close to
-the dark background to register.
+carries the brand, but a ring only has to be seen, and the accent is too close
+to the dark background to register there unlit. That lightened ring is
+computed, not chosen — `oklch(from <accent> calc(l + 0.18) c h)` — so any
+install colour gets a dark-mode ring that reads, with no per-colour tuning.
+
+The accent is an install-level token: `packages/ui/src/lib/brand-theme.ts`
+turns the single hex value into the `--primary`/`--ring`/`--sidebar-*`
+overrides, sourced from `Organization.brandColor` (env `JANUS_BRAND_COLOR` as
+the fallback when no colour is set), and applied once in the root layout so
+every surface — app shell, emails, agent-built pages — stays on the one
+colour the business chose.

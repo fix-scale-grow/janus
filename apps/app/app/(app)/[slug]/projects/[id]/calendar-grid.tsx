@@ -7,6 +7,7 @@ import {
 } from "@crm/ui/components/popover";
 import { cn } from "@crm/ui/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { dayKey, layoutWeek } from "@/lib/calendar/span-layout";
 import type { CalendarTask } from "./calendar-view";
@@ -24,6 +25,7 @@ export function CalendarGrid({
 	anchorMonth,
 	onDayClick,
 	projectId,
+	density,
 }: {
 	weeks: Date[][];
 	scheduled: CalendarTask[];
@@ -33,9 +35,11 @@ export function CalendarGrid({
 	anchorMonth: number;
 	onDayClick: (day: Date) => void;
 	projectId: string;
+	density?: BoardDensity;
 }) {
 	const maxLanes =
 		view === "month" ? CALENDAR.monthMaxLanes : CALENDAR.weekMaxLanes;
+	const compact = density === "compact";
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-lg border border-border">
@@ -50,12 +54,20 @@ export function CalendarGrid({
 				const weekStart = week[0];
 				if (!weekStart) return null;
 				const { bars, overflow } = layoutWeek(scheduled, weekStart, maxLanes);
+				const minHeight =
+					view === "week"
+						? compact
+							? "16rem"
+							: "20rem"
+						: compact
+							? "6rem"
+							: "7.5rem";
 				return (
 					<div
 						key={dayKey(weekStart)}
 						data-week-row=""
 						className="relative grid grid-cols-7 border-b border-border"
-						style={{ minHeight: view === "week" ? "20rem" : "7.5rem" }}
+						style={{ minHeight }}
 					>
 						{week.map((day, index) => (
 							<DayCell
@@ -75,15 +87,22 @@ export function CalendarGrid({
 								)}
 								projectId={projectId}
 								onDayClick={onDayClick}
+								density={density}
 							/>
 						))}
-						<div className="pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7 pt-7">
+						<div
+							className={cn(
+								"pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7",
+								compact ? "pt-6" : "pt-7",
+							)}
+						>
 							{bars.map((bar) => (
 								<TaskBar
 									key={bar.task.id}
 									bar={bar}
 									weekStart={weekStart}
 									projectId={projectId}
+									density={density}
 								/>
 							))}
 						</div>
@@ -104,6 +123,7 @@ function DayCell({
 	overflowTasks,
 	projectId,
 	onDayClick,
+	density,
 }: {
 	day: Date;
 	column: number;
@@ -114,9 +134,11 @@ function DayCell({
 	overflowTasks: CalendarTask[];
 	projectId: string;
 	onDayClick: (day: Date) => void;
+	density?: BoardDensity;
 }) {
 	const key = dayKey(day);
 	const { setNodeRef, isOver } = useDroppable({ id: key });
+	const compact = density === "compact";
 
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: droppable day cell also contains a nested "+N more" button and task chips
@@ -130,7 +152,8 @@ function DayCell({
 				if (event.key === "Enter" || event.key === " ") onDayClick(day);
 			}}
 			className={cn(
-				"row-start-1 flex cursor-pointer flex-col gap-1 border-r border-border p-1 transition-colors last:border-r-0",
+				"row-start-1 flex cursor-pointer flex-col border-r border-border transition-colors last:border-r-0",
+				compact ? "gap-0.5 p-0.5" : "gap-1 p-1",
 				!inAnchorMonth && "bg-muted/30 text-muted-foreground",
 				isOver && "bg-accent/60 ring-2 ring-primary/30",
 			)}
@@ -165,7 +188,12 @@ function DayCell({
 						onClick={(event) => event.stopPropagation()}
 					>
 						{overflowTasks.map((task) => (
-							<TaskPopover key={task.id} projectId={projectId} task={task}>
+							<TaskPopover
+								key={task.id}
+								projectId={projectId}
+								task={task}
+								density={density}
+							>
 								<button
 									type="button"
 									className="truncate rounded-sm px-1.5 py-1 text-left text-xs hover:bg-accent"

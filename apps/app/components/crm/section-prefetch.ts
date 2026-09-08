@@ -23,13 +23,13 @@ export function usePrefetchSection(): (section: string) => void {
 				case "/contacts":
 					void queryClient.prefetchQuery(
 						trpc.contacts.list.queryOptions(
-							contactsSearchParams.defaultInput(),
+							contactsSearchParams().defaultInput(),
 						),
 					);
 					return;
 				case "/deals":
 					void queryClient.prefetchQuery(
-						trpc.deals.list.queryOptions(dealsSearchParams.defaultInput()),
+						trpc.deals.list.queryOptions(dealsSearchParams().defaultInput()),
 					);
 					return;
 				default:

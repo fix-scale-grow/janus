@@ -22,7 +22,11 @@ import {
 	collectTokens,
 	missingMerges,
 } from "../templates/merge-guard";
-import { applyMergeFields, renderEmailHtml } from "../templates/render-email";
+import {
+	applyMergeFields,
+	renderEmailHtml,
+	resolveEmailBrand,
+} from "../templates/render-email";
 import { parseTemplateBlocks } from "../templates/template-blocks";
 import { TemplatesService } from "../templates/templates.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
@@ -557,7 +561,8 @@ export class EstimatesService {
 				? applyMergeFields(template.subject, context)
 				: `Your estimate from ${workspaceName}`);
 
-		const { html, text } = renderEmailHtml(blocks, context);
+		const brand = await resolveEmailBrand(this.db);
+		const { html, text } = renderEmailHtml(blocks, context, "email", brand);
 
 		const result = await this.mailer.send({
 			to,
