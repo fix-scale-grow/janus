@@ -167,14 +167,7 @@ export function SalesDashboard({ summary }: { summary: Summary }) {
 					{unconverted.currencies.join(", ")}{" "}
 					{unconverted.count === 1 ? "is" : "are"} not included — there is no
 					rate to convert {unconverted.currencies.length === 1 ? "it" : "them"}{" "}
-					with.{" "}
-					<Link
-						href={workspaceUrl("/settings/currencies")}
-						className="underline hover:no-underline"
-					>
-						Set one
-					</Link>
-					.
+					with.
 				</p>
 			) : null}
 
