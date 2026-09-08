@@ -23,7 +23,7 @@ export function useViewSync(tableId: ViewTableId, clearSticky: () => void) {
 				{ onSuccess: () => void cache.views(tableId, { settle: "record" }) },
 			);
 		},
-		[save, tableId, cache],
+		[save.mutate, tableId, cache],
 	);
 
 	const onReset = useCallback(() => {
@@ -37,7 +37,7 @@ export function useViewSync(tableId: ViewTableId, clearSticky: () => void) {
 				},
 			},
 		);
-	}, [reset, tableId, cache, router, clearSticky]);
+	}, [reset.mutate, tableId, cache, router, clearSticky]);
 
 	return { onViewChange, onReset };
 }

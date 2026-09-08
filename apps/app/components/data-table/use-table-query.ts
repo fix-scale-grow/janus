@@ -2,6 +2,7 @@
 
 import type { TableQueryState } from "@crm/ui/lib/table-query";
 import { useQueryStates } from "nuqs";
+import { useMemo } from "react";
 import type {
 	ListFactoryDefaults,
 	ListInput,
@@ -27,11 +28,14 @@ export function useTableQuery<TTab extends string, TFacet extends string>(
 	const page = values.page > 0 ? values.page : 1;
 	const tab = tabId ? values[tabId] : "all";
 
-	const filters: Record<string, string> = {};
-	if (tabId) filters[tabId] = tab;
-	for (const id of facetIds ?? []) {
-		filters[id] = values[id] ?? facetDefaults?.[id] ?? "all";
-	}
+	const filters = useMemo(() => {
+		const result: Record<string, string> = {};
+		if (tabId) result[tabId] = tab;
+		for (const id of facetIds ?? []) {
+			result[id] = values[id] ?? facetDefaults?.[id] ?? "all";
+		}
+		return result;
+	}, [tabId, tab, facetIds, facetDefaults, values]);
 
 	const query: TableQueryState = {
 		sort: values.sort,

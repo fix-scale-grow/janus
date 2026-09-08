@@ -44,7 +44,12 @@ import {
 } from "@crm/ui/components/table";
 import type { TableSelection } from "@crm/ui/hooks/use-table-selection";
 import { ROW_ACCENT, ROW_ACCENT_EXPANDABLE } from "@crm/ui/lib/row-accent";
-import type { SortDirection, TableQueryState } from "@crm/ui/lib/table-query";
+import {
+	composeStickyFacets,
+	decideStickySave,
+	type SortDirection,
+	type TableQueryState,
+} from "@crm/ui/lib/table-query";
 import { cn } from "@crm/ui/lib/utils";
 import { parseAsArrayOf, parseAsString, useQueryState } from "nuqs";
 import {
@@ -323,7 +328,7 @@ export function DataTable<TRow, TSub = unknown>({
 			sort: query.sort,
 			dir: query.dir,
 			tab: query.tabId ? query.tab : undefined,
-			facets: query.filters,
+			facets: composeStickyFacets(query.filters, query.tabId),
 			hiddenColumns: hidden,
 			pageSize: query.pageSize,
 		}),
@@ -339,17 +344,33 @@ export function DataTable<TRow, TSub = unknown>({
 	);
 
 	const mounted = useRef(false);
+	const resetting = useRef(false);
+	const lastPersisted = useRef<string | null>(null);
+
 	useEffect(() => {
-		if (!onViewChange) return;
-		if (!mounted.current) {
+		const serialized = JSON.stringify(currentView);
+		const decision = decideStickySave({
+			serialized,
+			mounted: mounted.current,
+			resetting: resetting.current,
+			lastPersisted: lastPersisted.current,
+		});
+
+		if (decision.action === "seed") {
 			mounted.current = true;
+			lastPersisted.current = decision.serialized;
 			return;
 		}
+		if (decision.action === "settle") {
+			resetting.current = false;
+			return;
+		}
+		if (decision.action === "skip" || !onViewChange) return;
 
-		const handle = setTimeout(
-			() => onViewChange(currentView),
-			VIEW_CHANGE_DEBOUNCE_MS,
-		);
+		const handle = setTimeout(() => {
+			lastPersisted.current = decision.serialized;
+			onViewChange(currentView);
+		}, VIEW_CHANGE_DEBOUNCE_MS);
 		return () => clearTimeout(handle);
 	}, [currentView, onViewChange]);
 
@@ -358,6 +379,8 @@ export function DataTable<TRow, TSub = unknown>({
 		JSON.stringify(currentView) !== JSON.stringify(viewDefaults);
 
 	const handleReset = () => {
+		resetting.current = true;
+		if (viewDefaults) lastPersisted.current = JSON.stringify(viewDefaults);
 		setHidden(null);
 		onReset?.();
 	};
