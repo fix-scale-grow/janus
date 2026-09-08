@@ -4,8 +4,10 @@ import type { z } from "zod";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import type { SymbolPackKey } from "./symbol-packs";
 import {
+	symbolBulkSetTradeInput,
 	symbolCreateInput,
 	symbolIdInput,
+	symbolIdsInput,
 	symbolListInput,
 	symbolPackInput,
 	symbolUpdateInput,
@@ -43,6 +45,16 @@ export class SymbolsRouter {
 	@Mutation({ input: symbolIdInput })
 	async delete(@Input("id") id: string) {
 		return this.symbols.delete(id);
+	}
+
+	@Mutation({ input: symbolIdsInput })
+	async bulkDelete(@Input("ids") ids: string[]) {
+		return this.symbols.bulkDelete(ids);
+	}
+
+	@Mutation({ input: symbolBulkSetTradeInput })
+	async bulkSetTrade(@Input() input: z.infer<typeof symbolBulkSetTradeInput>) {
+		return this.symbols.bulkSetTrade(input.ids, input.trade);
 	}
 
 	@Mutation({ input: symbolPackInput })

@@ -97,6 +97,35 @@ export class SymbolsService {
 		}
 	}
 
+	async bulkDelete(ids: string[]) {
+		const found = await this.db.symbol.findMany({
+			where: { id: { in: ids } },
+			select: { id: true },
+		});
+		const foundIds = found.map((row) => row.id);
+		if (foundIds.length === 0) return { count: 0 };
+
+		const result = await this.db.symbol.deleteMany({
+			where: { id: { in: foundIds } },
+		});
+		return { count: result.count };
+	}
+
+	async bulkSetTrade(ids: string[], trade: string) {
+		const found = await this.db.symbol.findMany({
+			where: { id: { in: ids } },
+			select: { id: true },
+		});
+		const foundIds = found.map((row) => row.id);
+		if (foundIds.length === 0) return { count: 0 };
+
+		const result = await this.db.symbol.updateMany({
+			where: { id: { in: foundIds } },
+			data: { trade },
+		});
+		return { count: result.count };
+	}
+
 	async seedPack(key: SymbolPackKey) {
 		const pack = SYMBOL_PACKS[key];
 

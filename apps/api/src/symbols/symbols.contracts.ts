@@ -40,6 +40,19 @@ export const symbolIdInput = z.object({ id: z.string().min(1) });
 
 export type SymbolIdInput = z.infer<typeof symbolIdInput>;
 
+export const symbolIdsInput = z.object({
+	ids: z.array(z.string().min(1)).min(1).max(200),
+});
+
+export type SymbolIdsInput = z.infer<typeof symbolIdsInput>;
+
+export const symbolBulkSetTradeInput = z.object({
+	ids: z.array(z.string().min(1)).min(1).max(200),
+	trade: z.string().trim().min(1).max(60),
+});
+
+export type SymbolBulkSetTradeInput = z.infer<typeof symbolBulkSetTradeInput>;
+
 export const symbolCreateInput = symbolFields;
 
 export type SymbolCreateInput = z.infer<typeof symbolCreateInput>;
