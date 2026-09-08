@@ -90,10 +90,18 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
-	await db.organization.update({
-		where: { id: WORKSPACE_ID },
-		data: { logo: url },
-	});
+	try {
+		await db.organization.update({
+			where: { id: WORKSPACE_ID },
+			data: { logo: url },
+		});
+	} catch {
+		await removeLogo();
+		return NextResponse.json(
+			{ error: "The logo could not be saved." },
+			{ status: 500 },
+		);
+	}
 
 	return NextResponse.json({ url });
 }

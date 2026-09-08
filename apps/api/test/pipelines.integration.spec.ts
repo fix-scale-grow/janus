@@ -377,14 +377,60 @@ describe("reorderStages and reorderPipelines", () => {
 		const a = await makePipeline("reorder-a");
 		const b = await makePipeline("reorder-b");
 
+		const current = await pipelines.list(false);
+		const rest = current
+			.filter((entry) => entry.id !== a.id && entry.id !== b.id)
+			.map((entry) => entry.id);
+
 		const reordered = await pipelines.reorderPipelines({
-			ids: [b.id, a.id],
+			ids: [b.id, a.id, ...rest],
 		});
 
 		const bIndex = reordered.findIndex((entry) => entry.id === b.id);
 		const aIndex = reordered.findIndex((entry) => entry.id === a.id);
 
 		expect(bIndex).toBeLessThan(aIndex);
+	});
+
+	it("refuses a stage order that omits a live stage on the pipeline", async () => {
+		const pipeline = await makePipeline("reorder-stages-subset");
+		const ids = pipeline.stages.slice(0, -1).map((stage) => stage.id);
+
+		await expectRejects(
+			pipelines.reorderStages({ pipelineId: pipeline.id, ids }),
+			/exactly once/i,
+		);
+	});
+
+	it("refuses a stage order that repeats one stage in place of another", async () => {
+		const pipeline = await makePipeline("reorder-stages-dup");
+		const firstId = pipeline.stages[0]?.id ?? "";
+		const ids = pipeline.stages.map(() => firstId);
+
+		await expectRejects(
+			pipelines.reorderStages({ pipelineId: pipeline.id, ids }),
+			/exactly once/i,
+		);
+	});
+
+	it("refuses a pipeline order that omits a live pipeline", async () => {
+		const a = await makePipeline("reorder-subset-a");
+		await makePipeline("reorder-subset-b");
+
+		await expectRejects(
+			pipelines.reorderPipelines({ ids: [a.id] }),
+			/exactly once/i,
+		);
+	});
+
+	it("refuses a pipeline order that names an id twice", async () => {
+		const a = await makePipeline("reorder-dup-a");
+		const b = await makePipeline("reorder-dup-b");
+
+		await expectRejects(
+			pipelines.reorderPipelines({ ids: [a.id, a.id, b.id] }),
+			/exactly once/i,
+		);
 	});
 });
 

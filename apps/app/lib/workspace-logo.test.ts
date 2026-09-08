@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -70,6 +70,13 @@ describe("workspace-logo", () => {
 	it("removing when nothing exists does not throw", async () => {
 		await removeLogo();
 	});
+
+	it("leaves no temp file behind after a save", async () => {
+		await saveLogo("png", Buffer.from("fake-png-bytes"));
+
+		const entries = await readdir(dir);
+		expect(entries).toEqual(["logo.png"]);
+	});
 });
 
 describe("matchesDeclaredType", () => {
@@ -81,6 +88,18 @@ describe("matchesDeclaredType", () => {
 	it("rejects a PNG file declared as SVG", () => {
 		const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 		expect(matchesDeclaredType("image/svg+xml", png)).toBe(false);
+	});
+
+	it("rejects bytes matching only the first 4 PNG signature bytes", () => {
+		const truncated = Buffer.from([
+			0x89, 0x50, 0x4e, 0x47, 0x00, 0x00, 0x00, 0x00,
+		]);
+		expect(matchesDeclaredType("image/png", truncated)).toBe(false);
+	});
+
+	it("rejects a PNG buffer shorter than the full signature", () => {
+		const short = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+		expect(matchesDeclaredType("image/png", short)).toBe(false);
 	});
 
 	it("accepts real JPEG magic bytes declared as JPEG", () => {
@@ -149,5 +168,26 @@ describe("isSvgSafe", () => {
 			'<svg xmlns="http://www.w3.org/2000/svg"><a xlink:href="javascript:alert(1)"><rect width="1" height="1"/></a></svg>',
 		);
 		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("rejects an href with an entity-encoded javascript: scheme", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><a href="&#106;avascript:alert(1)"><rect width="1" height="1"/></a></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("rejects an xlink:href with an entity-encoded javascript: scheme", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><a xlink:href="j&#x61;vascript:alert(1)"><rect width="1" height="1"/></a></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(false);
+	});
+
+	it("allows an href value with no entity reference", () => {
+		const svg = Buffer.from(
+			'<svg xmlns="http://www.w3.org/2000/svg"><a href="#section"><rect width="1" height="1"/></a></svg>',
+		);
+		expect(isSvgSafe(svg)).toBe(true);
 	});
 });

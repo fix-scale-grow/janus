@@ -1,4 +1,5 @@
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { findWorkspaceRoot } from "@crm/env";
 
@@ -33,11 +34,15 @@ function logoFile(ext: string): string {
 
 const MAGIC_BYTE_CHECKS: Record<string, (bytes: Buffer) => boolean> = {
 	"image/png": (bytes) =>
-		bytes.length >= 4 &&
+		bytes.length >= 8 &&
 		bytes[0] === 0x89 &&
 		bytes[1] === 0x50 &&
 		bytes[2] === 0x4e &&
-		bytes[3] === 0x47,
+		bytes[3] === 0x47 &&
+		bytes[4] === 0x0d &&
+		bytes[5] === 0x0a &&
+		bytes[6] === 0x1a &&
+		bytes[7] === 0x0a,
 	"image/jpeg": (bytes) =>
 		bytes.length >= 3 &&
 		bytes[0] === 0xff &&
@@ -68,6 +73,7 @@ const SVG_UNSAFE_PATTERNS = [
 	/\son\w+\s*=/i,
 	/(?:xlink:href|href)\s*=\s*["']\s*javascript:/i,
 	/(?:xlink:href|href)\s*=\s*["']\s*(?:https?:)?\/\//i,
+	/(?:xlink:href|href)\s*=\s*["'][^"']*&#/i,
 ];
 
 export function isSvgSafe(bytes: Buffer): boolean {
@@ -83,7 +89,10 @@ export async function saveLogo(
 		const dir = dataDir();
 		await mkdir(dir, { recursive: true });
 		await removeLogo();
-		await writeFile(logoFile(ext), bytes);
+		const target = logoFile(ext);
+		const tempFile = join(dir, `.${randomBytes(8).toString("hex")}.tmp`);
+		await writeFile(tempFile, bytes);
+		await rename(tempFile, target);
 		return `/api/workspace/logo/file?v=${Date.now()}`;
 	} catch {
 		return null;
