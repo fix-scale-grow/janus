@@ -94,12 +94,18 @@ beforeAll(async () => {
 	});
 	secondContactId = secondContact.id;
 
+	const seededStage = await db.stage.findFirstOrThrow({
+		where: { key: "DEMO_BOOKED" },
+		select: { id: true },
+	});
+
 	const deal = await db.deal.create({
 		data: {
 			id: `reports-deal-${suffix}`,
 			name: `Reports Deal ${suffix}`,
 			ownerId: adminUserId,
 			currency: "USD",
+			stageId: seededStage.id,
 		},
 		select: { id: true },
 	});

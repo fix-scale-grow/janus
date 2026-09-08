@@ -18,6 +18,8 @@ import { agentReviseInput, agentIdInput, agentSaveFileInput, agentHistoryInput, 
 import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
 import { contractSigningTokenInput, contractSignInput, contractListInput, contractIdInput, contractCreateFromEstimateInput, contractCreateInput, contractUpdateInput, contractSendInput } from "../contracts/contracts.contracts";
 import { conversationListInput, builderResourceSearchInput, conversationIdInput, conversationEventsInput, conversationSaveInput, builderConversationCreateInput, builderConversationSubmitInput, builderQuestionResponseInput, builderResponseRatingInput, sharedConversationInput } from "../conversations/conversations.contracts";
+import { costListInput, costCreateInput, costUpdateInput, costIdInput, profitForDealInput } from "../costs/costs.contracts";
+import { crewCreateInput, crewUpdateInput, crewIdInput } from "../crews/crews.contracts";
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
@@ -27,8 +29,10 @@ import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldU
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
+import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
+import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
@@ -43,6 +47,8 @@ import type { ContactsRouter } from "../contacts/contacts.router";
 import type { ContractSigningRouter } from "../contracts/contract-signing.router";
 import type { ContractsRouter } from "../contracts/contracts.router";
 import type { ConversationsRouter } from "../conversations/conversations.router";
+import type { CostsRouter } from "../costs/costs.router";
+import type { CrewsRouter } from "../crews/crews.router";
 import type { CurrencyRouter } from "../currency/currency.router";
 import type { DashboardRouter } from "../dashboard/dashboard.router";
 import type { DealsRouter } from "../deals/deals.router";
@@ -52,8 +58,10 @@ import type { FieldsRouter } from "../fields/fields.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
+import type { PermissionsRouter } from "../permissions/permissions.router";
 import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
+import type { ReportsRouter } from "../reports/reports.router";
 import type { SearchRouter } from "../search/search.router";
 import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
 import type { SettingsRouter } from "../settings/settings.router";
@@ -257,6 +265,36 @@ const appRouter = t.router({
     remove: publicProcedure
       .input(conversationIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ConversationsRouter["remove"]>>)
+    }),
+  costs: t.router({
+    list: publicProcedure
+      .input(costListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["list"]>>),
+    create: publicProcedure
+      .input(costCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["create"]>>),
+    update: publicProcedure
+      .input(costUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["update"]>>),
+    remove: publicProcedure
+      .input(costIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["remove"]>>),
+    profitForDeal: publicProcedure
+      .input(profitForDealInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CostsRouter["profitForDeal"]>>)
+    }),
+  crews: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["list"]>>),
+    create: publicProcedure
+      .input(crewCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["create"]>>),
+    update: publicProcedure
+      .input(crewUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["update"]>>),
+    remove: publicProcedure
+      .input(crewIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<CrewsRouter["remove"]>>)
     }),
   currency: t.router({
     settings: publicProcedure
@@ -516,6 +554,18 @@ const appRouter = t.router({
       .input(setOutlookAutoCreateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<MicrosoftRouter["setAutoCreate"]>>)
     }),
+  permissions: t.router({
+    mine: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["mine"]>>),
+    listUsers: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["listUsers"]>>),
+    grant: publicProcedure
+      .input(permissionGrantInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["grant"]>>),
+    revoke: publicProcedure
+      .input(permissionGrantInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["revoke"]>>)
+    }),
   pipelines: t.router({
     list: publicProcedure
       .input(pipelineListInput)
@@ -584,6 +634,15 @@ const appRouter = t.router({
     taskRemove: publicProcedure
       .input(projectIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskRemove"]>>)
+    }),
+  reports: t.router({
+    byClient: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byClient"]>>),
+    byMonth: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byMonth"]>>),
+    byCategory: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byCategory"]>>)
     }),
   search: t.router({
     quick: publicProcedure
