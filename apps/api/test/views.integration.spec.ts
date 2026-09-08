@@ -142,6 +142,26 @@ describe("reset", () => {
 	});
 });
 
+describe("nav order view", () => {
+	it("round-trips a saved nav order and strips unknown keys", async () => {
+		await views.save(userAId, "nav", {
+			navOrder: ["/projects", "/", "/contacts"],
+			...({ bogus: true } as object),
+		});
+
+		expect(await views.get(userAId, "nav")).toEqual({
+			navOrder: ["/projects", "/", "/contacts"],
+		});
+	});
+
+	it("resets the nav order back to null", async () => {
+		await views.save(userAId, "nav", { navOrder: ["/deals"] });
+		await views.reset(userAId, "nav");
+
+		expect(await views.get(userAId, "nav")).toBeNull();
+	});
+});
+
 describe("per-user isolation", () => {
 	it("keeps two users' views for the same tableId separate", async () => {
 		await views.save(userAId, "invoices", { sort: "dueDate" });

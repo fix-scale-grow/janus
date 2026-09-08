@@ -42,9 +42,12 @@ export default function AppLayout({
 
 async function AppRail() {
 	await connection();
-	await getServerQueryClient().prefetchQuery(
-		getServerTrpc().permissions.mine.queryOptions(),
-	);
+	const queryClient = getServerQueryClient();
+	const trpc = getServerTrpc();
+	await Promise.all([
+		queryClient.prefetchQuery(trpc.permissions.mine.queryOptions()),
+		queryClient.prefetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
+	]);
 
 	return (
 		<HydrateClient>

@@ -15,14 +15,35 @@ import {
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
 import { cn } from "@crm/ui/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	restrictToParentElement,
+	restrictToVerticalAxis,
+} from "@dnd-kit/modifiers";
+import {
+	arrayMove,
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { type MouseEvent, useMemo, useRef, useState } from "react";
 import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-sidebar";
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
 import { JANUS_LIVE_NAV, type LiveNavItem } from "@/lib/janus-nav";
+import { applyNavOrder } from "@/lib/nav-order";
+import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
@@ -43,6 +64,27 @@ function useVisibleItems(): RailItem[] {
 	);
 }
 
+function useNavOrder(): {
+	order: string[] | undefined;
+	saveOrder: (next: string[]) => void;
+} {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const [pending, setPending] = useState<string[] | undefined>(undefined);
+	const view = useQuery(trpc.views.get.queryOptions({ tableId: "nav" }));
+	const save = useMutation(trpc.views.save.mutationOptions());
+
+	const saveOrder = (next: string[]) => {
+		setPending(next);
+		save.mutate(
+			{ tableId: "nav", state: { navOrder: next } },
+			{ onSuccess: () => void cache.views("nav", { settle: "record" }) },
+		);
+	};
+
+	return { order: pending ?? view.data?.navOrder, saveOrder };
+}
+
 function isActive(item: RailItem, pathname: string): boolean {
 	return (
 		pathname === item.href ||
@@ -55,10 +97,12 @@ function RailLink({
 	item,
 	active,
 	onPrefetch,
+	onLinkClick,
 }: {
 	item: RailItem;
 	active: boolean;
 	onPrefetch: () => void;
+	onLinkClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
 	return (
 		<Tooltip>
@@ -78,6 +122,7 @@ function RailLink({
 						prefetch
 						onMouseEnter={onPrefetch}
 						onFocus={onPrefetch}
+						onClick={onLinkClick}
 						aria-current={active ? "page" : undefined}
 						transitionTypes={["nav-lateral"]}
 					>
@@ -86,8 +131,46 @@ function RailLink({
 					</Link>
 				</Button>
 			</TooltipTrigger>
-			<TooltipContent side="right">{item.title}</TooltipContent>
+			<TooltipContent side="right">
+				{item.title} · drag to reorder
+			</TooltipContent>
 		</Tooltip>
+	);
+}
+
+function SortableRailLink({
+	item,
+	active,
+	onPrefetch,
+	suppressClick,
+}: {
+	item: RailItem & { section: string };
+	active: boolean;
+	onPrefetch: () => void;
+	suppressClick: { current: boolean };
+}) {
+	const { listeners, setNodeRef, transform, transition, isDragging } =
+		useSortable({ id: item.section });
+
+	return (
+		<div
+			ref={setNodeRef}
+			style={{ transform: CSS.Transform.toString(transform), transition }}
+			className={cn("touch-none", isDragging && "relative z-10 opacity-60")}
+			{...listeners}
+		>
+			<RailLink
+				item={item}
+				active={active}
+				onPrefetch={onPrefetch}
+				onLinkClick={(event) => {
+					if (suppressClick.current) {
+						suppressClick.current = false;
+						event.preventDefault();
+					}
+				}}
+			/>
+		</div>
 	);
 }
 
@@ -196,20 +279,43 @@ export function AppIconRail() {
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
 	const visible = useVisibleItems();
+	const { order, saveOrder } = useNavOrder();
+	const suppressClick = useRef(false);
+
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+	);
 
 	const items = useMemo(
 		() =>
-			visible.map((item) => ({
+			applyNavOrder(visible, order).map((item) => ({
 				...item,
 				section: item.href,
 				href: workspaceUrl(item.href),
 				related: item.related?.map((path) => workspaceUrl(path)),
 			})),
-		[visible, workspaceUrl],
+		[visible, order, workspaceUrl],
 	);
+	const sectionIds = useMemo(() => items.map((item) => item.section), [items]);
 	const inChat = items.some(
 		(item) => item.title === "Janus AI" && isActive(item, pathname),
 	);
+
+	function handleDragEnd(event: DragEndEvent) {
+		suppressClick.current = true;
+		setTimeout(() => {
+			suppressClick.current = false;
+		}, 300);
+
+		const overId = event.over?.id;
+		if (overId == null || event.active.id === overId) return;
+
+		const from = sectionIds.indexOf(String(event.active.id));
+		const to = sectionIds.indexOf(String(overId));
+		if (from === -1 || to === -1) return;
+
+		saveOrder(arrayMove(sectionIds, from, to));
+	}
 
 	return (
 		<>
@@ -217,14 +323,28 @@ export function AppIconRail() {
 				aria-label="Primary"
 				className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
 			>
-				{items.map((item) => (
-					<RailLink
-						key={item.href}
-						item={item}
-						active={isActive(item, pathname)}
-						onPrefetch={() => prefetchSection(item.section)}
-					/>
-				))}
+				<DndContext
+					id="app-rail-sort"
+					sensors={sensors}
+					collisionDetection={closestCenter}
+					modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+					onDragEnd={handleDragEnd}
+				>
+					<SortableContext
+						items={sectionIds}
+						strategy={verticalListSortingStrategy}
+					>
+						{items.map((item) => (
+							<SortableRailLink
+								key={item.section}
+								item={item}
+								active={isActive(item, pathname)}
+								onPrefetch={() => prefetchSection(item.section)}
+								suppressClick={suppressClick}
+							/>
+						))}
+					</SortableContext>
+				</DndContext>
 			</nav>
 
 			<Sheet open={open} onOpenChange={setOpen}>
