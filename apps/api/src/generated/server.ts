@@ -26,6 +26,7 @@ import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageIn
 import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
 import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput, estimateAssignContactInput, estimateSendInput } from "../estimates/estimates.contracts";
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
+import { formListInput, formIdInput, formCreateInput, formUpdateArgs, formUpdateFieldsInput, formSetActiveInput, formSubmissionsInput } from "../forms/forms.contracts";
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
@@ -56,6 +57,7 @@ import type { DealsRouter } from "../deals/deals.router";
 import type { DrawingsRouter } from "../drawings/drawings.router";
 import type { EstimatesRouter } from "../estimates/estimates.router";
 import type { FieldsRouter } from "../fields/fields.router";
+import type { FormsRouter } from "../forms/forms.router";
 import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
@@ -479,6 +481,32 @@ const appRouter = t.router({
     backfill: publicProcedure
       .input(fieldIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FieldsRouter["backfill"]>>)
+    }),
+  forms: t.router({
+    list: publicProcedure
+      .input(formListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["list"]>>),
+    byId: publicProcedure
+      .input(formIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["byId"]>>),
+    create: publicProcedure
+      .input(formCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["create"]>>),
+    update: publicProcedure
+      .input(formUpdateArgs)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["update"]>>),
+    updateFields: publicProcedure
+      .input(formUpdateFieldsInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["updateFields"]>>),
+    setActive: publicProcedure
+      .input(formSetActiveInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["setActive"]>>),
+    remove: publicProcedure
+      .input(formIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["remove"]>>),
+    submissions: publicProcedure
+      .input(formSubmissionsInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<FormsRouter["submissions"]>>)
     }),
   google: t.router({
     status: publicProcedure
