@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import {
 	PageShell,
+	PageShellActions,
 	PageShellContent,
 	PageShellDescription,
 	PageShellHeader,
@@ -12,6 +13,7 @@ import {
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
+import { NewSymbolButton } from "./new-symbol-button";
 import { SymbolsTable } from "./symbols-table";
 
 export const metadata: Metadata = {
@@ -29,6 +31,9 @@ export default function SymbolsSettingsPage() {
 						each one prices against.
 					</PageShellDescription>
 				</PageShellHeading>
+				<PageShellActions>
+					<NewSymbolButton />
+				</PageShellActions>
 			</PageShellHeader>
 
 			<PageShellContent>
@@ -46,27 +51,15 @@ async function Symbols() {
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
 
-	await Promise.all([
-		queryClient.prefetchQuery(
-			trpc.symbols.list.queryOptions({
-				q: "",
-				sort: "name",
-				dir: "asc",
-				page: 1,
-				pageSize: 100,
-			}),
-		),
-		queryClient.prefetchQuery(
-			trpc.services.list.queryOptions({
-				q: "",
-				sort: "name",
-				dir: "asc",
-				page: 1,
-				pageSize: 100,
-				active: true,
-			}),
-		),
-	]);
+	await queryClient.prefetchQuery(
+		trpc.symbols.list.queryOptions({
+			q: "",
+			sort: "name",
+			dir: "asc",
+			page: 1,
+			pageSize: 100,
+		}),
+	);
 
 	return (
 		<HydrateClient>
