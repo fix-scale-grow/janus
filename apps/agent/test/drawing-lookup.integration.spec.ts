@@ -31,8 +31,13 @@ beforeAll(async () => {
 		},
 	});
 
+	const seededStage = await db.stage.findFirstOrThrow({
+		where: { key: "DEMO_BOOKED" },
+		select: { id: true },
+	});
+
 	const deal = await db.deal.create({
-		data: { name: dealName, ownerId: userId },
+		data: { name: dealName, ownerId: userId, stageId: seededStage.id },
 		select: { id: true },
 	});
 	dealId = deal.id;

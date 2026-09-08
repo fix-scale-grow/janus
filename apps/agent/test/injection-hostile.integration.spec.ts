@@ -12,6 +12,7 @@ const dealName = `Hostile deal ${suffix}`;
 const contactEmail = `hostile-${suffix}@example.test`;
 
 let dealId: string;
+let seededStageId: string;
 let contactId: string;
 
 function scene(shapeLabel: string, textElementBody: string) {
@@ -68,8 +69,14 @@ beforeAll(async () => {
 	});
 	contactId = contact.id;
 
+	const seededStage = await db.stage.findFirstOrThrow({
+		where: { key: "DEMO_BOOKED" },
+		select: { id: true },
+	});
+	seededStageId = seededStage.id;
+
 	const deal = await db.deal.create({
-		data: { name: dealName, ownerId: userId },
+		data: { name: dealName, ownerId: userId, stageId: seededStageId },
 		select: { id: true },
 	});
 	dealId = deal.id;
@@ -181,6 +188,7 @@ describe("read_deal_history summary path holds hostile payloads inert", () => {
 					name: `Hostile crm deal ${suffix} ${name}: ${text}`,
 					description: text,
 					ownerId: userId,
+					stageId: seededStageId,
 				},
 				select: { id: true },
 			});
