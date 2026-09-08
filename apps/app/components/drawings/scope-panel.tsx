@@ -4,6 +4,7 @@ import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import ChevronLeft from "@carbon/icons-react/es/ChevronLeft";
 import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import {
+	DRAWINGS,
 	type MeasuredShape,
 	parseServiceModifier,
 	quantityForUnit,
@@ -33,7 +34,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
 const OPEN_STORAGE_KEY = "janus.drawings.scopePanelOpen";
@@ -208,6 +209,56 @@ function ScopeModifierField(props: {
 	);
 }
 
+function ScopeLabelField({
+	label,
+	onUpdateShape,
+	scopeId,
+}: {
+	label: string | null;
+	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
+	scopeId: string;
+}) {
+	const [draft, setDraft] = useState(label ?? "");
+	const focusedRef = useRef(false);
+	const timerRef = useRef<number | undefined>(undefined);
+
+	useEffect(() => {
+		if (!focusedRef.current) setDraft(label ?? "");
+	}, [label]);
+
+	useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+	const commit = (value: string) => {
+		window.clearTimeout(timerRef.current);
+		if ((value || null) !== (label || null)) {
+			onUpdateShape(scopeId, { label: value || null });
+		}
+	};
+
+	return (
+		<Input
+			onBlur={(event) => {
+				focusedRef.current = false;
+				commit(event.target.value);
+			}}
+			onChange={(event) => {
+				const value = event.target.value;
+				setDraft(value);
+				window.clearTimeout(timerRef.current);
+				timerRef.current = window.setTimeout(
+					() => commit(value),
+					DRAWINGS.scopePanel.labelCommitDebounceMs,
+				);
+			}}
+			onFocus={() => {
+				focusedRef.current = true;
+			}}
+			placeholder="Label"
+			value={draft}
+		/>
+	);
+}
+
 export function ScopePanel(props: ScopePanelProps) {
 	const [open, setOpen] = useState(true);
 
@@ -319,14 +370,10 @@ export function ScopePanel(props: ScopePanelProps) {
 									</span>
 								</div>
 
-								<Input
-									onChange={(event) =>
-										props.onUpdateShape(shape.scopeId, {
-											label: event.target.value || null,
-										})
-									}
-									placeholder="Label"
-									value={shape.label ?? ""}
+								<ScopeLabelField
+									label={shape.label ?? null}
+									onUpdateShape={props.onUpdateShape}
+									scopeId={shape.scopeId}
 								/>
 
 								<ScopeServiceField

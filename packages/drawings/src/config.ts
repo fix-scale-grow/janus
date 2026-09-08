@@ -19,7 +19,7 @@ export const DRAWINGS = {
 	autosave: { debounceMs: 2_000, versionEveryMs: 5 * 60_000 },
 	thumbnail: { width: 640, minIntervalMs: 60_000, maxBytes: 2 * 1024 * 1024 },
 	unattachedNudgeDays: 3,
-	scopePanel: { recomputeMs: 500 },
+	scopePanel: { recomputeMs: 500, labelCommitDebounceMs: 400 },
 	pin: { sizePx: 24 },
 	symbol: { maxElements: 50 },
 	library: {
