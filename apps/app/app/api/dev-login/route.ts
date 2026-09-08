@@ -1,3 +1,4 @@
+import { ensureWorkspaceMembership, WORKSPACE_ID } from "@crm/auth";
 import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { db } from "@crm/db";
 import { type NextRequest, NextResponse } from "next/server";
@@ -47,6 +48,14 @@ export async function GET(request: NextRequest) {
 			updatedAt: new Date(),
 		},
 		update: {},
+	});
+
+	await ensureWorkspaceMembership(user.id);
+	await db.member.update({
+		where: {
+			organizationId_userId: { organizationId: WORKSPACE_ID, userId: user.id },
+		},
+		data: { role: "owner" },
 	});
 
 	const token = `dev-session-${user.id}`;
