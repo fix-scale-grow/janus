@@ -25,6 +25,7 @@ const CONFIG: PublicFormConfig = {
 			options: ["Shingle", "Metal", "Tile"],
 		},
 		{ id: "f5", type: "MESSAGE", label: "Details", required: false },
+		{ id: "f6", type: "ADDRESS", label: "Address", required: false },
 	],
 };
 
@@ -197,6 +198,7 @@ describe("the form embed renders", () => {
 		expect(labels).toContain("Phone");
 		expect(labels).toContain("Roof type");
 		expect(labels).toContain("Details");
+		expect(labels).toContain("Address");
 	});
 
 	test("a floating launcher when no target is present on the page", () => {
@@ -252,22 +254,30 @@ describe("the form embed submits", () => {
 			expect(form).toBeTruthy();
 			expect(inputs.length).toBe(CONFIG.fields.length);
 
-			const [nameInput, emailInput, phoneInput, roofInput, detailsInput] =
-				inputs;
+			const [
+				nameInput,
+				emailInput,
+				phoneInput,
+				roofInput,
+				detailsInput,
+				addressInput,
+			] = inputs;
 			if (
 				!nameInput ||
 				!emailInput ||
 				!phoneInput ||
 				!roofInput ||
-				!detailsInput
+				!detailsInput ||
+				!addressInput
 			) {
-				throw new Error("Expected all five field inputs to be rendered.");
+				throw new Error("Expected all six field inputs to be rendered.");
 			}
 			nameInput.value = "Jane Doe";
 			emailInput.value = "jane@example.com";
 			phoneInput.value = "555-1234";
 			roofInput.value = "Metal";
 			detailsInput.value = "Leaky roof after last storm.";
+			addressInput.value = "123 Main St";
 
 			for (const fn of form?.listeners.submit ?? []) {
 				fn({ preventDefault: () => {} });
@@ -293,6 +303,7 @@ describe("the form embed submits", () => {
 				f3: "555-1234",
 				f4: "Metal",
 				f5: "Leaky roof after last storm.",
+				f6: "123 Main St",
 			});
 			expect(payload.honeypot).toBe("");
 			expect(typeof payload.renderedAt).toBe("number");
@@ -396,6 +407,51 @@ describe("the form embed submits", () => {
 		} finally {
 			globalThis.fetch = original;
 		}
+	});
+});
+
+describe("the form embed supports multiple forms on one page", () => {
+	test("two different form ids both initialize; the same id twice inits once", () => {
+		const idA = "cm2test0000000000000001";
+		const idB = "cm2test0000000000000002";
+		const targetA = fakeElement("div");
+		targetA.setAttribute("data-janus-form", idA);
+		const targetB = fakeElement("div");
+		targetB.setAttribute("data-janus-form", idB);
+
+		const doc = {
+			cookie: "",
+			referrer: "",
+			location: { pathname: "/c", search: "", hostname: "example.com" },
+			body: fakeElement("body"),
+			createElement: (tag: string) => fakeElement(tag),
+			querySelector: (selector: string) => {
+				if (selector.indexOf(idA) > -1) return targetA;
+				if (selector.indexOf(idB) > -1) return targetB;
+				return null;
+			},
+		};
+
+		const configB: PublicFormConfig = { ...CONFIG, id: idB };
+
+		new Function("document", formSource(CONFIG, ENDPOINT))(doc);
+		new Function("document", formSource(configB, ENDPOINT))(doc);
+
+		expect(targetA.shadowRoot).toBeTruthy();
+		expect(targetB.shadowRoot).toBeTruthy();
+		expect(
+			collect(targetA.shadowRoot as FakeNode, (node) => node.tagName === "FORM")
+				.length,
+		).toBe(1);
+		expect(
+			collect(targetB.shadowRoot as FakeNode, (node) => node.tagName === "FORM")
+				.length,
+		).toBe(1);
+
+		const before = targetA.shadowRoot;
+		new Function("document", formSource(CONFIG, ENDPOINT))(doc);
+
+		expect(targetA.shadowRoot).toBe(before);
 	});
 });
 

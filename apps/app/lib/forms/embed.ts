@@ -13,7 +13,8 @@ export function formSource(config: PublicFormConfig, endpoint: string): string {
 try{
 var C=${safeJson(config)},E=${safeJson(endpoint)},N=${safeJson(COOKIE_NAME)},FS=${safeJson(COOKIE_FIRST_TOUCH)},ACC=${safeJson(accent)};
 var d=document;
-if(d.__janusForm)return;d.__janusForm=1;
+if(!d.__janusForms)d.__janusForms={};
+if(d.__janusForms[C.id])return;d.__janusForms[C.id]=1;
 function decode(v){try{return decodeURIComponent(v)}catch(e){return null}}
 function cookie(n){var m=d.cookie.match(new RegExp("(?:^|; )"+n+"=([^;]*)"));return m?decode(m[1]):null}
 function param(q,k){var m=q.match(new RegExp("[?&]"+k+"=([^&]*)"));if(!m)return undefined;var v=decode(m[1].replace(/\\+/g," "));return v?v.slice(0,120):undefined}

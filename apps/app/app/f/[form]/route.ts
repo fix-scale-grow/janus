@@ -11,6 +11,12 @@ import { readLogo } from "@/lib/workspace-logo";
 
 const EMPTY_SCRIPT = "/* this form is not available */\n";
 
+const HEX_COLOR_SHAPE = /^#[0-9a-f]{6}$/i;
+
+function safeAccent(value: string | null | undefined): string {
+	return value && HEX_COLOR_SHAPE.test(value) ? value : FORM_DEFAULT_ACCENT;
+}
+
 export async function GET(
 	request: Request,
 	{ params }: { params: Promise<{ form: string }> },
@@ -89,7 +95,7 @@ function notFoundPage(): Response {
 
 async function hostedPage(config: PublicFormConfig): Promise<Response> {
 	const markup = fieldsMarkup(config);
-	const accent = config.brandColor || FORM_DEFAULT_ACCENT;
+	const accent = safeAccent(config.brandColor);
 	const logo = await readLogo();
 
 	const inner = `${
