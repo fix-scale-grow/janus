@@ -5,8 +5,10 @@ import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import type { FormFieldType } from "@crm/db/enums";
 import {
+	FORM_FIELD_OPTION_LABEL_MAX,
 	FORM_FIELD_OPTIONS_MAX,
 	FORMS,
+	formFieldOptions,
 	formFieldTypeEnum,
 } from "@crm/db/forms";
 import {
@@ -123,23 +125,24 @@ type EditableField = {
 	contactFieldKey: string | null;
 };
 
-function toOptionsArray(value: unknown): FieldOption[] {
-	if (!Array.isArray(value)) return [];
-	return value
-		.filter((entry): entry is string => typeof entry === "string")
-		.map((entry) => ({ id: crypto.randomUUID(), value: entry }));
-}
-
 function fromServerFields(fields: ServerField[]): EditableField[] {
-	return fields.map((field) => ({
-		key: field.id,
-		serverId: field.id,
-		type: field.type,
-		label: field.label,
-		required: field.required,
-		options: toOptionsArray(field.options),
-		contactFieldKey: field.contactFieldKey,
-	}));
+	return fields.map((field) => {
+		const parsedOptions = formFieldOptions.safeParse(field.options);
+		return {
+			key: field.id,
+			serverId: field.id,
+			type: field.type,
+			label: field.label,
+			required: field.required,
+			options: parsedOptions.success
+				? parsedOptions.data.map((value) => ({
+						id: crypto.randomUUID(),
+						value,
+					}))
+				: [],
+			contactFieldKey: field.contactFieldKey,
+		};
+	});
 }
 
 function newField(): EditableField {
@@ -200,6 +203,7 @@ function FieldOptionsEditor({
 					<Input
 						aria-label={`Option ${index + 1}`}
 						className="h-8 flex-1"
+						maxLength={FORM_FIELD_OPTION_LABEL_MAX}
 						value={option.value}
 						onChange={(event) =>
 							onChange(

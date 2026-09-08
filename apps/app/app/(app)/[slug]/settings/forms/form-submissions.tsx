@@ -30,6 +30,7 @@ type SubmissionRow = {
 	fields: unknown;
 	email: string | null;
 	contactId: string | null;
+	dealId: string | null;
 	filedAt: string | null;
 	skipReason: string | null;
 	createdAt: string;
@@ -47,7 +48,8 @@ const COLUMNS: SimpleTableColumn[] = [
 	{ id: "when", header: "When", width: "w-40" },
 	{ id: "answers", header: "Answers" },
 	{ id: "status", header: "Status", width: "w-24" },
-	{ id: "contact", header: "Contact", width: "w-32" },
+	{ id: "contact", header: "Contact", width: "w-24" },
+	{ id: "deal", header: "Deal", width: "w-24" },
 ];
 
 const CELL = "px-3 py-2.5 align-middle";
@@ -114,6 +116,18 @@ export function FormSubmissions({ formId }: { formId: string }) {
 							<Link
 								className="text-primary underline underline-offset-2"
 								href={workspaceUrl(`/contacts/${row.contactId}`)}
+							>
+								View
+							</Link>
+						) : (
+							<span className="text-muted-foreground">—</span>
+						)}
+					</TableCell>
+					<TableCell className={CELL}>
+						{row.dealId ? (
+							<Link
+								className="text-primary underline underline-offset-2"
+								href={workspaceUrl(`/deals/${row.dealId}`)}
 							>
 								View
 							</Link>
