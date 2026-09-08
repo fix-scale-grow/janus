@@ -1,5 +1,6 @@
 "use client";
 
+import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import { Button } from "@crm/ui/components/button";
 import {
 	Command,
@@ -9,6 +10,7 @@ import {
 	CommandItem,
 	CommandList,
 } from "@crm/ui/components/command";
+import { Icon } from "@crm/ui/components/icon";
 import {
 	Popover,
 	PopoverContent,
@@ -19,6 +21,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { contactName } from "@/components/crm/contact-name";
+import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -71,11 +74,28 @@ export function AssignInvoiceContact({
 				if (!next) setText("");
 			}}
 		>
-			<PopoverTrigger asChild>
-				<Button variant="outline" size="sm">
-					{contact.data ? contactName(contact.data) : "Assign contact"}
-				</Button>
-			</PopoverTrigger>
+			{contact.data ? (
+				<div className="flex items-center gap-0.5">
+					<RecordLink
+						kind="contact"
+						id={contact.data.id}
+						className="truncate text-sm"
+					>
+						{contactName(contact.data)}
+					</RecordLink>
+					<PopoverTrigger asChild>
+						<Button variant="ghost" size="icon-sm" aria-label="Change contact">
+							<Icon icon={ChevronDown} />
+						</Button>
+					</PopoverTrigger>
+				</div>
+			) : (
+				<PopoverTrigger asChild>
+					<Button variant="outline" size="sm">
+						Assign contact
+					</Button>
+				</PopoverTrigger>
+			)}
 			<PopoverContent align="end" size="fit" className="w-80">
 				<Command
 					shouldFilter={false}

@@ -43,6 +43,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { ListSearch } from "@/components/data-table/list-search";
 import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
@@ -154,8 +155,14 @@ function PageInvoicesTable({ savedState }: { savedState?: SavedTableView }) {
 			header: "Contact",
 			width: "w-[20%]",
 			cell: (row) =>
-				row.contactName ? (
-					<span className="truncate">{row.contactName}</span>
+				row.contactName && row.contactId ? (
+					<RecordLink
+						kind="contact"
+						id={row.contactId}
+						className="text-foreground"
+					>
+						{row.contactName}
+					</RecordLink>
 				) : (
 					<EmptyCellValue />
 				),
