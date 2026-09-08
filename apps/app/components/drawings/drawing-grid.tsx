@@ -157,7 +157,11 @@ function EmbeddedDrawingGrid({
 		<DrawingGridBody
 			rows={drawings.data?.rows ?? []}
 			loading={drawings.isPending}
-			empty="No drawings on this job yet."
+			empty={
+				contactId
+					? "No drawings for this contact yet. A drawing made from a deal shows up here once the deal is linked to this contact."
+					: "No drawings on this job yet."
+			}
 		/>
 	);
 }

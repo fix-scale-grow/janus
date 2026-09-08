@@ -291,7 +291,14 @@ export class DrawingsService {
 				? { dealId: null, contactId: null }
 				: {}),
 			...(input.dealId ? { dealId: input.dealId } : {}),
-			...(input.contactId ? { contactId: input.contactId } : {}),
+			...(input.contactId
+				? {
+						OR: [
+							{ contactId: input.contactId },
+							{ deal: { contacts: { some: { contactId: input.contactId } } } },
+						],
+					}
+				: {}),
 		};
 
 		const term = input.q.trim();
