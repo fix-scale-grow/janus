@@ -53,6 +53,22 @@ export const symbolBulkSetTradeInput = z.object({
 
 export type SymbolBulkSetTradeInput = z.infer<typeof symbolBulkSetTradeInput>;
 
+export const symbolBulkSetServiceInput = z.object({
+	ids: z.array(z.string().min(1)).min(1).max(200),
+	serviceId: z.string().trim().min(1).nullable(),
+});
+
+export type SymbolBulkSetServiceInput = z.infer<
+	typeof symbolBulkSetServiceInput
+>;
+
+export const symbolUsageRow = z.object({
+	symbolId: z.string().min(1),
+	drawings: z.number().int().nonnegative(),
+});
+
+export type SymbolUsageRow = z.infer<typeof symbolUsageRow>;
+
 export const symbolCreateInput = symbolFields;
 
 export type SymbolCreateInput = z.infer<typeof symbolCreateInput>;

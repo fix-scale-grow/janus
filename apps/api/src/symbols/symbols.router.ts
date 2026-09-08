@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import type { SymbolPackKey } from "./symbol-packs";
 import {
+	symbolBulkSetServiceInput,
 	symbolBulkSetTradeInput,
 	symbolCreateInput,
 	symbolIdInput,
@@ -55,6 +56,23 @@ export class SymbolsRouter {
 	@Mutation({ input: symbolBulkSetTradeInput })
 	async bulkSetTrade(@Input() input: z.infer<typeof symbolBulkSetTradeInput>) {
 		return this.symbols.bulkSetTrade(input.ids, input.trade);
+	}
+
+	@Mutation({ input: symbolBulkSetServiceInput })
+	async bulkSetService(
+		@Input() input: z.infer<typeof symbolBulkSetServiceInput>,
+	) {
+		return this.symbols.bulkSetService(input.ids, input.serviceId);
+	}
+
+	@Query()
+	async usage() {
+		return this.symbols.usage();
+	}
+
+	@Mutation({ input: symbolIdInput })
+	async duplicate(@Input("id") id: string) {
+		return this.symbols.duplicate(id);
 	}
 
 	@Mutation({ input: symbolPackInput })

@@ -37,7 +37,7 @@ import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInpu
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
-import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolPackInput } from "../symbols/symbols.contracts";
+import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolBulkSetServiceInput, symbolPackInput } from "../symbols/symbols.contracts";
 import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, templateSendTestInput } from "../templates/templates.contracts";
 import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
@@ -738,6 +738,14 @@ const appRouter = t.router({
     bulkSetTrade: publicProcedure
       .input(symbolBulkSetTradeInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["bulkSetTrade"]>>),
+    bulkSetService: publicProcedure
+      .input(symbolBulkSetServiceInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["bulkSetService"]>>),
+    usage: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["usage"]>>),
+    duplicate: publicProcedure
+      .input(symbolIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["duplicate"]>>),
     seedPack: publicProcedure
       .input(symbolPackInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["seedPack"]>>)

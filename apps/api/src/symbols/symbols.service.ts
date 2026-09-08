@@ -7,7 +7,9 @@ import type {
 	SymbolCreateInput,
 	SymbolListInput,
 	SymbolUpdateInput,
+	SymbolUsageRow,
 } from "./symbols.contracts";
+import { SYMBOLS } from "./symbols.config";
 
 const LIST_SELECT = {
 	id: true,
@@ -124,6 +126,84 @@ export class SymbolsService {
 			data: { trade },
 		});
 		return { count: result.count };
+	}
+
+	async bulkSetService(ids: string[], serviceId: string | null) {
+		const found = await this.db.symbol.findMany({
+			where: { id: { in: ids } },
+			select: { id: true },
+		});
+		const foundIds = found.map((row) => row.id);
+		if (foundIds.length === 0) return { count: 0 };
+
+		const result = await this.db.symbol.updateMany({
+			where: { id: { in: foundIds } },
+			data: { serviceId },
+		});
+		return { count: result.count };
+	}
+
+	async usage(): Promise<SymbolUsageRow[]> {
+		const symbols = await this.db.symbol.findMany({ select: { id: true } });
+		if (symbols.length === 0) return [];
+
+		const drawings = await this.db.drawing.findMany({
+			select: { scene: true },
+			orderBy: { updatedAt: "desc" },
+			take: SYMBOLS.usageScanLimit,
+		});
+
+		const counts = new Map<string, number>(
+			symbols.map((symbol) => [symbol.id, 0]),
+		);
+
+		for (const drawing of drawings) {
+			const json = JSON.stringify(drawing.scene);
+			for (const symbol of symbols) {
+				if (json.includes(`"symbol":"${symbol.id}"`)) {
+					counts.set(symbol.id, (counts.get(symbol.id) ?? 0) + 1);
+				}
+			}
+		}
+
+		return symbols.map((symbol) => ({
+			symbolId: symbol.id,
+			drawings: counts.get(symbol.id) ?? 0,
+		}));
+	}
+
+	async duplicate(id: string) {
+		const row = await this.db.symbol.findUnique({ where: { id } });
+		if (!row) {
+			throw new NotFoundException(`No symbol with id ${id}.`);
+		}
+
+		const existing = await this.db.symbol.findMany({
+			where: { name: { startsWith: row.name } },
+			select: { name: true },
+		});
+		const existingNames = new Set(existing.map((entry) => entry.name));
+
+		let candidate = `${row.name} copy`;
+		let suffix = 2;
+		const maxAttempts = existingNames.size + 2;
+		while (existingNames.has(candidate) && suffix <= maxAttempts) {
+			candidate = `${row.name} copy ${suffix}`;
+			suffix += 1;
+		}
+
+		return this.db.symbol.create({
+			data: {
+				name: candidate,
+				trade: row.trade,
+				elements: row.elements as Prisma.InputJsonValue,
+				widthFt: row.widthFt,
+				heightFt: row.heightFt,
+				serviceId: row.serviceId,
+				active: true,
+				sortOrder: row.sortOrder,
+			} satisfies Prisma.SymbolUncheckedCreateInput,
+		});
 	}
 
 	async seedPack(key: SymbolPackKey) {
