@@ -2,6 +2,7 @@
 
 import {
 	type PointerEvent as ReactPointerEvent,
+	type WheelEvent as ReactWheelEvent,
 	useCallback,
 	useRef,
 } from "react";
@@ -44,6 +45,15 @@ export function usePanScroll<T extends HTMLElement>() {
 		}
 	}, []);
 
+	const onWheel = useCallback((event: ReactWheelEvent<T>) => {
+		const container = ref.current;
+		if (!container) return;
+		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+		if (container.scrollWidth <= container.clientWidth) return;
+		event.preventDefault();
+		container.scrollLeft += event.deltaY;
+	}, []);
+
 	return {
 		ref,
 		handlers: {
@@ -51,6 +61,7 @@ export function usePanScroll<T extends HTMLElement>() {
 			onPointerMove,
 			onPointerUp: endPan,
 			onPointerCancel: endPan,
+			onWheel,
 		},
 	};
 }
