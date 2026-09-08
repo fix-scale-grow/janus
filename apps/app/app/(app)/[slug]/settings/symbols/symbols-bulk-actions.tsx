@@ -22,7 +22,7 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { formatCount } from "@crm/ui/lib/format";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -30,14 +30,19 @@ import { useTRPC } from "@/lib/trpc/client";
 
 const NEW_CATEGORY = "__new__";
 const TRADE_MAX_LENGTH = 60;
+const NO_SERVICE = "__none__";
 
 export function SymbolsBulkActions({
 	ids,
 	categories,
+	usageTotal,
+	usageLoading,
 	onDone,
 }: {
 	ids: string[];
 	categories: { key: string; label: string }[];
+	usageTotal: number;
+	usageLoading: boolean;
 	onDone: () => void;
 }) {
 	const trpc = useTRPC();
@@ -45,6 +50,10 @@ export function SymbolsBulkActions({
 	const [confirming, setConfirming] = useState(false);
 	const [addingCategory, setAddingCategory] = useState(false);
 	const [newCategory, setNewCategory] = useState("");
+
+	const services = useQuery(
+		trpc.services.list.queryOptions({ active: true, pageSize: 100 }),
+	);
 
 	const onError = (error: { message: string }) => toast.error(error.message);
 
@@ -55,6 +64,17 @@ export function SymbolsBulkActions({
 				toast.success(`Moved ${formatCount(result.count, "symbol")}.`);
 				setAddingCategory(false);
 				setNewCategory("");
+				onDone();
+			},
+			onError,
+		}),
+	);
+
+	const linkService = useMutation(
+		trpc.symbols.bulkSetService.mutationOptions({
+			onSuccess: async (result) => {
+				await cache.symbol();
+				toast.success(`Linked ${formatCount(result.count, "symbol")}.`);
 				onDone();
 			},
 			onError,
@@ -73,7 +93,7 @@ export function SymbolsBulkActions({
 		}),
 	);
 
-	const pending = move.isPending || remove.isPending;
+	const pending = move.isPending || remove.isPending || linkService.isPending;
 
 	return (
 		<div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2">
@@ -137,6 +157,29 @@ export function SymbolsBulkActions({
 					</Select>
 				)}
 
+				<Select
+					disabled={pending || services.isPending}
+					onValueChange={(next) =>
+						linkService.mutate({
+							ids,
+							serviceId: next === NO_SERVICE ? null : next,
+						})
+					}
+					value=""
+				>
+					<SelectTrigger className="h-8 w-44">
+						<SelectValue placeholder="Link to service" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value={NO_SERVICE}>No service</SelectItem>
+						{(services.data?.rows ?? []).map((service) => (
+							<SelectItem key={service.id} value={service.id}>
+								{service.name}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+
 				<Button
 					disabled={pending}
 					onClick={() => setConfirming(true)}
@@ -155,7 +198,9 @@ export function SymbolsBulkActions({
 							Delete {formatCount(ids.length, "symbol")}?
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							Placed copies stay on drawings but lose their auto-pricing link.
+							{!usageLoading && usageTotal > 0
+								? `These appear on ${formatCount(usageTotal, "drawing")}; placed copies stay but lose their auto-pricing link.`
+								: "Placed copies stay on drawings but lose their auto-pricing link."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

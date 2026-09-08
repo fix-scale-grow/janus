@@ -3,6 +3,7 @@
 import Add from "@carbon/icons-react/es/Add";
 import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import ChevronRight from "@carbon/icons-react/es/ChevronRight";
+import Copy from "@carbon/icons-react/es/Copy";
 import PaintBrush from "@carbon/icons-react/es/PaintBrush";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
@@ -53,13 +54,18 @@ import {
 import { Spinner } from "@crm/ui/components/spinner";
 import { Switch } from "@crm/ui/components/switch";
 import { TableCell } from "@crm/ui/components/table";
+import { formatCount } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { z } from "zod";
-import { parseSymbolRowsWith, symbolRowBase } from "@/lib/symbol-rows";
+import {
+	parseSymbolRowsWith,
+	symbolRowBase,
+	symbolUsageRow,
+} from "@/lib/symbol-rows";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -83,8 +89,9 @@ const COLUMNS: SimpleTableColumn[] = [
 	{ id: "name", header: "Name" },
 	{ id: "size", header: "Size", width: "w-32" },
 	{ id: "service", header: "Service", width: "w-40" },
+	{ id: "usage", header: "Usage", width: "w-36" },
 	{ id: "active", header: "Active", width: "w-16", align: "center" },
-	{ id: "delete", srLabel: "Delete", width: "w-10" },
+	{ id: "actions", srLabel: "Actions", width: "w-16" },
 ];
 
 const CELL = "px-3 py-2.5 align-middle";
@@ -121,6 +128,11 @@ function writeCategoriesOpen(open: Record<string, boolean>): void {
 	try {
 		window.localStorage.setItem(CATEGORIES_OPEN_KEY, JSON.stringify(open));
 	} catch {}
+}
+
+function usageLabel(count: number): string {
+	if (count <= 0) return "—";
+	return `Used on ${formatCount(count, "drawing")}`;
 }
 
 function sizeLabel(row: SymbolRow): string {
@@ -174,6 +186,8 @@ export function SymbolsTable() {
 		}),
 	);
 
+	const usage = useQuery(trpc.symbols.usage.queryOptions());
+
 	const seed = useMutation(
 		trpc.symbols.seedPack.mutationOptions({
 			onSuccess: async (result, variables) => {
@@ -203,6 +217,16 @@ export function SymbolsTable() {
 				await cache.symbol();
 				toast.success("Symbol removed.");
 				setDeleting(null);
+			},
+			onError: reportError,
+		}),
+	);
+
+	const duplicate = useMutation(
+		trpc.symbols.duplicate.mutationOptions({
+			onSuccess: async () => {
+				await cache.symbol();
+				toast.success("Symbol duplicated.");
 			},
 			onError: reportError,
 		}),
@@ -266,6 +290,21 @@ export function SymbolsTable() {
 	const selectedIds = useMemo(() => Array.from(selected), [selected]);
 	const clearSelection = () => setSelected(new Set());
 
+	const { rows: usageRows } = useMemo(
+		() => parseSymbolRowsWith(symbolUsageRow, usage.data),
+		[usage.data],
+	);
+	const usageBySymbolId = useMemo(() => {
+		const map = new Map<string, number>();
+		for (const row of usageRows) map.set(row.symbolId, row.drawings);
+		return map;
+	}, [usageRows]);
+	const selectedUsageTotal = useMemo(
+		() =>
+			selectedIds.reduce((sum, id) => sum + (usageBySymbolId.get(id) ?? 0), 0),
+		[selectedIds, usageBySymbolId],
+	);
+
 	return (
 		<Card>
 			<CardHeader>
@@ -326,6 +365,8 @@ export function SymbolsTable() {
 							categories={categories}
 							ids={selectedIds}
 							onDone={clearSelection}
+							usageLoading={usage.isPending}
+							usageTotal={selectedUsageTotal}
 						/>
 					)}
 
@@ -415,6 +456,13 @@ export function SymbolsTable() {
 													>
 														{row.serviceName ?? "—"}
 													</TableCell>
+													<TableCell
+														className={`${CELL} text-muted-foreground`}
+													>
+														{usage.isPending
+															? ""
+															: usageLabel(usageBySymbolId.get(row.id) ?? 0)}
+													</TableCell>
 													<TableCell className={`${CELL} text-center`}>
 														<Switch
 															checked={row.active}
@@ -429,16 +477,29 @@ export function SymbolsTable() {
 														/>
 													</TableCell>
 													<TableCell className={`${CELL} text-right`}>
-														<Button
-															onClick={(event) => {
-																event.stopPropagation();
-																setDeleting(row);
-															}}
-															size="icon-sm"
-															variant="ghost"
-														>
-															<Icon icon={TrashCan} />
-														</Button>
+														<div className="flex items-center justify-end gap-1">
+															<Button
+																disabled={duplicate.isPending}
+																onClick={(event) => {
+																	event.stopPropagation();
+																	duplicate.mutate({ id: row.id });
+																}}
+																size="icon-sm"
+																variant="ghost"
+															>
+																<Icon icon={Copy} />
+															</Button>
+															<Button
+																onClick={(event) => {
+																	event.stopPropagation();
+																	setDeleting(row);
+																}}
+																size="icon-sm"
+																variant="ghost"
+															>
+																<Icon icon={TrashCan} />
+															</Button>
+														</div>
 													</TableCell>
 												</SimpleTableRow>
 											))}

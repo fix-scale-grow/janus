@@ -15,6 +15,13 @@ export const symbolRowBase = z.object({
 
 export type SymbolRowBase = z.infer<typeof symbolRowBase>;
 
+export const symbolUsageRow = z.object({
+	symbolId: z.string().min(1),
+	drawings: z.number().int().nonnegative(),
+});
+
+export type SymbolUsageRow = z.infer<typeof symbolUsageRow>;
+
 export function parseSymbolRowsWith<Row>(
 	schema: z.ZodType<Row>,
 	value: unknown,
