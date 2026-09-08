@@ -44,13 +44,6 @@ export function ProductionStageIndicator({
 	);
 }
 
-/**
- * Won-job production-stage control for the deal record sheet — the sheet-side
- * counterpart to the Production board's drag-drop. Mirrors `DealStageMenu` but
- * drives `deals.setProductionStage` (which is guarded to `CLOSED_WON` deals in
- * the service). Choosing "Unscheduled" clears the stage (`null`), matching the
- * board's Unscheduled intake column.
- */
 export function ProductionStageMenu({
 	dealId,
 	stage,

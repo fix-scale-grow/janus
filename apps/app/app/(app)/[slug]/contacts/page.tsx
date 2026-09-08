@@ -54,18 +54,18 @@ async function Contacts({
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const savedState = await queryClient.fetchQuery(
-		trpc.views.get.queryOptions({ tableId: "contacts" }),
-	);
-	const params = contactsSearchParams(savedState ?? undefined);
-	const values = await params.load(searchParams);
-
-	await Promise.all([
-		queryClient.prefetchQuery(
-			trpc.contacts.list.queryOptions(params.toInput(values)),
+	const [savedState] = await Promise.all([
+		queryClient.fetchQuery(
+			trpc.views.get.queryOptions({ tableId: "contacts" }),
 		),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
 	]);
+	const params = contactsSearchParams(savedState ?? undefined);
+	const values = await params.load(searchParams);
+
+	await queryClient.prefetchQuery(
+		trpc.contacts.list.queryOptions(params.toInput(values)),
+	);
 
 	return (
 		<HydrateClient>

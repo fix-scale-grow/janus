@@ -421,11 +421,6 @@ function CustomerReach({ deal }: { deal: Deal }) {
 	);
 }
 
-// Won jobs move on to the shop floor. Surfacing the production stage here is the
-// record-sheet counterpart to the Production board's drag-drop, so a crew lead
-// opening a won job sees (and can change) where it stands in the build without
-// leaving the record. Only rendered for CLOSED_WON deals — production is
-// strictly post-win work, which the service also enforces.
 function ProductionStatus({ deal }: { deal: Deal }) {
 	return (
 		<DetailSheetSection title="Production">

@@ -36,6 +36,17 @@ const WITH_STAGES_ALL = {
 
 const BATCH_OPTIONS = { maxWait: 5_000, timeout: 10_000 } as const;
 
+function sameIdSet(live: { id: string }[], ids: string[]): boolean {
+	const liveIds = new Set(live.map((row) => row.id));
+	const inputIds = new Set(ids);
+
+	return (
+		inputIds.size === ids.length &&
+		inputIds.size === liveIds.size &&
+		ids.every((id) => liveIds.has(id))
+	);
+}
+
 @Injectable()
 export class PipelinesService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
@@ -94,14 +105,14 @@ export class PipelinesService {
 	async reorderPipelines(
 		input: PipelineReorderInput,
 	): Promise<PipelineWithStages[]> {
-		const owned = await this.db.pipeline.findMany({
-			where: { id: { in: input.ids } },
+		const live = await this.db.pipeline.findMany({
+			where: { archivedAt: null },
 			select: { id: true },
 		});
 
-		if (owned.length !== input.ids.length) {
+		if (!sameIdSet(live, input.ids)) {
 			throw new BadRequestException(
-				"That order names a pipeline that does not exist.",
+				"That order must name every pipeline exactly once.",
 			);
 		}
 
@@ -267,14 +278,14 @@ export class PipelinesService {
 	}
 
 	async reorderStages(input: StageReorderInput): Promise<Stage[]> {
-		const owned = await this.db.stage.findMany({
-			where: { id: { in: input.ids }, pipelineId: input.pipelineId },
+		const live = await this.db.stage.findMany({
+			where: { pipelineId: input.pipelineId, archivedAt: null },
 			select: { id: true },
 		});
 
-		if (owned.length !== input.ids.length) {
+		if (!sameIdSet(live, input.ids)) {
 			throw new BadRequestException(
-				"That order names a stage which is not on this pipeline.",
+				"That order must name every stage on this pipeline exactly once.",
 			);
 		}
 

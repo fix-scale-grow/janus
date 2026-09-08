@@ -5,4 +5,4 @@ export {
 	normalizeHex,
 	readableForeground,
 	relativeLuminance,
-} from "@crm/db/brand";
+} from "@crm/db/brand-color";

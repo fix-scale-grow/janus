@@ -43,6 +43,7 @@ export const dealCreateInput = z.object({
 	amountCents,
 	currency: currencyCode.optional(),
 	expectedCloseDate: z.string().nullable().optional(),
+	closedReason: z.string().trim().optional(),
 });
 
 export type DealCreateInput = z.infer<typeof dealCreateInput>;

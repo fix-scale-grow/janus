@@ -14,7 +14,7 @@
 
 - Migration `add_brand_color`: `Organization` gains `brandColor String?` (hex, normalized `#rrggbb`). `logo` column reused as the served-logo URL/path marker.
 - `workspace.get` additionally returns `{ brandColor, logoUrl }`; `workspace.update` accepts `brandColor?: string | null` (service normalizes via `normalizeHex`, rejects invalid with a plain message) — rename-gated like name.
-- Logo upload: multipart route `apps/app/app/api/workspace/logo/route.ts` following the cost-receipt pattern (formData, MIME allowlist png/svg/jpeg/webp, 2 MB cap, session + `canRenameWorkspace` check), stored on local disk via a `workspace-logo.ts` lib mirroring `drawing-thumbnails.ts` (`WORKSPACE_DATA_DIR`-style override, default `<root>/data/workspace/logo.<ext>`), served by an auth-EXEMPT public GET route `/api/workspace/logo?v=<stamp>` (the login page and emails need it without a session; content is a company logo — public by nature). DELETE (or a null update) removes it. `Organization.logo` stores the cache-busted serving URL.
+- Logo upload: multipart route `apps/app/app/api/workspace/logo/route.ts` following the cost-receipt pattern (formData, MIME allowlist png/svg/jpeg/webp, 2 MB cap, session + `canRenameWorkspace` check), stored on local disk via a `workspace-logo.ts` lib mirroring `drawing-thumbnails.ts` (`WORKSPACE_DATA_DIR`-style override, default `<root>/data/workspace/logo.<ext>`), served by an auth-EXEMPT public GET route `/api/workspace/logo/file?v=<stamp>` (the login page and emails need it without a session; content is a company logo — public by nature). DELETE (or a null update) removes it. `Organization.logo` stores the cache-busted serving URL.
 
 ### Application surfaces
 

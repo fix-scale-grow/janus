@@ -125,14 +125,14 @@ export function DealsBoard({
 	);
 
 	const pipelines = useQuery(
-		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+		trpc.pipelines.list.queryOptions({ includeArchived: true }),
 	);
 
 	const requestedPipelineId =
 		input.pipeline !== "all" ? input.pipeline : undefined;
 	const activePipeline: Pipeline | undefined =
 		pipelines.data?.find((pipeline) => pipeline.id === requestedPipelineId) ??
-		pipelines.data?.[0];
+		pipelines.data?.find((pipeline) => pipeline.archivedAt === null);
 
 	const deals = useQuery({
 		...trpc.deals.list.queryOptions({
@@ -224,8 +224,14 @@ export function DealsBoard({
 						</SelectTrigger>
 						<SelectContent>
 							{pipelines.data.map((pipeline) => (
-								<SelectItem key={pipeline.id} value={pipeline.id}>
-									{pipeline.name}
+								<SelectItem
+									key={pipeline.id}
+									value={pipeline.id}
+									disabled={pipeline.archivedAt !== null}
+								>
+									{pipeline.archivedAt !== null
+										? `${pipeline.name} (archived)`
+										: pipeline.name}
 								</SelectItem>
 							))}
 						</SelectContent>

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test";
+import type { Db } from "@crm/db";
 import type { EmailBrand } from "../src/templates/render-email";
 import {
 	applyMergeFields,
+	normalizeAppUrl,
 	renderEmailHtml,
+	resolveEmailBrand,
 } from "../src/templates/render-email";
 import type { TemplateBlocks } from "../src/templates/template-blocks";
 
@@ -264,5 +267,43 @@ describe("renderEmailHtml brand", () => {
 
 		expect(html).toContain("background:#006b4f");
 		expect(html).toContain("color:#ffffff");
+	});
+});
+
+describe("normalizeAppUrl", () => {
+	it("strips a single trailing slash", () => {
+		expect(normalizeAppUrl("https://app.example.com/")).toBe(
+			"https://app.example.com",
+		);
+	});
+
+	it("strips repeated trailing slashes", () => {
+		expect(normalizeAppUrl("https://app.example.com///")).toBe(
+			"https://app.example.com",
+		);
+	});
+
+	it("leaves a URL with no trailing slash unchanged", () => {
+		expect(normalizeAppUrl("https://app.example.com")).toBe(
+			"https://app.example.com",
+		);
+	});
+});
+
+describe("resolveEmailBrand", () => {
+	function fakeDb(row: { brandColor: string | null; logo: string | null }) {
+		return {
+			organization: {
+				findUnique: async () => row,
+			},
+		} as unknown as Db;
+	}
+
+	it("returns a null logoUrl when the organization has no logo", async () => {
+		const brand = await resolveEmailBrand(
+			fakeDb({ brandColor: null, logo: null }),
+		);
+
+		expect(brand.logoUrl).toBeNull();
 	});
 });

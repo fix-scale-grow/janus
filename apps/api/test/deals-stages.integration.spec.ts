@@ -253,6 +253,46 @@ describe("create", () => {
 	});
 });
 
+describe("create reason guard", () => {
+	it("refuses to create a deal directly into a LOST stage without a reason", async () => {
+		await expectRejects(
+			deals.create({
+				name: `${prefix}_create_lost_no_reason`,
+				ownerId,
+				stage: lostA.id,
+			}),
+			/teaches nobody anything/,
+		);
+	});
+
+	it("refuses to create a deal directly into a DISQUALIFIED stage without a reason", async () => {
+		await expectRejects(
+			deals.create({
+				name: `${prefix}_create_disqualified_no_reason`,
+				ownerId,
+				stage: disqualifiedA.id,
+			}),
+			/teaches nobody anything/,
+		);
+	});
+
+	it("creates a deal into a LOST stage when a reason is given", async () => {
+		const deal = await deals.create({
+			name: `${prefix}_create_lost_with_reason`,
+			ownerId,
+			stage: lostA.id,
+			closedReason: "Went with a competitor",
+		});
+
+		const stored = await db.deal.findUnique({
+			where: { id: deal.id },
+			select: { closedReason: true, closedAt: true },
+		});
+		expect(stored?.closedReason).toBe("Went with a competitor");
+		expect(stored?.closedAt).not.toBeNull();
+	});
+});
+
 describe("archived pipeline guard", () => {
 	it("rejects setting a deal to a stage on an archived pipeline", async () => {
 		const archivedPipeline = await db.pipeline.create({
@@ -551,6 +591,7 @@ describe("sort by stage position", () => {
 			name: `${prefix}_sort_last`,
 			ownerId,
 			stage: lostA.id,
+			closedReason: "Went with a competitor",
 		});
 		const first = await deals.create({
 			name: `${prefix}_sort_first`,

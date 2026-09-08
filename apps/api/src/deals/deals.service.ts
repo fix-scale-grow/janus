@@ -93,6 +93,9 @@ const STAGE_VALIDATE_SELECT = {
 const STAGE_NO_LONGER_EXISTS =
 	"That stage no longer exists — pick a current one.";
 
+const CLOSED_REASON_REQUIRED =
+	"Say why it was lost — a closed-lost deal with no reason teaches nobody anything.";
+
 type StageFacetMeta = {
 	id: string;
 	label: string;
@@ -262,6 +265,12 @@ export class DealsService {
 		const stage = input.stage
 			? await this.resolveStage(input.stage)
 			: await this.defaultEntryStage();
+		const closedReason = input.closedReason?.trim();
+
+		if (requiresReason(stage) && !closedReason) {
+			throw new BadRequestException(CLOSED_REASON_REQUIRED);
+		}
+
 		const closed = isClosedStage(stage);
 		const now = new Date();
 
@@ -282,6 +291,7 @@ export class DealsService {
 						stageId: stage.id,
 						stageChangedAt: now,
 						closedAt: closed ? now : null,
+						closedReason: closed ? (closedReason ?? null) : null,
 						amount: fromCents(input.amountCents),
 						currency,
 						...fx,
@@ -440,9 +450,7 @@ export class DealsService {
 			const targetStage = await this.resolveStage(input.stage, tx);
 
 			if (requiresReason(targetStage) && !closedReason) {
-				throw new BadRequestException(
-					"Say why it was lost — a closed-lost deal with no reason teaches nobody anything.",
-				);
+				throw new BadRequestException(CLOSED_REASON_REQUIRED);
 			}
 
 			const closed = isClosedStage(targetStage);

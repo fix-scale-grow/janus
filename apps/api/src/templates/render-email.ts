@@ -15,6 +15,10 @@ export interface EmailBrand {
 	logoUrl: string | null;
 }
 
+export function normalizeAppUrl(url: string): string {
+	return url.replace(/\/+$/, "");
+}
+
 export async function resolveEmailBrand(db: Db): Promise<EmailBrand> {
 	const row = await db.organization.findUnique({
 		where: { id: WORKSPACE_ID },
@@ -22,11 +26,12 @@ export async function resolveEmailBrand(db: Db): Promise<EmailBrand> {
 	});
 
 	const color = normalizeHex(row?.brandColor) ?? EMAIL_RENDER.brandGreen;
+	const baseUrl = normalizeAppUrl(appUrl);
 
 	return {
 		color,
 		foreground: readableForeground(color),
-		logoUrl: row?.logo ? `${appUrl}${row.logo}` : null,
+		logoUrl: row?.logo ? `${baseUrl}${row.logo}` : null,
 	};
 }
 
