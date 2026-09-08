@@ -7,6 +7,7 @@ import {
 } from "@crm/ui/components/popover";
 import { cn } from "@crm/ui/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { dayKey, layoutWeek } from "@/lib/calendar/span-layout";
 import type { CalendarTask } from "./calendar-view";
@@ -24,6 +25,7 @@ export function CalendarGrid({
 	anchorMonth,
 	onDayClick,
 	projectId,
+	density,
 }: {
 	weeks: Date[][];
 	scheduled: CalendarTask[];
@@ -33,6 +35,7 @@ export function CalendarGrid({
 	anchorMonth: number;
 	onDayClick: (day: Date) => void;
 	projectId: string;
+	density?: BoardDensity;
 }) {
 	const maxLanes =
 		view === "month" ? CALENDAR.monthMaxLanes : CALENDAR.weekMaxLanes;
@@ -74,6 +77,7 @@ export function CalendarGrid({
 								)}
 								projectId={projectId}
 								onDayClick={onDayClick}
+								density={density}
 							/>
 						))}
 						<div className="pointer-events-none col-span-7 row-start-1 grid grid-cols-7 pt-7">
@@ -83,6 +87,7 @@ export function CalendarGrid({
 									bar={bar}
 									weekStart={weekStart}
 									projectId={projectId}
+									density={density}
 								/>
 							))}
 						</div>
@@ -102,6 +107,7 @@ function DayCell({
 	overflowTasks,
 	projectId,
 	onDayClick,
+	density,
 }: {
 	day: Date;
 	inAnchorMonth: boolean;
@@ -111,6 +117,7 @@ function DayCell({
 	overflowTasks: CalendarTask[];
 	projectId: string;
 	onDayClick: (day: Date) => void;
+	density?: BoardDensity;
 }) {
 	const key = dayKey(day);
 	const { setNodeRef, isOver } = useDroppable({ id: key });
@@ -161,7 +168,12 @@ function DayCell({
 						onClick={(event) => event.stopPropagation()}
 					>
 						{overflowTasks.map((task) => (
-							<TaskPopover key={task.id} projectId={projectId} task={task}>
+							<TaskPopover
+								key={task.id}
+								projectId={projectId}
+								task={task}
+								density={density}
+							>
 								<button
 									type="button"
 									className="truncate rounded-sm px-1.5 py-1 text-left text-xs hover:bg-accent"

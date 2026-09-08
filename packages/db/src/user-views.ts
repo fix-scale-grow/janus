@@ -9,6 +9,7 @@ export const VIEW_TABLE_IDS = [
 	"contracts",
 	"deals-board",
 	"production-board",
+	"project-board",
 ] as const;
 
 export type ViewTableId = (typeof VIEW_TABLE_IDS)[number];

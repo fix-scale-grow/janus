@@ -7,6 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import type { BoardDensity } from "@/components/board/use-board-density";
 import {
 	CREW_COLOR_CLASSES,
 	NO_CREW_CLASSES,
@@ -35,10 +36,12 @@ export function barClasses(
 export function TaskBar({
 	bar,
 	projectId,
+	density,
 }: {
 	bar: WeekBar<CalendarTask>;
 	weekStart: Date;
 	projectId: string;
+	density?: BoardDensity;
 }) {
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
 		useDraggable({
@@ -70,7 +73,7 @@ export function TaskBar({
 			{...attributes}
 			{...listeners}
 		>
-			<TaskPopover projectId={projectId} task={bar.task}>
+			<TaskPopover projectId={projectId} task={bar.task} density={density}>
 				<span className="truncate">
 					{done ? "✓ " : ""}
 					{bar.task.name}

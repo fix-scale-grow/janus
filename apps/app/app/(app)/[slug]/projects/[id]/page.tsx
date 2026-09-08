@@ -31,7 +31,10 @@ async function PrefetchedProject({
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	await Promise.all([
+	const [boardState] = await Promise.all([
+		queryClient.fetchQuery(
+			trpc.views.get.queryOptions({ tableId: "project-board" }),
+		),
 		queryClient.prefetchQuery(trpc.projects.byId.queryOptions({ id })),
 		queryClient.prefetchQuery(trpc.users.list.queryOptions()),
 		queryClient.prefetchQuery(trpc.crews.list.queryOptions()),
@@ -44,7 +47,7 @@ async function PrefetchedProject({
 		<PageShell className="min-h-0" contained>
 			<HydrateClient>
 				<ProjectHeader id={id} />
-				<CalendarView id={id} />
+				<CalendarView id={id} boardDensity={boardState?.density} />
 			</HydrateClient>
 		</PageShell>
 	);

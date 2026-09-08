@@ -17,6 +17,11 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { BoardDensityToggle } from "@/components/board/board-density-toggle";
+import {
+	type BoardDensity,
+	useBoardDensity,
+} from "@/components/board/use-board-density";
 import { CALENDAR } from "@/lib/calendar/calendar-config";
 import {
 	addDays,
@@ -84,7 +89,13 @@ function moveTask(
 	return changed ? { ...data, tasks } : data;
 }
 
-export function CalendarView({ id }: { id: string }) {
+export function CalendarView({
+	id,
+	boardDensity,
+}: {
+	id: string;
+	boardDensity?: BoardDensity;
+}) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const cache = useCrmCache();
@@ -94,6 +105,10 @@ export function CalendarView({ id }: { id: string }) {
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [panelOpen, setPanelOpen] = useState(false);
 	const [panelDefaultDay, setPanelDefaultDay] = useState<string | null>(null);
+	const { density, setDensity } = useBoardDensity(
+		"project-board",
+		boardDensity,
+	);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -273,6 +288,7 @@ export function CalendarView({ id }: { id: string }) {
 					<Button size="sm" onClick={() => openPanel(null)}>
 						Add task
 					</Button>
+					<BoardDensityToggle density={density} onDensityChange={setDensity} />
 				</div>
 			</div>
 
@@ -295,6 +311,7 @@ export function CalendarView({ id }: { id: string }) {
 						anchorMonth={anchor.getUTCMonth()}
 						onDayClick={openPanel}
 						projectId={id}
+						density={density}
 					/>
 					<DragOverlay dropAnimation={null}>
 						{activeTask ? (
@@ -305,10 +322,14 @@ export function CalendarView({ id }: { id: string }) {
 					</DragOverlay>
 				</DndContext>
 			) : (
-				<TimelineView project={project.data} anchor={anchor} />
+				<TimelineView
+					project={project.data}
+					anchor={anchor}
+					density={density}
+				/>
 			)}
 
-			<UnscheduledStrip projectId={id} tasks={unscheduled} />
+			<UnscheduledStrip projectId={id} tasks={unscheduled} density={density} />
 
 			<AddTaskPanel
 				projectId={id}

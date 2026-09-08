@@ -32,6 +32,11 @@ import {
 import { parseAsString, useQueryStates } from "nuqs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { BoardDensityToggle } from "@/components/board/board-density-toggle";
+import {
+	type BoardDensity,
+	useBoardDensity,
+} from "@/components/board/use-board-density";
 import { usePanScroll } from "@/components/board/use-pan-scroll";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
@@ -90,7 +95,13 @@ function moveRowStage(
  * uses) so a reason is still captured. The per-card `DealStageMenu` stays as
  * the keyboard-accessible path to the same mutation.
  */
-export function DealsBoard({ savedState }: { savedState?: SavedTableView }) {
+export function DealsBoard({
+	savedState,
+	boardDensity,
+}: {
+	savedState?: SavedTableView;
+	boardDensity?: BoardDensity;
+}) {
 	const { ref: panRef, handlers: panHandlers } = usePanScroll<HTMLDivElement>();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -104,6 +115,7 @@ export function DealsBoard({ savedState }: { savedState?: SavedTableView }) {
 	const { input, query } = useTableQuery(searchParams);
 	const [, setCloseParams] = useQueryStates(closeReasonParams);
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const { density, setDensity } = useBoardDensity("deals-board", boardDensity);
 
 	const sensors = useSensors(
 		// Distance activation lets a plain click still open the record; only a
@@ -200,23 +212,28 @@ export function DealsBoard({ savedState }: { savedState?: SavedTableView }) {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
-			{pipelines.data && pipelines.data.length > 1 ? (
-				<Select
-					value={activePipeline?.id}
-					onValueChange={(value) => query.setFilter("pipeline", value)}
-				>
-					<SelectTrigger className="w-56">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						{pipelines.data.map((pipeline) => (
-							<SelectItem key={pipeline.id} value={pipeline.id}>
-								{pipeline.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			) : null}
+			<div className="flex items-center justify-between gap-2">
+				{pipelines.data && pipelines.data.length > 1 ? (
+					<Select
+						value={activePipeline?.id}
+						onValueChange={(value) => query.setFilter("pipeline", value)}
+					>
+						<SelectTrigger className="w-56">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{pipelines.data.map((pipeline) => (
+								<SelectItem key={pipeline.id} value={pipeline.id}>
+									{pipeline.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				) : (
+					<div />
+				)}
+				<BoardDensityToggle density={density} onDensityChange={setDensity} />
+			</div>
 
 			<DndContext
 				sensors={sensors}
@@ -238,13 +255,16 @@ export function DealsBoard({ savedState }: { savedState?: SavedTableView }) {
 							stage={stage}
 							rows={byStage.get(stage.id) ?? []}
 							reportingCurrency={reportingCurrency}
+							density={density}
 							onOpen={(id) => openRecord({ kind: "deal", id })}
 							onHover={(id) => prefetchRecord({ kind: "deal", id })}
 						/>
 					))}
 				</div>
 				<DragOverlay dropAnimation={null}>
-					{activeRow ? <DealCardBody row={activeRow} dragging /> : null}
+					{activeRow ? (
+						<DealCardBody row={activeRow} density={density} dragging />
+					) : null}
 				</DragOverlay>
 			</DndContext>
 		</div>
@@ -255,12 +275,14 @@ function BoardColumn({
 	stage,
 	rows,
 	reportingCurrency,
+	density,
 	onOpen,
 	onHover,
 }: {
 	stage: Pipeline["stages"][number];
 	rows: DealRow[];
 	reportingCurrency: string;
+	density: BoardDensity;
 	onOpen: (id: string) => void;
 	onHover: (id: string) => void;
 }) {
@@ -297,6 +319,7 @@ function BoardColumn({
 					<DraggableDealCard
 						key={row.id}
 						row={row}
+						density={density}
 						onOpen={() => onOpen(row.id)}
 						onHover={() => onHover(row.id)}
 					/>
@@ -313,10 +336,12 @@ function BoardColumn({
 
 function DraggableDealCard({
 	row,
+	density,
 	onOpen,
 	onHover,
 }: {
 	row: DealRow;
+	density: BoardDensity;
 	onOpen: () => void;
 	onHover: () => void;
 }) {
@@ -340,26 +365,35 @@ function DraggableDealCard({
 			}}
 			className="cursor-grab touch-none select-none active:cursor-grabbing"
 		>
-			<DealCardBody row={row} onOpen={onOpen} onHover={onHover} />
+			<DealCardBody
+				row={row}
+				density={density}
+				onOpen={onOpen}
+				onHover={onHover}
+			/>
 		</div>
 	);
 }
 
 function DealCardBody({
 	row,
+	density = "comfortable",
 	onOpen,
 	onHover,
 	dragging = false,
 }: {
 	row: DealRow;
+	density?: BoardDensity;
 	onOpen?: () => void;
 	onHover?: () => void;
 	dragging?: boolean;
 }) {
+	const compact = density === "compact";
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-accent/40",
+				"flex flex-col rounded-lg border border-border bg-card transition-colors hover:border-primary/40 hover:bg-accent/40",
+				compact ? "gap-1 px-2 py-1.5" : "gap-2 px-3 py-2.5",
 				dragging && "rotate-2 cursor-grabbing shadow-xl",
 			)}
 		>
@@ -380,15 +414,17 @@ function DealCardBody({
 					</span>
 				</span>
 			</button>
-			<div className="flex items-center justify-between gap-2">
-				<DealStageMenu dealId={row.id} stage={row.stage} />
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					{row.expectedCloseDate ? (
-						<LocalDay date={row.expectedCloseDate} />
-					) : null}
-					<OwnerCell owner={row.owner} />
+			{compact ? null : (
+				<div className="flex items-center justify-between gap-2">
+					<DealStageMenu dealId={row.id} stage={row.stage} />
+					<div className="flex items-center gap-2 text-xs text-muted-foreground">
+						{row.expectedCloseDate ? (
+							<LocalDay date={row.expectedCloseDate} />
+						) : null}
+						<OwnerCell owner={row.owner} />
+					</div>
 				</div>
-			</div>
+			)}
 		</div>
 	);
 }

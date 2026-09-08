@@ -57,9 +57,12 @@ async function Deals({
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const savedState = await queryClient.fetchQuery(
-		trpc.views.get.queryOptions({ tableId: "deals" }),
-	);
+	const [savedState, boardState] = await Promise.all([
+		queryClient.fetchQuery(trpc.views.get.queryOptions({ tableId: "deals" })),
+		queryClient.fetchQuery(
+			trpc.views.get.queryOptions({ tableId: "deals-board" }),
+		),
+	]);
 	const params = dealsSearchParams(savedState ?? undefined);
 	const values = await params.load(searchParams);
 
@@ -72,7 +75,10 @@ async function Deals({
 
 	return (
 		<HydrateClient>
-			<DealsView savedState={savedState ?? undefined} />
+			<DealsView
+				savedState={savedState ?? undefined}
+				boardDensity={boardState?.density}
+			/>
 		</HydrateClient>
 	);
 }
