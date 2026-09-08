@@ -324,22 +324,20 @@ export function SymbolEditor({ symbolId }: { symbolId: string }) {
 										placeholder="New category"
 										value={values.trade}
 									/>
-									{categories.length > 0 && (
-										<Button
-											className="self-start"
-											onClick={() => {
-												setAddingCategory(false);
-												setValues((prev) => ({
-													...prev,
-													trade: categories[0]?.label ?? prev.trade,
-												}));
-											}}
-											size="sm"
-											variant="link"
-										>
-											Choose existing category
-										</Button>
-									)}
+									<Button
+										className="self-start"
+										onClick={() => {
+											setAddingCategory(false);
+											setValues((prev) => ({
+												...prev,
+												trade: categories[0]?.label ?? "roofing",
+											}));
+										}}
+										size="sm"
+										variant="link"
+									>
+										Back to the category list
+									</Button>
 								</div>
 							) : (
 								<Select
