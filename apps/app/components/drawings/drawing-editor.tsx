@@ -1,17 +1,13 @@
 "use client";
 
-import "@excalidraw/excalidraw/index.css";
-
 import {
 	DRAWINGS,
 	type DrawingScale,
 	type DrawingScene,
-	excalidrawElement,
 	parseLibraryFileItems,
 	polylineLengthFt,
 	promoteSymbolPinCustomData,
 	type ScopeCustomData,
-	type ExcalidrawElement as SymbolElement,
 	scopeCustomData,
 	symbolPinCustomData,
 } from "@crm/drawings";
@@ -31,7 +27,6 @@ import type {
 	LibraryItems_anyVersion,
 } from "@excalidraw/excalidraw/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,8 +36,8 @@ import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { DrawingHistory } from "./drawing-history";
+import { JanusExcalidraw } from "./janus-excalidraw";
 import { SatelliteCanvas } from "./satellite-canvas";
-import { SaveSymbolDialog } from "./save-symbol-dialog";
 import { ScaleDialog } from "./scale-dialog";
 import { initialSceneChangeState, nextSceneChange } from "./scene-change";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
@@ -53,25 +48,6 @@ import { useDrawingThumbnail } from "./use-drawing-thumbnail";
 import { useScopedShapes } from "./use-scoped-shapes";
 
 const toolParser = parseAsStringLiteral(["freedraw"] as const);
-
-const Excalidraw = dynamic(
-	async () => {
-		const { Excalidraw: ExcalidrawComponent, MainMenu } = await import(
-			"@excalidraw/excalidraw"
-		);
-		const menu = (
-			<MainMenu>
-				<MainMenu.DefaultItems.Export />
-				<MainMenu.DefaultItems.ChangeCanvasBackground />
-				<MainMenu.DefaultItems.ClearCanvas />
-			</MainMenu>
-		);
-		return function JanusExcalidraw(exProps: ExcalidrawProps) {
-			return <ExcalidrawComponent {...exProps}>{menu}</ExcalidrawComponent>;
-		};
-	},
-	{ ssr: false },
-);
 
 type OnChange = NonNullable<ExcalidrawProps["onChange"]>;
 
@@ -325,51 +301,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		[queueSave],
 	);
 
-	const [symbolCapture, setSymbolCapture] = useState<SymbolElement[] | null>(
-		null,
-	);
-
-	const saveSelectionAsSymbol = useCallback(() => {
-		const api = apiRef.current;
-		if (!api) return;
-		const appState = api.getAppState();
-		const selectedIds = Object.keys(appState.selectedElementIds).filter(
-			(id) => appState.selectedElementIds[id],
-		);
-		if (selectedIds.length === 0) return;
-
-		const selected = api
-			.getSceneElements()
-			.filter(
-				(element) => selectedIds.includes(element.id) && !element.isDeleted,
-			);
-		if (selected.length === 0) return;
-		if (selected.length > DRAWINGS.symbol.maxElements) {
-			toast.error(
-				`Select ${DRAWINGS.symbol.maxElements} shapes or fewer to save as a symbol.`,
-			);
-			return;
-		}
-
-		const minX = Math.min(...selected.map((element) => element.x));
-		const minY = Math.min(...selected.map((element) => element.y));
-		const normalized = selected.map((element) => {
-			const clone = structuredClone(element) as Record<string, unknown>;
-			delete clone.customData;
-			clone.boundElements = null;
-			clone.containerId = null;
-			clone.x = (clone.x as number) - minX;
-			clone.y = (clone.y as number) - minY;
-			return clone;
-		});
-
-		try {
-			setSymbolCapture(excalidrawElement.array().parse(normalized));
-		} catch {
-			toast.error("That selection can't be saved as a symbol.");
-		}
-	}, []);
-
 	const addPin = useCallback(async () => {
 		const api = apiRef.current;
 		if (!api) return;
@@ -518,9 +449,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							<Button onClick={() => stampSelection("line")} variant="outline">
 								Mark line
 							</Button>
-							<Button onClick={saveSelectionAsSymbol} variant="outline">
-								Save as symbol
-							</Button>
 							<Button onClick={addPin} variant="outline">
 								Pin
 							</Button>
@@ -571,7 +499,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 						.janus-drawing-canvas .App-toolbar__extra-tools-trigger { display: none; }
 						.excalidraw-modal-container .HelpDialog__header { display: none; }
 					`}</style>
-					<Excalidraw
+					<JanusExcalidraw
 						excalidrawAPI={excalidrawApiRef}
 						initialData={
 							{
@@ -627,14 +555,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					}
 				}}
 				open={calibrationTarget !== null}
-			/>
-
-			<SaveSymbolDialog
-				elements={symbolCapture}
-				onOpenChange={(open) => {
-					if (!open) setSymbolCapture(null);
-				}}
-				services={services.data?.rows ?? []}
 			/>
 
 			<Sheet onOpenChange={setAskJanusOpen} open={askJanusOpen}>
