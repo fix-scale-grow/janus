@@ -314,6 +314,14 @@ function EditableBlock({
 	onCommit: (id: string, node: HTMLElement) => void;
 }) {
 	const [html] = useState(initial);
+	const commitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+		undefined,
+	);
+
+	const scheduleCommit = (node: HTMLElement) => {
+		clearTimeout(commitTimer.current);
+		commitTimer.current = setTimeout(() => onCommit(id, node), 600);
+	};
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		const node = event.currentTarget;
@@ -361,9 +369,15 @@ function EditableBlock({
 			onKeyUp={(event) => onRange(id, event.currentTarget)}
 			onMouseUp={(event) => onRange(id, event.currentTarget)}
 			onFocus={(event) => onRange(id, event.currentTarget)}
-			onInput={(event) => onRange(id, event.currentTarget)}
+			onInput={(event) => {
+				onRange(id, event.currentTarget);
+				scheduleCommit(event.currentTarget);
+			}}
 			onPaste={onPaste}
-			onBlur={(event) => onCommit(id, event.currentTarget)}
+			onBlur={(event) => {
+				clearTimeout(commitTimer.current);
+				onCommit(id, event.currentTarget);
+			}}
 			// biome-ignore lint/security/noDangerouslySetInnerHtml: block html is sanitized before it reaches the editor
 			dangerouslySetInnerHTML={{ __html: html }}
 		/>
