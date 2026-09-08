@@ -2,10 +2,12 @@ import { Inject } from "@nestjs/common";
 import { Input, Mutation, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { z } from "zod";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
+import type { SymbolPackKey } from "./symbol-packs";
 import {
 	symbolCreateInput,
 	symbolIdInput,
 	symbolListInput,
+	symbolPackInput,
 	symbolUpdateInput,
 } from "./symbols.contracts";
 import { SymbolsService } from "./symbols.service";
@@ -43,8 +45,8 @@ export class SymbolsRouter {
 		return this.symbols.delete(id);
 	}
 
-	@Mutation()
-	async seedRoofing() {
-		return this.symbols.seedRoofing();
+	@Mutation({ input: symbolPackInput })
+	async seedPack(@Input("pack") pack: z.infer<typeof symbolPackInput>["pack"]) {
+		return this.symbols.seedPack(pack as SymbolPackKey);
 	}
 }

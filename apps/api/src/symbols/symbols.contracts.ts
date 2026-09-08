@@ -1,6 +1,7 @@
 import { DRAWINGS, excalidrawElement } from "@crm/drawings";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
+import { SYMBOL_PACK_KEYS } from "./symbol-packs";
 import { SYMBOLS } from "./symbols.config";
 
 export const symbolElements = z
@@ -49,3 +50,9 @@ export const symbolUpdateInput = z.object({
 });
 
 export type SymbolUpdateInput = z.infer<typeof symbolUpdateInput>;
+
+export const symbolPackInput = z.object({
+	pack: z.enum(SYMBOL_PACK_KEYS as [string, ...string[]]),
+});
+
+export type SymbolPackInput = z.infer<typeof symbolPackInput>;

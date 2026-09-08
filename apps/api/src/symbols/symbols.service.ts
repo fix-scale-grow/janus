@@ -2,7 +2,7 @@ import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate } from "../trpc/list-input";
-import { ROOFING_SYMBOL_SEED } from "./roofing-symbol-seed";
+import { SYMBOL_PACKS, type SymbolPackKey } from "./symbol-packs";
 import type {
 	SymbolCreateInput,
 	SymbolListInput,
@@ -97,13 +97,15 @@ export class SymbolsService {
 		}
 	}
 
-	async seedRoofing() {
+	async seedPack(key: SymbolPackKey) {
+		const pack = SYMBOL_PACKS[key];
+
 		const existing = await this.db.symbol.findMany({ select: { name: true } });
 		const existingNames = new Set(
 			existing.map((row) => row.name.toLowerCase()),
 		);
 
-		const candidates = ROOFING_SYMBOL_SEED.filter(
+		const candidates = pack.seeds.filter(
 			(seed) => !existingNames.has(seed.name.toLowerCase()),
 		);
 
@@ -138,7 +140,7 @@ export class SymbolsService {
 				data: {
 					...rest,
 					elements: rest.elements as Prisma.InputJsonValue,
-					trade: "roofing",
+					trade: pack.trade,
 					active: true,
 					sortOrder: index,
 					serviceId: serviceSymbolId

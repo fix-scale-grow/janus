@@ -1,6 +1,7 @@
 "use client";
 
 import Add from "@carbon/icons-react/es/Add";
+import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import PaintBrush from "@carbon/icons-react/es/PaintBrush";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
@@ -22,6 +23,12 @@ import {
 	CardTitle,
 } from "@crm/ui/components/card";
 import { CardTableEmpty } from "@crm/ui/components/card-table";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@crm/ui/components/dropdown-menu";
 import {
 	Empty,
 	EmptyDescription,
@@ -72,6 +79,12 @@ const COLUMNS: SimpleTableColumn[] = [
 
 const CELL = "px-3 py-2.5 align-middle";
 
+const SYMBOL_PACKS = [
+	{ key: "roofing", label: "Roofing" },
+	{ key: "landscaping", label: "Landscaping" },
+	{ key: "building", label: "General building" },
+] as const;
+
 function sizeLabel(row: SymbolRow): string {
 	if (row.widthFt && row.heightFt) {
 		return `${row.widthFt} × ${row.heightFt} ft`;
@@ -99,10 +112,16 @@ export function SymbolsTable() {
 	);
 
 	const seed = useMutation(
-		trpc.symbols.seedRoofing.mutationOptions({
-			onSuccess: async (result) => {
+		trpc.symbols.seedPack.mutationOptions({
+			onSuccess: async (result, variables) => {
 				await cache.symbol();
-				toast.success(`Loaded ${result.created} symbols.`);
+				const pack = SYMBOL_PACKS.find((entry) => entry.key === variables.pack);
+				const label = pack?.label.toLowerCase() ?? variables.pack;
+				toast.success(
+					result.created === 0
+						? "Already installed."
+						: `Added ${result.created} ${label} symbol${result.created === 1 ? "" : "s"}.`,
+				);
 			},
 			onError: reportError,
 		}),
@@ -148,21 +167,31 @@ export function SymbolsTable() {
 				<CardDescription>
 					Open a symbol to draw its shape and set how it prices.
 				</CardDescription>
-				{!symbols.isPending && rows.length === 0 && (
+				{!symbols.isPending && (
 					<CardAction>
-						<Button
-							disabled={seed.isPending}
-							onClick={() => seed.mutate()}
-							size="sm"
-							variant="outline"
-						>
-							{seed.isPending ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<Icon data-icon="inline-start" icon={Add} />
-							)}
-							Load starter symbols
-						</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button disabled={seed.isPending} size="sm" variant="outline">
+									{seed.isPending ? (
+										<Spinner data-icon="inline-start" />
+									) : (
+										<Icon data-icon="inline-start" icon={Add} />
+									)}
+									Install pack
+									<Icon data-icon="inline-end" icon={ChevronDown} />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								{SYMBOL_PACKS.map((pack) => (
+									<DropdownMenuItem
+										key={pack.key}
+										onSelect={() => seed.mutate({ pack: pack.key })}
+									>
+										{pack.label}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</CardAction>
 				)}
 			</CardHeader>
@@ -180,7 +209,7 @@ export function SymbolsTable() {
 						</EmptyMedia>
 						<EmptyTitle>No symbols yet</EmptyTitle>
 						<EmptyDescription>
-							Start from the roofing starter set, or draw your own.
+							Install a starter pack above, or draw your own.
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>

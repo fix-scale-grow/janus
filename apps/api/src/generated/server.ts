@@ -37,7 +37,7 @@ import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInpu
 import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
-import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput } from "../symbols/symbols.contracts";
+import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolPackInput } from "../symbols/symbols.contracts";
 import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, templateSendTestInput } from "../templates/templates.contracts";
 import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
@@ -732,8 +732,9 @@ const appRouter = t.router({
     delete: publicProcedure
       .input(symbolIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["delete"]>>),
-    seedRoofing: publicProcedure
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["seedRoofing"]>>)
+    seedPack: publicProcedure
+      .input(symbolPackInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SymbolsRouter["seedPack"]>>)
     }),
   templates: t.router({
     list: publicProcedure

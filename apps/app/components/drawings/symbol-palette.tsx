@@ -283,7 +283,7 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 	);
 
 	const seedRoofing = useMutation(
-		trpc.symbols.seedRoofing.mutationOptions({
+		trpc.symbols.seedPack.mutationOptions({
 			onSuccess: () => {
 				void cache.symbol();
 			},
@@ -443,7 +443,7 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 								<p className="text-muted-foreground text-xs">No symbols yet.</p>
 								<Button
 									disabled={seedRoofing.isPending}
-									onClick={() => seedRoofing.mutate()}
+									onClick={() => seedRoofing.mutate({ pack: "roofing" })}
 									size="sm"
 								>
 									Load starter symbols
