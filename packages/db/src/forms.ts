@@ -20,6 +20,16 @@ export const FORM_FIELD_OPTIONS_MAX = 50;
 
 export const FORM_FIELD_OPTION_LABEL_MAX = 120;
 
+export const FORM_ID_SHAPE = /^[a-z0-9]{20,32}$/i;
+
+export function isFormId(value: string | null | undefined): value is string {
+	return typeof value === "string" && FORM_ID_SHAPE.test(value);
+}
+
+export const FORM_EMBED_MAX_AGE_SECONDS = 300;
+
+export const FORM_DEFAULT_ACCENT = "#006b4f";
+
 export const formFieldTypeEnum = z.enum(FormFieldType);
 
 export const formFieldOptions = z
