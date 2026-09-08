@@ -15,7 +15,8 @@ import { SOURCED_VALUE, SourcedValue } from "@crm/ui/components/sourced-value";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
 import { cn } from "@crm/ui/lib/utils";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { CRM } from "@/components/crm/crm-config";
 import { PROPERTY_LABEL, PROPERTY_ROW } from "@/components/detail-sheet";
 
 const ROW = cn(PROPERTY_ROW, "items-center");
@@ -116,7 +117,12 @@ export function InlineField({
 					{render ? render(shown) : shown}
 				</span>
 			) : (
-				<span className="truncate text-muted-foreground">
+				<span
+					className={cn(
+						"truncate text-muted-foreground",
+						placeholder && "italic",
+					)}
+				>
 					{placeholder ?? <EmptyCellValue />}
 				</span>
 			)}
@@ -218,7 +224,12 @@ export function InlineTextCell({
 			{shown ? (
 				<span className="truncate">{shown}</span>
 			) : (
-				<span className="truncate text-muted-foreground">
+				<span
+					className={cn(
+						"truncate text-muted-foreground",
+						placeholder && "italic",
+					)}
+				>
 					{placeholder ?? <EmptyCellValue />}
 				</span>
 			)}
@@ -241,11 +252,38 @@ export function InlineTextArea({
 }) {
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(value ?? "");
+	const draftRef = useRef(draft);
+	draftRef.current = draft;
+	const timerRef = useRef<number | undefined>(undefined);
 
-	const commit = () => {
-		setEditing(false);
-		if (draft.trim() !== (value ?? "")) onSave(draft.trim());
+	const save = (next: string) => {
+		window.clearTimeout(timerRef.current);
+		timerRef.current = undefined;
+		if (next.trim() !== (value ?? "")) onSave(next.trim());
 	};
+	const saveRef = useRef(save);
+	saveRef.current = save;
+
+	const commit = (next: string) => {
+		setEditing(false);
+		save(next);
+	};
+
+	useEffect(() => {
+		if (!editing) return;
+		return () => {
+			if (timerRef.current !== undefined) saveRef.current(draftRef.current);
+		};
+	}, [editing]);
+
+	useEffect(() => {
+		if (!editing || draft.trim() === (value ?? "")) return;
+		const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+			event.preventDefault();
+		};
+		window.addEventListener("beforeunload", warnBeforeUnload);
+		return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+	}, [editing, draft, value]);
 
 	if (editing) {
 		return (
@@ -254,14 +292,23 @@ export function InlineTextArea({
 				autoFocus
 				value={draft}
 				placeholder={placeholder}
-				onChange={(event) => setDraft(event.target.value)}
-				onBlur={commit}
+				onChange={(event) => {
+					const next = event.target.value;
+					setDraft(next);
+					window.clearTimeout(timerRef.current);
+					timerRef.current = window.setTimeout(
+						() => save(next),
+						CRM.inlineField.commitDebounceMs,
+					);
+				}}
+				onBlur={(event) => commit(event.target.value)}
 				onKeyDown={(event) => {
 					if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 						event.preventDefault();
-						commit();
+						commit(draft);
 					}
 					if (event.key === "Escape") {
+						window.clearTimeout(timerRef.current);
 						setDraft(value ?? "");
 						setEditing(false);
 					}
@@ -288,7 +335,12 @@ export function InlineTextArea({
 			{shown ? (
 				<span className="min-w-0">{shown}</span>
 			) : (
-				<span className="min-w-0 text-muted-foreground">
+				<span
+					className={cn(
+						"min-w-0 text-muted-foreground",
+						placeholder && "italic",
+					)}
+				>
 					{placeholder ?? <EmptyCellValue />}
 				</span>
 			)}

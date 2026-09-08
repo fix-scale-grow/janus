@@ -324,7 +324,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 						value={
 							deal.amountCents === null ? null : String(deal.amountCents / 100)
 						}
-						placeholder="24000"
+						placeholder="e.g. 24000"
 						saving={isSaving("amountCents")}
 						onSave={(next) => {
 							if (next === "") return save({ amountCents: null });

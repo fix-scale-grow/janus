@@ -292,7 +292,7 @@ function ContactOverview({ contact }: { contact: Contact }) {
 					<InlineField
 						label="Title"
 						value={contact.title}
-						placeholder="Head of Security"
+						placeholder="e.g. Operations Manager"
 						saving={isSaving("title")}
 						onSave={(title) => save({ title })}
 						{...agentProps("title")}
@@ -314,7 +314,7 @@ function ContactOverview({ contact }: { contact: Contact }) {
 					<InlineField
 						label="Company"
 						value={contact.companyName}
-						placeholder="Acme Roofing"
+						placeholder="e.g. Acme Construction"
 						saving={isSaving("companyName")}
 						onSave={(companyName) => save({ companyName })}
 					/>
