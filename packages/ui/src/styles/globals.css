@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 
 @source "../../**/*.{ts,tsx}";
+@source "../../../../apps/app/app";
+@source "../../../../apps/app/components";
+@source "../../../../apps/app/lib";
 
 @custom-variant dark (&:is(.dark *));
 
