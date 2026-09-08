@@ -77,6 +77,170 @@ describe("moving a selection to a category", () => {
 	});
 });
 
+describe("linking a selection to a service", () => {
+	const servicePrefix = `Symbols bulk service ${suffix}`;
+	let serviceId: string;
+	let linkFirstId: string;
+	let linkSecondId: string;
+
+	beforeAll(async () => {
+		await db.service.deleteMany({
+			where: { name: { startsWith: servicePrefix } },
+		});
+
+		const service = await db.service.create({
+			data: {
+				name: `${servicePrefix} one`,
+				unit: "PER_EACH",
+				unitPriceCents: 100,
+				active: true,
+			},
+		});
+		serviceId = service.id;
+
+		const first = await symbols.create({
+			name: `${namePrefix} link one`,
+			trade: "roofing",
+			elements,
+			active: true,
+		});
+		const second = await symbols.create({
+			name: `${namePrefix} link two`,
+			trade: "roofing",
+			elements,
+			active: true,
+		});
+		linkFirstId = first.id;
+		linkSecondId = second.id;
+	});
+
+	afterAll(async () => {
+		await db.service.deleteMany({
+			where: { name: { startsWith: servicePrefix } },
+		});
+	});
+
+	it("links every symbol it was given", async () => {
+		expect(
+			await symbols.bulkSetService([linkFirstId, linkSecondId], serviceId),
+		).toEqual({ count: 2 });
+
+		const linked = await db.symbol.findMany({
+			where: { id: { in: [linkFirstId, linkSecondId] } },
+			select: { serviceId: true },
+		});
+		expect(linked.every((row) => row.serviceId === serviceId)).toBe(true);
+	});
+
+	it("unlinks every symbol it was given", async () => {
+		expect(
+			await symbols.bulkSetService([linkFirstId, linkSecondId], null),
+		).toEqual({ count: 2 });
+
+		const unlinked = await db.symbol.findMany({
+			where: { id: { in: [linkFirstId, linkSecondId] } },
+			select: { serviceId: true },
+		});
+		expect(unlinked.every((row) => row.serviceId === null)).toBe(true);
+	});
+});
+
+describe("duplicating a symbol", () => {
+	let originalId: string;
+
+	beforeAll(async () => {
+		const original = await symbols.create({
+			name: `${namePrefix} dup`,
+			trade: "roofing",
+			elements,
+			active: true,
+		});
+		originalId = original.id;
+	});
+
+	it("names the first copy 'copy'", async () => {
+		const copy = await symbols.duplicate(originalId);
+		expect(copy.name).toBe(`${namePrefix} dup copy`);
+	});
+
+	it("increments the name when a copy already exists", async () => {
+		const copy = await symbols.duplicate(originalId);
+		expect(copy.name).toBe(`${namePrefix} dup copy 2`);
+	});
+});
+
+describe("counting drawing usage", () => {
+	const userId = `symbols-usage-${suffix}`;
+	const drawingTitle = `Symbols usage fixture ${suffix}`;
+	let usedSymbolId: string;
+	let unusedSymbolId: string;
+
+	beforeAll(async () => {
+		await db.drawing.deleteMany({ where: { title: drawingTitle } });
+		await db.user.deleteMany({ where: { id: userId } });
+
+		const used = await symbols.create({
+			name: `${namePrefix} used`,
+			trade: "roofing",
+			elements,
+			active: true,
+		});
+		const unused = await symbols.create({
+			name: `${namePrefix} unused`,
+			trade: "roofing",
+			elements,
+			active: true,
+		});
+		usedSymbolId = used.id;
+		unusedSymbolId = unused.id;
+
+		await db.user.create({
+			data: {
+				id: userId,
+				name: "Symbols Usage Tester",
+				email: `${userId}@example.test`,
+				emailVerified: true,
+			},
+		});
+
+		await db.drawing.create({
+			data: {
+				title: drawingTitle,
+				createdById: userId,
+				scene: {
+					elements: [
+						{
+							id: "pin-1",
+							type: "ellipse",
+							customData: { symbol: usedSymbolId },
+						},
+						{
+							id: "pin-2",
+							type: "ellipse",
+							customData: { symbol: usedSymbolId },
+						},
+					],
+				},
+			},
+		});
+	});
+
+	afterAll(async () => {
+		await db.drawing.deleteMany({ where: { title: drawingTitle } });
+		await db.user.deleteMany({ where: { id: userId } });
+	});
+
+	it("counts a drawing once no matter how many times a symbol is placed", async () => {
+		const rows = await symbols.usage();
+
+		const used = rows.find((row) => row.symbolId === usedSymbolId);
+		const unused = rows.find((row) => row.symbolId === unusedSymbolId);
+
+		expect(used?.drawings).toBe(1);
+		expect(unused?.drawings).toBe(0);
+	});
+});
+
 describe("deleting a selection", () => {
 	it("removes only the symbols it was given", async () => {
 		expect(await symbols.bulkDelete([firstId, secondId])).toEqual({

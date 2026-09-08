@@ -3,13 +3,13 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate } from "../trpc/list-input";
 import { SYMBOL_PACKS, type SymbolPackKey } from "./symbol-packs";
+import { SYMBOLS } from "./symbols.config";
 import type {
 	SymbolCreateInput,
 	SymbolListInput,
 	SymbolUpdateInput,
 	SymbolUsageRow,
 } from "./symbols.contracts";
-import { SYMBOLS } from "./symbols.config";
 
 const LIST_SELECT = {
 	id: true,
