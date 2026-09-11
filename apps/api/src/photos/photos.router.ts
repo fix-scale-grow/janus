@@ -73,9 +73,7 @@ export class PhotosRouter {
 	}
 
 	@Mutation({ input: invoicePdfFlagInput })
-	async setInvoicePdfFlag(
-		@Input() input: z.infer<typeof invoicePdfFlagInput>,
-	) {
+	async setInvoicePdfFlag(@Input() input: z.infer<typeof invoicePdfFlagInput>) {
 		return this.photos.setInvoicePdfFlag(input);
 	}
 
