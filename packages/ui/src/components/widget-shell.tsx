@@ -2,7 +2,11 @@
 
 import Close from "@carbon/icons-react/es/Close";
 import Draggable from "@carbon/icons-react/es/Draggable";
-import type { ReactNode } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+} from "react";
 import { Button } from "@crm/ui/components/button";
 import {
 	Card,
@@ -12,6 +16,28 @@ import {
 	CardTitle,
 } from "@crm/ui/components/card";
 import { Icon } from "@crm/ui/components/icon";
+
+type WidgetEditingContextValue = { editing: boolean; onRemove?: () => void };
+
+const WidgetEditingContext = createContext<WidgetEditingContextValue>({
+	editing: false,
+});
+
+export function WidgetEditingProvider({
+	editing,
+	onRemove,
+	children,
+}: WidgetEditingContextValue & { children: ReactNode }) {
+	return (
+		<WidgetEditingContext.Provider value={{ editing, onRemove }}>
+			{children}
+		</WidgetEditingContext.Provider>
+	);
+}
+
+export function useWidgetEditing(): WidgetEditingContextValue {
+	return useContext(WidgetEditingContext);
+}
 
 export function WidgetShell({
 	title,
@@ -28,11 +54,15 @@ export function WidgetShell({
 	onRemove?: () => void;
 	children: ReactNode;
 }) {
+	const context = useWidgetEditing();
+	const isEditing = editing ?? context.editing;
+	const handleRemove = onRemove ?? context.onRemove;
+
 	return (
 		<Card className="min-w-0 h-full flex flex-col">
 			<CardHeader>
 				<div className="flex items-center gap-2">
-					{editing ? (
+					{isEditing ? (
 						<span
 							className="janus-widget-drag cursor-grab text-muted-foreground"
 							aria-hidden
@@ -43,15 +73,15 @@ export function WidgetShell({
 					<CardTitle>{title}</CardTitle>
 				</div>
 				{description ? <CardDescription>{description}</CardDescription> : null}
-				{action || editing ? (
+				{action || isEditing ? (
 					<CardAction>
 						{action}
-						{editing ? (
+						{isEditing ? (
 							<Button
 								type="button"
 								variant="ghost"
 								size="icon-sm"
-								onClick={onRemove}
+								onClick={handleRemove}
 							>
 								<Icon icon={Close} />
 								<span className="sr-only">Remove {title}</span>

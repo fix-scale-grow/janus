@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CustomiseControls } from "@/components/dashboard/customise-controls";
 import {
 	PageShell,
 	PageShellActions,
@@ -7,6 +8,7 @@ import {
 	PageShellHeading,
 	PageShellLoading,
 } from "@/components/page-shell";
+import { DashboardEditProvider } from "@/lib/dashboard/dashboard-edit-context";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
@@ -24,24 +26,27 @@ import { loadOverviewSearchParams } from "./overview-search-params";
 export default function OverviewPage({ searchParams }: PageProps<"/[slug]">) {
 	return (
 		<PageShell>
-			<PageShellHeader>
-				<PageShellHeading>
-					<Suspense fallback={<OverviewGreetingFallback />}>
-						<OverviewGreeting />
-					</Suspense>
-				</PageShellHeading>
-				<PageShellActions>
-					<Suspense fallback={<OverviewScopeToggleFallback />}>
-						<OverviewScopeToggle />
-					</Suspense>
-				</PageShellActions>
-			</PageShellHeader>
+			<DashboardEditProvider>
+				<PageShellHeader>
+					<PageShellHeading>
+						<Suspense fallback={<OverviewGreetingFallback />}>
+							<OverviewGreeting />
+						</Suspense>
+					</PageShellHeading>
+					<PageShellActions>
+						<Suspense fallback={<OverviewScopeToggleFallback />}>
+							<OverviewScopeToggle />
+						</Suspense>
+						<CustomiseControls />
+					</PageShellActions>
+				</PageShellHeader>
 
-			<PageShellContent>
-				<Suspense fallback={<PageShellLoading />}>
-					<Summary searchParams={searchParams} />
-				</Suspense>
-			</PageShellContent>
+				<PageShellContent>
+					<Suspense fallback={<PageShellLoading />}>
+						<Summary searchParams={searchParams} />
+					</Suspense>
+				</PageShellContent>
+			</DashboardEditProvider>
 		</PageShell>
 	);
 }

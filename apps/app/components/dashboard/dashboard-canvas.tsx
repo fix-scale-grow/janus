@@ -1,7 +1,8 @@
 "use client";
 
 import type { DashboardLayoutEntry } from "@crm/db/user-views";
-import type { ComponentType } from "react";
+import { WidgetEditingProvider } from "@crm/ui/components/widget-shell";
+import { type ComponentType, useMemo } from "react";
 import {
 	GridLayout,
 	type Layout,
@@ -21,20 +22,50 @@ function sortByPosition(
 	return [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
+function EditableWidget({
+	id,
+	widget,
+	editing,
+	onRemove,
+}: {
+	id: string;
+	widget: DashboardWidget;
+	editing: boolean;
+	onRemove: (id: string) => void;
+}) {
+	const Component = widget.component;
+	return (
+		<WidgetEditingProvider editing={editing} onRemove={() => onRemove(id)}>
+			<Component />
+		</WidgetEditingProvider>
+	);
+}
+
 function WidgetStack({
 	layout,
 	widgetsById,
+	editing,
+	onRemove,
 }: {
 	layout: DashboardLayoutEntry[];
 	widgetsById: Map<string, DashboardWidget>;
+	editing: boolean;
+	onRemove: (id: string) => void;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
 			{sortByPosition(layout).map((entry) => {
 				const widget = widgetsById.get(entry.id);
 				if (!widget) return null;
-				const Component = widget.component;
-				return <Component key={entry.id} />;
+				return (
+					<EditableWidget
+						key={entry.id}
+						id={entry.id}
+						widget={widget}
+						editing={editing}
+						onRemove={onRemove}
+					/>
+				);
 			})}
 		</div>
 	);
@@ -45,29 +76,38 @@ export function DashboardCanvas({
 	widgets,
 	editing,
 	onLayoutChange,
+	onRemove,
 }: {
 	layout: DashboardLayoutEntry[];
 	widgets: DashboardWidget[];
 	editing: boolean;
 	onLayoutChange: (layout: DashboardLayoutEntry[]) => void;
+	onRemove: (id: string) => void;
 }) {
 	const { width, containerRef, mounted } = useContainerWidth();
-	const widgetsById = new Map(widgets.map((widget) => [widget.id, widget]));
+	const widgetsById = useMemo(
+		() => new Map(widgets.map((widget) => [widget.id, widget])),
+		[widgets],
+	);
 
-	const rglLayout: Layout = layout
-		.filter((entry) => widgetsById.has(entry.id))
-		.map((entry) => {
-			const widget = widgetsById.get(entry.id);
-			return {
-				i: entry.id,
-				x: entry.x,
-				y: entry.y,
-				w: entry.w,
-				h: entry.h,
-				minW: widget?.minW,
-				minH: widget?.minH,
-			};
-		});
+	const rglLayout: Layout = useMemo(
+		() =>
+			layout
+				.filter((entry) => widgetsById.has(entry.id))
+				.map((entry) => {
+					const widget = widgetsById.get(entry.id);
+					return {
+						i: entry.id,
+						x: entry.x,
+						y: entry.y,
+						w: entry.w,
+						h: entry.h,
+						minW: widget?.minW,
+						minH: widget?.minH,
+					};
+				}),
+		[layout, widgetsById],
+	);
 
 	function handleLayoutChange(next: Layout) {
 		onLayoutChange(
@@ -101,20 +141,34 @@ export function DashboardCanvas({
 						{rglLayout.map((item) => {
 							const widget = widgetsById.get(item.i);
 							if (!widget) return null;
-							const Component = widget.component;
 							return (
 								<div key={item.i}>
-									<Component />
+									<EditableWidget
+										id={item.i}
+										widget={widget}
+										editing={editing}
+										onRemove={onRemove}
+									/>
 								</div>
 							);
 						})}
 					</GridLayout>
 				) : (
-					<WidgetStack layout={layout} widgetsById={widgetsById} />
+					<WidgetStack
+						layout={layout}
+						widgetsById={widgetsById}
+						editing={editing}
+						onRemove={onRemove}
+					/>
 				)}
 			</div>
 			<div className="flex flex-col gap-4 sm:hidden">
-				<WidgetStack layout={layout} widgetsById={widgetsById} />
+				<WidgetStack
+					layout={layout}
+					widgetsById={widgetsById}
+					editing={editing}
+					onRemove={onRemove}
+				/>
 			</div>
 		</>
 	);
