@@ -44,40 +44,64 @@ links. Deleting an estimate/invoice/project cascades only the link rows.
 ## Storage
 
 Local-disk pattern already proven by drawing thumbnails, logo upload, and cost
-receipts:
+receipts. Amended 2026-09-11 after codebase exploration: the repo has NO
+server-side image library (all resizing is client-side canvas — the
+drawing-background pattern), so processing happens in the browser:
 
-- Files under `data/photos/<photoId>/` — `master.<ext>` + `thumb.<ext>`
-- On upload: magic-byte sniff (JPEG/PNG/WebP; the logo-upload lesson — never
-  trust extension or client mime), downscale master to max 2560px long edge,
-  generate 400px thumbnail, strip EXIF except capture date (read `takenAt`
-  before stripping)
-- HEIC (iPhone): resolved during build via a small spike — convert server-side
-  if the toolchain supports it cheaply, otherwise reject with a clear
-  "please use JPEG" error. Either way the behavior is explicit, never a silent
-  failure.
-- Upload cap 15MB; strict photo-id pattern validation on all file routes
-  (the receipt-route pattern, not the older unvalidated thumbnail routes)
-- Serving: session-gated GET routes for master + thumb; atomic
-  temp-file-then-rename on save (phase-i lesson)
+- Client decodes the file, downscales master to max 2560px long edge
+  (JPEG q0.85) and a 400px thumbnail (JPEG q0.8) via canvas, reads
+  width/height; `takenAt` = the file's lastModified. Canvas re-encode strips
+  EXIF by construction.
+- HEIC (iPhone): iOS converts to JPEG automatically in the file input; a
+  file the canvas cannot decode gets a clear "That image format isn't
+  supported — use JPEG" error. Never a silent failure.
+- Pipeline is JPEG-only on disk: `data/photos/<photoId>/master.jpg` +
+  `thumb.jpg`
+- Upload route magic-byte sniffs both blobs as JPEG (reuses
+  `matchesDeclaredType` from the logo path — never trust extension or client
+  mime); atomic temp-file-then-rename saves (phase-i lesson)
+- Caps: master 15MB, thumb 1MB; strict photo-id pattern validation on all
+  file routes (the receipt-route pattern, not the older unvalidated
+  thumbnail routes)
+- Serving: session-gated GET routes for master + thumb
 - Env: optional `PHOTOS_DATA_DIR` override, same shape as `DRAWINGS_DATA_DIR`
 
-## API (tRPC `photos` module)
+## API (amended 2026-09-11 to match house patterns)
 
-- `upload` (multipart via the existing file-upload route pattern),
-  `list` (by deal / contact, with filters), `get`, `delete`, `updateMeta`
-- Link procs: `linkEstimate` / `linkInvoice` / `linkProject` with unlink
-  counterparts and `updateLink` (includeInPdf, stageLabel, sortOrder)
-- List procs for each surface (photos of an estimate/invoice/project) return
-  link metadata joined with photo + thumb URL
-- Emits `photo.uploaded` domain event (registered but unused until the
-  automations phase)
+File lifecycle lives in Next.js route handlers (the receipt-route precedent —
+the route owns both the DB row and the disk files, with rollback):
+
+- `POST /api/photos/upload` — multipart FormData (master + thumb blobs,
+  dealId/contactId, filename, width, height, takenAt); creates the Photo row
+  and saves both files, deleting the row if the save fails. No two-step
+  create-then-upload, no ghost rows.
+- `GET /api/photos/[photoId]/[variant]` (variant = master | thumb) —
+  session-gated, id-pattern-validated, immutable private cache
+- `DELETE /api/photos/[photoId]` — deletes row (links cascade) + files
+
+Metadata and links are a tRPC `photos` module (NestJS, alias "photos"):
+
+- `list` (by deal / contact)
+- Per-surface link procs: `linkEstimate` / `unlinkEstimate` /
+  `setEstimatePdfFlag` / `reorderEstimatePhotos`, the invoice equivalents,
+  and `linkProject` / `unlinkProject` / `setProjectStage`
+- `forEstimate` / `forInvoice` / `forProject` return link metadata joined
+  with the photo
+- `updateMeta` dropped (YAGNI — no rename surface in v1)
+- `photo.uploaded` event DEFERRED to the automations phase: the CRM event
+  catalog's record kinds (`contact | deal`) and the emission path
+  (AgentTriggerService, Nest-side) don't fit a Next-route upload cleanly;
+  the automations phase owns wiring it when something actually consumes it.
 
 ## UI
 
 **Photos tab** on deal sheet and contact sheet:
 - Desktop: drag-drop zone + file picker, multi-file
-- Mobile: same route; native `<input type="file" accept="image/*" capture>`
-  gives crew take-photo / camera-roll with no separate build
+- Mobile: same route; native `<input type="file" accept="image/*" multiple>`
+  — iOS/Android file inputs already offer take-photo AND camera-roll, so no
+  `capture` attribute (it would force the camera and hide the roll). The
+  deal/contact sheet is already a bottom drawer on phones (responsive-sheet),
+  so the Photos tab is mobile-ready by construction.
 - Gallery grid of thumbs, lightbox on click, stage-label chips shown where
   project-linked, filter by label/date, delete with confirm
 
@@ -85,8 +109,9 @@ receipts:
 - Estimate builder + invoice screen: "Attach photos" opens a picker over the
   deal's photos (upload-in-place allowed); attached list shows per-photo
   "Include in PDF" toggle + drag sort
-- Project page: same picker; each link gets a stage-label select
-  (default BEFORE)
+- Project page: has no tab structure (header + full-height board), so photos
+  get a header-action button opening a photos dialog; each link gets a
+  stage-label select (default BEFORE)
 
 ## PDFs
 
@@ -106,8 +131,10 @@ today's PDFs.
 - Playwright walkthrough: upload on deal (desktop), attach to estimate,
   toggle include-in-PDF, verify PDF contains the photo, project stage labels,
   mobile-viewport upload control renders
-- Table-driven check that new file routes appear in the id-validation
-  coverage the hardening phase established
+- All new file routes carry the id-pattern + session-gate + magic-byte
+  guards; ride-along hardening: the existing
+  `/api/drawings/thumbnail/[drawingId]` route (currently unvalidated) gets
+  the same id-pattern guard
 
 ## Sequencing
 
