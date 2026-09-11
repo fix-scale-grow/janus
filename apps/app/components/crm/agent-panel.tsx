@@ -127,7 +127,9 @@ function LoadedAgentPanel({
 	initialMessage?: string;
 	initialMessageSent: React.RefObject<boolean>;
 }) {
-	const [landedOn] = useState(() => history[0]?.id ?? NEW_THREAD);
+	const [landedOn] = useState(() =>
+		initialMessage ? NEW_THREAD : (history[0]?.id ?? NEW_THREAD),
+	);
 	const { openId, current } = resolveThread({
 		conversations: history,
 		fromUrl: thread,
