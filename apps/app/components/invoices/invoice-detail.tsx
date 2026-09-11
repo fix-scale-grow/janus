@@ -396,6 +396,7 @@ export function InvoiceDetail({
 						surface="invoice"
 						targetId={invoiceId}
 						dealId={data.dealId ?? null}
+						contactId={data.contactId ?? null}
 					/>
 
 					<div className="flex justify-end border-t pt-4">

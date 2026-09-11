@@ -41,6 +41,7 @@ export function AttachPhotosDialog({
 	open,
 	onOpenChange,
 	dealId,
+	contactId,
 	linkedPhotoIds,
 	attaching,
 	onAttach,
@@ -48,17 +49,24 @@ export function AttachPhotosDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	dealId: string | null;
+	contactId: string | null;
 	linkedPhotoIds: string[];
 	attaching: boolean;
 	onAttach: (photoId: string) => void;
 }) {
 	const trpc = useTRPC();
 	const fileInput = useRef<HTMLInputElement>(null);
-	const { upload, uploading } = usePhotoUpload({ dealId: dealId ?? undefined });
+	const anchorless = dealId === null && contactId === null;
+	const { upload, uploading } = usePhotoUpload({
+		dealId: dealId ?? undefined,
+		contactId: dealId ? undefined : (contactId ?? undefined),
+	});
 
 	const photos = useQuery({
-		...trpc.photos.list.queryOptions({ dealId: dealId ?? undefined }),
-		enabled: open && dealId !== null,
+		...trpc.photos.list.queryOptions(
+			dealId ? { dealId } : { contactId: contactId ?? undefined },
+		),
+		enabled: open && !anchorless,
 	});
 
 	const rows = photos.data?.rows ?? [];
@@ -74,15 +82,15 @@ export function AttachPhotosDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				{dealId === null ? (
+				{anchorless ? (
 					<Empty>
 						<EmptyHeader>
 							<EmptyMedia variant="icon">
 								<Icon icon={ImageIcon} />
 							</EmptyMedia>
-							<EmptyTitle>No job attached</EmptyTitle>
+							<EmptyTitle>No job or contact attached</EmptyTitle>
 							<EmptyDescription>
-								Attach a job before you can pick from its photos.
+								Attach a job or a contact before you can pick from their photos.
 							</EmptyDescription>
 						</EmptyHeader>
 					</Empty>

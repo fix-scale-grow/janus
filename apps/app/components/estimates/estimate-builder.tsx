@@ -521,6 +521,7 @@ export function EstimateBuilder({
 						surface="estimate"
 						targetId={estimateId}
 						dealId={data.dealId ?? null}
+						contactId={data.contactId ?? null}
 					/>
 				</div>
 			</PageShellContent>

@@ -210,6 +210,7 @@ export function ProjectPhotosDialog({
 				open={attachOpen}
 				onOpenChange={setAttachOpen}
 				dealId={dealId}
+				contactId={null}
 				linkedPhotoIds={photoIds}
 				attaching={linkProject.isPending}
 				onAttach={procs.attach}

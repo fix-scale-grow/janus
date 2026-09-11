@@ -42,10 +42,12 @@ export function LinkedPhotosSection({
 	surface,
 	targetId,
 	dealId,
+	contactId,
 }: {
 	surface: "estimate" | "invoice";
 	targetId: string;
 	dealId: string | null;
+	contactId: string | null;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -261,6 +263,7 @@ export function LinkedPhotosSection({
 				open={dialogOpen}
 				onOpenChange={setDialogOpen}
 				dealId={dealId}
+				contactId={contactId}
 				linkedPhotoIds={photoIds}
 				attaching={attachPending}
 				onAttach={procs.attach}
