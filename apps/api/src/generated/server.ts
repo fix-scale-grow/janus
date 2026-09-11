@@ -31,6 +31,7 @@ import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInpu
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
+import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
@@ -62,6 +63,7 @@ import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
 import type { PermissionsRouter } from "../permissions/permissions.router";
+import type { PhotosRouter } from "../photos/photos.router";
 import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
 import type { ReportsRouter } from "../reports/reports.router";
@@ -595,6 +597,26 @@ const appRouter = t.router({
     revoke: publicProcedure
       .input(permissionGrantInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["revoke"]>>)
+    }),
+  photos: t.router({
+    list: publicProcedure
+      .input(photoListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PhotosRouter["list"]>>),
+    forEstimate: publicProcedure
+      .input(estimatePhotosInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PhotosRouter["forEstimate"]>>),
+    linkEstimate: publicProcedure
+      .input(estimateLinkInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PhotosRouter["linkEstimate"]>>),
+    unlinkEstimate: publicProcedure
+      .input(estimateLinkInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PhotosRouter["unlinkEstimate"]>>),
+    setEstimatePdfFlag: publicProcedure
+      .input(estimatePdfFlagInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PhotosRouter["setEstimatePdfFlag"]>>),
+    reorderEstimatePhotos: publicProcedure
+      .input(estimateReorderInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PhotosRouter["reorderEstimatePhotos"]>>)
     }),
   pipelines: t.router({
     list: publicProcedure
