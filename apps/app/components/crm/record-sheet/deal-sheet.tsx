@@ -60,6 +60,7 @@ import {
 	LocalDay,
 	LocalRelativeTime,
 } from "@/components/local-date-time";
+import { PhotoGrid } from "@/components/photos/photo-grid";
 import { DealProjects } from "@/components/projects/deal-projects";
 import { dialHref, reachableContact } from "@/lib/dial";
 import { savingField } from "@/lib/pending-field";
@@ -170,6 +171,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "drawings",
 					label: "Drawings",
 					content: <DealDrawings deal={deal} />,
+				},
+				{
+					value: "photos",
+					label: "Photos",
+					content: <DealPhotos deal={deal} />,
 				},
 				{
 					value: "estimates",
@@ -503,6 +509,16 @@ function DealDrawings({ deal }: { deal: Deal }) {
 				action={<NewDrawingMenu dealId={deal.id} size="sm" />}
 			>
 				<DrawingGrid dealId={deal.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function DealPhotos({ deal }: { deal: Deal }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection title="Photos">
+				<PhotoGrid dealId={deal.id} />
 			</DetailSheetSection>
 		</DetailSheetBody>
 	);

@@ -44,6 +44,7 @@ import {
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
+import { LinkedPhotosSection } from "@/components/photos/linked-photos-section";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -390,6 +391,12 @@ export function InvoiceDetail({
 							currency={data.currency}
 						/>
 					</div>
+
+					<LinkedPhotosSection
+						surface="invoice"
+						targetId={invoiceId}
+						dealId={data.dealId ?? null}
+					/>
 
 					<div className="flex justify-end border-t pt-4">
 						<span className="text-lg font-semibold tabular-nums">

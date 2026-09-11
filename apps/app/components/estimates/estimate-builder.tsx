@@ -55,6 +55,7 @@ import {
 	PageShellHeading,
 	PageShellTitle,
 } from "@/components/page-shell";
+import { LinkedPhotosSection } from "@/components/photos/linked-photos-section";
 import { StartProjectDialog } from "@/components/projects/start-project-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -515,6 +516,12 @@ export function EstimateBuilder({
 					<div>
 						<AddLineItem estimateId={estimateId} currency={data.currency} />
 					</div>
+
+					<LinkedPhotosSection
+						surface="estimate"
+						targetId={estimateId}
+						dealId={data.dealId ?? null}
+					/>
 				</div>
 			</PageShellContent>
 

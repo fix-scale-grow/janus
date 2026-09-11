@@ -42,6 +42,7 @@ function fixture() {
 				priceBestCents: 20000,
 			},
 		],
+		photos: [],
 	};
 }
 
@@ -55,6 +56,22 @@ describe("renderEstimatePdf", () => {
 
 	it("renders without a contact", async () => {
 		const estimate = { ...fixture(), contact: null };
+		const buffer = await renderEstimatePdf(estimate, "Acme Roofing");
+
+		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+	});
+
+	it("renders with photos", async () => {
+		const estimate = {
+			...fixture(),
+			photos: [
+				{
+					filename: "roof-before.jpg",
+					dataUrl:
+						"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
+				},
+			],
+		};
 		const buffer = await renderEstimatePdf(estimate, "Acme Roofing");
 
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");

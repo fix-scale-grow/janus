@@ -40,6 +40,7 @@ function fixture() {
 				priceCents: 20000,
 			},
 		],
+		photos: [],
 	};
 }
 
@@ -53,6 +54,22 @@ describe("renderInvoicePdf", () => {
 
 	it("renders without a contact or notes", async () => {
 		const invoice = { ...fixture(), contact: null, notes: null };
+		const buffer = await renderInvoicePdf(invoice, "Acme Roofing");
+
+		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+	});
+
+	it("renders with photos", async () => {
+		const invoice = {
+			...fixture(),
+			photos: [
+				{
+					filename: "roof-before.jpg",
+					dataUrl:
+						"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
+				},
+			],
+		};
 		const buffer = await renderInvoicePdf(invoice, "Acme Roofing");
 
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");

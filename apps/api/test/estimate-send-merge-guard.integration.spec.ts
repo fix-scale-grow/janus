@@ -9,6 +9,7 @@ import type { ContactsService } from "../src/contacts/contacts.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
 import { FieldsService } from "../src/fields/fields.service";
 import { MailerService } from "../src/mailer/mailer.service";
+import type { PhotosService } from "../src/photos/photos.service";
 import { MergeContextService } from "../src/templates/merge-context.service";
 import { TemplatesService } from "../src/templates/templates.service";
 
@@ -127,6 +128,7 @@ function servicesFor(mailer: MailerService) {
 		templates,
 		mergeContext,
 		{} as AgentTriggerService,
+		{ pdfPhotosForEstimate: async () => [] } as unknown as PhotosService,
 	);
 	return { estimates };
 }

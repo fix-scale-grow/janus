@@ -5,6 +5,7 @@ import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
 import type { MailerService } from "../src/mailer/mailer.service";
+import type { PhotosService } from "../src/photos/photos.service";
 import type { MergeContextService } from "../src/templates/merge-context.service";
 import type { TemplateBlock } from "../src/templates/template-blocks";
 import type { TemplatesService } from "../src/templates/templates.service";
@@ -119,6 +120,9 @@ function fakeMergeContext() {
 
 const noContacts = {} as unknown as ContactsService;
 const noAgent = {} as unknown as AgentTriggerService;
+const noPhotos = {
+	pdfPhotosForEstimate: async () => [],
+} as unknown as PhotosService;
 
 describe("EstimatesService.send", () => {
 	it("throws and never flips status when delivery fails", async () => {
@@ -131,6 +135,7 @@ describe("EstimatesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext().service,
 			noAgent,
+			noPhotos,
 		);
 
 		await expect(service.send({ id: "est1" })).rejects.toBeInstanceOf(
@@ -150,6 +155,7 @@ describe("EstimatesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext().service,
 			noAgent,
+			noPhotos,
 		);
 
 		const result = await service.send({ id: "est1" });
@@ -167,6 +173,7 @@ describe("EstimatesService.send", () => {
 			fakeTemplates("Your estimate from {{business.name}}"),
 			fakeMergeContext().service,
 			noAgent,
+			noPhotos,
 		);
 
 		await service.send({ id: "est1" });
@@ -184,6 +191,7 @@ describe("EstimatesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext().service,
 			noAgent,
+			noPhotos,
 		);
 
 		await service.send({ id: "est1", personalNote: "See you Tuesday!" });
@@ -201,6 +209,7 @@ describe("EstimatesService.send", () => {
 			fakeTemplates("Your estimate from {{business.name}}"),
 			fakeMergeContext().service,
 			noAgent,
+			noPhotos,
 		);
 
 		await service.send({ id: "est1", subject: "Custom subject" });

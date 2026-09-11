@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
+import { PhotosService } from "../photos/photos.service";
 import { MergeContextService } from "../templates/merge-context.service";
 import {
 	assertMergeComplete,
@@ -86,6 +87,7 @@ export class InvoicesService {
 		private readonly mailer: MailerService,
 		private readonly templates: TemplatesService,
 		private readonly mergeContext: MergeContextService,
+		private readonly photos: PhotosService,
 	) {}
 
 	async list(input: InvoiceListInput) {
@@ -420,6 +422,8 @@ export class InvoicesService {
 			throw new NotFoundException(`No invoice with id ${id}.`);
 		}
 
+		const photos = await this.photos.pdfPhotosForInvoice(id);
+
 		return {
 			...row,
 			lineItems: row.lineItems.map((item) => ({
@@ -429,6 +433,7 @@ export class InvoicesService {
 				areaLabel: item.areaLabel,
 				priceCents: item.priceCents,
 			})),
+			photos,
 		};
 	}
 

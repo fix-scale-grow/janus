@@ -31,6 +31,7 @@ import { MailboxModule } from "./mailbox/mailbox.module";
 import { MailerModule } from "./mailer/mailer.module";
 import { MicrosoftModule } from "./microsoft/microsoft.module";
 import { PermissionsModule } from "./permissions/permissions.module";
+import { PhotosModule } from "./photos/photos.module";
 import { PipelinesModule } from "./pipelines/pipelines.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { ReportsModule } from "./reports/reports.module";
@@ -84,6 +85,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		CrewsModule,
 		CostsModule,
 		PermissionsModule,
+		PhotosModule,
 		ReportsModule,
 		ActivitiesModule,
 		AgentModule,

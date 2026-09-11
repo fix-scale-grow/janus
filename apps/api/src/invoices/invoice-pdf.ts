@@ -1,5 +1,12 @@
 import * as ReactPdf from "@react-pdf/renderer";
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+	Document,
+	Image,
+	Page,
+	StyleSheet,
+	Text,
+	View,
+} from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { createElement } from "react";
 import { formatCents } from "../documents/pdf-money";
@@ -25,6 +32,11 @@ export type InvoicePdfContact = {
 	phone: string | null;
 };
 
+export type InvoicePdfPhoto = {
+	filename: string;
+	dataUrl: string;
+};
+
 export type InvoicePdfInvoice = {
 	number: number;
 	currency: string;
@@ -33,6 +45,7 @@ export type InvoicePdfInvoice = {
 	notes: string | null;
 	lineItems: InvoicePdfLineItem[];
 	contact: InvoicePdfContact | null;
+	photos: InvoicePdfPhoto[];
 };
 
 const GENERAL_GROUP = "General";
@@ -176,6 +189,30 @@ const styles = StyleSheet.create({
 		color: "#666666",
 		marginBottom: 4,
 	},
+	photosHeading: {
+		fontSize: 12,
+		fontFamily: "Helvetica-Bold",
+		marginTop: 20,
+		marginBottom: 8,
+	},
+	photosGrid: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: "4%",
+	},
+	photoCell: {
+		width: "48%",
+		marginBottom: 12,
+	},
+	photo: {
+		width: "100%",
+		objectFit: "contain",
+	},
+	photoCaption: {
+		fontSize: 8,
+		color: "#666666",
+		marginTop: 2,
+	},
 });
 
 function contactName(contact: InvoicePdfContact): string {
@@ -299,6 +336,34 @@ export async function renderInvoicePdf(
 		invoice.dueAt ? `Due ${invoice.dueAt.toLocaleDateString()}` : null,
 	].filter(Boolean);
 
+	const photosSection =
+		invoice.photos.length > 0
+			? createElement(
+					View,
+					{},
+					createElement(Text, { style: styles.photosHeading }, "Photos"),
+					createElement(
+						View,
+						{ style: styles.photosGrid },
+						...invoice.photos.map((photo, index) =>
+							createElement(
+								View,
+								{ key: `${photo.filename}-${index}`, style: styles.photoCell },
+								createElement(Image, {
+									style: styles.photo,
+									src: photo.dataUrl,
+								}),
+								createElement(
+									Text,
+									{ style: styles.photoCaption },
+									photo.filename,
+								),
+							),
+						),
+					),
+				)
+			: null;
+
 	const document = createElement(
 		Document,
 		{},
@@ -321,6 +386,7 @@ export async function renderInvoicePdf(
 				: null,
 			contactBlock,
 			...rows,
+			photosSection,
 			totalDueRow,
 			notesBlock,
 		),

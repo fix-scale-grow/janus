@@ -25,6 +25,7 @@ export type CrmCache = {
 	estimate(id?: string, options?: Options): Promise<void>;
 	invoice(id?: string, options?: Options): Promise<void>;
 	project(id?: string, options?: Options): Promise<void>;
+	photos(options?: Options): Promise<void>;
 	contract(id?: string, options?: Options): Promise<void>;
 	costs(dealId: string, options?: Options): Promise<void>;
 	service(id?: string, options?: Options): Promise<void>;
@@ -230,7 +231,12 @@ export function useCrmCache(): CrmCache {
 						? trpc.estimates.byId.queryKey({ id })
 						: trpc.estimates.byId.queryKey(),
 				],
-				[trpc.estimates.list.queryKey()],
+				[
+					trpc.estimates.list.queryKey(),
+					id
+						? trpc.estimates.document.queryKey({ id })
+						: trpc.estimates.document.queryKey(),
+				],
 				options,
 			),
 
@@ -241,7 +247,12 @@ export function useCrmCache(): CrmCache {
 						? trpc.invoices.byId.queryKey({ id })
 						: trpc.invoices.byId.queryKey(),
 				],
-				[trpc.invoices.list.queryKey()],
+				[
+					trpc.invoices.list.queryKey(),
+					id
+						? trpc.invoices.document.queryKey({ id })
+						: trpc.invoices.document.queryKey(),
+				],
 				options,
 			),
 
@@ -253,6 +264,17 @@ export function useCrmCache(): CrmCache {
 						: trpc.projects.byId.queryKey(),
 				],
 				[trpc.projects.list.queryKey(), trpc.projects.calendarRange.queryKey()],
+				options,
+			),
+
+		photos: (options) =>
+			run(
+				[trpc.photos.list.queryKey()],
+				[
+					trpc.photos.forEstimate.queryKey(),
+					trpc.photos.forInvoice.queryKey(),
+					trpc.photos.forProject.queryKey(),
+				],
 				options,
 			),
 
