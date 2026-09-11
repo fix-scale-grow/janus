@@ -939,3 +939,10 @@
 		animation: alert-attention-ring 1.4s ease-out;
 	}
 }
+
+.react-grid-placeholder {
+	background: var(--secondary);
+	border: 1px dashed var(--ring);
+	border-radius: var(--radius-lg);
+	opacity: 1;
+}
