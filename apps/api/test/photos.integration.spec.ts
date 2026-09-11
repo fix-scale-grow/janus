@@ -27,6 +27,8 @@ let userId: string;
 let dealId: string;
 let contactId: string;
 let estimateId: string;
+let invoiceId: string;
+let projectId: string;
 
 beforeAll(async () => {
 	await db.organization.upsert({
@@ -97,13 +99,43 @@ beforeAll(async () => {
 		select: { id: true },
 	});
 	estimateId = estimate.id;
+
+	const invoice = await db.invoice.create({
+		data: {
+			id: `photos-invoice-${suffix}`,
+			status: "DRAFT",
+			currency: "USD",
+			dealId,
+			createdById: userId,
+		},
+		select: { id: true },
+	});
+	invoiceId = invoice.id;
+
+	const project = await db.project.create({
+		data: {
+			id: `photos-project-${suffix}`,
+			name: `Photos Project ${suffix}`,
+			startDate: new Date(),
+			dealId,
+			createdById: userId,
+			status: "ACTIVE",
+		},
+		select: { id: true },
+	});
+	projectId = project.id;
 });
 
 afterAll(async () => {
 	await db.estimatePhoto.deleteMany({ where: { estimateId } });
+	await db.invoicePhoto.deleteMany({ where: { invoiceId } });
+	await db.projectPhoto.deleteMany({ where: { projectId } });
 	await db.photo.deleteMany({ where: { dealId } });
 	await db.photo.deleteMany({ where: { contactId } });
 	await db.estimate.deleteMany({ where: { id: estimateId } });
+	await db.invoiceLineItem.deleteMany({ where: { invoiceId } });
+	await db.invoice.deleteMany({ where: { id: invoiceId } });
+	await db.project.deleteMany({ where: { id: projectId } });
 	await db.deal.deleteMany({ where: { id: dealId } });
 	await db.contact.deleteMany({ where: { id: contactId } });
 	await db.member.deleteMany({ where: { userId } });
@@ -287,6 +319,142 @@ describe("PhotosService", () => {
 		await service.unlinkEstimate({ estimateId, photoId: photo.id });
 
 		const links = await service.forEstimate(estimateId);
+		expect(links.some((link) => link.photoId === photo.id)).toBe(false);
+
+		const stillThere = await db.photo.findUnique({ where: { id: photo.id } });
+		expect(stillThere).not.toBeNull();
+	});
+
+	it("links a photo to an invoice idempotently", async () => {
+		const photo = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `invoice-link-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: 10,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await service.linkInvoice({ invoiceId, photoId: photo.id });
+		await service.linkInvoice({ invoiceId, photoId: photo.id });
+
+		const links = await service.forInvoice(invoiceId);
+		const linked = links.filter((link) => link.photoId === photo.id);
+
+		expect(linked.length).toBe(1);
+	});
+
+	it("sets the invoice pdf flag", async () => {
+		const photo = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `invoice-flag-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: 10,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await service.linkInvoice({ invoiceId, photoId: photo.id });
+		await service.setInvoicePdfFlag({
+			invoiceId,
+			photoId: photo.id,
+			includeInPdf: true,
+		});
+
+		const links = await service.forInvoice(invoiceId);
+		const linked = links.find((link) => link.photoId === photo.id);
+
+		expect(linked?.includeInPdf).toBe(true);
+	});
+
+	it("rejects an invoice reorder with a partial set", async () => {
+		const before = await service.forInvoice(invoiceId);
+		const ids = before.map((link) => link.photoId);
+
+		await expectRejects(
+			service.reorderInvoicePhotos({
+				invoiceId,
+				photoIds: ids.slice(1),
+			}),
+			/photo/i,
+		);
+	});
+
+	it("links a project photo with the default stage BEFORE", async () => {
+		const photo = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `project-link-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: 10,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await service.linkProject({ projectId, photoId: photo.id });
+
+		const links = await service.forProject(projectId);
+		const linked = links.find((link) => link.photoId === photo.id);
+
+		expect(linked?.stageLabel).toBe("BEFORE");
+	});
+
+	it("sets the project photo stage to IN_PROGRESS", async () => {
+		const photo = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `project-stage-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: 10,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await service.linkProject({ projectId, photoId: photo.id });
+		await service.setProjectStage({
+			projectId,
+			photoId: photo.id,
+			stageLabel: "IN_PROGRESS",
+		});
+
+		const links = await service.forProject(projectId);
+		const linked = links.find((link) => link.photoId === photo.id);
+
+		expect(linked?.stageLabel).toBe("IN_PROGRESS");
+	});
+
+	it("unlinks a project photo without deleting the photo", async () => {
+		const photo = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `project-unlink-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: 10,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await service.linkProject({ projectId, photoId: photo.id });
+		await service.unlinkProject({ projectId, photoId: photo.id });
+
+		const links = await service.forProject(projectId);
 		expect(links.some((link) => link.photoId === photo.id)).toBe(false);
 
 		const stillThere = await db.photo.findUnique({ where: { id: photo.id } });

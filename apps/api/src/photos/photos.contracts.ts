@@ -1,4 +1,12 @@
+import { ProjectPhotoStage } from "@crm/db";
 import { z } from "zod";
+
+const projectPhotoStageEnum = z.enum(
+	Object.values(ProjectPhotoStage) as [
+		ProjectPhotoStage,
+		...ProjectPhotoStage[],
+	],
+);
 
 export const photoListInput = z.object({
 	dealId: z.string().optional(),
@@ -30,3 +38,44 @@ export const estimateReorderInput = z.object({
 });
 
 export type EstimateReorderInput = z.infer<typeof estimateReorderInput>;
+
+export const invoicePhotosInput = z.object({ invoiceId: z.string().min(1) });
+
+export type InvoicePhotosInput = z.infer<typeof invoicePhotosInput>;
+
+export const invoiceLinkInput = z.object({
+	invoiceId: z.string().min(1),
+	photoId: z.string().min(1),
+});
+
+export type InvoiceLinkInput = z.infer<typeof invoiceLinkInput>;
+
+export const invoicePdfFlagInput = invoiceLinkInput.extend({
+	includeInPdf: z.boolean(),
+});
+
+export type InvoicePdfFlagInput = z.infer<typeof invoicePdfFlagInput>;
+
+export const invoiceReorderInput = z.object({
+	invoiceId: z.string().min(1),
+	photoIds: z.array(z.string().min(1)).max(500),
+});
+
+export type InvoiceReorderInput = z.infer<typeof invoiceReorderInput>;
+
+export const projectPhotosInput = z.object({ projectId: z.string().min(1) });
+
+export type ProjectPhotosInput = z.infer<typeof projectPhotosInput>;
+
+export const projectLinkInput = z.object({
+	projectId: z.string().min(1),
+	photoId: z.string().min(1),
+});
+
+export type ProjectLinkInput = z.infer<typeof projectLinkInput>;
+
+export const projectStageInput = projectLinkInput.extend({
+	stageLabel: projectPhotoStageEnum,
+});
+
+export type ProjectStageInput = z.infer<typeof projectStageInput>;

@@ -5,7 +5,12 @@ import type {
 	EstimateLinkInput,
 	EstimatePdfFlagInput,
 	EstimateReorderInput,
+	InvoiceLinkInput,
+	InvoicePdfFlagInput,
+	InvoiceReorderInput,
 	PhotoListInput,
+	ProjectLinkInput,
+	ProjectStageInput,
 } from "./photos.contracts";
 
 const PHOTO_LIST_TAKE = 500;
@@ -144,5 +149,159 @@ export class PhotosService {
 				}),
 			),
 		);
+	}
+
+	async forInvoice(invoiceId: string) {
+		return this.db.invoicePhoto.findMany({
+			where: { invoiceId },
+			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+			select: {
+				id: true,
+				photoId: true,
+				includeInPdf: true,
+				sortOrder: true,
+				photo: { select: PHOTO_SELECT },
+			},
+		});
+	}
+
+	async linkInvoice(input: InvoiceLinkInput): Promise<{ id: string }> {
+		const [invoice, photo] = await Promise.all([
+			this.db.invoice.findUnique({
+				where: { id: input.invoiceId },
+				select: { id: true },
+			}),
+			this.db.photo.findUnique({
+				where: { id: input.photoId },
+				select: { id: true },
+			}),
+		]);
+
+		if (!invoice) throw new NotFoundException("The invoice was not found.");
+		if (!photo) throw new NotFoundException("The photo was not found.");
+
+		const last = await this.db.invoicePhoto.findFirst({
+			where: { invoiceId: input.invoiceId },
+			orderBy: { sortOrder: "desc" },
+			select: { sortOrder: true },
+		});
+
+		return this.db.invoicePhoto.upsert({
+			where: {
+				invoiceId_photoId: {
+					invoiceId: input.invoiceId,
+					photoId: input.photoId,
+				},
+			},
+			create: {
+				invoiceId: input.invoiceId,
+				photoId: input.photoId,
+				sortOrder: last ? last.sortOrder + 1 : 0,
+			},
+			update: {},
+			select: { id: true },
+		});
+	}
+
+	async unlinkInvoice(input: InvoiceLinkInput): Promise<void> {
+		await this.db.invoicePhoto.deleteMany({
+			where: { invoiceId: input.invoiceId, photoId: input.photoId },
+		});
+	}
+
+	async setInvoicePdfFlag(input: InvoicePdfFlagInput): Promise<void> {
+		await this.db.invoicePhoto.updateMany({
+			where: { invoiceId: input.invoiceId, photoId: input.photoId },
+			data: { includeInPdf: input.includeInPdf },
+		});
+	}
+
+	async reorderInvoicePhotos(input: InvoiceReorderInput): Promise<void> {
+		const linked = await this.db.invoicePhoto.findMany({
+			where: { invoiceId: input.invoiceId },
+			select: { photoId: true },
+		});
+
+		if (!sameIdSet(linked, input.photoIds)) {
+			throw new BadRequestException(
+				"The photo list does not match the invoice's photos.",
+			);
+		}
+
+		await this.db.$transaction(
+			input.photoIds.map((photoId, index) =>
+				this.db.invoicePhoto.update({
+					where: {
+						invoiceId_photoId: { invoiceId: input.invoiceId, photoId },
+					},
+					data: { sortOrder: index },
+				}),
+			),
+		);
+	}
+
+	async forProject(projectId: string) {
+		return this.db.projectPhoto.findMany({
+			where: { projectId },
+			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+			select: {
+				id: true,
+				photoId: true,
+				stageLabel: true,
+				sortOrder: true,
+				photo: { select: PHOTO_SELECT },
+			},
+		});
+	}
+
+	async linkProject(input: ProjectLinkInput): Promise<{ id: string }> {
+		const [project, photo] = await Promise.all([
+			this.db.project.findUnique({
+				where: { id: input.projectId },
+				select: { id: true },
+			}),
+			this.db.photo.findUnique({
+				where: { id: input.photoId },
+				select: { id: true },
+			}),
+		]);
+
+		if (!project) throw new NotFoundException("The project was not found.");
+		if (!photo) throw new NotFoundException("The photo was not found.");
+
+		const last = await this.db.projectPhoto.findFirst({
+			where: { projectId: input.projectId },
+			orderBy: { sortOrder: "desc" },
+			select: { sortOrder: true },
+		});
+
+		return this.db.projectPhoto.upsert({
+			where: {
+				projectId_photoId: {
+					projectId: input.projectId,
+					photoId: input.photoId,
+				},
+			},
+			create: {
+				projectId: input.projectId,
+				photoId: input.photoId,
+				sortOrder: last ? last.sortOrder + 1 : 0,
+			},
+			update: {},
+			select: { id: true },
+		});
+	}
+
+	async unlinkProject(input: ProjectLinkInput): Promise<void> {
+		await this.db.projectPhoto.deleteMany({
+			where: { projectId: input.projectId, photoId: input.photoId },
+		});
+	}
+
+	async setProjectStage(input: ProjectStageInput): Promise<void> {
+		await this.db.projectPhoto.updateMany({
+			where: { projectId: input.projectId, photoId: input.photoId },
+			data: { stageLabel: input.stageLabel },
+		});
 	}
 }
