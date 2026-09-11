@@ -42,12 +42,14 @@ export function AttachPhotosDialog({
 	onOpenChange,
 	dealId,
 	linkedPhotoIds,
+	attaching,
 	onAttach,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	dealId: string | null;
 	linkedPhotoIds: string[];
+	attaching: boolean;
 	onAttach: (photoId: string) => void;
 }) {
 	const trpc = useTRPC();
@@ -138,6 +140,7 @@ export function AttachPhotosDialog({
 										key={row.id}
 										row={row}
 										attached={linked.has(row.id)}
+										attaching={attaching}
 										onAttach={() => onAttach(row.id)}
 									/>
 								))}
@@ -153,10 +156,12 @@ export function AttachPhotosDialog({
 function PhotoPickTile({
 	row,
 	attached,
+	attaching,
 	onAttach,
 }: {
 	row: PhotoRow;
 	attached: boolean;
+	attaching: boolean;
 	onAttach: () => void;
 }) {
 	const url = thumbUrl(row.id);
@@ -164,7 +169,7 @@ function PhotoPickTile({
 	return (
 		<button
 			type="button"
-			disabled={attached}
+			disabled={attached || attaching}
 			onClick={onAttach}
 			className={cn(
 				"relative aspect-square w-full overflow-hidden rounded-lg border bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring/50",

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { AttachPhotosDialog } from "@/components/photos/attach-photos-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useSubmitGuard } from "@/lib/use-submit-guard";
 
 type LinkedPhoto = {
 	id: string;
@@ -51,6 +52,9 @@ export function LinkedPhotosSection({
 	const isEstimate = surface === "estimate";
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+	const attachGuard = useSubmitGuard();
+	const detachGuard = useSubmitGuard();
+	const pdfFlagGuard = useSubmitGuard();
 
 	const estimateLinked = useQuery({
 		...trpc.photos.forEstimate.queryOptions({ estimateId: targetId }),
@@ -73,12 +77,14 @@ export function LinkedPhotosSection({
 		trpc.photos.linkEstimate.mutationOptions({
 			onSuccess: () => settle(),
 			onError: (error) => toast.error(error.message),
+			onSettled: () => attachGuard.release(),
 		}),
 	);
 	const linkInvoice = useMutation(
 		trpc.photos.linkInvoice.mutationOptions({
 			onSuccess: () => settle(),
 			onError: (error) => toast.error(error.message),
+			onSettled: () => attachGuard.release(),
 		}),
 	);
 
@@ -86,12 +92,14 @@ export function LinkedPhotosSection({
 		trpc.photos.unlinkEstimate.mutationOptions({
 			onSuccess: () => settle(),
 			onError: (error) => toast.error(error.message),
+			onSettled: () => detachGuard.release(),
 		}),
 	);
 	const unlinkInvoice = useMutation(
 		trpc.photos.unlinkInvoice.mutationOptions({
 			onSuccess: () => settle(),
 			onError: (error) => toast.error(error.message),
+			onSettled: () => detachGuard.release(),
 		}),
 	);
 
@@ -99,12 +107,14 @@ export function LinkedPhotosSection({
 		trpc.photos.setEstimatePdfFlag.mutationOptions({
 			onSuccess: () => settle(),
 			onError: (error) => toast.error(error.message),
+			onSettled: () => pdfFlagGuard.release(),
 		}),
 	);
 	const setInvoicePdfFlag = useMutation(
 		trpc.photos.setInvoicePdfFlag.mutationOptions({
 			onSuccess: () => settle(),
 			onError: (error) => toast.error(error.message),
+			onSettled: () => pdfFlagGuard.release(),
 		}),
 	);
 
@@ -121,27 +131,43 @@ export function LinkedPhotosSection({
 		}),
 	);
 
+	const attachPending = isEstimate
+		? linkEstimate.isPending
+		: linkInvoice.isPending;
+	const detachPending = isEstimate
+		? unlinkEstimate.isPending
+		: unlinkInvoice.isPending;
+	const pdfFlagPending = isEstimate
+		? setEstimatePdfFlag.isPending
+		: setInvoicePdfFlag.isPending;
+
 	const procs = {
 		attach: (photoId: string) =>
-			isEstimate
-				? linkEstimate.mutate({ estimateId: targetId, photoId })
-				: linkInvoice.mutate({ invoiceId: targetId, photoId }),
+			attachGuard.guard(() =>
+				isEstimate
+					? linkEstimate.mutate({ estimateId: targetId, photoId })
+					: linkInvoice.mutate({ invoiceId: targetId, photoId }),
+			),
 		detach: (photoId: string) =>
-			isEstimate
-				? unlinkEstimate.mutate({ estimateId: targetId, photoId })
-				: unlinkInvoice.mutate({ invoiceId: targetId, photoId }),
+			detachGuard.guard(() =>
+				isEstimate
+					? unlinkEstimate.mutate({ estimateId: targetId, photoId })
+					: unlinkInvoice.mutate({ invoiceId: targetId, photoId }),
+			),
 		setPdfFlag: (photoId: string, includeInPdf: boolean) =>
-			isEstimate
-				? setEstimatePdfFlag.mutate({
-						estimateId: targetId,
-						photoId,
-						includeInPdf,
-					})
-				: setInvoicePdfFlag.mutate({
-						invoiceId: targetId,
-						photoId,
-						includeInPdf,
-					}),
+			pdfFlagGuard.guard(() =>
+				isEstimate
+					? setEstimatePdfFlag.mutate({
+							estimateId: targetId,
+							photoId,
+							includeInPdf,
+						})
+					: setInvoicePdfFlag.mutate({
+							invoiceId: targetId,
+							photoId,
+							includeInPdf,
+						}),
+			),
 		reorder: (photoIds: string[]) =>
 			isEstimate
 				? reorderEstimatePhotos.mutate({ estimateId: targetId, photoIds })
@@ -208,6 +234,7 @@ export function LinkedPhotosSection({
 									<Switch
 										id={`in-pdf-${row.photoId}`}
 										checked={row.includeInPdf}
+										disabled={pdfFlagPending}
 										onCheckedChange={(checked) =>
 											procs.setPdfFlag(row.photoId, checked)
 										}
@@ -218,6 +245,7 @@ export function LinkedPhotosSection({
 									type="button"
 									variant="ghost"
 									size="icon-xs"
+									disabled={detachPending}
 									onClick={() => procs.detach(row.photoId)}
 								>
 									<Icon icon={TrashCan} />
@@ -234,6 +262,7 @@ export function LinkedPhotosSection({
 				onOpenChange={setDialogOpen}
 				dealId={dealId}
 				linkedPhotoIds={photoIds}
+				attaching={attachPending}
 				onAttach={procs.attach}
 			/>
 
