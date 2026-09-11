@@ -11,7 +11,7 @@ import { WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoney, formatMoneyCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DonutStat } from "@/components/dashboard-charts";
 import {
 	type Summary,
@@ -46,6 +46,9 @@ export function PipelineDonutWidget() {
 	const [selectedPipelineId, setSelectedPipelineId] = useState<
 		string | undefined
 	>(undefined);
+
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => setMounted(true), []);
 
 	const chartQuery = useQuery({
 		...trpc.dashboard.pipelineStages.queryOptions({
@@ -103,7 +106,7 @@ export function PipelineDonutWidget() {
 			title="Open pipeline by stage"
 			description="Where the value sits right now"
 			action={
-				pipelines.data && pipelines.data.length > 1 ? (
+				mounted && pipelines.data && pipelines.data.length > 1 ? (
 					<Select
 						value={selectedPipelineId ?? pipeline.pipelineId ?? undefined}
 						onValueChange={setSelectedPipelineId}
