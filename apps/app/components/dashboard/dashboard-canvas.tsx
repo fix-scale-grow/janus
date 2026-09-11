@@ -2,7 +2,7 @@
 
 import { DASHBOARD_LAYOUT_MAX, type DashboardLayoutEntry } from "@crm/db/user-views";
 import { WidgetEditingProvider } from "@crm/ui/components/widget-shell";
-import { type ComponentType, useMemo } from "react";
+import { type ComponentType, useMemo, useSyncExternalStore } from "react";
 import {
 	GridLayout,
 	type Layout,
@@ -13,6 +13,30 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { DASHBOARD } from "@/lib/dashboard/dashboard-config";
 import type { WidgetMeta } from "@/lib/dashboard/layout";
+
+const DESKTOP_MEDIA_QUERY = "(min-width: 640px)";
+
+function subscribeToDesktopBreakpoint(callback: () => void) {
+	const mql = window.matchMedia(DESKTOP_MEDIA_QUERY);
+	mql.addEventListener("change", callback);
+	return () => mql.removeEventListener("change", callback);
+}
+
+function getIsDesktopSnapshot() {
+	return window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+}
+
+function getIsDesktopServerSnapshot() {
+	return null;
+}
+
+function useIsDesktopBreakpoint(): boolean | null {
+	return useSyncExternalStore(
+		subscribeToDesktopBreakpoint,
+		getIsDesktopSnapshot,
+		getIsDesktopServerSnapshot,
+	);
+}
 
 type DashboardWidget = WidgetMeta & { component: ComponentType };
 
@@ -85,6 +109,7 @@ export function DashboardCanvas({
 	onRemove: (id: string) => void;
 }) {
 	const { width, containerRef, mounted } = useContainerWidth();
+	const isDesktop = useIsDesktopBreakpoint();
 	const widgetsById = useMemo(
 		() => new Map(widgets.map((widget) => [widget.id, widget])),
 		[widgets],
@@ -122,55 +147,72 @@ export function DashboardCanvas({
 		);
 	}
 
-	return (
-		<>
-			<div ref={containerRef} className="hidden sm:block">
-				{mounted ? (
-					<GridLayout
-						width={width}
-						layout={rglLayout}
-						gridConfig={{
-							cols: DASHBOARD.grid.cols,
-							rowHeight: DASHBOARD.grid.rowHeightPx,
-							margin: [10, 10],
-						}}
-						dragConfig={{ enabled: editing, handle: ".janus-widget-drag" }}
-						resizeConfig={{ enabled: editing, handles: ["se"] }}
-						compactor={verticalCompactor}
-						onLayoutChange={handleLayoutChange}
-					>
-						{rglLayout.map((item) => {
-							const widget = widgetsById.get(item.i);
-							if (!widget) return null;
-							return (
-								<div key={item.i}>
-									<EditableWidget
-										id={item.i}
-										widget={widget}
-										editing={editing}
-										onRemove={onRemove}
-									/>
-								</div>
-							);
-						})}
-					</GridLayout>
-				) : (
+	const grid = mounted ? (
+		<GridLayout
+			width={width}
+			layout={rglLayout}
+			gridConfig={{
+				cols: DASHBOARD.grid.cols,
+				rowHeight: DASHBOARD.grid.rowHeightPx,
+				margin: [10, 10],
+			}}
+			dragConfig={{ enabled: editing, handle: ".janus-widget-drag" }}
+			resizeConfig={{ enabled: editing, handles: ["se"] }}
+			compactor={verticalCompactor}
+			onLayoutChange={handleLayoutChange}
+		>
+			{rglLayout.map((item) => {
+				const widget = widgetsById.get(item.i);
+				if (!widget) return null;
+				return (
+					<div key={item.i}>
+						<EditableWidget
+							id={item.i}
+							widget={widget}
+							editing={editing}
+							onRemove={onRemove}
+						/>
+					</div>
+				);
+			})}
+		</GridLayout>
+	) : (
+		<WidgetStack
+			layout={layout}
+			widgetsById={widgetsById}
+			editing={editing}
+			onRemove={onRemove}
+		/>
+	);
+
+	if (isDesktop === null) {
+		return (
+			<>
+				<div ref={containerRef} className="hidden sm:block">
+					{grid}
+				</div>
+				<div className="flex flex-col gap-4 sm:hidden">
 					<WidgetStack
 						layout={layout}
 						widgetsById={widgetsById}
 						editing={editing}
 						onRemove={onRemove}
 					/>
-				)}
-			</div>
-			<div className="flex flex-col gap-4 sm:hidden">
-				<WidgetStack
-					layout={layout}
-					widgetsById={widgetsById}
-					editing={editing}
-					onRemove={onRemove}
-				/>
-			</div>
-		</>
-	);
+				</div>
+			</>
+		);
+	}
+
+	if (!isDesktop) {
+		return (
+			<WidgetStack
+				layout={layout}
+				widgetsById={widgetsById}
+				editing={editing}
+				onRemove={onRemove}
+			/>
+		);
+	}
+
+	return <div ref={containerRef}>{grid}</div>;
 }
