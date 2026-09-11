@@ -1,5 +1,6 @@
 "use client";
 
+import ImageIcon from "@carbon/icons-react/es/Image";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
 	AlertDialog,
@@ -26,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { ProjectPhotosDialog } from "@/components/photos/project-photos-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -64,6 +66,7 @@ export function ProjectHeader({ id }: { id: string }) {
 	const [editingName, setEditingName] = useState(false);
 	const [name, setName] = useState("");
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [photosOpen, setPhotosOpen] = useState(false);
 
 	const query = useQuery(trpc.projects.byId.queryOptions({ id }));
 	const project = query.data;
@@ -170,6 +173,15 @@ export function ProjectHeader({ id }: { id: string }) {
 					</Select>
 
 					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setPhotosOpen(true)}
+					>
+						<Icon icon={ImageIcon} />
+						Photos
+					</Button>
+
+					<Button
 						variant="ghost"
 						size="icon-sm"
 						onClick={() => setConfirmingDelete(true)}
@@ -209,6 +221,13 @@ export function ProjectHeader({ id }: { id: string }) {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<ProjectPhotosDialog
+				open={photosOpen}
+				onOpenChange={setPhotosOpen}
+				projectId={id}
+				dealId={project.deal.id}
+			/>
 		</div>
 	);
 }
