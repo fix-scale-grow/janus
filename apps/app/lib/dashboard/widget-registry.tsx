@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-widget";
+import { AskJanusWidget } from "@/components/dashboard/widgets/ask-janus-widget";
 import { DealsOpenWidget } from "@/components/dashboard/widgets/deals-open-widget";
 import { PipelineBoardWidget } from "@/components/dashboard/widgets/pipeline-board-widget";
 import { PipelineDonutWidget } from "@/components/dashboard/widgets/pipeline-donut-widget";
@@ -36,6 +37,7 @@ const WIDGET_COMPONENTS: Record<string, ComponentType> = {
 	"profit-by-month": ProfitByMonthWidget,
 	"costs-by-category": CostsByCategoryWidget,
 	"tasks-upcoming": TasksUpcomingWidget,
+	"ask-janus": AskJanusWidget,
 };
 
 export const DASHBOARD_WIDGETS: (WidgetMeta & { component: ComponentType })[] =

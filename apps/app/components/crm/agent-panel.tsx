@@ -85,9 +85,16 @@ import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useRecordSheetView } from "./record-sheet/record-stack";
 
-export function AgentPanel({ record }: { record: AgentRecord }) {
+export function AgentPanel({
+	record,
+	initialMessage,
+}: {
+	record: AgentRecord;
+	initialMessage?: string;
+}) {
 	const conversations = useConversations(recordFilter(record));
 	const { thread, setThread } = useRecordSheetView("overview");
+	const initialMessageSent = useRef(false);
 
 	const history = conversations.data ?? [];
 
@@ -99,6 +106,8 @@ export function AgentPanel({ record }: { record: AgentRecord }) {
 			history={history}
 			thread={thread}
 			setThread={setThread}
+			initialMessage={initialMessage}
+			initialMessageSent={initialMessageSent}
 		/>
 	);
 }
@@ -108,11 +117,15 @@ function LoadedAgentPanel({
 	history,
 	thread,
 	setThread,
+	initialMessage,
+	initialMessageSent,
 }: {
 	record: AgentRecord;
 	history: Conversation[];
 	thread: string | null;
 	setThread: (thread: string) => void;
+	initialMessage?: string;
+	initialMessageSent: React.RefObject<boolean>;
 }) {
 	const [landedOn] = useState(() => history[0]?.id ?? NEW_THREAD);
 	const { openId, current } = resolveThread({
@@ -136,6 +149,8 @@ function LoadedAgentPanel({
 				record={record}
 				conversation={current}
 				onNewThread={() => setThread(NEW_THREAD)}
+				initialMessage={initialMessage}
+				initialMessageSent={initialMessageSent}
 			/>
 		</div>
 	);
@@ -148,10 +163,14 @@ function ThreadWithHistory({
 	record,
 	conversation,
 	onNewThread,
+	initialMessage,
+	initialMessageSent,
 }: {
 	record: AgentRecord;
 	conversation: Conversation | null;
 	onNewThread: () => void;
+	initialMessage?: string;
+	initialMessageSent: React.RefObject<boolean>;
 }) {
 	const trpc = useTRPC();
 
@@ -186,6 +205,8 @@ function ThreadWithHistory({
 				offline ? offlineThread((archive.data ?? []) as never) : thread.data
 			}
 			onNewThread={onNewThread}
+			initialMessage={initialMessage}
+			initialMessageSent={initialMessageSent}
 		/>
 	);
 }
@@ -203,11 +224,15 @@ function Thread({
 	conversation,
 	thread,
 	onNewThread,
+	initialMessage,
+	initialMessageSent,
 }: {
 	record: AgentRecord;
 	conversation: Conversation | null;
 	thread: ThreadState | undefined;
 	onNewThread: () => void;
+	initialMessage?: string;
+	initialMessageSent: React.RefObject<boolean>;
 }) {
 	const copy = recordCopy(record.kind);
 	const cache = useCrmCache();
@@ -242,6 +267,16 @@ function Thread({
 		setDraft("");
 		void agent.send({ message: message.trim() });
 	};
+
+	const sendInitialMessage = useEffectEvent(() => {
+		if (!initialMessage || initialMessageSent.current) return;
+		initialMessageSent.current = true;
+		ask(initialMessage);
+	});
+
+	useEffect(() => {
+		sendInitialMessage();
+	}, [initialMessage]);
 
 	const respondToApproval = async (response: ApprovalResponse) => {
 		await agent.send({ inputResponses: [response] });
@@ -516,7 +551,11 @@ function useSavedConversation({
 	session,
 	messages,
 }: {
-	record: { contactId?: string; dealId?: string };
+	record: {
+		kind?: "WORKSPACE";
+		contactId?: string;
+		dealId?: string;
+	};
 	conversation: Conversation | null;
 	opening: React.RefObject<string | null>;
 	session: {
@@ -533,7 +572,7 @@ function useSavedConversation({
 	const sessionId = session?.sessionId ?? null;
 	const token = session?.continuationToken ?? null;
 	const streamIndex = session?.streamIndex ?? 0;
-	const { contactId, dealId } = record;
+	const { kind, contactId, dealId } = record;
 
 	const isNew = conversation === null || conversation.sessionId !== sessionId;
 
@@ -541,6 +580,7 @@ function useSavedConversation({
 	const persist = useEffectEvent(() => {
 		save.mutate(
 			{
+				...(kind ? { kind } : {}),
 				...(contactId ? { contactId } : {}),
 				...(dealId ? { dealId } : {}),
 				sessionId: sessionId ?? "",

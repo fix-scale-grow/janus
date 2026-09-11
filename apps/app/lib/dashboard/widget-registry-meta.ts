@@ -106,6 +106,15 @@ export const WIDGET_META: WidgetMeta[] = [
 		defaultW: 6,
 		defaultH: 8,
 	},
+	{
+		id: "ask-janus",
+		title: "Ask Janus",
+		description: "Your CRM, one question away",
+		minW: 3,
+		minH: 2,
+		defaultW: 6,
+		defaultH: 3,
+	},
 ];
 
 export function visibleWidgets<T extends WidgetMeta>(
