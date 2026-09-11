@@ -60,9 +60,13 @@ async function Summary({
 	]);
 
 	const queryClient = getServerQueryClient();
-	await queryClient.prefetchQuery(
-		getServerTrpc().dashboard.summary.queryOptions({ scope }),
-	);
+	const trpc = getServerTrpc();
+	await Promise.all([
+		queryClient.prefetchQuery(trpc.dashboard.summary.queryOptions({ scope })),
+		queryClient.prefetchQuery(
+			trpc.views.get.queryOptions({ tableId: "dashboard" }),
+		),
+	]);
 
 	return (
 		<HydrateClient>
