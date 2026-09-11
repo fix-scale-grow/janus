@@ -120,6 +120,7 @@ describe("ProjectsService.upcomingTasks", () => {
 			startDay: tomorrow,
 			crewName: `Crew ${suffix}`,
 			project: { id: projectId, name: `Project ${suffix}` },
+			dealId,
 			dealName: `Deal ${suffix}`,
 		});
 	});

@@ -340,7 +340,7 @@ export class ProjectsService {
 					select: {
 						id: true,
 						name: true,
-						deal: { select: { name: true } },
+						deal: { select: { id: true, name: true } },
 					},
 				},
 			},
@@ -353,6 +353,7 @@ export class ProjectsService {
 				startDay: row.startDay,
 				crewName: row.crew?.name ?? null,
 				project: { id: row.project.id, name: row.project.name },
+				dealId: row.project.deal?.id ?? null,
 				dealName: row.project.deal?.name ?? null,
 			})),
 		};

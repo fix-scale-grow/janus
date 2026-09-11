@@ -12,6 +12,7 @@ import { TableCell } from "@crm/ui/components/table";
 import { WidgetShell } from "@crm/ui/components/widget-shell";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { WidgetBoundary } from "@/components/dashboard/summary-context";
 import { LocalDay } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
@@ -76,9 +77,15 @@ function TasksUpcomingBody({ tasks }: { tasks: UpcomingTask[] }) {
 									{task.name}
 								</Link>
 								{task.dealName ? (
-									<span className="truncate text-muted-foreground">
-										{task.dealName}
-									</span>
+									task.dealId ? (
+										<RecordLink kind="deal" id={task.dealId}>
+											{task.dealName}
+										</RecordLink>
+									) : (
+										<span className="truncate text-muted-foreground">
+											{task.dealName}
+										</span>
+									)
 								) : null}
 							</span>
 						</TableCell>
