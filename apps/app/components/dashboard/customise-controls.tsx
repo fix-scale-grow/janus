@@ -83,7 +83,7 @@ export function CustomiseControls() {
 				Reset
 			</Button>
 			<div className="w-2" />
-			<Button variant="ghost" size="sm" onClick={cancel}>
+			<Button variant="ghost" size="sm" onClick={cancel} disabled={savePending}>
 				Cancel
 			</Button>
 			<Button variant="default" size="sm" onClick={done} disabled={savePending}>

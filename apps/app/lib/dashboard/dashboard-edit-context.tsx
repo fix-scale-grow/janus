@@ -80,7 +80,11 @@ export function DashboardEditProvider({ children }: { children: ReactNode }) {
 				},
 				{
 					onSuccess: async () => {
-						await cache.views("dashboard", { settle: "record" });
+						try {
+							await cache.views("dashboard", { settle: "record" });
+						} catch (error) {
+							void error;
+						}
 						toast.success("Layout saved");
 						setDraft(null);
 					},
