@@ -159,3 +159,27 @@ doctrine (no destructive DDL). Merge via train on Kyle's word.
 - Workspace-conversation-specific agent tools; token setup (Kyle's
   `claude setup-token` remains the gate for Janus actually replying).
 - Grid-guide density settings.
+
+## Amendment (2026-09-11, Kyle): coarse grid replaces freeform
+
+Kyle, after live use: freeform fine-grid resize "isn't working correctly …
+will never work" — move to a grid style. Rulings:
+
+- Grid becomes **12 columns × 32px rows** (margins stay [10,10]). All
+  widgets snap to whole cells. `DASHBOARD.grid` = `{ cols: 12,
+  rowHeightPx: 32, maxWidgets: 20 }`.
+- **Layout versioning:** `viewStateSchema` gains
+  `dashboardLayoutVersion: z.number().int().optional()`. Version 2 = 12-col
+  units. Absent/other = legacy 48-col×8px units: `resolveLayout` (or a
+  pure `upgradeLayout` helper it calls) rescales legacy entries by ÷4 on
+  both axes (Math.round), then clamps to min sizes and grid bounds. Saves
+  always write version 2. No DB migration.
+- **New unit sizes.** Defaults: stats 3w×3h (x 0/3/6/9, y 0); trend 7×10
+  @ (0,3); donut 5×10 @ (7,3); deals-open 6×9 @ (0,13); tasks-overdue
+  6×9 @ (6,13); activity 12×8 @ (0,22). Mins: stats 2×2; trend 4×6;
+  donut 4×6; tables 4×5; activity 4×5. Catalogue additions: profit
+  widgets default 6×9 min 4×5; tasks-upcoming default 6×8 min 4×5;
+  pipeline boards default 6×9 min 5×6; ask-janus default 6×3 min 3×2.
+- **Grid guides** draw every column and row boundary (not every 4th).
+- Schema pixel-bounds (`DASHBOARD_LAYOUT_MAX`) stay as the superset; the
+  resolver enforces the 12-col bounds.
