@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { parseViewState, viewTableId } from "../src/user-views";
+import {
+	DASHBOARD_LAYOUT_MAX,
+	dashboardLayoutEntry,
+	parseViewState,
+	viewTableId,
+} from "../src/user-views";
 
 describe("parseViewState", () => {
 	it("accepts every documented field", () => {
@@ -72,6 +77,38 @@ describe("dashboardLayout", () => {
 		).toThrow();
 		expect(() =>
 			parseViewState({ dashboardLayout: [{ id: "trend", x: 0, y: 0, w: 49, h: 1 }] }),
+		).toThrow();
+	});
+
+	it("DASHBOARD_LAYOUT_MAX matches the schema maxima", () => {
+		expect(DASHBOARD_LAYOUT_MAX.y).toBe(500);
+		expect(DASHBOARD_LAYOUT_MAX.h).toBe(120);
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: "trend",
+				x: 0,
+				y: DASHBOARD_LAYOUT_MAX.y,
+				w: 1,
+				h: DASHBOARD_LAYOUT_MAX.h,
+			}),
+		).not.toThrow();
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: "trend",
+				x: 0,
+				y: DASHBOARD_LAYOUT_MAX.y + 1,
+				w: 1,
+				h: 1,
+			}),
+		).toThrow();
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: "trend",
+				x: 0,
+				y: 0,
+				w: 1,
+				h: DASHBOARD_LAYOUT_MAX.h + 1,
+			}),
 		).toThrow();
 	});
 });

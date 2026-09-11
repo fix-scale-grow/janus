@@ -1,6 +1,6 @@
 "use client";
 
-import type { DashboardLayoutEntry } from "@crm/db/user-views";
+import { DASHBOARD_LAYOUT_MAX, type DashboardLayoutEntry } from "@crm/db/user-views";
 import { WidgetEditingProvider } from "@crm/ui/components/widget-shell";
 import { type ComponentType, useMemo } from "react";
 import {
@@ -104,6 +104,7 @@ export function DashboardCanvas({
 						h: entry.h,
 						minW: widget?.minW,
 						minH: widget?.minH,
+						maxH: DASHBOARD_LAYOUT_MAX.h,
 					};
 				}),
 		[layout, widgetsById],

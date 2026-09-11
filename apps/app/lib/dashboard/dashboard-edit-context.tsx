@@ -1,6 +1,6 @@
 "use client";
 
-import type { DashboardLayoutEntry } from "@crm/db/user-views";
+import { DASHBOARD_LAYOUT_MAX, type DashboardLayoutEntry } from "@crm/db/user-views";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type ComponentType,
@@ -22,6 +22,16 @@ import {
 import { useVisibleWidgets } from "./widget-registry";
 
 export type DashboardWidget = WidgetMeta & { component: ComponentType };
+
+function clampToSchema(
+	layout: DashboardLayoutEntry[],
+): DashboardLayoutEntry[] {
+	return layout.map((entry) => ({
+		...entry,
+		y: Math.min(entry.y, DASHBOARD_LAYOUT_MAX.y),
+		h: Math.min(entry.h, DASHBOARD_LAYOUT_MAX.h),
+	}));
+}
 
 type DashboardEditContextValue = {
 	editing: boolean;
@@ -76,7 +86,7 @@ export function DashboardEditProvider({ children }: { children: ReactNode }) {
 			save.mutate(
 				{
 					tableId: "dashboard",
-					state: { ...view.data, dashboardLayout: draft },
+					state: { ...view.data, dashboardLayout: clampToSchema(draft) },
 				},
 				{
 					onSuccess: async () => {
