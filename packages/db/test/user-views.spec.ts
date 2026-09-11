@@ -71,6 +71,18 @@ describe("dashboardLayout", () => {
 		expect(parseViewState(state)).toEqual(state);
 	});
 
+	it("dashboardLayoutVersion round-trips through parseViewState", () => {
+		const state = {
+			dashboardLayout: [{ id: "trend", x: 0, y: 3, w: 7, h: 10 }],
+			dashboardLayoutVersion: 2,
+		};
+		expect(parseViewState(state)).toEqual(state);
+	});
+
+	it("dashboardLayoutVersion is optional", () => {
+		expect(parseViewState({})).toEqual({});
+	});
+
 	it("dashboardLayout rejects out-of-range entries", () => {
 		expect(() =>
 			parseViewState({

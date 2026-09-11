@@ -41,6 +41,7 @@ export const viewStateSchema = z
 		density: z.enum(["comfortable", "compact"]).optional(),
 		navOrder: z.array(z.string().max(100)).max(40).optional(),
 		dashboardLayout: z.array(dashboardLayoutEntry).max(20).optional(),
+		dashboardLayoutVersion: z.number().int().optional(),
 	})
 	.strip();
 

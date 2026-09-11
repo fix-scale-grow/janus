@@ -14,29 +14,49 @@ export interface WidgetMeta {
 	pipelineId?: string;
 }
 
+export const DASHBOARD_LAYOUT_VERSION = 2;
+const LEGACY_LAYOUT_SCALE = 4;
+
 export const DEFAULT_LAYOUT: DashboardLayoutEntry[] = [
-	{ id: "stat-won-month", x: 0, y: 0, w: 12, h: 13 },
-	{ id: "stat-open-pipeline", x: 12, y: 0, w: 12, h: 13 },
-	{ id: "stat-win-rate", x: 24, y: 0, w: 12, h: 13 },
-	{ id: "stat-avg-deal", x: 36, y: 0, w: 12, h: 13 },
-	{ id: "trend", x: 0, y: 13, w: 28, h: 40 },
-	{ id: "pipeline-donut", x: 28, y: 13, w: 20, h: 40 },
-	{ id: "deals-open", x: 0, y: 53, w: 24, h: 36 },
-	{ id: "tasks-overdue", x: 24, y: 53, w: 24, h: 36 },
-	{ id: "activity", x: 0, y: 89, w: 48, h: 32 },
+	{ id: "stat-won-month", x: 0, y: 0, w: 3, h: 3 },
+	{ id: "stat-open-pipeline", x: 3, y: 0, w: 3, h: 3 },
+	{ id: "stat-win-rate", x: 6, y: 0, w: 3, h: 3 },
+	{ id: "stat-avg-deal", x: 9, y: 0, w: 3, h: 3 },
+	{ id: "trend", x: 0, y: 3, w: 7, h: 10 },
+	{ id: "pipeline-donut", x: 7, y: 3, w: 5, h: 10 },
+	{ id: "deals-open", x: 0, y: 13, w: 6, h: 9 },
+	{ id: "tasks-overdue", x: 6, y: 13, w: 6, h: 9 },
+	{ id: "activity", x: 0, y: 22, w: 12, h: 8 },
 ];
+
+export function upgradeLayout(
+	saved: DashboardLayoutEntry[],
+	version: number | undefined,
+): DashboardLayoutEntry[] {
+	if (version === DASHBOARD_LAYOUT_VERSION) return saved;
+
+	return saved.map((entry) => ({
+		id: entry.id,
+		x: Math.round(entry.x / LEGACY_LAYOUT_SCALE),
+		y: Math.round(entry.y / LEGACY_LAYOUT_SCALE),
+		w: Math.round(entry.w / LEGACY_LAYOUT_SCALE),
+		h: Math.round(entry.h / LEGACY_LAYOUT_SCALE),
+	}));
+}
 
 export function resolveLayout(
 	saved: DashboardLayoutEntry[] | undefined,
 	widgets: WidgetMeta[],
+	version?: number,
 ): DashboardLayoutEntry[] {
 	if (!saved || saved.length === 0) {
 		const widgetIds = new Set(widgets.map((w) => w.id));
 		return DEFAULT_LAYOUT.filter((e) => widgetIds.has(e.id));
 	}
 
+	const upgraded = upgradeLayout(saved, version);
 	const metaMap = new Map(widgets.map((w) => [w.id, w]));
-	const filtered = saved.filter((e) => metaMap.has(e.id));
+	const filtered = upgraded.filter((e) => metaMap.has(e.id));
 
 	if (filtered.length === 0) {
 		const widgetIds = new Set(widgets.map((w) => w.id));
