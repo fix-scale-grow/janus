@@ -292,30 +292,34 @@ export class DashboardService {
 		});
 		const stageIds = openStages.map((stage) => stage.id);
 
-		const [openByStage, openDeals] = await Promise.all([
+		const [openByStage, topDealsByStage] = await Promise.all([
 			this.db.deal.groupBy({
 				by: ["stageId"],
 				where: { stageId: { in: stageIds } },
 				_count: { _all: true },
 			}),
-			this.db.deal.findMany({
-				where: { stageId: { in: stageIds } },
-				orderBy: [{ amount: { sort: "desc", nulls: "last" } }],
-				select: BOARD_DEAL_SELECT,
-			}),
+			Promise.all(
+				stageIds.map((stageId) =>
+					this.db.deal.findMany({
+						where: { stageId },
+						orderBy: [{ amount: { sort: "desc", nulls: "last" } }],
+						take: BOARD.topDealsLimit,
+						select: BOARD_DEAL_SELECT,
+					}),
+				),
+			),
 		]);
 
 		return {
-			stages: openStages.map((stage) => {
+			stages: openStages.map((stage, index) => {
 				const group = openByStage.find((row) => row.stageId === stage.id);
-				const topDeals = openDeals
-					.filter((deal) => deal.stageId === stage.id)
-					.slice(0, BOARD.topDealsLimit)
-					.map(({ amount, currency, stageId, ...deal }) => ({
+				const topDeals = (topDealsByStage[index] ?? []).map(
+					({ amount, currency, stageId, ...deal }) => ({
 						...deal,
 						amountCents: toCents(amount),
 						currency,
-					}));
+					}),
+				);
 
 				return {
 					id: stage.id,
