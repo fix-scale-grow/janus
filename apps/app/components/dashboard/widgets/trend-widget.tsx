@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChartConfig } from "@crm/ui/components/chart";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoney } from "@crm/ui/lib/format";
 import { AreaTrend } from "@/components/dashboard-charts";
 import {
@@ -30,8 +30,14 @@ export function TrendWidget() {
 }
 
 function TrendBody() {
-	const { summary } = useSummary();
-	if (!summary) return <SummarySpinnerRow />;
+	const { summary, isError, refetchSummary } = useSummary();
+	if (!summary) {
+		return isError ? (
+			<WidgetError onRetry={refetchSummary} />
+		) : (
+			<SummarySpinnerRow />
+		);
+	}
 
 	const { trend, reportingCurrency } = summary;
 	const exact = (value: unknown) =>

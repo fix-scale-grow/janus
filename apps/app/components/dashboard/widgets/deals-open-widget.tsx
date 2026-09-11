@@ -9,7 +9,7 @@ import {
 	SimpleTableRow,
 } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoneyCompact } from "@crm/ui/lib/format";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
@@ -48,7 +48,7 @@ type BiggestOpenDeal = Summary["biggestOpen"][number];
 
 export function DealsOpenWidget() {
 	const workspaceUrl = useWorkspaceUrl();
-	const { summary, refetchSummary } = useSummary();
+	const { summary, isError, refetchSummary } = useSummary();
 
 	return (
 		<WidgetShell
@@ -63,6 +63,8 @@ export function DealsOpenWidget() {
 			<WidgetBoundary onRetry={refetchSummary}>
 				{summary ? (
 					<DealsOpenBody biggestOpen={summary.biggestOpen} />
+				) : isError ? (
+					<WidgetError onRetry={refetchSummary} />
 				) : (
 					<SummarySpinnerRow />
 				)}

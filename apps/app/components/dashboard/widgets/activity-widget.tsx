@@ -8,7 +8,7 @@ import {
 	SimpleTableRow,
 } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import {
 	type Summary,
@@ -41,7 +41,7 @@ const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
 type ActivityEntry = Summary["recentActivity"][number];
 
 export function ActivityWidget() {
-	const { summary, scope, refetchSummary } = useSummary();
+	const { summary, scope, isError, refetchSummary } = useSummary();
 	const mine = scope === "me";
 
 	return (
@@ -56,6 +56,8 @@ export function ActivityWidget() {
 			<WidgetBoundary onRetry={refetchSummary}>
 				{summary ? (
 					<ActivityBody recentActivity={summary.recentActivity} />
+				) : isError ? (
+					<WidgetError onRetry={refetchSummary} />
 				) : (
 					<SummarySpinnerRow />
 				)}

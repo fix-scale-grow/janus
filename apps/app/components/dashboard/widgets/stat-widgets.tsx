@@ -1,7 +1,7 @@
 "use client";
 
 import { StatCard, type StatDelta } from "@crm/ui/components/stat-card";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatCount, formatMoneyCompact, formatPercent } from "@crm/ui/lib/format";
 import {
 	SummarySpinnerRow,
@@ -45,8 +45,14 @@ export function StatWonMonthWidget() {
 }
 
 function StatWonMonthBody() {
-	const { summary } = useSummary();
-	if (!summary) return <SummarySpinnerRow />;
+	const { summary, isError, refetchSummary } = useSummary();
+	if (!summary) {
+		return isError ? (
+			<WidgetError onRetry={refetchSummary} />
+		) : (
+			<SummarySpinnerRow />
+		);
+	}
 
 	const { wonThisMonth, wonPrevMonth, reportingCurrency } = summary;
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
@@ -79,8 +85,14 @@ export function StatOpenPipelineWidget() {
 }
 
 function StatOpenPipelineBody() {
-	const { summary } = useSummary();
-	if (!summary) return <SummarySpinnerRow />;
+	const { summary, isError, refetchSummary } = useSummary();
+	if (!summary) {
+		return isError ? (
+			<WidgetError onRetry={refetchSummary} />
+		) : (
+			<SummarySpinnerRow />
+		);
+	}
 
 	const { pipeline, closingThisMonthTotal, reportingCurrency } = summary;
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
@@ -108,8 +120,14 @@ export function StatWinRateWidget() {
 }
 
 function StatWinRateBody() {
-	const { summary } = useSummary();
-	if (!summary) return <SummarySpinnerRow />;
+	const { summary, isError, refetchSummary } = useSummary();
+	if (!summary) {
+		return isError ? (
+			<WidgetError onRetry={refetchSummary} />
+		) : (
+			<SummarySpinnerRow />
+		);
+	}
 
 	const { performance } = summary;
 
@@ -145,8 +163,14 @@ export function StatAvgDealWidget() {
 }
 
 function StatAvgDealBody() {
-	const { summary } = useSummary();
-	if (!summary) return <SummarySpinnerRow />;
+	const { summary, isError, refetchSummary } = useSummary();
+	if (!summary) {
+		return isError ? (
+			<WidgetError onRetry={refetchSummary} />
+		) : (
+			<SummarySpinnerRow />
+		);
+	}
 
 	const { performance, reportingCurrency } = summary;
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);

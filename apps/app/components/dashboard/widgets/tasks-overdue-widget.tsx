@@ -9,7 +9,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatCount } from "@crm/ui/lib/format";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,7 +37,7 @@ type OverdueTask = Summary["overdueTasks"][number];
 export function TasksOverdueWidget() {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
-	const { summary, refetchSummary } = useSummary();
+	const { summary, isError, refetchSummary } = useSummary();
 
 	const complete = useMutation(
 		trpc.activities.complete.mutationOptions({
@@ -64,6 +64,8 @@ export function TasksOverdueWidget() {
 						completePending={complete.isPending}
 						onComplete={(id) => complete.mutate({ id, completed: true })}
 					/>
+				) : isError ? (
+					<WidgetError onRetry={refetchSummary} />
 				) : (
 					<SummarySpinnerRow />
 				)}

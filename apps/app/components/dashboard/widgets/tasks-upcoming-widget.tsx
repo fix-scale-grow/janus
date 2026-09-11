@@ -9,7 +9,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { Spinner } from "@crm/ui/components/spinner";
 import { TableCell } from "@crm/ui/components/table";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
@@ -46,6 +46,8 @@ export function TasksUpcomingWidget() {
 			<WidgetBoundary onRetry={() => query.refetch()}>
 				{query.data ? (
 					<TasksUpcomingBody tasks={query.data.tasks} />
+				) : query.isError ? (
+					<WidgetError onRetry={() => query.refetch()} />
 				) : (
 					<div className="flex flex-1 items-center justify-center py-12">
 						<Spinner />

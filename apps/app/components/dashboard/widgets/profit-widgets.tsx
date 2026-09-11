@@ -2,7 +2,7 @@
 
 import type { ChartConfig } from "@crm/ui/components/chart";
 import { Spinner } from "@crm/ui/components/spinner";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoneyCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { BarTrend } from "@/components/dashboard-charts";
@@ -71,7 +71,13 @@ export function ProfitByMonthWidget() {
 			description="Invoiced minus costs, over the last six months"
 		>
 			<WidgetBoundary onRetry={() => query.refetch()}>
-				{query.data ? <ProfitByMonthBody rows={query.data.rows} /> : <LoadingRow />}
+				{query.data ? (
+					<ProfitByMonthBody rows={query.data.rows} />
+				) : query.isError ? (
+					<WidgetError onRetry={() => query.refetch()} />
+				) : (
+					<LoadingRow />
+				)}
 			</WidgetBoundary>
 		</WidgetShell>
 	);
@@ -120,7 +126,13 @@ export function CostsByCategoryWidget() {
 			description="Spend over the last six months, by category"
 		>
 			<WidgetBoundary onRetry={() => query.refetch()}>
-				{query.data ? <CostsByCategoryBody rows={query.data.rows} /> : <LoadingRow />}
+				{query.data ? (
+					<CostsByCategoryBody rows={query.data.rows} />
+				) : query.isError ? (
+					<WidgetError onRetry={() => query.refetch()} />
+				) : (
+					<LoadingRow />
+				)}
 			</WidgetBoundary>
 		</WidgetShell>
 	);

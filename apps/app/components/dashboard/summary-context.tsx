@@ -18,6 +18,7 @@ export type Summary = RouterOutputs["dashboard"]["summary"];
 type SummaryContextValue = {
 	summary: Summary | undefined;
 	scope: Summary["scope"];
+	isError: boolean;
 	refetchSummary: () => void;
 };
 
@@ -40,11 +41,12 @@ export function SummaryProvider({
 		() => ({
 			summary: summaryQuery.data,
 			scope,
+			isError: summaryQuery.isError,
 			refetchSummary: () => {
 				void summaryQuery.refetch();
 			},
 		}),
-		[summaryQuery.data, summaryQuery.refetch, scope],
+		[summaryQuery.data, summaryQuery.isError, summaryQuery.refetch, scope],
 	);
 
 	return (
@@ -80,7 +82,9 @@ export class WidgetBoundary extends Component<
 		return { hasError: true };
 	}
 
-	componentDidCatch() {}
+	componentDidCatch(error: Error) {
+		console.error(error);
+	}
 
 	render() {
 		if (this.state.hasError) {

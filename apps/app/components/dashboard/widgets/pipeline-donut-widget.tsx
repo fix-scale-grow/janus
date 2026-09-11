@@ -7,7 +7,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
-import { WidgetShell } from "@crm/ui/components/widget-shell";
+import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoney, formatMoneyCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -37,7 +37,7 @@ export function stageHref(
 export function PipelineDonutWidget() {
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
-	const { summary, scope, refetchSummary } = useSummary();
+	const { summary, scope, isError, refetchSummary } = useSummary();
 
 	const pipelines = useQuery(
 		trpc.pipelines.list.queryOptions({ includeArchived: false }),
@@ -68,7 +68,11 @@ export function PipelineDonutWidget() {
 				description="Where the value sits right now"
 			>
 				<WidgetBoundary onRetry={refetchSummary}>
-					<SummarySpinnerRow />
+					{isError ? (
+						<WidgetError onRetry={refetchSummary} />
+					) : (
+						<SummarySpinnerRow />
+					)}
 				</WidgetBoundary>
 			</WidgetShell>
 		);
