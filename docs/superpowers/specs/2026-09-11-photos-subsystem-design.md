@@ -102,8 +102,10 @@ Metadata and links are a tRPC `photos` module (NestJS, alias "photos"):
   `capture` attribute (it would force the camera and hide the roll). The
   deal/contact sheet is already a bottom drawer on phones (responsive-sheet),
   so the Photos tab is mobile-ready by construction.
-- Gallery grid of thumbs, lightbox on click, stage-label chips shown where
-  project-linked, filter by label/date, delete with confirm
+- Gallery grid of thumbs, lightbox on click, delete with confirm
+- DEFERRED (v1 ships without, final-review ruling 2026-09-11): stage-label
+  chips on gallery tiles and label/date filters — needs projectLinks joined
+  into photos.list; natural fast-follow with the /field crew entry point
 
 **Attach flows:**
 - Estimate builder + invoice screen: "Attach photos" opens a picker over the
