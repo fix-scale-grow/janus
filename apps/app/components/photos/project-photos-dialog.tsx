@@ -97,7 +97,7 @@ export function ProjectPhotosDialog({
 	});
 	const rows: ProjectPhoto[] = photosQuery.data ?? [];
 
-	const settle = () => Promise.all([cache.photos(), cache.project(projectId)]);
+	const settle = () => cache.photos();
 
 	const linkProject = useMutation(
 		trpc.photos.linkProject.mutationOptions({
@@ -192,6 +192,7 @@ export function ProjectPhotosDialog({
 										key={row.photoId}
 										row={row}
 										removing={unlinkProject.isPending}
+										settingStage={setStage.isPending}
 										onOpen={() => setLightboxIndex(index)}
 										onRemove={() => procs.detach(row.photoId)}
 										onStageChange={(stageLabel) =>
@@ -230,12 +231,14 @@ export function ProjectPhotosDialog({
 function ProjectPhotoTile({
 	row,
 	removing,
+	settingStage,
 	onOpen,
 	onRemove,
 	onStageChange,
 }: {
 	row: ProjectPhoto;
 	removing: boolean;
+	settingStage: boolean;
 	onOpen: () => void;
 	onRemove: () => void;
 	onStageChange: (stageLabel: StageLabel) => void;
@@ -268,6 +271,7 @@ function ProjectPhotoTile({
 			<div className="flex items-center gap-2">
 				<Select
 					value={row.stageLabel}
+					disabled={settingStage}
 					onValueChange={(value) => onStageChange(value as StageLabel)}
 				>
 					<SelectTrigger size="sm" className="flex-1">
