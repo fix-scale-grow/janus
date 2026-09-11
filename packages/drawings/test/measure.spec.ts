@@ -463,9 +463,7 @@ describe("manual quantity override", () => {
 	it("measures an unscaled area shape from a typed square footage", () => {
 		const scene = {
 			excalidraw: {
-				elements: [
-					rect({ scopeId: "s1", kind: "area", manualQty: 2000 }),
-				],
+				elements: [rect({ scopeId: "s1", kind: "area", manualQty: 2000 })],
 				appState: {},
 				files: {},
 			},
@@ -479,9 +477,7 @@ describe("manual quantity override", () => {
 	it("prefers the typed value over the drawn geometry", () => {
 		const scene = {
 			excalidraw: {
-				elements: [
-					rect({ scopeId: "s1", kind: "area", manualQty: 300 }),
-				],
+				elements: [rect({ scopeId: "s1", kind: "area", manualQty: 300 })],
 				appState: {},
 				files: {},
 			},
