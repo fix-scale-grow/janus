@@ -14,13 +14,14 @@ import {
 	isPreviewableImage,
 } from "./conversation-attachments";
 import { conversationShareTokenHash } from "./conversation-share-token";
-import type {
-	BuilderConversationCreateInput,
-	BuilderConversationSubmitInput,
-	BuilderQuestionResponseInput,
-	ConversationEventsInput,
-	ConversationListInput,
-	ConversationSaveInput,
+import {
+	type BuilderConversationCreateInput,
+	type BuilderConversationSubmitInput,
+	type BuilderQuestionResponseInput,
+	type ConversationEventsInput,
+	type ConversationListInput,
+	type ConversationSaveInput,
+	conversationKindOf,
 } from "./conversations.contracts";
 
 export interface ConversationSummary {
@@ -71,12 +72,14 @@ export class ConversationsService {
 		input: ConversationListInput,
 		userId: string,
 	): Promise<ConversationSummary[]> {
-		const recordId = this.recordId(input);
-		this.logger.debug({ message: "Conversation list read", recordId });
+		const kind = conversationKindOf(input);
+		const recordId = kind === "RECORD" ? this.recordId(input) : null;
+		this.logger.debug({ message: "Conversation list read", kind, recordId });
 
 		const rows = await this.db.agentConversation.findMany({
 			where: {
 				userId,
+				kind,
 				...(input.contactId ? { contactId: input.contactId } : {}),
 				...(input.dealId ? { dealId: input.dealId } : {}),
 				...(input.drawingId ? { drawingId: input.drawingId } : {}),
@@ -743,7 +746,9 @@ export class ConversationsService {
 		input: ConversationSaveInput,
 		userId: string,
 	): Promise<{ id: string }> {
-		const recordId = this.recordId(input);
+		const kind = conversationKindOf(input);
+		const recordId = kind === "RECORD" ? this.recordId(input) : null;
+		const missing = `No ${kind.toLowerCase()} conversation with session ${input.sessionId}.`;
 		const updateExisting = async (existing: {
 			id: string;
 			kind: string;
@@ -752,14 +757,12 @@ export class ConversationsService {
 			dealId: string | null;
 			drawingId: string | null;
 		}) => {
-			if (existing.userId !== userId || existing.kind !== "RECORD") {
-				throw new NotFoundException(
-					`No record conversation with session ${input.sessionId}.`,
-				);
+			if (existing.userId !== userId || existing.kind !== kind) {
+				throw new NotFoundException(missing);
 			}
 
 			const existingRecordId =
-				existing.contactId ?? existing.dealId ?? existing.drawingId;
+				existing.contactId ?? existing.dealId ?? existing.drawingId ?? null;
 			if (existingRecordId !== recordId) {
 				throw new BadRequestException(
 					"A conversation cannot be moved to another CRM record.",
@@ -769,7 +772,7 @@ export class ConversationsService {
 			const updated = await this.db.agentConversation.updateMany({
 				where: {
 					id: existing.id,
-					kind: "RECORD",
+					kind,
 					userId,
 					contactId: input.contactId ?? null,
 					dealId: input.dealId ?? null,
@@ -784,9 +787,7 @@ export class ConversationsService {
 			});
 
 			if (updated.count !== 1) {
-				throw new NotFoundException(
-					`No record conversation with session ${input.sessionId}.`,
-				);
+				throw new NotFoundException(missing);
 			}
 
 			return { id: existing.id };
@@ -811,6 +812,7 @@ export class ConversationsService {
 			try {
 				conversation = await this.db.agentConversation.create({
 					data: {
+						kind,
 						sessionId: input.sessionId,
 						continuationToken: input.continuationToken ?? null,
 						streamIndex: input.streamIndex ?? 0,

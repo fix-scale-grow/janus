@@ -281,6 +281,7 @@ enum DrawingBackground {
 enum AgentConversationKind {
   RECORD
   BUILDER
+  WORKSPACE
 }
 
 enum AgentDefinitionStatus {

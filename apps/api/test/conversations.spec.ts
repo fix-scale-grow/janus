@@ -168,6 +168,118 @@ describe("ConversationsService", () => {
 		).toBe(false);
 	});
 
+	it("opens a workspace thread that belongs to no CRM record", async () => {
+		const sessionId = `ses_${suffix}_workspace`;
+		const saved = await service.save(
+			{
+				kind: "WORKSPACE",
+				sessionId,
+				continuationToken: "eve:workspace-1",
+				title: "How is the pipeline?",
+				messageCount: 2,
+			},
+			userId,
+		);
+
+		expect(
+			await db.agentConversation.findUnique({
+				where: { id: saved.id },
+				select: {
+					kind: true,
+					contactId: true,
+					dealId: true,
+					drawingId: true,
+				},
+			}),
+		).toEqual({
+			kind: "WORKSPACE",
+			contactId: null,
+			dealId: null,
+			drawingId: null,
+		});
+
+		const [conversation] = await service.list({ kind: "WORKSPACE" }, userId);
+		expect(conversation).toMatchObject({
+			sessionId,
+			continuationToken: "eve:workspace-1",
+			title: "How is the pipeline?",
+			messageCount: 2,
+		});
+	});
+
+	it("keeps one rep's workspace threads out of another's", async () => {
+		await service.save(
+			{ kind: "WORKSPACE", sessionId: `ses_${suffix}_workspace_owned` },
+			userId,
+		);
+
+		expect(await service.list({ kind: "WORKSPACE" }, "somebody-else")).toEqual(
+			[],
+		);
+	});
+
+	it("keeps workspace threads out of a record's history", async () => {
+		await service.save(
+			{ kind: "WORKSPACE", sessionId: `ses_${suffix}_workspace_scope` },
+			userId,
+		);
+		const recordThreads = await service.list({ contactId }, userId);
+
+		expect(recordThreads.map((thread) => thread.sessionId)).not.toContain(
+			`ses_${suffix}_workspace_scope`,
+		);
+	});
+
+	it("accepts a workspace kind with no record and refuses one with a record", () => {
+		expect(conversationListInput.safeParse({ kind: "WORKSPACE" }).success).toBe(
+			true,
+		);
+		expect(
+			conversationSaveInput.safeParse({
+				kind: "WORKSPACE",
+				sessionId: "session-workspace",
+			}).success,
+		).toBe(true);
+		expect(
+			conversationListInput.safeParse({ kind: "WORKSPACE", contactId }).success,
+		).toBe(false);
+		expect(
+			conversationSaveInput.safeParse({
+				kind: "WORKSPACE",
+				contactId,
+				sessionId: "session-workspace-record",
+			}).success,
+		).toBe(false);
+		expect(conversationListInput.safeParse({ kind: "RECORD" }).success).toBe(
+			false,
+		);
+		expect(
+			conversationSaveInput.safeParse({
+				kind: "RECORD",
+				sessionId: "session-record",
+			}).success,
+		).toBe(false);
+	});
+
+	it("does not move a workspace thread onto a CRM record", async () => {
+		const sessionId = `ses_${suffix}_workspace_move`;
+		await service.save({ kind: "WORKSPACE", sessionId }, userId);
+
+		let moveError: unknown;
+		try {
+			await service.save({ contactId, sessionId }, userId);
+		} catch (error) {
+			moveError = error;
+		}
+		expect(moveError).toBeInstanceOf(Error);
+		expect(
+			await db.agentConversation.findUnique({
+				where: { sessionId },
+				select: { kind: true, contactId: true },
+			}),
+		).toEqual({ kind: "WORKSPACE", contactId: null });
+	});
+
 	it("does not mutate a conversation owned by another rep", async () => {
 		const sessionId = `ses_${suffix}_ownership`;
 		await service.save(
