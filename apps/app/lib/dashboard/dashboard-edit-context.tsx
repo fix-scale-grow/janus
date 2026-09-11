@@ -79,8 +79,8 @@ export function DashboardEditProvider({ children }: { children: ReactNode }) {
 					state: { ...view.data, dashboardLayout: draft },
 				},
 				{
-					onSuccess: () => {
-						void cache.views("dashboard", { settle: "record" });
+					onSuccess: async () => {
+						await cache.views("dashboard", { settle: "record" });
 						toast.success("Layout saved");
 						setDraft(null);
 					},

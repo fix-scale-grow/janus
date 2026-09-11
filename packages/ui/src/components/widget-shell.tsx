@@ -6,6 +6,7 @@ import {
 	createContext,
 	type ReactNode,
 	useContext,
+	useMemo,
 } from "react";
 import { Button } from "@crm/ui/components/button";
 import {
@@ -28,8 +29,13 @@ export function WidgetEditingProvider({
 	onRemove,
 	children,
 }: WidgetEditingContextValue & { children: ReactNode }) {
+	const value = useMemo(
+		() => ({ editing, onRemove }),
+		[editing, onRemove],
+	);
+
 	return (
-		<WidgetEditingContext.Provider value={{ editing, onRemove }}>
+		<WidgetEditingContext.Provider value={value}>
 			{children}
 		</WidgetEditingContext.Provider>
 	);
