@@ -2,15 +2,18 @@
 
 import ChevronLeft from "@carbon/icons-react/es/ChevronLeft";
 import ChevronRight from "@carbon/icons-react/es/ChevronRight";
+import { isOptimizable } from "@crm/db/images";
 import { Button } from "@crm/ui/components/button";
 import { Dialog, DialogContent, DialogTitle } from "@crm/ui/components/dialog";
 import { Icon } from "@crm/ui/components/icon";
-import { cn } from "@crm/ui/lib/utils";
+import Image from "next/image";
 import { useEffect } from "react";
 
 export type ImageLightboxImage = {
 	src: string;
 	title: string;
+	width: number;
+	height: number;
 };
 
 export function ImageLightbox({
@@ -68,13 +71,13 @@ export function ImageLightbox({
 						</Button>
 					) : null}
 
-					{/* biome-ignore lint/performance/noImgElement: session-gated same-origin photo, not eligible for next/image optimization inside a portal */}
-					<img
+					<Image
 						src={image.src}
 						alt={image.title}
-						className={cn(
-							"max-h-[calc(100vh-8rem)] max-w-[calc(100vw-8rem)] object-contain",
-						)}
+						width={image.width}
+						height={image.height}
+						unoptimized={!isOptimizable(image.src)}
+						className="h-auto max-h-[calc(100vh-8rem)] w-auto max-w-[calc(100vw-8rem)] object-contain"
 					/>
 
 					{hasNext ? (

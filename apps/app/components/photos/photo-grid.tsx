@@ -77,6 +77,8 @@ export function PhotoGrid({
 	const images = rows.map((row) => ({
 		src: masterUrl(row.id),
 		title: row.filename,
+		width: row.width,
+		height: row.height,
 	}));
 
 	return (
@@ -94,12 +96,10 @@ export function PhotoGrid({
 				}}
 			/>
 
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: HTML5 drag-and-drop drop target, Add photos button below is the accessible path */}
-			<div
-				className={cn(
-					"flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center transition-colors",
-					dragging && "bg-muted/50",
-				)}
+			<button
+				type="button"
+				disabled={uploading}
+				onClick={() => fileInput.current?.click()}
 				onDragOver={(event) => {
 					event.preventDefault();
 					setDragging(true);
@@ -110,19 +110,14 @@ export function PhotoGrid({
 					setDragging(false);
 					void upload(Array.from(event.dataTransfer.files));
 				}}
+				className={cn(
+					"flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-muted-foreground text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
+					dragging && "bg-muted/50",
+				)}
 			>
-				<p className="text-muted-foreground text-xs">Drop images here, or</p>
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					disabled={uploading}
-					onClick={() => fileInput.current?.click()}
-				>
-					<Icon icon={Add} data-icon="inline-start" />
-					Add photos
-				</Button>
-			</div>
+				<Icon icon={Add} />
+				Drop images here, or tap to add photos
+			</button>
 
 			{photos.isPending ? (
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
