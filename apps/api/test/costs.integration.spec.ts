@@ -317,36 +317,32 @@ describe("CostsService", () => {
 
 		try {
 			let thrownError: unknown;
+			const forbiddenMember = `costs-forbidden-${suffix}`;
+			const forbiddenUser = await db.user.create({
+				data: {
+					id: forbiddenMember,
+					name: "Forbidden Member",
+					email: `${forbiddenMember}@example.test`,
+				},
+				select: { id: true },
+			});
+			await db.member.create({
+				data: {
+					id: `costs-forbidden-row-${suffix}`,
+					organizationId: WORKSPACE_ID,
+					userId: forbiddenUser.id,
+					role: "member",
+					createdAt: new Date(),
+				},
+			});
 			try {
-				const forbiddenMember = `costs-forbidden-${suffix}`;
-				const forbiddenUser = await db.user.create({
-					data: {
-						id: forbiddenMember,
-						name: "Forbidden Member",
-						email: `${forbiddenMember}@example.test`,
-					},
-					select: { id: true },
-				});
-				await db.member.create({
-					data: {
-						id: `costs-forbidden-row-${suffix}`,
-						organizationId: WORKSPACE_ID,
-						userId: forbiddenUser.id,
-						role: "member",
-						createdAt: new Date(),
-					},
-				});
-				try {
-					await service.profitForDeal(forbiddenUser.id, dealId);
-				} catch (error) {
-					thrownError = error;
-				}
-				expect(thrownError).toBeInstanceOf(ForbiddenException);
-				await db.member.deleteMany({ where: { userId: forbiddenUser.id } });
-				await db.user.deleteMany({ where: { id: forbiddenUser.id } });
+				await service.profitForDeal(forbiddenUser.id, dealId);
 			} catch (error) {
-				throw error;
+				thrownError = error;
 			}
+			expect(thrownError).toBeInstanceOf(ForbiddenException);
+			await db.member.deleteMany({ where: { userId: forbiddenUser.id } });
+			await db.user.deleteMany({ where: { id: forbiddenUser.id } });
 
 			const result = await service.profitForDeal(memberUserId, dealId);
 
