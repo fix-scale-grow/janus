@@ -1,11 +1,22 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { savePhotoFiles } from "@crm/db/photo-files";
 import { PhotosService } from "../src/photos/photos.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "photos-spec";
 
 const service = new PhotosService(db);
+
+const JPEG_BYTES = Buffer.from([
+	0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+	0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+]);
+
+let photosDataDir: string;
 
 async function expectRejects(
 	promise: Promise<unknown>,
@@ -31,6 +42,9 @@ let invoiceId: string;
 let projectId: string;
 
 beforeAll(async () => {
+	photosDataDir = await mkdtemp(join(tmpdir(), "photos-pdf-"));
+	process.env.PHOTOS_DATA_DIR = photosDataDir;
+
 	await db.organization.upsert({
 		where: { id: WORKSPACE_ID },
 		update: {},
@@ -140,6 +154,8 @@ afterAll(async () => {
 	await db.contact.deleteMany({ where: { id: contactId } });
 	await db.member.deleteMany({ where: { userId } });
 	await db.user.deleteMany({ where: { id: userId } });
+	delete process.env.PHOTOS_DATA_DIR;
+	await rm(photosDataDir, { recursive: true, force: true });
 });
 
 describe("PhotosService", () => {
@@ -459,5 +475,110 @@ describe("PhotosService", () => {
 
 		const stillThere = await db.photo.findUnique({ where: { id: photo.id } });
 		expect(stillThere).not.toBeNull();
+	});
+
+	it("returns only pdf-flagged estimate photos in sort order", async () => {
+		const flaggedFirst = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `pdf-flagged-first-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: JPEG_BYTES.length,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+		const flaggedSecond = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `pdf-flagged-second-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: JPEG_BYTES.length,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+		const unflagged = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `pdf-unflagged-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: JPEG_BYTES.length,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await savePhotoFiles(flaggedFirst.id, JPEG_BYTES, JPEG_BYTES);
+		await savePhotoFiles(flaggedSecond.id, JPEG_BYTES, JPEG_BYTES);
+		await savePhotoFiles(unflagged.id, JPEG_BYTES, JPEG_BYTES);
+
+		const existing = await service.forEstimate(estimateId);
+		const existingIds = existing.map((link) => link.photoId);
+
+		await service.linkEstimate({ estimateId, photoId: flaggedSecond.id });
+		await service.linkEstimate({ estimateId, photoId: flaggedFirst.id });
+		await service.linkEstimate({ estimateId, photoId: unflagged.id });
+
+		await service.reorderEstimatePhotos({
+			estimateId,
+			photoIds: [
+				flaggedSecond.id,
+				flaggedFirst.id,
+				unflagged.id,
+				...existingIds,
+			],
+		});
+		await service.setEstimatePdfFlag({
+			estimateId,
+			photoId: flaggedSecond.id,
+			includeInPdf: true,
+		});
+		await service.setEstimatePdfFlag({
+			estimateId,
+			photoId: flaggedFirst.id,
+			includeInPdf: true,
+		});
+
+		const photos = await service.pdfPhotosForEstimate(estimateId);
+
+		expect(photos.length).toBe(2);
+		expect(photos[0]?.filename).toBe(`pdf-flagged-second-${suffix}.jpg`);
+		expect(photos[1]?.filename).toBe(`pdf-flagged-first-${suffix}.jpg`);
+		for (const photo of photos) {
+			expect(photo.dataUrl.startsWith("data:image/jpeg;base64,")).toBe(true);
+		}
+	});
+
+	it("skips a flagged photo whose file is missing", async () => {
+		const missing = await db.photo.create({
+			data: {
+				dealId,
+				uploadedById: userId,
+				filename: `pdf-missing-${suffix}.jpg`,
+				mimeType: "image/jpeg",
+				sizeBytes: JPEG_BYTES.length,
+				width: 100,
+				height: 100,
+			},
+			select: { id: true },
+		});
+
+		await service.linkInvoice({ invoiceId, photoId: missing.id });
+		await service.setInvoicePdfFlag({
+			invoiceId,
+			photoId: missing.id,
+			includeInPdf: true,
+		});
+
+		const photos = await service.pdfPhotosForInvoice(invoiceId);
+
+		expect(photos).toEqual([]);
 	});
 });

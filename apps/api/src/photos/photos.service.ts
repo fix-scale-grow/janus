@@ -1,5 +1,11 @@
 import { type Db, type Prisma } from "@crm/db";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { readPhotoFile } from "@crm/db/photo-files";
+import {
+	BadRequestException,
+	Injectable,
+	Logger,
+	NotFoundException,
+} from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import type {
 	EstimateLinkInput,
@@ -39,8 +45,12 @@ function sameIdSet(linked: { photoId: string }[], ids: string[]): boolean {
 	);
 }
 
+export type PdfPhoto = { filename: string; dataUrl: string };
+
 @Injectable()
 export class PhotosService {
+	private readonly logger = new Logger(PhotosService.name);
+
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
 	async list(input: PhotoListInput) {
@@ -303,5 +313,48 @@ export class PhotosService {
 			where: { projectId: input.projectId, photoId: input.photoId },
 			data: { stageLabel: input.stageLabel },
 		});
+	}
+
+	async pdfPhotosForEstimate(estimateId: string): Promise<PdfPhoto[]> {
+		const links = await this.db.estimatePhoto.findMany({
+			where: { estimateId, includeInPdf: true },
+			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+			select: { photoId: true, photo: { select: { filename: true } } },
+		});
+
+		return this.readPdfPhotos(links);
+	}
+
+	async pdfPhotosForInvoice(invoiceId: string): Promise<PdfPhoto[]> {
+		const links = await this.db.invoicePhoto.findMany({
+			where: { invoiceId, includeInPdf: true },
+			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+			select: { photoId: true, photo: { select: { filename: true } } },
+		});
+
+		return this.readPdfPhotos(links);
+	}
+
+	private async readPdfPhotos(
+		links: { photoId: string; photo: { filename: string } }[],
+	): Promise<PdfPhoto[]> {
+		const photos: PdfPhoto[] = [];
+
+		for (const link of links) {
+			const master = await readPhotoFile(link.photoId, "master");
+			if (!master) {
+				this.logger.warn({
+					message: "Skipping pdf photo with a missing master file",
+					photoId: link.photoId,
+				});
+				continue;
+			}
+			photos.push({
+				filename: link.photo.filename,
+				dataUrl: `data:image/jpeg;base64,${master.toString("base64")}`,
+			});
+		}
+
+		return photos;
 	}
 }

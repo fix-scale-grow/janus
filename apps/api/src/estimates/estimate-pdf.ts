@@ -1,6 +1,13 @@
 import type { EstimateTier } from "@crm/db";
 import * as ReactPdf from "@react-pdf/renderer";
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+	Document,
+	Image,
+	Page,
+	StyleSheet,
+	Text,
+	View,
+} from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { createElement } from "react";
 import { formatCents } from "../documents/pdf-money";
@@ -28,6 +35,11 @@ export type EstimatePdfContact = {
 	phone: string | null;
 };
 
+export type EstimatePdfPhoto = {
+	filename: string;
+	dataUrl: string;
+};
+
 export type EstimatePdfEstimate = {
 	title: string;
 	currency: string;
@@ -35,6 +47,7 @@ export type EstimatePdfEstimate = {
 	createdAt: Date;
 	lineItems: EstimatePdfLineItem[];
 	contact: EstimatePdfContact | null;
+	photos: EstimatePdfPhoto[];
 };
 
 const GENERAL_GROUP = "General";
@@ -195,6 +208,30 @@ const styles = StyleSheet.create({
 		fontSize: 10,
 		fontFamily: "Helvetica-Bold",
 	},
+	photosHeading: {
+		fontSize: 12,
+		fontFamily: "Helvetica-Bold",
+		marginTop: 20,
+		marginBottom: 8,
+	},
+	photosGrid: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: "4%",
+	},
+	photoCell: {
+		width: "48%",
+		marginBottom: 12,
+	},
+	photo: {
+		width: "100%",
+		objectFit: "contain",
+	},
+	photoCaption: {
+		fontSize: 8,
+		color: "#666666",
+		marginTop: 2,
+	},
 });
 
 function contactName(contact: EstimatePdfContact): string {
@@ -312,6 +349,34 @@ export async function renderEstimatePdf(
 			)
 		: null;
 
+	const photosSection =
+		estimate.photos.length > 0
+			? createElement(
+					View,
+					{},
+					createElement(Text, { style: styles.photosHeading }, "Photos"),
+					createElement(
+						View,
+						{ style: styles.photosGrid },
+						...estimate.photos.map((photo, index) =>
+							createElement(
+								View,
+								{ key: `${photo.filename}-${index}`, style: styles.photoCell },
+								createElement(Image, {
+									style: styles.photo,
+									src: photo.dataUrl,
+								}),
+								createElement(
+									Text,
+									{ style: styles.photoCaption },
+									photo.filename,
+								),
+							),
+						),
+					),
+				)
+			: null;
+
 	const document = createElement(
 		Document,
 		{},
@@ -332,6 +397,7 @@ export async function renderEstimatePdf(
 			),
 			contactBlock,
 			...rows,
+			photosSection,
 			optionsStrip,
 		),
 	);

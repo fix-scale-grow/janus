@@ -16,6 +16,7 @@ import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { ContactsService } from "../contacts/contacts.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
+import { PhotosService } from "../photos/photos.service";
 import { MergeContextService } from "../templates/merge-context.service";
 import {
 	assertMergeComplete,
@@ -85,6 +86,7 @@ export class EstimatesService {
 		private readonly templates: TemplatesService,
 		private readonly mergeContext: MergeContextService,
 		private readonly agent: AgentTriggerService,
+		private readonly photos: PhotosService,
 	) {}
 
 	async list(input: EstimateListInput) {
@@ -612,6 +614,8 @@ export class EstimatesService {
 			throw new NotFoundException(`No estimate with id ${id}.`);
 		}
 
+		const photos = await this.photos.pdfPhotosForEstimate(id);
+
 		return {
 			...row,
 			lineItems: row.lineItems.map((item) => ({
@@ -623,6 +627,7 @@ export class EstimatesService {
 				priceBetterCents: item.priceBetterCents,
 				priceBestCents: item.priceBestCents,
 			})),
+			photos,
 		};
 	}
 

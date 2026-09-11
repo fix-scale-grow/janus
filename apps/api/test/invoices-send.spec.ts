@@ -3,6 +3,7 @@ import type { Db } from "@crm/db";
 import { BadRequestException } from "@nestjs/common";
 import { InvoicesService } from "../src/invoices/invoices.service";
 import type { MailerService } from "../src/mailer/mailer.service";
+import type { PhotosService } from "../src/photos/photos.service";
 import type { MergeContextService } from "../src/templates/merge-context.service";
 import type { TemplateBlock } from "../src/templates/template-blocks";
 import type { TemplatesService } from "../src/templates/templates.service";
@@ -116,6 +117,10 @@ function fakeMergeContext() {
 	} as unknown as MergeContextService;
 }
 
+const noPhotos = {
+	pdfPhotosForInvoice: async () => [],
+} as unknown as PhotosService;
+
 describe("InvoicesService.send", () => {
 	it("throws and never flips status when delivery fails", async () => {
 		const { db, updateData } = fakeDb(null);
@@ -125,6 +130,7 @@ describe("InvoicesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext(),
+			noPhotos,
 		);
 
 		await expect(service.send({ id: "inv1" })).rejects.toBeInstanceOf(
@@ -142,6 +148,7 @@ describe("InvoicesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext(),
+			noPhotos,
 		);
 
 		const result = await service.send({ id: "inv1" });
@@ -159,6 +166,7 @@ describe("InvoicesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext(),
+			noPhotos,
 		);
 
 		const result = await service.send({ id: "inv1" });
@@ -175,6 +183,7 @@ describe("InvoicesService.send", () => {
 			mailer,
 			fakeTemplates("Your invoice from {{business.name}}"),
 			fakeMergeContext(),
+			noPhotos,
 		);
 
 		await service.send({ id: "inv1" });
@@ -190,6 +199,7 @@ describe("InvoicesService.send", () => {
 			mailer,
 			fakeTemplates(),
 			fakeMergeContext(),
+			noPhotos,
 		);
 
 		await service.send({ id: "inv1", personalNote: "Thanks again!" });
@@ -205,6 +215,7 @@ describe("InvoicesService.send", () => {
 			mailer,
 			fakeTemplates("Your invoice from {{business.name}}"),
 			fakeMergeContext(),
+			noPhotos,
 		);
 
 		await service.send({ id: "inv1", subject: "Custom subject" });

@@ -4,6 +4,7 @@ import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
 import type { MailerService } from "../src/mailer/mailer.service";
+import type { PhotosService } from "../src/photos/photos.service";
 import type { MergeContextService } from "../src/templates/merge-context.service";
 import type { TemplatesService } from "../src/templates/templates.service";
 
@@ -152,6 +153,7 @@ function service(db: Db) {
 		{} as TemplatesService,
 		{} as MergeContextService,
 		{} as AgentTriggerService,
+		{} as PhotosService,
 	);
 }
 
