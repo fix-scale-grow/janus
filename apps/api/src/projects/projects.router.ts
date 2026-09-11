@@ -39,6 +39,11 @@ export class ProjectsRouter {
 		return this.projects.calendarRange(input);
 	}
 
+	@Query()
+	async upcomingTasks() {
+		return this.projects.upcomingTasks();
+	}
+
 	@Query({ input: projectIdInput })
 	async byId(@Input("id") id: string) {
 		return this.projects.byId(id);

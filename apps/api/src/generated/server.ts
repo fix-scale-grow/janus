@@ -643,6 +643,8 @@ const appRouter = t.router({
     calendarRange: publicProcedure
       .input(projectCalendarInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["calendarRange"]>>),
+    upcomingTasks: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["upcomingTasks"]>>),
     byId: publicProcedure
       .input(projectIdInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["byId"]>>),
