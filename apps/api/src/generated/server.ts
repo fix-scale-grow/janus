@@ -21,7 +21,7 @@ import { conversationListInput, builderResourceSearchInput, conversationIdInput,
 import { costListInput, costCreateInput, costUpdateInput, costIdInput, profitForDealInput } from "../costs/costs.contracts";
 import { crewCreateInput, crewUpdateInput, crewIdInput } from "../crews/crews.contracts";
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
-import { dashboardSummaryInput } from "../dashboard/dashboard.contracts";
+import { dashboardSummaryInput, dashboardPipelineBoardInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
 import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput, estimateAssignContactInput, estimateSendInput } from "../estimates/estimates.contracts";
@@ -323,7 +323,10 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["summary"]>>),
     pipelineStages: publicProcedure
       .input(dashboardSummaryInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["pipelineStages"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["pipelineStages"]>>),
+    pipelineBoard: publicProcedure
+      .input(dashboardPipelineBoardInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DashboardRouter["pipelineBoard"]>>)
     }),
   deals: t.router({
     list: publicProcedure
