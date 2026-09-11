@@ -237,7 +237,7 @@ function DeletePhotoDialog({
 				toast.error("Could not delete that photo.");
 				return;
 			}
-			await cache.photos();
+			await Promise.all([cache.photos(), cache.estimate(), cache.invoice()]);
 			onOpenChange(false);
 		} finally {
 			setDeleting(false);

@@ -42,14 +42,18 @@ export function usePhotoUpload({
 				body.set("height", String(processed.height));
 				body.set("takenAt", String(file.lastModified));
 
-				const response = await fetch("/api/photos/upload", {
-					method: "POST",
-					body,
-				});
+				try {
+					const response = await fetch("/api/photos/upload", {
+						method: "POST",
+						body,
+					});
 
-				if (!response.ok) {
-					const data = await response.json().catch(() => null);
-					toast.error(data?.error ?? `${file.name} could not be uploaded.`);
+					if (!response.ok) {
+						const data = await response.json().catch(() => null);
+						toast.error(data?.error ?? `${file.name} could not be uploaded.`);
+					}
+				} catch {
+					toast.error(`${file.name} could not be uploaded.`);
 				}
 			}
 
