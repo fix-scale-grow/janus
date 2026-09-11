@@ -10,6 +10,8 @@ export interface WidgetMeta {
 	defaultW: number;
 	defaultH: number;
 	permission?: "profit.view";
+	instanceOf?: string;
+	pipelineId?: string;
 }
 
 export const DEFAULT_LAYOUT: DashboardLayoutEntry[] = [

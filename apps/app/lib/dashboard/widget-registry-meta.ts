@@ -117,3 +117,25 @@ export function visibleWidgets<T extends WidgetMeta>(
 		(widget) => !widget.permission || granted.has(widget.permission),
 	);
 }
+
+export const PIPELINE_BOARD_PREFIX = "pipeline-board:";
+
+export function pipelineBoardMeta(pipeline: {
+	id: string;
+	name: string;
+}): WidgetMeta & { instanceOf: "pipeline-board"; pipelineId: string } {
+	return {
+		id: `${PIPELINE_BOARD_PREFIX}${pipeline.id}`,
+		title: `${pipeline.name} — mini board`,
+		minW: 20,
+		minH: 20,
+		defaultW: 24,
+		defaultH: 34,
+		instanceOf: "pipeline-board",
+		pipelineId: pipeline.id,
+	};
+}
+
+export function isPipelineBoardId(id: string): boolean {
+	return id.startsWith(PIPELINE_BOARD_PREFIX);
+}

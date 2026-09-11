@@ -115,4 +115,30 @@ describe("dashboardLayout", () => {
 			}),
 		).toThrow();
 	});
+
+	it("id accepts 64 chars", () => {
+		const id64 = "a".repeat(64);
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: id64,
+				x: 0,
+				y: 0,
+				w: 1,
+				h: 1,
+			}),
+		).not.toThrow();
+	});
+
+	it("id rejects 65 chars", () => {
+		const id65 = "a".repeat(65);
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: id65,
+				x: 0,
+				y: 0,
+				w: 1,
+				h: 1,
+			}),
+		).toThrow();
+	});
 });
