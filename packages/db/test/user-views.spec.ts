@@ -53,3 +53,25 @@ describe("viewTableId", () => {
 		expect(() => viewTableId.parse("nope")).toThrow();
 	});
 });
+
+describe("dashboardLayout", () => {
+	it("dashboard is a valid table id", () => {
+		expect(viewTableId.parse("dashboard")).toBe("dashboard");
+	});
+
+	it("dashboardLayout round-trips through parseViewState", () => {
+		const state = {
+			dashboardLayout: [{ id: "trend", x: 0, y: 13, w: 28, h: 40 }],
+		};
+		expect(parseViewState(state)).toEqual(state);
+	});
+
+	it("dashboardLayout rejects out-of-range entries", () => {
+		expect(() =>
+			parseViewState({ dashboardLayout: [{ id: "trend", x: 48, y: 0, w: 1, h: 1 }] }),
+		).toThrow();
+		expect(() =>
+			parseViewState({ dashboardLayout: [{ id: "trend", x: 0, y: 0, w: 49, h: 1 }] }),
+		).toThrow();
+	});
+});
