@@ -231,7 +231,12 @@ export function useCrmCache(): CrmCache {
 						? trpc.estimates.byId.queryKey({ id })
 						: trpc.estimates.byId.queryKey(),
 				],
-				[trpc.estimates.list.queryKey()],
+				[
+					trpc.estimates.list.queryKey(),
+					id
+						? trpc.estimates.document.queryKey({ id })
+						: trpc.estimates.document.queryKey(),
+				],
 				options,
 			),
 
@@ -242,7 +247,12 @@ export function useCrmCache(): CrmCache {
 						? trpc.invoices.byId.queryKey({ id })
 						: trpc.invoices.byId.queryKey(),
 				],
-				[trpc.invoices.list.queryKey()],
+				[
+					trpc.invoices.list.queryKey(),
+					id
+						? trpc.invoices.document.queryKey({ id })
+						: trpc.invoices.document.queryKey(),
+				],
 				options,
 			),
 
