@@ -318,6 +318,47 @@ export class ProjectsService {
 		});
 	}
 
+	async upcomingTasks() {
+		const from = new Date();
+		from.setUTCHours(0, 0, 0, 0);
+		const to = new Date(from);
+		to.setUTCDate(to.getUTCDate() + PROJECTS.upcoming.days);
+
+		const rows = await this.db.projectTask.findMany({
+			where: {
+				startDay: { gte: from, lte: to },
+				status: { in: ["TODO", "IN_PROGRESS"] },
+			},
+			orderBy: [{ startDay: "asc" }, { sortOrder: "asc" }],
+			take: PROJECTS.upcoming.take,
+			select: {
+				id: true,
+				name: true,
+				startDay: true,
+				crew: { select: { name: true } },
+				project: {
+					select: {
+						id: true,
+						name: true,
+						deal: { select: { id: true, name: true } },
+					},
+				},
+			},
+		});
+
+		return {
+			tasks: rows.map((row) => ({
+				id: row.id,
+				name: row.name,
+				startDay: row.startDay,
+				crewName: row.crew?.name ?? null,
+				project: { id: row.project.id, name: row.project.name },
+				dealId: row.project.deal?.id ?? null,
+				dealName: row.project.deal?.name ?? null,
+			})),
+		};
+	}
+
 	private buildWhere(input: ProjectListInput): Prisma.ProjectWhereInput {
 		const where: Prisma.ProjectWhereInput = {
 			...(input.dealId ? { dealId: input.dealId } : {}),

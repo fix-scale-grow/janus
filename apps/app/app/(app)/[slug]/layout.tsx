@@ -47,6 +47,9 @@ async function AppRail() {
 	await Promise.all([
 		queryClient.prefetchQuery(trpc.permissions.mine.queryOptions()),
 		queryClient.prefetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
+		queryClient.prefetchQuery(
+			trpc.views.get.queryOptions({ tableId: "dashboard" }),
+		),
 	]);
 
 	return (
