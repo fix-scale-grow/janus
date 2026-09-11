@@ -26,8 +26,13 @@ test("pipelineBoardMeta builds an instance meta", async () => {
 	const meta = pipelineBoardMeta({ id: "p1", name: "Sales" });
 	expect(meta.id).toBe("pipeline-board:p1");
 	expect(meta.title).toBe("Sales — mini board");
+	expect(meta.description).toBe("Top deals per stage");
 	expect(meta.minW).toBe(20);
+	expect(meta.minH).toBe(22);
+	expect(meta.defaultW).toBe(24);
 	expect(meta.defaultH).toBe(34);
+	expect(meta.instanceOf).toBe("pipeline-board");
+	expect(meta.pipelineId).toBe("p1");
 });
 
 test("resolveLayout keeps a board whose meta exists and drops one whose meta is gone", async () => {

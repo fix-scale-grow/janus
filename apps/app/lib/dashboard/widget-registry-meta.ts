@@ -127,8 +127,9 @@ export function pipelineBoardMeta(pipeline: {
 	return {
 		id: `${PIPELINE_BOARD_PREFIX}${pipeline.id}`,
 		title: `${pipeline.name} — mini board`,
+		description: "Top deals per stage",
 		minW: 20,
-		minH: 20,
+		minH: 22,
 		defaultW: 24,
 		defaultH: 34,
 		instanceOf: "pipeline-board",
