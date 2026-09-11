@@ -45,14 +45,16 @@ export function PipelineDonutWidget() {
 
 	const [selectedPipelineId, setSelectedPipelineId] = useState<
 		string | undefined
-	>(summary?.pipeline.pipelineId ?? undefined);
+	>(undefined);
 
 	const chartQuery = useQuery({
 		...trpc.dashboard.pipelineStages.queryOptions({
 			scope,
 			pipelineId: selectedPipelineId,
 		}),
-		enabled: Boolean(summary) && selectedPipelineId !== summary?.pipeline.pipelineId,
+		enabled:
+			selectedPipelineId !== undefined &&
+			selectedPipelineId !== summary?.pipeline.pipelineId,
 		placeholderData: (previous) => previous,
 	});
 
@@ -71,9 +73,9 @@ export function PipelineDonutWidget() {
 
 	const { pipeline, reportingCurrency } = summary;
 	const chartPipeline: PipelineStages =
-		selectedPipelineId === pipeline.pipelineId
-			? pipeline
-			: (chartQuery.data ?? pipeline);
+		selectedPipelineId !== undefined && selectedPipelineId !== pipeline.pipelineId
+			? (chartQuery.data ?? pipeline)
+			: pipeline;
 
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 	const exact = (value: unknown) =>
@@ -103,7 +105,7 @@ export function PipelineDonutWidget() {
 			action={
 				pipelines.data && pipelines.data.length > 1 ? (
 					<Select
-						value={chartPipeline.pipelineId ?? undefined}
+						value={selectedPipelineId ?? pipeline.pipelineId ?? undefined}
 						onValueChange={setSelectedPipelineId}
 					>
 						<SelectTrigger className="w-40" size="sm">
