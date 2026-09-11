@@ -102,6 +102,7 @@ beforeAll(async () => {
 afterAll(async () => {
 	await db.estimatePhoto.deleteMany({ where: { estimateId } });
 	await db.photo.deleteMany({ where: { dealId } });
+	await db.photo.deleteMany({ where: { contactId } });
 	await db.estimate.deleteMany({ where: { id: estimateId } });
 	await db.deal.deleteMany({ where: { id: dealId } });
 	await db.contact.deleteMany({ where: { id: contactId } });
