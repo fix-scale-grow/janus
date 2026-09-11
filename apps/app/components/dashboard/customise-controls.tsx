@@ -51,6 +51,13 @@ export function CustomiseControls() {
 		);
 	}
 
+	const boardWidgets = addable.filter(
+		(widget) => widget.instanceOf === "pipeline-board",
+	);
+	const otherWidgets = addable.filter(
+		(widget) => widget.instanceOf !== "pipeline-board",
+	);
+
 	return (
 		<div className="flex items-center gap-2">
 			<Popover>
@@ -66,14 +73,34 @@ export function CustomiseControls() {
 							Every widget is on the dashboard.
 						</p>
 					) : (
-						<div className="flex flex-col divide-y">
-							{addable.map((widget) => (
-								<AddWidgetRow
-									key={widget.id}
-									widget={widget}
-									onAdd={() => add(widget)}
-								/>
-							))}
+						<div className="flex flex-col gap-3">
+							{otherWidgets.length > 0 ? (
+								<div className="flex flex-col divide-y">
+									{otherWidgets.map((widget) => (
+										<AddWidgetRow
+											key={widget.id}
+											widget={widget}
+											onAdd={() => add(widget)}
+										/>
+									))}
+								</div>
+							) : null}
+							{boardWidgets.length > 0 ? (
+								<div className="flex flex-col gap-1.5">
+									<span className="text-muted-foreground text-xs">
+										Pipeline boards
+									</span>
+									<div className="flex flex-col divide-y">
+										{boardWidgets.map((widget) => (
+											<AddWidgetRow
+												key={widget.id}
+												widget={widget}
+												onAdd={() => add(widget)}
+											/>
+										))}
+									</div>
+								</div>
+							) : null}
 						</div>
 					)}
 				</PopoverContent>

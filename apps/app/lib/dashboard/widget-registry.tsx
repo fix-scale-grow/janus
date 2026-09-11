@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-widget";
 import { DealsOpenWidget } from "@/components/dashboard/widgets/deals-open-widget";
+import { PipelineBoardWidget } from "@/components/dashboard/widgets/pipeline-board-widget";
 import { PipelineDonutWidget } from "@/components/dashboard/widgets/pipeline-donut-widget";
 import {
 	CostsByCategoryWidget,
@@ -20,7 +21,7 @@ import { TasksUpcomingWidget } from "@/components/dashboard/widgets/tasks-upcomi
 import { TrendWidget } from "@/components/dashboard/widgets/trend-widget";
 import { useTRPC } from "@/lib/trpc/client";
 import type { WidgetMeta } from "./layout";
-import { visibleWidgets, WIDGET_META } from "./widget-registry-meta";
+import { pipelineBoardMeta, visibleWidgets, WIDGET_META } from "./widget-registry-meta";
 
 const WIDGET_COMPONENTS: Record<string, ComponentType> = {
 	"stat-won-month": StatWonMonthWidget,
@@ -53,6 +54,21 @@ export function useVisibleWidgets(): (WidgetMeta & {
 })[] {
 	const trpc = useTRPC();
 	const permissions = useQuery(trpc.permissions.mine.queryOptions());
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
 	const keys = permissions.data?.keys ?? [];
-	return visibleWidgets(DASHBOARD_WIDGETS, keys);
+	const boardWidgets = (pipelines.data ?? []).map((pipeline) => {
+		const meta = pipelineBoardMeta(pipeline);
+		return {
+			...meta,
+			component: () => (
+				<PipelineBoardWidget pipelineId={meta.pipelineId} title={meta.title} />
+			),
+		};
+	});
+	return [
+		...visibleWidgets(DASHBOARD_WIDGETS, keys),
+		...visibleWidgets(boardWidgets, keys),
+	];
 }
