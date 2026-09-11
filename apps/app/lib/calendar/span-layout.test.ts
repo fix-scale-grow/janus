@@ -13,8 +13,11 @@ describe("monthWeeks", () => {
 	it("covers September 2026 in five Sunday-start weeks", () => {
 		const weeks = monthWeeks(day("2026-09-15"));
 		expect(weeks.length).toBe(5);
-		expect(dayKey(weeks[0]![0]!)).toBe("2026-08-30");
-		expect(dayKey(weeks[4]![6]!)).toBe("2026-10-03");
+		const first = weeks[0]?.[0];
+		const last = weeks[4]?.[6];
+		if (!first || !last) throw new Error("missing calendar cells");
+		expect(dayKey(first)).toBe("2026-08-30");
+		expect(dayKey(last)).toBe("2026-10-03");
 		for (const week of weeks) expect(week.length).toBe(7);
 	});
 });
@@ -50,8 +53,9 @@ describe("layoutWeek", () => {
 			weekStart,
 			4,
 		);
-		const barA = bars.find((bar) => bar.task.id === "a")!;
-		const barB = bars.find((bar) => bar.task.id === "b")!;
+		const barA = bars.find((bar) => bar.task.id === "a");
+		const barB = bars.find((bar) => bar.task.id === "b");
+		if (!barA || !barB) throw new Error("missing bars");
 		expect(barA).toMatchObject({
 			startCol: 0,
 			endCol: 3,
@@ -86,6 +90,8 @@ describe("day math", () => {
 		expect(dayKey(addDays(day("2026-08-31"), 1))).toBe("2026-09-01");
 	});
 	it("weekOf returns the Sunday-start week", () => {
-		expect(dayKey(weekOf(day("2026-09-09"))[0]!)).toBe("2026-09-06");
+		const sunday = weekOf(day("2026-09-09"))[0];
+		if (!sunday) throw new Error("missing week start");
+		expect(dayKey(sunday)).toBe("2026-09-06");
 	});
 });

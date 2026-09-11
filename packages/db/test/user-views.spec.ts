@@ -73,10 +73,14 @@ describe("dashboardLayout", () => {
 
 	it("dashboardLayout rejects out-of-range entries", () => {
 		expect(() =>
-			parseViewState({ dashboardLayout: [{ id: "trend", x: 48, y: 0, w: 1, h: 1 }] }),
+			parseViewState({
+				dashboardLayout: [{ id: "trend", x: 48, y: 0, w: 1, h: 1 }],
+			}),
 		).toThrow();
 		expect(() =>
-			parseViewState({ dashboardLayout: [{ id: "trend", x: 0, y: 0, w: 49, h: 1 }] }),
+			parseViewState({
+				dashboardLayout: [{ id: "trend", x: 0, y: 0, w: 49, h: 1 }],
+			}),
 		).toThrow();
 	});
 

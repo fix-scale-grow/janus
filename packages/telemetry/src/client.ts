@@ -7,10 +7,10 @@ import type { Properties } from "./allowlist";
 
 type Debug = (message: string) => void;
 
-let debug: Debug = () => {};
+let _debug: Debug = () => {};
 
 export function onTelemetryProblem(sink: Debug | null): void {
-	debug = sink ?? (() => {});
+	_debug = sink ?? (() => {});
 }
 
 export function resetTelemetryClient(): void {

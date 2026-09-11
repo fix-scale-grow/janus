@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { DASHBOARD_WIDGETS, visibleWidgets } from "./widget-registry";
 import { DEFAULT_LAYOUT } from "./layout";
+import { DASHBOARD_WIDGETS, visibleWidgets } from "./widget-registry";
 
 test("every default layout id exists in the registry", () => {
 	const ids = new Set(DASHBOARD_WIDGETS.map((w) => w.id));
@@ -15,6 +15,8 @@ test("profit widgets are hidden without the permission", () => {
 });
 
 test("profit widgets show with the permission", () => {
-	const ids = visibleWidgets(DASHBOARD_WIDGETS, ["profit.view"]).map((w) => w.id);
+	const ids = visibleWidgets(DASHBOARD_WIDGETS, ["profit.view"]).map(
+		(w) => w.id,
+	);
 	expect(ids).toContain("profit-by-month");
 });

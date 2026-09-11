@@ -1,7 +1,7 @@
 "use client";
 
-import { WidgetError } from "@crm/ui/components/widget-shell";
 import { Spinner } from "@crm/ui/components/spinner";
+import { WidgetError } from "@crm/ui/components/widget-shell";
 import { useQuery } from "@tanstack/react-query";
 import {
 	Component,

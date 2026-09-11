@@ -2,7 +2,11 @@
 
 import { StatCard, type StatDelta } from "@crm/ui/components/stat-card";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
-import { formatCount, formatMoneyCompact, formatPercent } from "@crm/ui/lib/format";
+import {
+	formatCount,
+	formatMoneyCompact,
+	formatPercent,
+} from "@crm/ui/lib/format";
 import {
 	SummarySpinnerRow,
 	useSummary,

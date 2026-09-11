@@ -113,5 +113,7 @@ export function visibleWidgets<T extends WidgetMeta>(
 	keys: string[],
 ): T[] {
 	const granted = new Set(keys);
-	return widgets.filter((widget) => !widget.permission || granted.has(widget.permission));
+	return widgets.filter(
+		(widget) => !widget.permission || granted.has(widget.permission),
+	);
 }

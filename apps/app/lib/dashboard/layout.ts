@@ -42,7 +42,8 @@ export function resolveLayout(
 	}
 
 	return filtered.map((entry) => {
-		const meta = metaMap.get(entry.id)!;
+		const meta = metaMap.get(entry.id);
+		if (!meta) throw new Error(`Unknown dashboard widget: ${entry.id}`);
 		const w = Math.min(Math.max(entry.w, meta.minW), DASHBOARD.grid.cols);
 		const h = Math.max(entry.h, meta.minH);
 		const x = Math.min(entry.x, DASHBOARD.grid.cols - w);
@@ -61,7 +62,8 @@ export function addEntry(
 	layout: DashboardLayoutEntry[],
 	meta: WidgetMeta,
 ): DashboardLayoutEntry[] {
-	const maxY = layout.length === 0 ? 0 : Math.max(...layout.map((e) => e.y + e.h));
+	const maxY =
+		layout.length === 0 ? 0 : Math.max(...layout.map((e) => e.y + e.h));
 
 	return [
 		...layout,

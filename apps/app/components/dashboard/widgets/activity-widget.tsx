@@ -66,11 +66,7 @@ export function ActivityWidget() {
 	);
 }
 
-function ActivityBody({
-	recentActivity,
-}: {
-	recentActivity: ActivityEntry[];
-}) {
+function ActivityBody({ recentActivity }: { recentActivity: ActivityEntry[] }) {
 	if (recentActivity.length === 0) {
 		return <CardTableEmpty>Nothing has happened yet.</CardTableEmpty>;
 	}

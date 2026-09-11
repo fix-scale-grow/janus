@@ -4,12 +4,24 @@ import { addEntry, DEFAULT_LAYOUT, resolveLayout } from "./layout";
 
 const META = [
 	{ id: "trend", title: "T", minW: 16, minH: 24, defaultW: 28, defaultH: 40 },
-	{ id: "activity", title: "A", minW: 16, minH: 20, defaultW: 48, defaultH: 32 },
+	{
+		id: "activity",
+		title: "A",
+		minW: 16,
+		minH: 20,
+		defaultW: 48,
+		defaultH: 32,
+	},
 ];
 
 test("undefined saved layout resolves to the default", () => {
 	const metas = DEFAULT_LAYOUT.map((e) => ({
-		id: e.id, title: e.id, minW: 1, minH: 1, defaultW: e.w, defaultH: e.h,
+		id: e.id,
+		title: e.id,
+		minW: 1,
+		minH: 1,
+		defaultW: e.w,
+		defaultH: e.h,
 	}));
 	expect(resolveLayout(undefined, metas)).toEqual(DEFAULT_LAYOUT);
 });

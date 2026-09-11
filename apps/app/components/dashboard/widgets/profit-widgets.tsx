@@ -5,9 +5,9 @@ import { Spinner } from "@crm/ui/components/spinner";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoneyCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
-import { BarTrend } from "@/components/dashboard-charts";
-import { ValueMeter } from "@/components/dashboard/widgets/deals-open-widget";
 import { WidgetBoundary } from "@/components/dashboard/summary-context";
+import { ValueMeter } from "@/components/dashboard/widgets/deals-open-widget";
+import { BarTrend } from "@/components/dashboard-charts";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 

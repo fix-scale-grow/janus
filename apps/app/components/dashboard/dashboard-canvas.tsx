@@ -1,6 +1,9 @@
 "use client";
 
-import { DASHBOARD_LAYOUT_MAX, type DashboardLayoutEntry } from "@crm/db/user-views";
+import {
+	DASHBOARD_LAYOUT_MAX,
+	type DashboardLayoutEntry,
+} from "@crm/db/user-views";
 import { WidgetEditingProvider } from "@crm/ui/components/widget-shell";
 import { type ComponentType, useMemo, useSyncExternalStore } from "react";
 import {

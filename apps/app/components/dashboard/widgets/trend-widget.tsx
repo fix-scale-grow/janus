@@ -3,12 +3,12 @@
 import type { ChartConfig } from "@crm/ui/components/chart";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import { formatMoney } from "@crm/ui/lib/format";
-import { AreaTrend } from "@/components/dashboard-charts";
 import {
 	SummarySpinnerRow,
 	useSummary,
 	WidgetBoundary,
 } from "@/components/dashboard/summary-context";
+import { AreaTrend } from "@/components/dashboard-charts";
 
 const TREND_CONFIG: ChartConfig = {
 	won: { label: "Closed won", color: "var(--success)" },

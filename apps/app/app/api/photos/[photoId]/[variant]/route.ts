@@ -28,11 +28,17 @@ export async function GET(
 		select: { id: true },
 	});
 	if (!photo) {
-		return NextResponse.json({ error: "The photo was not found." }, { status: 404 });
+		return NextResponse.json(
+			{ error: "The photo was not found." },
+			{ status: 404 },
+		);
 	}
 	const bytes = await readPhotoFile(photoId, variant as PhotoVariant);
 	if (!bytes) {
-		return NextResponse.json({ error: "The photo file is missing." }, { status: 404 });
+		return NextResponse.json(
+			{ error: "The photo file is missing." },
+			{ status: 404 },
+		);
 	}
 	return new NextResponse(new Uint8Array(bytes), {
 		headers: {

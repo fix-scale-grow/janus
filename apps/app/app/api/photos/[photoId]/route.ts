@@ -20,7 +20,10 @@ export async function DELETE(
 		select: { id: true },
 	});
 	if (!photo) {
-		return NextResponse.json({ error: "The photo was not found." }, { status: 404 });
+		return NextResponse.json(
+			{ error: "The photo was not found." },
+			{ status: 404 },
+		);
 	}
 	await db.photo.delete({ where: { id: photoId } });
 	await removePhotoFiles(photoId);

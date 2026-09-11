@@ -12,13 +12,13 @@ import { formatMoney, formatMoneyCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DonutStat } from "@/components/dashboard-charts";
 import {
 	type Summary,
 	SummarySpinnerRow,
 	useSummary,
 	WidgetBoundary,
 } from "@/components/dashboard/summary-context";
+import { DonutStat } from "@/components/dashboard-charts";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
@@ -80,7 +80,8 @@ export function PipelineDonutWidget() {
 
 	const { pipeline, reportingCurrency } = summary;
 	const chartPipeline: PipelineStages =
-		selectedPipelineId !== undefined && selectedPipelineId !== pipeline.pipelineId
+		selectedPipelineId !== undefined &&
+		selectedPipelineId !== pipeline.pipelineId
 			? (chartQuery.data ?? pipeline)
 			: pipeline;
 

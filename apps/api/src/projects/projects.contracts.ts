@@ -72,7 +72,9 @@ export const projectCalendarInput = z
 				code: z.ZodIssueCode.custom,
 				message: "The end of the range is before the start.",
 			});
-		} else if (spanDays(value.from, value.to) > PROJECTS.calendar.maxRangeDays) {
+		} else if (
+			spanDays(value.from, value.to) > PROJECTS.calendar.maxRangeDays
+		) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: `A calendar range spans at most ${PROJECTS.calendar.maxRangeDays} days.`,

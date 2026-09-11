@@ -32,23 +32,51 @@ export async function POST(request: NextRequest) {
 	if (typeof filename !== "string" || filename.trim().length === 0) {
 		return NextResponse.json({ error: "Missing filename." }, { status: 400 });
 	}
-	if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
-		return NextResponse.json({ error: "Missing image dimensions." }, { status: 400 });
+	if (
+		!Number.isInteger(width) ||
+		!Number.isInteger(height) ||
+		width <= 0 ||
+		height <= 0
+	) {
+		return NextResponse.json(
+			{ error: "Missing image dimensions." },
+			{ status: 400 },
+		);
 	}
 	if (master.size > PHOTO_MAX_BYTES || thumb.size > PHOTO_THUMB_MAX_BYTES) {
-		return NextResponse.json({ error: "The photo is too large." }, { status: 413 });
+		return NextResponse.json(
+			{ error: "The photo is too large." },
+			{ status: 413 },
+		);
 	}
 	if (typeof dealId !== "string" && typeof contactId !== "string") {
-		return NextResponse.json({ error: "A photo needs a deal or a contact." }, { status: 400 });
+		return NextResponse.json(
+			{ error: "A photo needs a deal or a contact." },
+			{ status: 400 },
+		);
 	}
 
 	if (typeof dealId === "string") {
-		const deal = await db.deal.findUnique({ where: { id: dealId }, select: { id: true } });
-		if (!deal) return NextResponse.json({ error: "The deal was not found." }, { status: 404 });
+		const deal = await db.deal.findUnique({
+			where: { id: dealId },
+			select: { id: true },
+		});
+		if (!deal)
+			return NextResponse.json(
+				{ error: "The deal was not found." },
+				{ status: 404 },
+			);
 	}
 	if (typeof contactId === "string") {
-		const contact = await db.contact.findUnique({ where: { id: contactId }, select: { id: true } });
-		if (!contact) return NextResponse.json({ error: "The contact was not found." }, { status: 404 });
+		const contact = await db.contact.findUnique({
+			where: { id: contactId },
+			select: { id: true },
+		});
+		if (!contact)
+			return NextResponse.json(
+				{ error: "The contact was not found." },
+				{ status: 404 },
+			);
 	}
 
 	const masterBytes = Buffer.from(await master.arrayBuffer());
@@ -57,7 +85,10 @@ export async function POST(request: NextRequest) {
 		!matchesDeclaredType("image/jpeg", masterBytes) ||
 		!matchesDeclaredType("image/jpeg", thumbBytes)
 	) {
-		return NextResponse.json({ error: "Photos must be JPEG images." }, { status: 415 });
+		return NextResponse.json(
+			{ error: "Photos must be JPEG images." },
+			{ status: 415 },
+		);
 	}
 
 	const takenAt =
@@ -83,7 +114,10 @@ export async function POST(request: NextRequest) {
 	if (!saved) {
 		await removePhotoFiles(photo.id);
 		await db.photo.delete({ where: { id: photo.id } }).catch(() => null);
-		return NextResponse.json({ error: "The photo could not be saved." }, { status: 500 });
+		return NextResponse.json(
+			{ error: "The photo could not be saved." },
+			{ status: 500 },
+		);
 	}
 
 	return NextResponse.json(

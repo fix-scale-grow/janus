@@ -70,6 +70,26 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["apps/api/src/create-app.ts"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"useHookAtTopLevel": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/ui/src/styles/globals.css"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noImportantStyles": "off"
+					}
+				}
+			}
 		}
 	]
 }
