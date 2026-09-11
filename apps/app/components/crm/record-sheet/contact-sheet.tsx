@@ -52,6 +52,7 @@ import {
 import { DrawingGrid } from "@/components/drawings/drawing-grid";
 import { NewDrawingMenu } from "@/components/drawings/new-drawing-menu";
 import { LocalDateTime, LocalRelativeDate } from "@/components/local-date-time";
+import { PhotoGrid } from "@/components/photos/photo-grid";
 import { factsByField } from "@/lib/contact-facts";
 import { ENRICHMENT_POLL_MS, isEnriching } from "@/lib/enrichment-status";
 import { savingField } from "@/lib/pending-field";
@@ -122,6 +123,11 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 					value: "drawings",
 					label: "Drawings",
 					content: <ContactDrawings contact={contact} />,
+				},
+				{
+					value: "photos",
+					label: "Photos",
+					content: <ContactPhotos contact={contact} />,
 				},
 				{
 					value: "estimates",
@@ -485,6 +491,16 @@ function ContactDrawings({ contact }: { contact: Contact }) {
 				action={<NewDrawingMenu contactId={contact.id} size="sm" />}
 			>
 				<DrawingGrid contactId={contact.id} />
+			</DetailSheetSection>
+		</DetailSheetBody>
+	);
+}
+
+function ContactPhotos({ contact }: { contact: Contact }) {
+	return (
+		<DetailSheetBody>
+			<DetailSheetSection title="Photos">
+				<PhotoGrid contactId={contact.id} />
 			</DetailSheetSection>
 		</DetailSheetBody>
 	);
