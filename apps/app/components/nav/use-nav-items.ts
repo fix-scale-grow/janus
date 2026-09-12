@@ -20,17 +20,18 @@ type Pipeline = RouterOutputs["pipelines"]["list"][number];
 type Permissions = RouterOutputs["permissions"]["mine"];
 type NavView = RouterOutputs["views"]["get"];
 
+export type NavPermissions = Permissions;
+
 export const DEALS_MODULE_HREF = "/deals";
 
 export type NavItemsSeed = {
-	permissionKeys?: string[];
+	permissions?: Permissions;
 	navOrder?: string[];
 	navHidden?: string[];
 };
 
 function seedPermissions(seed?: NavItemsSeed): Permissions | undefined {
-	if (!seed?.permissionKeys) return undefined;
-	return { keys: seed.permissionKeys, isAdmin: false };
+	return seed?.permissions;
 }
 
 function seedNavView(seed?: NavItemsSeed): NavView | undefined {

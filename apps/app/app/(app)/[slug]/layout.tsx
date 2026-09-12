@@ -59,7 +59,7 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 		<HydrateClient>
 			<AppIconRail
 				navLayout={navLayout}
-				initialPermissionKeys={permissions.keys}
+				initialPermissions={permissions}
 				initialNavOrder={navView?.navOrder}
 				initialNavHidden={navView?.navHidden}
 			/>
@@ -108,7 +108,7 @@ async function WorkspaceHeader({
 					image: user.image ?? null,
 				}}
 				navLayout={navLayout}
-				initialPermissionKeys={permissions.keys}
+				initialPermissions={permissions}
 				initialNavOrder={navView?.navOrder}
 				initialNavHidden={navView?.navHidden}
 			/>

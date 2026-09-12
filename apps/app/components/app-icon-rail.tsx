@@ -54,6 +54,7 @@ import {
 	isNavChildActive,
 	isNavItemActive,
 	type NavItem,
+	type NavPermissions,
 	useNavItems,
 } from "@/components/nav/use-nav-items";
 import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
@@ -299,12 +300,12 @@ export function AppIconRailFallback({
 
 export function AppIconRail({
 	navLayout,
-	initialPermissionKeys,
+	initialPermissions,
 	initialNavOrder,
 	initialNavHidden,
 }: {
 	navLayout: "RAIL" | "TOP_BAR";
-	initialPermissionKeys?: string[];
+	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
 }) {
@@ -312,7 +313,7 @@ export function AppIconRail({
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
 	const { items, sectionIds, saveOrder } = useNavItems({
-		permissionKeys: initialPermissionKeys,
+		permissions: initialPermissions,
 		navOrder: initialNavOrder,
 		navHidden: initialNavHidden,
 	});

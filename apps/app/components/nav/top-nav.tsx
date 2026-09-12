@@ -21,15 +21,16 @@ import {
 	isNavChildActive,
 	isNavItemActive,
 	type NavItem,
+	type NavPermissions,
 	useNavItems,
 } from "@/components/nav/use-nav-items";
 
 export function TopNav({
-	initialPermissionKeys,
+	initialPermissions,
 	initialNavOrder,
 	initialNavHidden,
 }: {
-	initialPermissionKeys?: string[];
+	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
 } = {}) {
@@ -37,7 +38,7 @@ export function TopNav({
 	const searchParams = useSearchParams();
 	const prefetchSection = usePrefetchSection();
 	const { items } = useNavItems({
-		permissionKeys: initialPermissionKeys,
+		permissions: initialPermissions,
 		navOrder: initialNavOrder,
 		navHidden: initialNavHidden,
 	});

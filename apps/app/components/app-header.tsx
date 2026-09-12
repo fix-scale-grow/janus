@@ -27,6 +27,7 @@ import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
 import { RecentsMenu } from "@/components/nav/recents-menu";
 import { SearchPill } from "@/components/nav/search-pill";
 import { TopNav } from "@/components/nav/top-nav";
+import type { NavPermissions } from "@/components/nav/use-nav-items";
 import { signOutAndRedirect } from "@/lib/sign-out";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -37,13 +38,13 @@ type User = { name: string; email: string; image: string | null };
 export function AppHeader({
 	user,
 	navLayout,
-	initialPermissionKeys,
+	initialPermissions,
 	initialNavOrder,
 	initialNavHidden,
 }: {
 	user: User;
 	navLayout: "RAIL" | "TOP_BAR";
-	initialPermissionKeys?: string[];
+	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
 }) {
@@ -85,7 +86,7 @@ export function AppHeader({
 					<RecentsMenu variant="bar" />
 					<Separator orientation="vertical" className="mx-1 h-5" />
 					<TopNav
-						initialPermissionKeys={initialPermissionKeys}
+						initialPermissions={initialPermissions}
 						initialNavOrder={initialNavOrder}
 						initialNavHidden={initialNavHidden}
 					/>
