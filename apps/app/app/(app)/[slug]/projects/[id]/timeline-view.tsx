@@ -2,7 +2,13 @@
 
 import { Badge } from "@crm/ui/components/badge";
 import { cn } from "@crm/ui/lib/utils";
-import { useMemo } from "react";
+import { useMutation } from "@tanstack/react-query";
+import type {
+	MouseEvent as ReactMouseEvent,
+	PointerEvent as ReactPointerEvent,
+} from "react";
+import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { BoardDensity } from "@/components/board/use-board-density";
 import { usePanScroll } from "@/components/board/use-pan-scroll";
 import {
@@ -11,6 +17,8 @@ import {
 } from "@/components/crews/crew-colors";
 import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { addDays, dayKey, weekOf } from "@/lib/calendar/span-layout";
+import { useCrmCache } from "@/lib/trpc/cache";
+import { useTRPC } from "@/lib/trpc/client";
 import type { CalendarTask, Project } from "./calendar-view";
 import { barClasses, taskBarClasses } from "./task-bar";
 import {
@@ -198,6 +206,7 @@ function TimelineRow({
 				)}
 			</div>
 			<div
+				data-timeline-track=""
 				className="relative"
 				style={{
 					width: `${trackWidthRem}rem`,
@@ -205,24 +214,212 @@ function TimelineRow({
 				}}
 			>
 				{outside ? null : (
-					<TaskPopover projectId={projectId} task={task} density={density}>
-						<button
-							type="button"
-							style={{
-								left: `${offsetDays * DAY_WIDTH_REM}rem`,
-								width: `${spanDays * DAY_WIDTH_REM}rem`,
-							}}
-							className={cn(
-								taskBarClasses(density),
-								barClasses(task),
-								"absolute top-1/2 -translate-y-1/2",
-							)}
-						>
-							{task.name}
-						</button>
-					</TaskPopover>
+					<TimelineBar
+						task={task}
+						projectId={projectId}
+						offsetDays={offsetDays}
+						spanDays={spanDays}
+						clippedStart={task.startDay.getTime() < windowStart.getTime()}
+						clippedEnd={task.endDay.getTime() > windowEnd.getTime()}
+						density={density}
+					/>
 				)}
 			</div>
+		</div>
+	);
+}
+
+type TimelineDragMode = "move" | "start" | "end";
+
+function TimelineBar({
+	task,
+	projectId,
+	offsetDays,
+	spanDays,
+	clippedStart,
+	clippedEnd,
+	density,
+}: {
+	task: CalendarTask;
+	projectId: string;
+	offsetDays: number;
+	spanDays: number;
+	clippedStart: boolean;
+	clippedEnd: boolean;
+	density?: BoardDensity;
+}) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const [preview, setPreview] = useState<{
+		mode: TimelineDragMode;
+		delta: number;
+	} | null>(null);
+	const drag = useRef<{
+		mode: TimelineDragMode;
+		startX: number;
+		dayWidth: number;
+		moved: boolean;
+	} | null>(null);
+	const suppressClickUntil = useRef(0);
+
+	const taskMove = useMutation(
+		trpc.projects.taskMove.mutationOptions({
+			onSuccess: () => cache.project(projectId, { settle: "record" }),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const clampedDelta = (mode: TimelineDragMode, rawDelta: number): number => {
+		if (mode === "start") {
+			const minStart = addDays(task.endDay, -(CALENDAR.maxTaskSpanDays - 1));
+			const next = addDays(task.startDay, rawDelta);
+			const clamped =
+				next.getTime() > task.endDay.getTime()
+					? task.endDay
+					: next.getTime() < minStart.getTime()
+						? minStart
+						: next;
+			return Math.round((clamped.getTime() - task.startDay.getTime()) / DAY_MS);
+		}
+		if (mode === "end") {
+			const maxEnd = addDays(task.startDay, CALENDAR.maxTaskSpanDays - 1);
+			const next = addDays(task.endDay, rawDelta);
+			const clamped =
+				next.getTime() < task.startDay.getTime()
+					? task.startDay
+					: next.getTime() > maxEnd.getTime()
+						? maxEnd
+						: next;
+			return Math.round((clamped.getTime() - task.endDay.getTime()) / DAY_MS);
+		}
+		return rawDelta;
+	};
+
+	const reset = () => {
+		drag.current = null;
+		setPreview(null);
+	};
+
+	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (event.button !== 0) return;
+		if (!(event.target instanceof Element)) return;
+		const edge = event.target.closest("[data-edge]");
+		const mode = (edge?.getAttribute("data-edge") ??
+			"move") as TimelineDragMode;
+		const track = event.currentTarget.closest("[data-timeline-track]");
+		const dayWidth = track
+			? track.getBoundingClientRect().width / CALENDAR.timelineDays
+			: 40;
+		drag.current = { mode, startX: event.clientX, dayWidth, moved: false };
+	};
+
+	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+		const state = drag.current;
+		if (!state) return;
+		if ((event.buttons & 1) === 0) {
+			reset();
+			return;
+		}
+		if (!state.moved && Math.abs(event.clientX - state.startX) < 5) return;
+		state.moved = true;
+		if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+			event.currentTarget.setPointerCapture(event.pointerId);
+		}
+		const rawDelta = Math.round(
+			(event.clientX - state.startX) / state.dayWidth,
+		);
+		setPreview({ mode: state.mode, delta: clampedDelta(state.mode, rawDelta) });
+	};
+
+	const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+		const state = drag.current;
+		if (!state) return;
+		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+		const rawDelta = Math.round(
+			(event.clientX - state.startX) / state.dayWidth,
+		);
+		const delta = state.moved ? clampedDelta(state.mode, rawDelta) : 0;
+		const moved = state.moved;
+		const mode = state.mode;
+		reset();
+		if (!moved) return;
+		suppressClickUntil.current = Date.now() + 300;
+		if (delta === 0) return;
+		taskMove.mutate({
+			id: task.id,
+			startDay: mode === "end" ? task.startDay : addDays(task.startDay, delta),
+			endDay: mode === "start" ? task.endDay : addDays(task.endDay, delta),
+			sortOrder: task.sortOrder,
+		});
+	};
+
+	const onClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+		if (Date.now() < suppressClickUntil.current) {
+			event.preventDefault();
+			event.stopPropagation();
+		}
+	};
+
+	const previewDelta = preview?.delta ?? 0;
+	const displayOffset = Math.max(
+		0,
+		preview && preview.mode !== "end" ? offsetDays + previewDelta : offsetDays,
+	);
+	const rawSpan =
+		preview?.mode === "start"
+			? spanDays - previewDelta
+			: preview?.mode === "end"
+				? spanDays + previewDelta
+				: spanDays;
+	const displaySpan = Math.max(
+		1,
+		Math.min(rawSpan, CALENDAR.timelineDays - displayOffset),
+	);
+
+	return (
+		<div
+			data-board-drag=""
+			onPointerDown={onPointerDown}
+			onPointerMove={onPointerMove}
+			onPointerUp={onPointerUp}
+			onPointerCancel={reset}
+			onLostPointerCapture={reset}
+			onClickCapture={onClickCapture}
+			style={{
+				left: `${displayOffset * DAY_WIDTH_REM}rem`,
+				width: `${displaySpan * DAY_WIDTH_REM}rem`,
+			}}
+			className={cn(
+				taskBarClasses(density),
+				barClasses(task),
+				"absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing",
+				clippedStart ? "rounded-l-none border-l-0" : "pl-2.5",
+				clippedEnd ? "rounded-r-none border-r-0" : "pr-2.5",
+			)}
+		>
+			<TaskPopover projectId={projectId} task={task} density={density}>
+				<button type="button" className="min-w-0 flex-1 truncate text-left">
+					{task.name}
+				</button>
+			</TaskPopover>
+			{!clippedStart ? (
+				<span
+					data-edge="start"
+					className="absolute inset-y-0 left-0 z-10 flex w-2.5 cursor-ew-resize items-center justify-center"
+				>
+					<span className="h-3 w-0.5 rounded-sm bg-current opacity-30" />
+				</span>
+			) : null}
+			{!clippedEnd ? (
+				<span
+					data-edge="end"
+					className="absolute inset-y-0 right-0 z-10 flex w-2.5 cursor-ew-resize items-center justify-center"
+				>
+					<span className="h-3 w-0.5 rounded-sm bg-current opacity-30" />
+				</span>
+			) : null}
 		</div>
 	);
 }
