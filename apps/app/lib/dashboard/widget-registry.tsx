@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { ComponentType } from "react";
+import { type ComponentType, useMemo } from "react";
 import { ActivityWidget } from "@/components/dashboard/widgets/activity-widget";
 import { AskJanusWidget } from "@/components/dashboard/widgets/ask-janus-widget";
 import { DealsOpenWidget } from "@/components/dashboard/widgets/deals-open-widget";
@@ -55,6 +55,18 @@ export const DASHBOARD_WIDGETS: (WidgetMeta & { component: ComponentType })[] =
 
 export { visibleWidgets };
 
+const boardComponentCache = new Map<string, ComponentType>();
+
+function boardComponentFor(pipelineId: string, title: string): ComponentType {
+	const cached = boardComponentCache.get(pipelineId);
+	if (cached) return cached;
+	const component: ComponentType = () => (
+		<PipelineBoardWidget pipelineId={pipelineId} title={title} />
+	);
+	boardComponentCache.set(pipelineId, component);
+	return component;
+}
+
 export function useVisibleWidgets(): (WidgetMeta & {
 	component: ComponentType;
 })[] {
@@ -64,15 +76,17 @@ export function useVisibleWidgets(): (WidgetMeta & {
 		trpc.pipelines.list.queryOptions({ includeArchived: false }),
 	);
 	const keys = permissions.data?.keys ?? [];
-	const boardWidgets = (pipelines.data ?? []).map((pipeline) => {
-		const meta = pipelineBoardMeta(pipeline);
-		return {
-			...meta,
-			component: () => (
-				<PipelineBoardWidget pipelineId={meta.pipelineId} title={meta.title} />
-			),
-		};
-	});
+	const boardWidgets = useMemo(
+		() =>
+			(pipelines.data ?? []).map((pipeline) => {
+				const meta = pipelineBoardMeta(pipeline);
+				return {
+					...meta,
+					component: boardComponentFor(meta.pipelineId, meta.title),
+				};
+			}),
+		[pipelines.data],
+	);
 	return [
 		...visibleWidgets(DASHBOARD_WIDGETS, keys),
 		...visibleWidgets(boardWidgets, keys),
