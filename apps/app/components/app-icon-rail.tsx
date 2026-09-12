@@ -76,6 +76,7 @@ function useNavOrder(): {
 
 	const saveOrder = (next: string[]) => {
 		setPending(next);
+		if (view.isPending) return;
 		save.mutate(
 			{ tableId: "nav", state: { ...view.data, navOrder: next } },
 			{ onSuccess: () => void cache.views("nav", { settle: "record" }) },
