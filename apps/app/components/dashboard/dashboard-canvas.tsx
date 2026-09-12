@@ -5,6 +5,7 @@ import {
 	type DashboardLayoutEntry,
 } from "@crm/db/user-views";
 import { WidgetEditingProvider } from "@crm/ui/components/widget-shell";
+import { cn } from "@crm/ui/lib/utils";
 import {
 	type ComponentType,
 	useEffect,
@@ -254,7 +255,17 @@ export function DashboardCanvas({
 				margin: GRID_MARGIN,
 			}}
 			dragConfig={{ enabled: editing, handle: ".janus-widget-drag" }}
-			resizeConfig={{ enabled: editing, handles: ["se"] }}
+			resizeConfig={{
+				enabled: editing,
+				handles: ["se"],
+				handleComponent: (axis, ref) => (
+					<span
+						ref={ref}
+						className={`react-resizable-handle react-resizable-handle-${axis}`}
+						title="Drag to resize"
+					/>
+				),
+			}}
 			compactor={verticalCompactor}
 			onLayoutChange={handleLayoutChange}
 		>
@@ -312,7 +323,10 @@ export function DashboardCanvas({
 	}
 
 	return (
-		<div ref={containerRef} className="relative">
+		<div
+			ref={containerRef}
+			className={cn("relative", editing && "bg-muted/30")}
+		>
 			{grid}
 			{editing && mounted && (
 				<GridGuides

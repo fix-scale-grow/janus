@@ -17,6 +17,12 @@ import {
 	CardTitle,
 } from "@crm/ui/components/card";
 import { Icon } from "@crm/ui/components/icon";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@crm/ui/components/tooltip";
+import { cn } from "@crm/ui/lib/utils";
 
 type WidgetEditingContextValue = { editing: boolean; onRemove?: () => void };
 
@@ -65,16 +71,26 @@ export function WidgetShell({
 	const handleRemove = onRemove ?? context.onRemove;
 
 	return (
-		<Card className="min-w-0 h-full flex flex-col">
+		<Card
+			className={cn(
+				"min-w-0 h-full flex flex-col",
+				isEditing && "border border-dashed",
+			)}
+		>
 			<CardHeader>
 				<div className="flex items-center gap-2">
 					{isEditing ? (
-						<span
-							className="janus-widget-drag cursor-grab text-muted-foreground"
-							aria-hidden
-						>
-							<Icon icon={Draggable} />
-						</span>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<span
+									className="janus-widget-drag cursor-grab text-muted-foreground"
+									aria-hidden
+								>
+									<Icon icon={Draggable} />
+								</span>
+							</TooltipTrigger>
+							<TooltipContent>Drag to move</TooltipContent>
+						</Tooltip>
 					) : null}
 					<CardTitle>{title}</CardTitle>
 				</div>
@@ -83,15 +99,20 @@ export function WidgetShell({
 					<CardAction>
 						{action}
 						{isEditing ? (
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-sm"
-								onClick={handleRemove}
-							>
-								<Icon icon={Close} />
-								<span className="sr-only">Remove {title}</span>
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										onClick={handleRemove}
+									>
+										<Icon icon={Close} />
+										<span className="sr-only">Remove {title}</span>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Remove widget</TooltipContent>
+							</Tooltip>
 						) : null}
 					</CardAction>
 				) : null}
