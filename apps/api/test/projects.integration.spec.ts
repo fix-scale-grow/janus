@@ -568,6 +568,14 @@ describe("ProjectsService", () => {
 			name: "Unscheduled",
 			endDay: null,
 		});
+		const legacy = await db.projectTask.create({
+			data: {
+				projectId: project.id,
+				name: "Legacy end only",
+				endDay: new Date("2028-04-08T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
 
 		const moved = await service.moveSchedule({
 			id: project.id,
@@ -585,6 +593,10 @@ describe("ProjectsService", () => {
 		const untouched = after.tasks.find((task) => task.id === unscheduled.id);
 		expect(untouched?.startDay).toBeNull();
 		expect(untouched?.endDay).toBeNull();
+
+		const legacyAfter = after.tasks.find((task) => task.id === legacy.id);
+		expect(legacyAfter?.startDay).toBeNull();
+		expect(legacyAfter?.endDay).toEqual(new Date("2028-04-11T00:00:00.000Z"));
 	});
 
 	it("keeps a null goal on moveSchedule and rejects an unknown project", async () => {

@@ -25,6 +25,7 @@ import {
 	closestCorners,
 	DndContext,
 	type DragEndEvent,
+	type DragOverEvent,
 	DragOverlay,
 	type DragStartEvent,
 	PointerSensor,
@@ -123,6 +124,7 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
 	const suppressClick = useRef(false);
+	const grabKey = useRef<string | null>(null);
 	const [statusParam, setStatusParam] = useQueryState(
 		"status",
 		parseAsString.withDefault("all"),
@@ -216,10 +218,11 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 		if (overId == null) return;
 		const targetKey = String(overId);
 		const startKey = event.active.data.current?.startKey as string | undefined;
-		if (!startKey || startKey === targetKey) return;
+		const fromKey = grabKey.current ?? startKey;
+		if (!fromKey || fromKey === targetKey) return;
 
 		const deltaDays = Math.round(
-			(fromDayKey(targetKey).getTime() - fromDayKey(startKey).getTime()) /
+			(fromDayKey(targetKey).getTime() - fromDayKey(fromKey).getTime()) /
 				86_400_000,
 		);
 		if (deltaDays === 0) return;
@@ -292,7 +295,13 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 				collisionDetection={closestCorners}
 				onDragStart={(event: DragStartEvent) => {
 					suppressClick.current = false;
+					grabKey.current = null;
 					setActiveId(String(event.active.id));
+				}}
+				onDragOver={(event: DragOverEvent) => {
+					if (grabKey.current === null && event.over) {
+						grabKey.current = String(event.over.id);
+					}
 				}}
 				onDragEnd={handleDragEnd}
 				onDragCancel={() => setActiveId(null)}
@@ -400,11 +409,13 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 }
 
 function moveSummary({ span, deltaDays }: PendingMove): string {
-	const startLine = `Start moves from ${DATE_LABEL.format(span.startDay)} to ${DATE_LABEL.format(addDays(span.startDay, deltaDays))}.`;
+	const days = Math.abs(deltaDays);
+	const direction = deltaDays > 0 ? "later" : "earlier";
+	const scheduleLine = `The whole schedule moves ${days} day${days === 1 ? "" : "s"} ${direction}: ${DATE_LABEL.format(addDays(span.startDay, deltaDays))} to ${DATE_LABEL.format(addDays(span.endDay, deltaDays))}.`;
 	if (span.goalDate) {
-		return `${startLine} Goal moves from ${DATE_LABEL.format(span.goalDate)} to ${DATE_LABEL.format(addDays(span.goalDate, deltaDays))}. Scheduled tasks move with it.`;
+		return `${scheduleLine} The goal becomes ${DATE_LABEL.format(addDays(span.goalDate, deltaDays))}.`;
 	}
-	return `${startLine} Scheduled tasks move with it.`;
+	return scheduleLine;
 }
 
 function projectLabel(span: ProjectSpan): string {

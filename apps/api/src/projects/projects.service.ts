@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
-import { PROJECTS } from "./projects.config";
+import { DAY_MS, PROJECTS } from "./projects.config";
 import type {
 	ProjectCalendarInput,
 	ProjectCreateInput,
@@ -124,7 +124,6 @@ export class ProjectsService {
 					},
 				],
 			},
-			orderBy: [{ startDate: "asc" }, { name: "asc" }],
 			select: {
 				id: true,
 				name: true,
@@ -139,7 +138,7 @@ export class ProjectsService {
 			by: ["projectId"],
 			where: {
 				projectId: { in: rows.map((row) => row.id) },
-				startDay: { not: null },
+				OR: [{ startDay: { not: null } }, { endDay: { not: null } }],
 			},
 			_min: { startDay: true },
 			_max: { endDay: true },
@@ -248,24 +247,16 @@ export class ProjectsService {
 			}
 
 			const shift = (value: Date): Date =>
-				new Date(value.getTime() + input.deltaDays * 86_400_000);
+				new Date(value.getTime() + input.deltaDays * DAY_MS);
 
-			const tasks = await tx.projectTask.findMany({
-				where: { projectId: project.id, startDay: { not: null } },
-				select: { id: true, startDay: true, endDay: true },
-			});
-
-			await Promise.all(
-				tasks.map((task) =>
-					tx.projectTask.update({
-						where: { id: task.id },
-						data: {
-							startDay: task.startDay ? shift(task.startDay) : null,
-							endDay: task.endDay ? shift(task.endDay) : null,
-						},
-					}),
-				),
-			);
+			await tx.$executeRaw`
+				UPDATE "project_task"
+				SET "startDay" = "startDay" + ${input.deltaDays} * interval '1 day',
+					"endDay" = "endDay" + ${input.deltaDays} * interval '1 day',
+					"updatedAt" = now()
+				WHERE "projectId" = ${project.id}
+					AND ("startDay" IS NOT NULL OR "endDay" IS NOT NULL)
+			`;
 
 			return tx.project.update({
 				where: { id: project.id },

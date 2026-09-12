@@ -97,6 +97,7 @@ export function TaskBar({
 					task={bar.task}
 					projectId={projectId}
 					onPreview={setPreviewStartDelta}
+					bounds={{ min: -bar.startCol, max: bar.endCol - bar.startCol }}
 				/>
 			) : null}
 			{!bar.clippedStart ? (
@@ -114,6 +115,7 @@ export function TaskBar({
 					task={bar.task}
 					projectId={projectId}
 					onPreview={setPreviewEndDelta}
+					bounds={{ min: bar.startCol - bar.endCol, max: 6 - bar.endCol }}
 				/>
 			) : null}
 		</div>
@@ -125,11 +127,13 @@ function ResizeHandle({
 	task,
 	projectId,
 	onPreview,
+	bounds,
 }: {
 	edge: "start" | "end";
 	task: CalendarTask;
 	projectId: string;
 	onPreview: (deltaDays: number) => void;
+	bounds: { min: number; max: number };
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -157,11 +161,12 @@ function ResizeHandle({
 	};
 
 	const clampedDelta = (rawDelta: number): number => {
+		const visible = Math.min(bounds.max, Math.max(bounds.min, rawDelta));
 		if (edge === "start") {
-			const clamped = clampStart(addDays(task.startDay, rawDelta));
+			const clamped = clampStart(addDays(task.startDay, visible));
 			return Math.round((clamped.getTime() - task.startDay.getTime()) / DAY_MS);
 		}
-		const clamped = clampEnd(addDays(task.endDay, rawDelta));
+		const clamped = clampEnd(addDays(task.endDay, visible));
 		return Math.round((clamped.getTime() - task.endDay.getTime()) / DAY_MS);
 	};
 
@@ -181,7 +186,17 @@ function ResizeHandle({
 	const onPointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
 		const state = drag.current;
 		if (!state) return;
+		if ((event.buttons & 1) === 0) {
+			drag.current = null;
+			onPreview(0);
+			return;
+		}
 		onPreview(clampedDelta(rawDeltaDays(event, state)));
+	};
+
+	const onPointerCancel = () => {
+		drag.current = null;
+		onPreview(0);
 	};
 
 	const onPointerUp = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -209,6 +224,8 @@ function ResizeHandle({
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
+			onPointerCancel={onPointerCancel}
+			onLostPointerCapture={onPointerCancel}
 		>
 			<span className="h-3 w-0.5 rounded-sm bg-current opacity-30" />
 		</span>
