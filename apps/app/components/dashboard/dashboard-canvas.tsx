@@ -114,7 +114,7 @@ function GridGuides({
 
 	return (
 		<div
-			className="pointer-events-none absolute inset-0 opacity-50"
+			className="pointer-events-none absolute inset-0 z-0 opacity-50"
 			style={{ height: heightPx }}
 		>
 			{columnLines.map((left) => (
@@ -327,7 +327,6 @@ export function DashboardCanvas({
 			ref={containerRef}
 			className={cn("relative", editing && "bg-muted/30")}
 		>
-			{grid}
 			{editing && mounted && (
 				<GridGuides
 					width={width}
@@ -338,6 +337,7 @@ export function DashboardCanvas({
 					heightPx={gridHeight}
 				/>
 			)}
+			<div className="relative z-10">{grid}</div>
 		</div>
 	);
 }
