@@ -34,6 +34,7 @@ import {
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
 import { FieldsService } from "../fields/fields.service";
+import { parseNumberQuery } from "../search/search.config";
 import {
 	countsByKey,
 	FACET_ALL,
@@ -795,8 +796,8 @@ export class DealsService {
 			{ name: { contains: term, mode: "insensitive" } },
 		];
 
-		const asNumber = Number(term);
-		if (Number.isInteger(asNumber)) {
+		const asNumber = parseNumberQuery(term);
+		if (asNumber !== null) {
 			or.push({ number: asNumber });
 		}
 

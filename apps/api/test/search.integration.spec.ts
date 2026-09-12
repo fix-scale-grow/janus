@@ -24,6 +24,10 @@ let fieldDefId: string;
 let fieldDealId: string;
 let dedupeDealId: string;
 let dedupeFieldDefId: string;
+let phoneDealId: string;
+let phoneFieldDefId: string;
+let rankContactId: string;
+const PHONE_NUMBER = "5551234567";
 
 async function clean() {
 	await db.fieldValue.deleteMany({
@@ -202,14 +206,58 @@ beforeAll(async () => {
 			text: `${prefix} Dedupe Alpha context note`,
 		},
 	});
+
+	const phoneDeal = await db.deal.create({
+		data: {
+			name: `${prefix} Phone Match Deal`,
+			ownerId,
+			stageId,
+			currency: "USD",
+		},
+		select: { id: true },
+	});
+	phoneDealId = phoneDeal.id;
+
+	const phoneFieldDef = await db.fieldDefinition.create({
+		data: {
+			entity: "DEAL",
+			key: `${prefix}_callback_phone`,
+			label: "Callback phone",
+			type: "TEXT",
+			position: 952,
+		},
+		select: { id: true },
+	});
+	phoneFieldDefId = phoneFieldDef.id;
+
+	await db.fieldValue.create({
+		data: {
+			fieldId: phoneFieldDefId,
+			dealId: phoneDealId,
+			text: `${prefix} ${PHONE_NUMBER}`,
+		},
+	});
+
+	const rankContact = await db.contact.create({
+		data: {
+			firstName: "Devon",
+			lastName: "Rank",
+			email: `devon-${suffix}@${domain}`,
+			companyName: `${prefix} ${dealNumberedNumber} Rank Roofing`,
+		},
+		select: { id: true },
+	});
+	rankContactId = rankContact.id;
 });
 
 afterAll(async () => {
 	await db.fieldValue.deleteMany({
-		where: { fieldId: { in: [fieldDefId, dedupeFieldDefId] } },
+		where: {
+			fieldId: { in: [fieldDefId, dedupeFieldDefId, phoneFieldDefId] },
+		},
 	});
 	await db.fieldDefinition.deleteMany({
-		where: { id: { in: [fieldDefId, dedupeFieldDefId] } },
+		where: { id: { in: [fieldDefId, dedupeFieldDefId, phoneFieldDefId] } },
 	});
 	await db.drawing.deleteMany({ where: { id: drawingId } });
 	await db.estimate.deleteMany({ where: { id: estimateId } });
@@ -217,12 +265,18 @@ afterAll(async () => {
 	await db.deal.deleteMany({
 		where: {
 			id: {
-				in: [dealNumberedId, dealNamedWithNumberId, fieldDealId, dedupeDealId],
+				in: [
+					dealNumberedId,
+					dealNamedWithNumberId,
+					fieldDealId,
+					dedupeDealId,
+					phoneDealId,
+				],
 			},
 		},
 	});
 	await db.contact.deleteMany({
-		where: { id: { in: [companyContactId, secondContactId] } },
+		where: { id: { in: [companyContactId, secondContactId, rankContactId] } },
 	});
 	await db.user.deleteMany({ where: { id: ownerId } });
 });
@@ -318,5 +372,22 @@ describe("SearchService.quick", () => {
 		const result = await search.quick(`${prefix} Dedupe Alpha`);
 		const matches = result.hits.filter((row) => row.id === dedupeDealId);
 		expect(matches.length).toBe(1);
+	});
+
+	it("does not throw on a 10-digit phone-number query and matches a TEXT field value", async () => {
+		const result = await search.quick(PHONE_NUMBER);
+		const hit = result.hits.find(
+			(row) => row.kind === "deal" && row.id === phoneDealId,
+		);
+		expect(hit).toBeDefined();
+	});
+
+	it("ranks the exact number match first across kinds on a digit query", async () => {
+		const result = await search.quick(String(dealNumberedNumber));
+		const contactMatch = result.hits.find((row) => row.id === rankContactId);
+		expect(contactMatch).toBeDefined();
+
+		expect(result.hits[0]?.id).toBe(dealNumberedId);
+		expect(result.hits[0]?.kind).toBe("deal");
 	});
 });

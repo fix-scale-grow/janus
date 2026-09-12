@@ -514,6 +514,31 @@ describe("closing filter merges with pipeline filter", () => {
 	});
 });
 
+describe("searchFilter digit overflow", () => {
+	it("returns name matches without throwing on a 10-digit phone-number query", async () => {
+		const named = await deals.create({
+			name: `${prefix}_5551234567_callback`,
+			ownerId,
+			stage: entryA.id,
+		});
+
+		const list = await deals.list({
+			q: "5551234567",
+			page: 1,
+			pageSize: 25,
+			sort: "",
+			dir: "asc",
+			status: "all",
+			owner: "all",
+			stage: "all",
+			closing: "all",
+		});
+
+		const ids = list.rows.map((row) => (row as { id: string }).id);
+		expect(ids).toContain(named.id);
+	});
+});
+
 describe("facetCounts stage meta", () => {
 	it("carries id/label/color/pipelineId for every counted stage", async () => {
 		await deals.create({

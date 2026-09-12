@@ -1,7 +1,7 @@
 import type { Db } from "@crm/db";
 import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
-import { SEARCH } from "./search.config";
+import { parseNumberQuery, SEARCH } from "./search.config";
 
 export type SearchHit = {
 	kind: "contact" | "deal" | "invoice" | "contract" | "drawing" | "estimate";
@@ -152,6 +152,20 @@ function mergeHits(groups: SearchHit[][]): SearchHit[] {
 	return merged.slice(0, SEARCH.perKind);
 }
 
+function dedupeHits(hits: SearchHit[]): SearchHit[] {
+	const seen = new Set<string>();
+	const deduped: SearchHit[] = [];
+
+	for (const hit of hits) {
+		const key = `${hit.kind}:${hit.id}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		deduped.push(hit);
+	}
+
+	return deduped;
+}
+
 @Injectable()
 export class SearchService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
@@ -160,8 +174,8 @@ export class SearchService {
 		const term = q.trim();
 		if (term.length < SEARCH.minLength) return { hits: [] };
 
-		const isDigits = /^\d+$/.test(term);
-		const asNumber = isDigits ? Number(term) : null;
+		const asNumber = parseNumberQuery(term);
+		const isDigitQuery = asNumber !== null;
 
 		const [
 			contactRows,
@@ -219,15 +233,24 @@ export class SearchService {
 
 		const estimates = mergeHits([estimateRows.map((row) => estimateHit(row))]);
 
+		const numberFirstHits = isDigitQuery
+			? [
+					dealNumberRow ? dealHit(dealNumberRow) : null,
+					invoiceNumberRow ? invoiceHit(invoiceNumberRow) : null,
+					contractNumberRow ? contractHit(contractNumberRow) : null,
+				].filter((hit): hit is SearchHit => hit !== null)
+			: [];
+
 		return {
-			hits: [
+			hits: dedupeHits([
+				...numberFirstHits,
 				...contacts,
 				...deals,
 				...invoices,
 				...contracts,
 				...drawings,
 				...estimates,
-			],
+			]),
 		};
 	}
 
