@@ -73,10 +73,10 @@ export function QuickCreateMenu({ variant }: { variant: "rail" | "bar" }) {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				{variant === "rail" ? (
-					<Tooltip>
-						<TooltipTrigger asChild>
+			{variant === "rail" ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<DropdownMenuTrigger asChild>
 							<Button
 								variant="ghost"
 								size="icon"
@@ -85,10 +85,12 @@ export function QuickCreateMenu({ variant }: { variant: "rail" | "bar" }) {
 							>
 								<Icon icon={Add} />
 							</Button>
-						</TooltipTrigger>
-						<TooltipContent side="right">New</TooltipContent>
-					</Tooltip>
-				) : (
+						</DropdownMenuTrigger>
+					</TooltipTrigger>
+					<TooltipContent side="right">New</TooltipContent>
+				</Tooltip>
+			) : (
+				<DropdownMenuTrigger asChild>
 					<NavBarItem asChild hasChildren>
 						<button type="button">
 							<NavBarItemIcon icon={Add} />
@@ -96,8 +98,8 @@ export function QuickCreateMenu({ variant }: { variant: "rail" | "bar" }) {
 							<NavBarItemChevron />
 						</button>
 					</NavBarItem>
-				)}
-			</DropdownMenuTrigger>
+				</DropdownMenuTrigger>
+			)}
 			<DropdownMenuContent align="start" className="min-w-44">
 				{items.map((item) => (
 					<DropdownMenuItem key={item.label} onSelect={item.onSelect}>

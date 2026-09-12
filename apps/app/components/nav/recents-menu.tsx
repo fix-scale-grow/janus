@@ -71,10 +71,10 @@ export function RecentsMenu({ variant }: { variant: "rail" | "bar" }) {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				{variant === "rail" ? (
-					<Tooltip>
-						<TooltipTrigger asChild>
+			{variant === "rail" ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<DropdownMenuTrigger asChild>
 							<Button
 								variant="ghost"
 								size="icon"
@@ -83,18 +83,20 @@ export function RecentsMenu({ variant }: { variant: "rail" | "bar" }) {
 							>
 								<Icon icon={History} />
 							</Button>
-						</TooltipTrigger>
-						<TooltipContent side="right">Recent</TooltipContent>
-					</Tooltip>
-				) : (
+						</DropdownMenuTrigger>
+					</TooltipTrigger>
+					<TooltipContent side="right">Recent</TooltipContent>
+				</Tooltip>
+			) : (
+				<DropdownMenuTrigger asChild>
 					<NavBarItem asChild>
 						<button type="button">
 							<NavBarItemIcon icon={History} />
 							Recent
 						</button>
 					</NavBarItem>
-				)}
-			</DropdownMenuTrigger>
+				</DropdownMenuTrigger>
+			)}
 			<DropdownMenuContent align="start" className="min-w-56">
 				{rows.length === 0 ? (
 					<DropdownMenuItem disabled>No recent records yet.</DropdownMenuItem>
