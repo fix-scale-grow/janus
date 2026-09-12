@@ -43,7 +43,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { type MouseEvent, useMemo, useRef, useState } from "react";
 import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-sidebar";
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
@@ -135,6 +135,20 @@ function isActive(item: RailItem, pathname: string): boolean {
 	);
 }
 
+function isChildActive(
+	child: NavChild,
+	pathname: string,
+	searchParams: URLSearchParams,
+): boolean {
+	const [childPath, childQuery] = child.href.split("?");
+	if (childPath !== pathname) return false;
+	if (!childQuery) return true;
+
+	return Array.from(new URLSearchParams(childQuery)).every(
+		([key, value]) => searchParams.get(key) === value,
+	);
+}
+
 function RailLink({
 	item,
 	active,
@@ -187,6 +201,9 @@ function RailChildrenTrigger({
 	item: RailItem & { section: string };
 	active: boolean;
 }) {
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+
 	if (!item.children || item.children.length === 0) return null;
 
 	return (
@@ -194,10 +211,10 @@ function RailChildrenTrigger({
 			<DropdownMenuTrigger asChild>
 				<Button
 					variant="ghost"
-					size="icon-xs"
+					size="icon-2xs"
 					aria-label={`${item.title} sections`}
 					className={cn(
-						"absolute right-0 bottom-0 size-4 rounded-sm bg-background text-muted-foreground shadow-2xs hover:bg-muted hover:text-foreground",
+						"absolute right-0 bottom-0 bg-background text-muted-foreground shadow-2xs hover:bg-muted hover:text-foreground",
 						active && "text-foreground",
 					)}
 				>
@@ -206,7 +223,11 @@ function RailChildrenTrigger({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent side="right" align="end">
 				{item.children.map((child) => (
-					<NavBarChildItem asChild key={child.id}>
+					<NavBarChildItem
+						asChild
+						key={child.id}
+						active={isChildActive(child, pathname, searchParams)}
+					>
 						<Link href={child.href}>{child.title}</Link>
 					</NavBarChildItem>
 				))}

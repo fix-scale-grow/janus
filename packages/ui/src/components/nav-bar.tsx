@@ -55,12 +55,17 @@ function NavBarItemChevron() {
 
 function NavBarChildItem({
 	className,
+	active = false,
 	...props
-}: React.ComponentProps<typeof DropdownMenuItem>) {
+}: React.ComponentProps<typeof DropdownMenuItem> & { active?: boolean }) {
 	return (
 		<DropdownMenuItem
 			data-slot="nav-bar-child-item"
-			className={cn("text-xs", className)}
+			data-active={active}
+			className={cn(
+				"text-xs data-[active=true]:bg-accent data-[active=true]:text-accent-foreground",
+				className,
+			)}
 			{...props}
 		/>
 	);
