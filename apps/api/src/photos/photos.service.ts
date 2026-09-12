@@ -81,9 +81,7 @@ export class PhotosService {
 			return {
 				OR: [
 					{ dealId: input.dealId },
-					...(contactIds.length > 0
-						? [{ contactId: { in: contactIds } }]
-						: []),
+					...(contactIds.length > 0 ? [{ contactId: { in: contactIds } }] : []),
 				],
 			};
 		}

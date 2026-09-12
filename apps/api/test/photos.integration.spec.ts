@@ -223,9 +223,7 @@ describe("PhotosService", () => {
 
 		expect(withContacts.total).toBe(3);
 		expect(
-			withContacts.rows.some(
-				(row) => row.filename === `contact-${suffix}.jpg`,
-			),
+			withContacts.rows.some((row) => row.filename === `contact-${suffix}.jpg`),
 		).toBe(true);
 		expect(dealOnly.total).toBe(2);
 
