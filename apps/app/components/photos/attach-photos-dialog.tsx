@@ -64,7 +64,9 @@ export function AttachPhotosDialog({
 
 	const photos = useQuery({
 		...trpc.photos.list.queryOptions(
-			dealId ? { dealId } : { contactId: contactId ?? undefined },
+			dealId
+				? { dealId, includeDealContacts: true }
+				: { contactId: contactId ?? undefined },
 		),
 		enabled: open && !anchorless,
 	});

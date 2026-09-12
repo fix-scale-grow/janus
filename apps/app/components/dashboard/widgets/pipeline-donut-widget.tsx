@@ -50,14 +50,16 @@ export function PipelineDonutWidget() {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => setMounted(true), []);
 
+	const secondarySelected =
+		selectedPipelineId !== undefined &&
+		selectedPipelineId !== summary?.pipeline.pipelineId;
+
 	const chartQuery = useQuery({
 		...trpc.dashboard.pipelineStages.queryOptions({
 			scope,
 			pipelineId: selectedPipelineId,
 		}),
-		enabled:
-			selectedPipelineId !== undefined &&
-			selectedPipelineId !== summary?.pipeline.pipelineId,
+		enabled: secondarySelected,
 		placeholderData: (previous) => previous,
 	});
 
@@ -79,11 +81,10 @@ export function PipelineDonutWidget() {
 	}
 
 	const { pipeline, reportingCurrency } = summary;
-	const chartPipeline: PipelineStages =
-		selectedPipelineId !== undefined &&
-		selectedPipelineId !== pipeline.pipelineId
-			? (chartQuery.data ?? pipeline)
-			: pipeline;
+	const chartError = secondarySelected && chartQuery.isError;
+	const chartPipeline: PipelineStages = secondarySelected
+		? (chartQuery.data ?? pipeline)
+		: pipeline;
 
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 	const exact = (value: unknown) =>
@@ -131,7 +132,9 @@ export function PipelineDonutWidget() {
 			}
 		>
 			<WidgetBoundary onRetry={refetchSummary}>
-				{stageSlices.length > 0 ? (
+				{chartError ? (
+					<WidgetError onRetry={() => void chartQuery.refetch()} />
+				) : stageSlices.length > 0 ? (
 					<div className="flex flex-1 flex-col justify-between gap-1 pt-4">
 						<DonutStat
 							data={stageSlices}

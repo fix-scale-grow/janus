@@ -54,10 +54,7 @@ export class PhotosService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
 	async list(input: PhotoListInput) {
-		const where: Prisma.PhotoWhereInput = {
-			...(input.dealId ? { dealId: input.dealId } : {}),
-			...(input.contactId ? { contactId: input.contactId } : {}),
-		};
+		const where = await this.listFilter(input);
 
 		const [rows, total] = await Promise.all([
 			this.db.photo.findMany({
@@ -70,6 +67,28 @@ export class PhotosService {
 		]);
 
 		return { rows, total };
+	}
+
+	private async listFilter(
+		input: PhotoListInput,
+	): Promise<Prisma.PhotoWhereInput> {
+		if (input.dealId && input.includeDealContacts) {
+			const links = await this.db.dealContact.findMany({
+				where: { dealId: input.dealId },
+				select: { contactId: true },
+			});
+			const contactIds = links.map((link) => link.contactId);
+			return {
+				OR: [
+					{ dealId: input.dealId },
+					...(contactIds.length > 0 ? [{ contactId: { in: contactIds } }] : []),
+				],
+			};
+		}
+		return {
+			...(input.dealId ? { dealId: input.dealId } : {}),
+			...(input.contactId ? { contactId: input.contactId } : {}),
+		};
 	}
 
 	async forEstimate(estimateId: string) {

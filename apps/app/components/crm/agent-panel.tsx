@@ -558,6 +558,7 @@ function useSavedConversation({
 		kind?: "WORKSPACE";
 		contactId?: string;
 		dealId?: string;
+		drawingId?: string;
 	};
 	conversation: Conversation | null;
 	opening: React.RefObject<string | null>;
@@ -575,7 +576,7 @@ function useSavedConversation({
 	const sessionId = session?.sessionId ?? null;
 	const token = session?.continuationToken ?? null;
 	const streamIndex = session?.streamIndex ?? 0;
-	const { kind, contactId, dealId } = record;
+	const { kind, contactId, dealId, drawingId } = record;
 
 	const isNew = conversation === null || conversation.sessionId !== sessionId;
 
@@ -586,6 +587,7 @@ function useSavedConversation({
 				...(kind ? { kind } : {}),
 				...(contactId ? { contactId } : {}),
 				...(dealId ? { dealId } : {}),
+				...(drawingId ? { drawingId } : {}),
 				sessionId: sessionId ?? "",
 				continuationToken: token,
 				streamIndex,
