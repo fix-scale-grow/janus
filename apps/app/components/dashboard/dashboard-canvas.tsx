@@ -245,6 +245,14 @@ export function DashboardCanvas({
 		);
 	}
 
+	function suppressBodySelection() {
+		document.body.classList.add("select-none");
+	}
+
+	function restoreBodySelection() {
+		document.body.classList.remove("select-none");
+	}
+
 	const grid = mounted ? (
 		<GridLayout
 			width={width}
@@ -268,6 +276,10 @@ export function DashboardCanvas({
 			}}
 			compactor={verticalCompactor}
 			onLayoutChange={handleLayoutChange}
+			onDragStart={suppressBodySelection}
+			onDragStop={restoreBodySelection}
+			onResizeStart={suppressBodySelection}
+			onResizeStop={restoreBodySelection}
 		>
 			{rglLayout.map((item) => {
 				const widget = widgetsById.get(item.i);
@@ -325,7 +337,7 @@ export function DashboardCanvas({
 	return (
 		<div
 			ref={containerRef}
-			className={cn("relative", editing && "bg-muted/30")}
+			className={cn("relative", editing && "bg-muted/30 select-none")}
 		>
 			{editing && mounted && (
 				<GridGuides
