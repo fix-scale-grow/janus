@@ -28,7 +28,7 @@ export function SearchPill({ variant }: { variant: "bar" | "rail" }) {
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent side="right">
-					Search or ask Janus <kbd className="ml-1">⌘K</kbd>
+					Search or ask Janus <kbd data-slot="kbd">⌘K</kbd>
 				</TooltipContent>
 			</Tooltip>
 		);

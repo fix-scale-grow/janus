@@ -4,7 +4,6 @@ import Chat from "@carbon/icons-react/es/Chat";
 import {
 	Command,
 	CommandDialog,
-	CommandEmpty,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
@@ -28,7 +27,10 @@ import { useRouter } from "next/navigation";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
 import { AgentPanel } from "@/components/crm/agent-panel";
-import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import {
+	useOpenRecord,
+	useRecordSheetView,
+} from "@/components/crm/record-sheet/record-stack";
 import { isQuestionShaped } from "@/lib/ask-detect";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -39,14 +41,23 @@ const GROUP_LABEL = {
 	invoice: "Invoices",
 	contract: "Contracts",
 	drawing: "Drawings",
+	estimate: "Estimates",
 } as const;
 
-const KINDS = ["contact", "deal", "invoice", "contract", "drawing"] as const;
+const KINDS = [
+	"contact",
+	"deal",
+	"invoice",
+	"contract",
+	"drawing",
+	"estimate",
+] as const;
 
 const PAGE_PATH: Partial<Record<(typeof KINDS)[number], string>> = {
 	invoice: "/invoices",
 	contract: "/contracts",
 	drawing: "/drawings",
+	estimate: "/estimates",
 };
 
 export function QuickSwitcher() {
@@ -60,6 +71,7 @@ export function QuickSwitcher() {
 	const [query, setQuery] = useSearchInput(committed, setCommitted);
 	const [askOpen, setAskOpen] = useState(false);
 	const [askMessage, setAskMessage] = useState<string | undefined>();
+	const { setThread } = useRecordSheetView("overview");
 
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
@@ -107,6 +119,13 @@ export function QuickSwitcher() {
 		setAskOpen(true);
 	};
 
+	const helperText =
+		trimmedQuery.length < 2
+			? "Type at least two characters."
+			: hits.length === 0
+				? "Nothing matches."
+				: null;
+
 	const askFirst = trimmedQuery.length > 0 && isQuestionShaped(trimmedQuery);
 	const askRow =
 		trimmedQuery.length > 0 ? (
@@ -131,11 +150,11 @@ export function QuickSwitcher() {
 						onValueChange={setQuery}
 					/>
 					<CommandList>
-						<CommandEmpty>
-							{trimmedQuery.length < 2
-								? "Type at least two characters."
-								: "Nothing matches."}
-						</CommandEmpty>
+						{helperText ? (
+							<div className="px-2 py-6 text-center text-muted-foreground text-xs">
+								{helperText}
+							</div>
+						) : null}
 
 						{askFirst && askRow ? (
 							<CommandGroup heading="Ask Janus">{askRow}</CommandGroup>
@@ -195,7 +214,10 @@ export function QuickSwitcher() {
 				open={askOpen}
 				onOpenChange={(next) => {
 					setAskOpen(next);
-					if (!next) setAskMessage(undefined);
+					if (!next) {
+						setAskMessage(undefined);
+						setThread(null);
+					}
 				}}
 			>
 				<SheetContent className="gap-0 p-0" size="lg">

@@ -18,6 +18,7 @@ let dealNamedWithNumberId: string;
 let invoiceId: string;
 let invoiceNumber: number;
 let drawingId: string;
+let estimateId: string;
 let fieldDefId: string;
 let fieldDealId: string;
 let dedupeDealId: string;
@@ -31,6 +32,7 @@ async function clean() {
 		where: { key: { startsWith: prefix } },
 	});
 	await db.drawing.deleteMany({ where: { title: { startsWith: prefix } } });
+	await db.estimate.deleteMany({ where: { title: { startsWith: prefix } } });
 	await db.invoice.deleteMany({
 		where: { createdBy: { email: { endsWith: domain } } },
 	});
@@ -117,6 +119,17 @@ beforeAll(async () => {
 	});
 	drawingId = drawing.id;
 
+	const estimate = await db.estimate.create({
+		data: {
+			title: `${prefix} Roof Replacement Estimate`,
+			status: "SENT",
+			currency: "USD",
+			createdById: ownerId,
+		},
+		select: { id: true },
+	});
+	estimateId = estimate.id;
+
 	const fieldDeal = await db.deal.create({
 		data: {
 			name: `${prefix} Field Match Deal`,
@@ -188,6 +201,7 @@ afterAll(async () => {
 		where: { id: { in: [fieldDefId, dedupeFieldDefId] } },
 	});
 	await db.drawing.deleteMany({ where: { id: drawingId } });
+	await db.estimate.deleteMany({ where: { id: estimateId } });
 	await db.invoice.deleteMany({ where: { id: invoiceId } });
 	await db.deal.deleteMany({
 		where: {
@@ -251,6 +265,16 @@ describe("SearchService.quick", () => {
 		expect(hit).toBeDefined();
 		expect(hit?.kind).toBe("drawing");
 		expect(hit?.detail).toContain("Testable Ave");
+	});
+
+	it("finds an estimate by title", async () => {
+		const result = await search.quick(`${prefix} Roof Replacement`);
+		const hit = result.hits.find(
+			(row) => row.kind === "estimate" && row.id === estimateId,
+		);
+		expect(hit).toBeDefined();
+		expect(hit?.label).toBe(`${prefix} Roof Replacement Estimate`);
+		expect(hit?.detail).toBe("Sent");
 	});
 
 	it("surfaces a TEXT field value hit as its parent deal", async () => {

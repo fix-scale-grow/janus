@@ -4,7 +4,7 @@ import { InjectDatabase } from "../database/database.constants";
 import { SEARCH } from "./search.config";
 
 export type SearchHit = {
-	kind: "contact" | "deal" | "invoice" | "contract" | "drawing";
+	kind: "contact" | "deal" | "invoice" | "contract" | "drawing" | "estimate";
 	id: string;
 	label: string;
 	detail: string | null;
@@ -47,6 +47,12 @@ type DealRow = {
 };
 
 type DrawingRow = { id: string; title: string; address: string | null };
+
+type EstimateRow = { id: string; title: string; status: string };
+
+function statusLabel(status: string): string {
+	return status.charAt(0) + status.slice(1).toLowerCase();
+}
 
 function toHit(
 	partial: Pick<SearchHit, "kind" | "id" | "label" | "detail"> &
@@ -122,6 +128,15 @@ function drawingHit(drawing: DrawingRow): SearchHit {
 	});
 }
 
+function estimateHit(estimate: EstimateRow): SearchHit {
+	return toHit({
+		kind: "estimate",
+		id: estimate.id,
+		label: estimate.title,
+		detail: statusLabel(estimate.status),
+	});
+}
+
 function mergeHits(groups: SearchHit[][]): SearchHit[] {
 	const seen = new Set<string>();
 	const merged: SearchHit[] = [];
@@ -152,6 +167,7 @@ export class SearchService {
 			contactRows,
 			dealRows,
 			drawingRows,
+			estimateRows,
 			fieldValueHits,
 			dealNumberRow,
 			invoiceNumberRow,
@@ -160,6 +176,7 @@ export class SearchService {
 			this.searchContacts(term),
 			this.searchDeals(term),
 			this.searchDrawings(term),
+			this.searchEstimates(term),
 			this.searchFieldValues(term),
 			asNumber === null
 				? Promise.resolve(null)
@@ -200,8 +217,17 @@ export class SearchService {
 
 		const drawings = mergeHits([drawingRows.map((row) => drawingHit(row))]);
 
+		const estimates = mergeHits([estimateRows.map((row) => estimateHit(row))]);
+
 		return {
-			hits: [...contacts, ...deals, ...invoices, ...contracts, ...drawings],
+			hits: [
+				...contacts,
+				...deals,
+				...invoices,
+				...contracts,
+				...drawings,
+				...estimates,
+			],
 		};
 	}
 
@@ -236,6 +262,15 @@ export class SearchService {
 			take: SEARCH.perKind,
 			orderBy: { updatedAt: "desc" },
 			select: { id: true, title: true, address: true },
+		});
+	}
+
+	private async searchEstimates(term: string): Promise<EstimateRow[]> {
+		return this.db.estimate.findMany({
+			where: { title: { contains: term, mode: "insensitive" } },
+			take: SEARCH.perKind,
+			orderBy: { updatedAt: "desc" },
+			select: { id: true, title: true, status: true },
 		});
 	}
 
