@@ -1,8 +1,15 @@
 "use client";
 
+import ChevronRight from "@carbon/icons-react/es/ChevronRight";
 import Close from "@carbon/icons-react/es/Close";
 import { Button } from "@crm/ui/components/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
+import { NavBarChildItem } from "@crm/ui/components/nav-bar";
 import {
 	Sheet,
 	SheetContent,
@@ -41,13 +48,21 @@ import { type MouseEvent, useMemo, useRef, useState } from "react";
 import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-sidebar";
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
-import { JANUS_LIVE_NAV, type LiveNavItem } from "@/lib/janus-nav";
+import {
+	JANUS_LIVE_NAV,
+	type LiveNavItem,
+	type NavChild,
+} from "@/lib/janus-nav";
+import { applyNavHidden, isChildHidden } from "@/lib/nav-children";
 import { applyNavOrder } from "@/lib/nav-order";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type RailItem = LiveNavItem;
+type Pipeline = RouterOutputs["pipelines"]["list"][number];
+const DEALS_MODULE_HREF = "/deals";
 
 function useVisibleItems(): RailItem[] {
 	const trpc = useTRPC();
@@ -84,6 +99,32 @@ function useNavOrder(): {
 	};
 
 	return { order: pending ?? view.data?.navOrder, saveOrder };
+}
+
+function useNavHidden(): string[] | undefined {
+	const trpc = useTRPC();
+	const view = useQuery(trpc.views.get.queryOptions({ tableId: "nav" }));
+
+	return view.data?.navHidden;
+}
+
+function useDealsStageChildren(): NavChild[] {
+	const trpc = useTRPC();
+	const pipelines = useQuery(
+		trpc.pipelines.list.queryOptions({ includeArchived: false }),
+	);
+
+	return useMemo(() => {
+		const active: Pipeline | undefined =
+			pipelines.data?.find((pipeline) => pipeline.archivedAt === null) ??
+			pipelines.data?.[0];
+
+		return (active?.stages ?? []).map((stage) => ({
+			id: `${DEALS_MODULE_HREF}:${stage.id}`,
+			title: stage.label,
+			href: `${DEALS_MODULE_HREF}?stage=${stage.id}`,
+		}));
+	}, [pipelines.data]);
 }
 
 function isActive(item: RailItem, pathname: string): boolean {
@@ -139,6 +180,41 @@ function RailLink({
 	);
 }
 
+function RailChildrenTrigger({
+	item,
+	active,
+}: {
+	item: RailItem & { section: string };
+	active: boolean;
+}) {
+	if (!item.children || item.children.length === 0) return null;
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					aria-label={`${item.title} sections`}
+					className={cn(
+						"absolute right-0 bottom-0 size-4 rounded-sm bg-background text-muted-foreground shadow-2xs hover:bg-muted hover:text-foreground",
+						active && "text-foreground",
+					)}
+				>
+					<Icon icon={ChevronRight} />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent side="right" align="end">
+				{item.children.map((child) => (
+					<NavBarChildItem asChild key={child.id}>
+						<Link href={child.href}>{child.title}</Link>
+					</NavBarChildItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 function SortableRailLink({
 	item,
 	active,
@@ -154,23 +230,26 @@ function SortableRailLink({
 		useSortable({ id: item.section });
 
 	return (
-		<div
-			ref={setNodeRef}
-			style={{ transform: CSS.Transform.toString(transform), transition }}
-			className={cn("touch-none", isDragging && "relative z-10 opacity-60")}
-			{...listeners}
-		>
-			<RailLink
-				item={item}
-				active={active}
-				onPrefetch={onPrefetch}
-				onLinkClick={(event) => {
-					if (suppressClick.current) {
-						suppressClick.current = false;
-						event.preventDefault();
-					}
-				}}
-			/>
+		<div className="relative">
+			<div
+				ref={setNodeRef}
+				style={{ transform: CSS.Transform.toString(transform), transition }}
+				className={cn("touch-none", isDragging && "relative z-10 opacity-60")}
+				{...listeners}
+			>
+				<RailLink
+					item={item}
+					active={active}
+					onPrefetch={onPrefetch}
+					onLinkClick={(event) => {
+						if (suppressClick.current) {
+							suppressClick.current = false;
+							event.preventDefault();
+						}
+					}}
+				/>
+			</div>
+			<RailChildrenTrigger item={item} active={active} />
 		</div>
 	);
 }
@@ -281,6 +360,8 @@ export function AppIconRail() {
 	const prefetchSection = usePrefetchSection();
 	const visible = useVisibleItems();
 	const { order, saveOrder } = useNavOrder();
+	const hidden = useNavHidden();
+	const dealsStageChildren = useDealsStageChildren();
 	const suppressClick = useRef(false);
 
 	const sensors = useSensors(
@@ -289,13 +370,23 @@ export function AppIconRail() {
 
 	const items = useMemo(
 		() =>
-			applyNavOrder(visible, order).map((item) => ({
-				...item,
-				section: item.href,
-				href: workspaceUrl(item.href),
-				related: item.related?.map((path) => workspaceUrl(path)),
-			})),
-		[visible, order, workspaceUrl],
+			applyNavOrder(applyNavHidden(visible, hidden), order).map((item) => {
+				const children = (
+					item.href === DEALS_MODULE_HREF ? dealsStageChildren : item.children
+				)?.filter((child) => !isChildHidden(child.id, hidden));
+
+				return {
+					...item,
+					section: item.href,
+					href: workspaceUrl(item.href),
+					related: item.related?.map((path) => workspaceUrl(path)),
+					children: children?.map((child) => ({
+						...child,
+						href: workspaceUrl(child.href),
+					})),
+				};
+			}),
+		[visible, order, hidden, dealsStageChildren, workspaceUrl],
 	);
 	const sectionIds = useMemo(() => items.map((item) => item.section), [items]);
 	const inChat = items.some(
