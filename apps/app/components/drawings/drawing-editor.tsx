@@ -32,6 +32,7 @@ import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
+import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -86,6 +87,7 @@ function isCalibrationCandidate(element: ExcalidrawElement): boolean {
 }
 
 export function DrawingEditor(props: DrawingEditorProps) {
+	useRecentTouch("drawing", props.drawingId);
 	const [scale, setScale] = useState(props.initialScale);
 	const sceneRef = useRef(props.initialScene);
 	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);

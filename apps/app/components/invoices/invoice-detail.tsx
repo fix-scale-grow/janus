@@ -36,6 +36,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
+import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
 	PageShell,
 	PageShellActions,
@@ -122,6 +123,7 @@ export function InvoiceDetail({
 	invoiceId: string;
 	initialInvoice: InvoiceDetailData;
 }) {
+	useRecentTouch("invoice", invoiceId);
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const queryClient = useQueryClient();

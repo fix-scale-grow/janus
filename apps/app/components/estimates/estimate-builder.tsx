@@ -47,6 +47,7 @@ import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
+import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
 	PageShell,
 	PageShellActions,
@@ -154,6 +155,7 @@ export function EstimateBuilder({
 	estimateId: string;
 	initialEstimate: EstimateDetail;
 }) {
+	useRecentTouch("estimate", estimateId);
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const queryClient = useQueryClient();
