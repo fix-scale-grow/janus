@@ -84,22 +84,14 @@ export function TaskBar({
 			className={cn(
 				taskBarClasses(density),
 				barClasses(bar.task),
-				bar.clippedStart && "rounded-l-none border-l-0",
-				bar.clippedEnd && "rounded-r-none border-r-0",
+				"relative",
+				bar.clippedStart ? "rounded-l-none border-l-0" : "pl-2.5",
+				bar.clippedEnd ? "rounded-r-none border-r-0" : "pr-2.5",
 				isDragging && "opacity-40",
 			)}
 			{...attributes}
 			{...listeners}
 		>
-			{!bar.clippedStart ? (
-				<ResizeHandle
-					edge="start"
-					task={bar.task}
-					projectId={projectId}
-					onPreview={setPreviewStartDelta}
-					bounds={{ min: -bar.startCol, max: bar.endCol - bar.startCol }}
-				/>
-			) : null}
 			{!bar.clippedStart ? (
 				<Icon icon={Draggable} className="size-3 shrink-0 opacity-60" />
 			) : null}
@@ -109,6 +101,15 @@ export function TaskBar({
 					{bar.task.name}
 				</span>
 			</TaskPopover>
+			{!bar.clippedStart ? (
+				<ResizeHandle
+					edge="start"
+					task={bar.task}
+					projectId={projectId}
+					onPreview={setPreviewStartDelta}
+					bounds={{ min: -bar.startCol, max: bar.endCol - bar.startCol }}
+				/>
+			) : null}
 			{!bar.clippedEnd ? (
 				<ResizeHandle
 					edge="end"
@@ -220,7 +221,10 @@ function ResizeHandle({
 
 	return (
 		<span
-			className="flex w-2 shrink-0 cursor-ew-resize items-center justify-center self-stretch"
+			className={cn(
+				"absolute inset-y-0 z-10 flex w-2.5 cursor-ew-resize items-center justify-center",
+				edge === "start" ? "left-0" : "right-0",
+			)}
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
