@@ -77,6 +77,7 @@ export function TaskBar({
 			ref={setNodeRef}
 			data-board-drag=""
 			style={{
+				gridRow: "1",
 				gridColumn: `${displayStartCol + 1} / ${displayEndCol + 2}`,
 				marginTop: `${bar.lane * LANE_HEIGHT_REM[density ?? "comfortable"]}rem`,
 				transform: CSS.Translate.toString(transform),

@@ -20,20 +20,34 @@ import { Textarea } from "@crm/ui/components/textarea";
 import { toDay } from "@crm/ui/lib/format";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
-export function NewProjectDialog() {
+export type NewProjectDefaults = {
+	name?: string;
+	dealId?: string;
+	contactId?: string;
+	estimateId?: string;
+	invoiceId?: string;
+};
+
+export function NewProjectDialog({
+	trigger,
+	defaults,
+}: {
+	trigger?: ReactNode;
+	defaults?: NewProjectDefaults;
+}) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
 
 	const [open, setOpen] = useState(false);
-	const [name, setName] = useState("");
+	const [name, setName] = useState(defaults?.name ?? "");
 	const [startDate, setStartDate] = useState(() => toDay(new Date()));
 	const [goalDate, setGoalDate] = useState("");
 	const [goal, setGoal] = useState("");
@@ -44,7 +58,7 @@ export function NewProjectDialog() {
 	const goalId = useId();
 
 	const reset = () => {
-		setName("");
+		setName(defaults?.name ?? "");
 		setStartDate(toDay(new Date()));
 		setGoalDate("");
 		setGoal("");
@@ -73,17 +87,20 @@ export function NewProjectDialog() {
 			}}
 		>
 			<DialogTrigger asChild>
-				<Button size="sm">
-					<Icon icon={Add} data-icon="inline-start" />
-					New project
-				</Button>
+				{trigger ?? (
+					<Button size="sm">
+						<Icon icon={Add} data-icon="inline-start" />
+						New project
+					</Button>
+				)}
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>New project</DialogTitle>
 					<DialogDescription>
-						Plan the work day by day. Attach a client, estimate or invoice from
-						the project page afterwards.
+						{defaults?.invoiceId || defaults?.dealId || defaults?.contactId
+							? "Plan the work day by day. The linked records come attached."
+							: "Plan the work day by day. Attach a client, estimate or invoice from the project page afterwards."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -97,6 +114,10 @@ export function NewProjectDialog() {
 							goal: goal.trim() || undefined,
 							startDate,
 							goalDate: goalDate || undefined,
+							dealId: defaults?.dealId,
+							contactId: defaults?.contactId,
+							estimateId: defaults?.estimateId,
+							invoiceId: defaults?.invoiceId,
 						});
 					}}
 				>
