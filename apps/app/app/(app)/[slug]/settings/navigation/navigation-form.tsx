@@ -173,8 +173,14 @@ function NavMenuCard() {
 		setPending(next);
 		if (view.isPending) return;
 		save.mutate(
-			{ tableId: "nav", state: { ...view.data, ...patch } },
-			{ onSuccess: () => void cache.views("nav", { settle: "record" }) },
+			{ tableId: "nav", state: next },
+			{
+				onSuccess: () => void cache.views("nav", { settle: "record" }),
+				onError: (error) => {
+					setPending(null);
+					toast.error(error.message);
+				},
+			},
 		);
 	};
 
