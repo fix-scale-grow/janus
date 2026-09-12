@@ -1,7 +1,7 @@
 import { ProjectStatus, ProjectTaskStatus } from "@crm/db";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
-import { PROJECTS } from "./projects.config";
+import { DAY_MS, PROJECTS } from "./projects.config";
 
 export function toDay(value: Date): Date {
 	return new Date(
@@ -12,7 +12,7 @@ export function toDay(value: Date): Date {
 const dayInput = z.coerce.date().transform(toDay);
 
 export function spanDays(startDay: Date, endDay: Date): number {
-	return Math.round((endDay.getTime() - startDay.getTime()) / 86_400_000) + 1;
+	return Math.round((endDay.getTime() - startDay.getTime()) / DAY_MS) + 1;
 }
 
 function checkSpan(
@@ -108,6 +108,20 @@ export const projectUpdateInput = z.object({
 });
 
 export type ProjectUpdateInput = z.infer<typeof projectUpdateInput>;
+
+export const projectMoveScheduleInput = z.object({
+	id: z.string().min(1),
+	deltaDays: z
+		.number()
+		.int()
+		.min(-PROJECTS.calendar.moveMaxDays)
+		.max(PROJECTS.calendar.moveMaxDays)
+		.refine((value) => value !== 0, {
+			message: "The move is zero days.",
+		}),
+});
+
+export type ProjectMoveScheduleInput = z.infer<typeof projectMoveScheduleInput>;
 
 export const taskCreateInput = z
 	.object({

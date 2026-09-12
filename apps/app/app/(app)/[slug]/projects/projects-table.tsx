@@ -4,6 +4,7 @@ import { DataTable, type DataTableColumn } from "@crm/ui/components/data-table";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { contactName } from "@/components/crm/contact-name";
 import { ListSearch } from "@/components/data-table/list-search";
 import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
@@ -60,10 +61,30 @@ export function ProjectsTable({ savedState }: { savedState?: SavedTableView }) {
 		{
 			id: "deal",
 			header: "Deal",
-			width: "w-[20%]",
+			width: "w-[16%]",
 			hideBelow: "md",
 			cell: (row) => (
 				<span className="truncate text-muted-foreground">{row.deal.name}</span>
+			),
+		},
+		{
+			id: "client",
+			header: "Client",
+			width: "w-[16%]",
+			hideBelow: "md",
+			cell: (row) => (
+				<span className="truncate text-muted-foreground">
+					{row.deal.contacts[0] ? (
+						<>
+							{contactName(row.deal.contacts[0])}
+							{row.deal.contacts.length > 1
+								? ` +${row.deal.contacts.length - 1}`
+								: ""}
+						</>
+					) : (
+						"—"
+					)}
+				</span>
 			),
 		},
 		{
