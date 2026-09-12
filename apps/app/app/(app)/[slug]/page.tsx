@@ -61,16 +61,27 @@ async function Summary({
 
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
-	await Promise.all([
+	const [, view, permissions, pipelines] = await Promise.all([
 		queryClient.prefetchQuery(trpc.dashboard.summary.queryOptions({ scope })),
-		queryClient.prefetchQuery(
+		queryClient.fetchQuery(
 			trpc.views.get.queryOptions({ tableId: "dashboard" }),
+		),
+		queryClient.fetchQuery(trpc.permissions.mine.queryOptions()),
+		queryClient.fetchQuery(
+			trpc.pipelines.list.queryOptions({ includeArchived: false }),
 		),
 	]);
 
 	return (
 		<HydrateClient>
-			<DashboardSummary />
+			<DashboardSummary
+				initial={{
+					dashboardLayout: view?.dashboardLayout,
+					dashboardLayoutVersion: view?.dashboardLayoutVersion,
+					permissionKeys: permissions.keys,
+					pipelines: pipelines.map(({ id, name }) => ({ id, name })),
+				}}
+			/>
 		</HydrateClient>
 	);
 }

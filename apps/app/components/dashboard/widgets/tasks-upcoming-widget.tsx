@@ -14,12 +14,14 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { WidgetBoundary } from "@/components/dashboard/summary-context";
+import {
+	WIDGET_CELL as CELL,
+	WIDGET_TABLE_GUTTER,
+} from "@/components/dashboard/widgets/widget-table";
 import { LocalDay } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
-
-const CELL = "px-3 py-2.5 align-middle";
 
 const COLUMNS: SimpleTableColumn[] = [
 	{ id: "task", header: "Task" },
@@ -67,7 +69,12 @@ function TasksUpcomingBody({ tasks }: { tasks: UpcomingTask[] }) {
 
 	return (
 		<CardPanel>
-			<SimpleTable variant="panel" surface="page" columns={COLUMNS}>
+			<SimpleTable
+				variant="panel"
+				surface="page"
+				columns={COLUMNS}
+				className={WIDGET_TABLE_GUTTER}
+			>
 				{tasks.map((task) => (
 					<SimpleTableRow key={task.id}>
 						<TableCell className={CELL}>

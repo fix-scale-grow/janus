@@ -45,29 +45,31 @@ import { JANUS_LIVE_NAV, type LiveNavItem } from "@/lib/janus-nav";
 import { applyNavOrder } from "@/lib/nav-order";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { useMounted } from "@/lib/use-mounted";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type RailItem = LiveNavItem;
 
-function useVisibleItems(): RailItem[] {
+function useVisibleItems(initialKeys: string[]): RailItem[] {
+	const mounted = useMounted();
 	const trpc = useTRPC();
 	const permissions = useQuery(trpc.permissions.mine.queryOptions());
-	const keys = permissions.data?.keys;
+	const keys = (mounted ? permissions.data?.keys : undefined) ?? initialKeys;
 
 	return useMemo(
 		() =>
 			JANUS_LIVE_NAV.filter(
-				(item) =>
-					!item.permission || (keys?.includes(item.permission) ?? false),
+				(item) => !item.permission || keys.includes(item.permission),
 			),
 		[keys],
 	);
 }
 
-function useNavOrder(): {
+function useNavOrder(initialOrder: string[] | undefined): {
 	order: string[] | undefined;
 	saveOrder: (next: string[]) => void;
 } {
+	const mounted = useMounted();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const [pending, setPending] = useState<string[] | undefined>(undefined);
@@ -82,7 +84,8 @@ function useNavOrder(): {
 		);
 	};
 
-	return { order: pending ?? view.data?.navOrder, saveOrder };
+	const saved = (mounted ? view.data?.navOrder : undefined) ?? initialOrder;
+	return { order: pending ?? saved, saveOrder };
 }
 
 function isActive(item: RailItem, pathname: string): boolean {
@@ -273,13 +276,19 @@ export function AppIconRailFallback() {
 	);
 }
 
-export function AppIconRail() {
+export function AppIconRail({
+	initialPermissionKeys,
+	initialNavOrder,
+}: {
+	initialPermissionKeys: string[];
+	initialNavOrder?: string[];
+}) {
 	const pathname = usePathname();
 	const workspaceUrl = useWorkspaceUrl();
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
-	const visible = useVisibleItems();
-	const { order, saveOrder } = useNavOrder();
+	const visible = useVisibleItems(initialPermissionKeys);
+	const { order, saveOrder } = useNavOrder(initialNavOrder);
 	const suppressClick = useRef(false);
 
 	const sensors = useSensors(

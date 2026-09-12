@@ -16,10 +16,12 @@ import {
 	useSummary,
 	WidgetBoundary,
 } from "@/components/dashboard/summary-context";
+import {
+	WIDGET_CELL as CELL,
+	WIDGET_TABLE_GUTTER,
+} from "@/components/dashboard/widgets/widget-table";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { activityLabel } from "@/lib/activity-presentation";
-
-const CELL = "px-3 py-2.5 align-middle";
 
 const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
 	{ id: "activity", header: "Activity" },
@@ -72,7 +74,7 @@ function ActivityBody({ recentActivity }: { recentActivity: ActivityEntry[] }) {
 	}
 
 	return (
-		<SimpleTable columns={ACTIVITY_COLUMNS}>
+		<SimpleTable columns={ACTIVITY_COLUMNS} className={WIDGET_TABLE_GUTTER}>
 			{recentActivity.map((entry) => (
 				<SimpleTableRow key={entry.id}>
 					<TableCell className={CELL}>

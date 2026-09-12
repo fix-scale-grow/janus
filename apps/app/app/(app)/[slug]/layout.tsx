@@ -44,9 +44,9 @@ async function AppRail() {
 	await connection();
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
-	await Promise.all([
-		queryClient.prefetchQuery(trpc.permissions.mine.queryOptions()),
-		queryClient.prefetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
+	const [permissions, navView] = await Promise.all([
+		queryClient.fetchQuery(trpc.permissions.mine.queryOptions()),
+		queryClient.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
 		queryClient.prefetchQuery(
 			trpc.views.get.queryOptions({ tableId: "dashboard" }),
 		),
@@ -54,7 +54,10 @@ async function AppRail() {
 
 	return (
 		<HydrateClient>
-			<AppIconRail />
+			<AppIconRail
+				initialPermissionKeys={permissions.keys}
+				initialNavOrder={navView?.navOrder}
+			/>
 		</HydrateClient>
 	);
 }

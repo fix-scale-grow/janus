@@ -20,11 +20,13 @@ import {
 	useSummary,
 	WidgetBoundary,
 } from "@/components/dashboard/summary-context";
+import {
+	WIDGET_CELL as CELL,
+	WIDGET_TABLE_GUTTER,
+} from "@/components/dashboard/widgets/widget-table";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
-
-const CELL = "px-3 py-2.5 align-middle";
 
 const TASK_COLUMNS: SimpleTableColumn[] = [
 	{ id: "done", srLabel: "Done", width: "w-8" },
@@ -89,7 +91,12 @@ function TasksOverdueBody({
 
 	return (
 		<CardPanel>
-			<SimpleTable variant="panel" surface="page" columns={TASK_COLUMNS}>
+			<SimpleTable
+				variant="panel"
+				surface="page"
+				columns={TASK_COLUMNS}
+				className={WIDGET_TABLE_GUTTER}
+			>
 				{tasks.map((task) => (
 					<SimpleTableRow key={task.id}>
 						<TableCell className={CELL}>
