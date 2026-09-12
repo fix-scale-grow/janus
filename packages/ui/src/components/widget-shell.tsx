@@ -77,7 +77,7 @@ export function WidgetShell({
 				isEditing && "border-dashed hover:ring-1 hover:ring-ring/50",
 			)}
 		>
-			<CardHeader>
+			<CardHeader className="px-4 pt-4 md:px-6">
 				<div className="flex items-center gap-2">
 					{isEditing ? (
 						<Tooltip>
