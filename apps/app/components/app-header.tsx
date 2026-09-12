@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useMobileNav } from "@/components/mobile-nav";
 import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
 import { RecentsMenu } from "@/components/nav/recents-menu";
+import { SearchPill } from "@/components/nav/search-pill";
 import { TopNav } from "@/components/nav/top-nav";
 import { signOutAndRedirect } from "@/lib/sign-out";
 import { useTRPC } from "@/lib/trpc/client";
@@ -81,7 +82,10 @@ export function AppHeader({
 				</div>
 			) : null}
 
-			<div className="ml-auto flex shrink-0 items-center gap-1.5">
+			<div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5">
+				<div className="hidden md:block">
+					<SearchPill variant="bar" />
+				</div>
 				<UserMenu
 					user={user}
 					onSignOut={() => {

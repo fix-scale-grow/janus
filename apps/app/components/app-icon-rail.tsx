@@ -49,6 +49,7 @@ import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
 import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
 import { RecentsMenu } from "@/components/nav/recents-menu";
+import { SearchPill } from "@/components/nav/search-pill";
 import {
 	isNavChildActive,
 	isNavItemActive,
@@ -359,6 +360,9 @@ export function AppIconRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 							))}
 						</SortableContext>
 					</DndContext>
+					<div className="mt-auto">
+						<SearchPill variant="rail" />
+					</div>
 				</nav>
 			)}
 
