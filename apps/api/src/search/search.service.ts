@@ -232,14 +232,18 @@ export class SearchService {
 	}
 
 	private async searchContacts(term: string): Promise<ContactRow[]> {
+		const tokens = term.split(/\s+/).filter(Boolean).slice(0, SEARCH.maxTokens);
+
 		return this.db.contact.findMany({
 			where: {
-				OR: [
-					{ firstName: { contains: term, mode: "insensitive" } },
-					{ lastName: { contains: term, mode: "insensitive" } },
-					{ email: { contains: term, mode: "insensitive" } },
-					{ companyName: { contains: term, mode: "insensitive" } },
-				],
+				AND: tokens.map((token) => ({
+					OR: [
+						{ firstName: { contains: token, mode: "insensitive" } },
+						{ lastName: { contains: token, mode: "insensitive" } },
+						{ email: { contains: token, mode: "insensitive" } },
+						{ companyName: { contains: token, mode: "insensitive" } },
+					],
+				})),
 			},
 			take: SEARCH.perKind,
 			orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

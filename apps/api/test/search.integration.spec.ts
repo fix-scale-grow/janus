@@ -12,6 +12,7 @@ let ownerId: string;
 let stageId: string;
 
 let companyContactId: string;
+let secondContactId: string;
 let dealNumberedId: string;
 let dealNumberedNumber: number;
 let dealNamedWithNumberId: string;
@@ -70,6 +71,16 @@ beforeAll(async () => {
 		select: { id: true },
 	});
 	companyContactId = contact.id;
+
+	const secondContact = await db.contact.create({
+		data: {
+			firstName: "Priya",
+			lastName: "Okafor",
+			email: `priya-${suffix}@${domain}`,
+		},
+		select: { id: true },
+	});
+	secondContactId = secondContact.id;
 
 	const dealNumbered = await db.deal.create({
 		data: {
@@ -210,7 +221,9 @@ afterAll(async () => {
 			},
 		},
 	});
-	await db.contact.deleteMany({ where: { id: companyContactId } });
+	await db.contact.deleteMany({
+		where: { id: { in: [companyContactId, secondContactId] } },
+	});
 	await db.user.deleteMany({ where: { id: ownerId } });
 });
 
@@ -226,6 +239,21 @@ describe("SearchService.quick", () => {
 		expect(hit).toBeDefined();
 		expect(hit?.kind).toBe("contact");
 		expect(hit?.label).toBe("Rory Fenwick");
+	});
+
+	it("finds a contact by a full first-and-last-name query", async () => {
+		const result = await search.quick("Rory Fenwick");
+		const hit = result.hits.find((row) => row.id === companyContactId);
+		expect(hit).toBeDefined();
+		expect(hit?.kind).toBe("contact");
+	});
+
+	it("does not cross-match tokens from two different contacts", async () => {
+		const result = await search.quick("Rory Okafor");
+		const matches = result.hits.filter(
+			(row) => row.id === companyContactId || row.id === secondContactId,
+		);
+		expect(matches).toEqual([]);
 	});
 
 	it("finds a deal by name", async () => {
