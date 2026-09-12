@@ -3,7 +3,10 @@ import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
-import type { DashboardSummaryInput } from "./dashboard.contracts";
+import type {
+	DashboardPipelineBoardInput,
+	DashboardSummaryInput,
+} from "./dashboard.contracts";
 
 const OWNER_SELECT = {
 	id: true,
@@ -18,6 +21,18 @@ const STAGE_SELECT = {
 	color: true,
 	outcome: true,
 	pipelineId: true,
+} as const;
+
+const BOARD_DEAL_SELECT = {
+	id: true,
+	name: true,
+	amount: true,
+	currency: true,
+	stageId: true,
+} as const;
+
+const BOARD = {
+	topDealsLimit: 3,
 } as const;
 
 const TREND_MONTHS = 6;
@@ -263,6 +278,58 @@ export class DashboardService {
 			input.scope === "me" ? { ownerId: actingUserId } : ({} as const);
 		const base = await this.conversion.reportingCurrency();
 		return this.stageChart(owned, base, input.pipelineId);
+	}
+
+	async pipelineBoard(input: DashboardPipelineBoardInput) {
+		const openStages = await this.db.stage.findMany({
+			where: {
+				pipelineId: input.pipelineId,
+				outcome: StageOutcome.OPEN,
+				archivedAt: null,
+			},
+			orderBy: { position: "asc" },
+			select: { id: true, label: true, color: true },
+		});
+		const stageIds = openStages.map((stage) => stage.id);
+
+		const [openByStage, topDealsByStage] = await Promise.all([
+			this.db.deal.groupBy({
+				by: ["stageId"],
+				where: { stageId: { in: stageIds } },
+				_count: { _all: true },
+			}),
+			Promise.all(
+				stageIds.map((stageId) =>
+					this.db.deal.findMany({
+						where: { stageId },
+						orderBy: [{ amount: { sort: "desc", nulls: "last" } }],
+						take: BOARD.topDealsLimit,
+						select: BOARD_DEAL_SELECT,
+					}),
+				),
+			),
+		]);
+
+		return {
+			stages: openStages.map((stage, index) => {
+				const group = openByStage.find((row) => row.stageId === stage.id);
+				const topDeals = (topDealsByStage[index] ?? []).map(
+					({ amount, currency, stageId, ...deal }) => ({
+						...deal,
+						amountCents: toCents(amount),
+						currency,
+					}),
+				);
+
+				return {
+					id: stage.id,
+					label: stage.label,
+					color: stage.color,
+					count: group?._count._all ?? 0,
+					topDeals,
+				};
+			}),
+		};
 	}
 
 	private async stageChart(

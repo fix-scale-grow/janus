@@ -21,7 +21,7 @@ export const viewTableId = z.enum(VIEW_TABLE_IDS);
 export const DASHBOARD_LAYOUT_MAX = { y: 500, h: 120 } as const;
 
 export const dashboardLayoutEntry = z.object({
-	id: z.string().max(40),
+	id: z.string().max(64),
 	x: z.number().int().min(0).max(47),
 	y: z.number().int().min(0).max(DASHBOARD_LAYOUT_MAX.y),
 	w: z.number().int().min(1).max(48),
@@ -41,6 +41,7 @@ export const viewStateSchema = z
 		density: z.enum(["comfortable", "compact"]).optional(),
 		navOrder: z.array(z.string().max(100)).max(40).optional(),
 		dashboardLayout: z.array(dashboardLayoutEntry).max(20).optional(),
+		dashboardLayoutVersion: z.number().int().optional(),
 	})
 	.strip();
 

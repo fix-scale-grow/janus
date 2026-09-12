@@ -8,3 +8,11 @@ export const dashboardSummaryInput = z.object({
 });
 
 export type DashboardSummaryInput = z.infer<typeof dashboardSummaryInput>;
+
+export const dashboardPipelineBoardInput = z.object({
+	pipelineId: z.string().min(1),
+});
+
+export type DashboardPipelineBoardInput = z.infer<
+	typeof dashboardPipelineBoardInput
+>;

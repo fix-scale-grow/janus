@@ -393,6 +393,10 @@ rules — snapshot loading, composer state, thread capture, scrolling — are in
 **`docs/agent-panel.md`**. It lives in the API and is not a breach of rule one:
 listing history decides nothing.
 
+A `workspace` kind conversation belongs to the rep, not a CRM record — it sends
+no `x-crm-*` header and is filed under no record field, only `kind: WORKSPACE`.
+The Ask Janus dashboard widget is its only caller today.
+
 ## Continuation tokens are namespaced
 
 **eve prefixes them with the channel name.** `channels/crm.ts` mints `task:<id>`;

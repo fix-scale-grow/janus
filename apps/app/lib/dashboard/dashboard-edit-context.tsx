@@ -16,8 +16,10 @@ import {
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { DASHBOARD } from "./dashboard-config";
 import {
 	addEntry,
+	DASHBOARD_LAYOUT_VERSION,
 	DEFAULT_LAYOUT,
 	resolveLayout,
 	type WidgetMeta,
@@ -39,6 +41,7 @@ type DashboardEditContextValue = {
 	layout: DashboardLayoutEntry[];
 	widgets: DashboardWidget[];
 	addable: DashboardWidget[];
+	atWidgetCap: boolean;
 	savePending: boolean;
 	customise: () => void;
 	cancel: () => void;
@@ -62,23 +65,32 @@ export function DashboardEditProvider({ children }: { children: ReactNode }) {
 	const [draft, setDraft] = useState<DashboardLayoutEntry[] | null>(null);
 
 	const resolved = useMemo(
-		() => resolveLayout(view.data?.dashboardLayout, widgets),
-		[view.data?.dashboardLayout, widgets],
+		() =>
+			resolveLayout(
+				view.data?.dashboardLayout,
+				widgets,
+				view.data?.dashboardLayoutVersion,
+			),
+		[view.data?.dashboardLayout, view.data?.dashboardLayoutVersion, widgets],
 	);
 
 	const editing = draft !== null;
 	const layout = draft ?? resolved;
 
+	const atWidgetCap = layout.length >= DASHBOARD.grid.maxWidgets;
+
 	const addable = useMemo(() => {
+		if (atWidgetCap) return [];
 		const present = new Set(layout.map((entry) => entry.id));
 		return widgets.filter((widget) => !present.has(widget.id));
-	}, [widgets, layout]);
+	}, [widgets, layout, atWidgetCap]);
 
 	const value: DashboardEditContextValue = {
 		editing,
 		layout,
 		widgets,
 		addable,
+		atWidgetCap,
 		savePending: save.isPending,
 		customise: () => setDraft(resolved),
 		cancel: () => setDraft(null),
@@ -87,7 +99,11 @@ export function DashboardEditProvider({ children }: { children: ReactNode }) {
 			save.mutate(
 				{
 					tableId: "dashboard",
-					state: { ...view.data, dashboardLayout: clampToSchema(draft) },
+					state: {
+						...view.data,
+						dashboardLayout: clampToSchema(draft),
+						dashboardLayoutVersion: DASHBOARD_LAYOUT_VERSION,
+					},
 				},
 				{
 					onSuccess: async () => {

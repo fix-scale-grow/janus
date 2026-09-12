@@ -71,6 +71,18 @@ describe("dashboardLayout", () => {
 		expect(parseViewState(state)).toEqual(state);
 	});
 
+	it("dashboardLayoutVersion round-trips through parseViewState", () => {
+		const state = {
+			dashboardLayout: [{ id: "trend", x: 0, y: 3, w: 7, h: 10 }],
+			dashboardLayoutVersion: 2,
+		};
+		expect(parseViewState(state)).toEqual(state);
+	});
+
+	it("dashboardLayoutVersion is optional", () => {
+		expect(parseViewState({})).toEqual({});
+	});
+
 	it("dashboardLayout rejects out-of-range entries", () => {
 		expect(() =>
 			parseViewState({
@@ -112,6 +124,32 @@ describe("dashboardLayout", () => {
 				y: 0,
 				w: 1,
 				h: DASHBOARD_LAYOUT_MAX.h + 1,
+			}),
+		).toThrow();
+	});
+
+	it("id accepts 64 chars", () => {
+		const id64 = "a".repeat(64);
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: id64,
+				x: 0,
+				y: 0,
+				w: 1,
+				h: 1,
+			}),
+		).not.toThrow();
+	});
+
+	it("id rejects 65 chars", () => {
+		const id65 = "a".repeat(65);
+		expect(() =>
+			dashboardLayoutEntry.parse({
+				id: id65,
+				x: 0,
+				y: 0,
+				w: 1,
+				h: 1,
 			}),
 		).toThrow();
 	});

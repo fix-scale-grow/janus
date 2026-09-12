@@ -1,4 +1,4 @@
 export const DASHBOARD = {
-	grid: { cols: 48, rowHeightPx: 8, maxWidgets: 20 },
+	grid: { cols: 12, rowHeightPx: 32, maxWidgets: 20, marginPx: 10 },
 	upcoming: { days: 14, take: 8 },
 } as const;

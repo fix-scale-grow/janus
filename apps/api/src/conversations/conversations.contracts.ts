@@ -1,23 +1,46 @@
 import { z } from "zod";
 
+export const conversationKind = z.enum(["RECORD", "WORKSPACE"]);
+
+export type ConversationKind = z.infer<typeof conversationKind>;
+
+const DEFAULT_CONVERSATION_KIND: ConversationKind = "RECORD";
+
+export function conversationKindOf(input: { kind?: ConversationKind }) {
+	return input.kind ?? DEFAULT_CONVERSATION_KIND;
+}
+
 const recordShape = {
+	kind: conversationKind.optional(),
 	contactId: z.string().trim().min(1).optional(),
 	dealId: z.string().trim().min(1).optional(),
 	drawingId: z.string().trim().min(1).optional(),
 };
 
-const hasExactlyOneRecord = (input: {
+type RecordShape = {
+	kind?: ConversationKind;
 	contactId?: string;
 	dealId?: string;
 	drawingId?: string;
-}) =>
-	[input.contactId, input.dealId, input.drawingId].filter(Boolean).length === 1;
+};
+
+const recordCount = (input: RecordShape) =>
+	[input.contactId, input.dealId, input.drawingId].filter(Boolean).length;
+
+const hasExactlyOneRecord = (input: RecordShape) =>
+	conversationKindOf(input) !== "RECORD" || recordCount(input) === 1;
+
+const hasNoRecord = (input: RecordShape) =>
+	conversationKindOf(input) !== "WORKSPACE" || recordCount(input) === 0;
 
 const recordMessage = "Choose exactly one contact, deal or drawing.";
 
+const workspaceMessage = "A workspace conversation has no CRM record.";
+
 export const conversationListInput = z
 	.object(recordShape)
-	.refine(hasExactlyOneRecord, { message: recordMessage });
+	.refine(hasExactlyOneRecord, { message: recordMessage })
+	.refine(hasNoRecord, { message: workspaceMessage });
 
 export type ConversationListInput = z.infer<typeof conversationListInput>;
 
@@ -30,7 +53,8 @@ export const conversationSaveInput = z
 		title: z.string().trim().max(120).optional(),
 		messageCount: z.number().int().min(0).optional(),
 	})
-	.refine(hasExactlyOneRecord, { message: recordMessage });
+	.refine(hasExactlyOneRecord, { message: recordMessage })
+	.refine(hasNoRecord, { message: workspaceMessage });
 
 export type ConversationSaveInput = z.infer<typeof conversationSaveInput>;
 

@@ -1,12 +1,12 @@
 import type { CarbonIcon } from "@crm/ui/components/icon";
 
-export type AgentRecordKind = "contact" | "deal" | "drawing";
+export type AgentRecordKind = "contact" | "deal" | "drawing" | "workspace";
 
 export type AgentRecord = { kind: AgentRecordKind; id: string };
 
 type RecordCopy = {
-	header: string;
-	field: "contactId" | "dealId" | "drawingId";
+	header?: string;
+	field?: "contactId" | "dealId" | "drawingId";
 	title: string;
 	blurb: string;
 	placeholder: string;
@@ -53,6 +53,17 @@ const COPY: Record<AgentRecordKind, RecordCopy> = {
 			"What did the customer write on it?",
 		],
 	},
+	workspace: {
+		title: "Ask Janus",
+		blurb:
+			"It can read your pipelines, deals, drawings and estimates — ask it anything about the business.",
+		placeholder: "Which deals stalled this week?",
+		suggestions: [
+			"Which deals stalled this week?",
+			"What closed this month?",
+			"What needs my attention today?",
+		],
+	},
 };
 
 export function recordCopy(kind: AgentRecordKind): RecordCopy {
@@ -60,15 +71,19 @@ export function recordCopy(kind: AgentRecordKind): RecordCopy {
 }
 
 export function recordHeader(record: AgentRecord): Record<string, string> {
-	return { [COPY[record.kind].header]: record.id };
+	const header = COPY[record.kind].header;
+	return header ? { [header]: record.id } : {};
 }
 
 export function recordFilter(record: AgentRecord): {
+	kind?: "WORKSPACE";
 	contactId?: string;
 	dealId?: string;
 	drawingId?: string;
 } {
-	return { [COPY[record.kind].field]: record.id };
+	const field = COPY[record.kind].field;
+	if (!field) return { kind: "WORKSPACE" };
+	return { [field]: record.id };
 }
 
 export type { CarbonIcon };

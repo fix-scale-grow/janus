@@ -130,8 +130,10 @@ function Forget({
 }
 
 export function useConversations(recordId: {
+	kind?: "WORKSPACE";
 	contactId?: string;
 	dealId?: string;
+	drawingId?: string;
 }) {
 	const trpc = useTRPC();
 	return useQuery(trpc.conversations.list.queryOptions(recordId));
