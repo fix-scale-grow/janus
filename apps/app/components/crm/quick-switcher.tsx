@@ -127,13 +127,27 @@ export function QuickSwitcher() {
 				: null;
 
 	const askFirst = trimmedQuery.length > 0 && isQuestionShaped(trimmedQuery);
+	const askValue = `ask-janus:${trimmedQuery}`;
 	const askRow =
 		trimmedQuery.length > 0 ? (
-			<CommandItem value={`ask-janus:${trimmedQuery}`} onSelect={askJanus}>
+			<CommandItem value={askValue} onSelect={askJanus}>
 				<Icon icon={Chat} />
 				<span className="truncate">Ask Janus: "{trimmedQuery}"</span>
 			</CommandItem>
 		) : null;
+
+	const firstHit = hits[0];
+	const defaultValue =
+		!askFirst && firstHit
+			? `${firstHit.kind}:${firstHit.id}`
+			: trimmedQuery.length > 0
+				? askValue
+				: undefined;
+	const [selected, setSelected] = useState(defaultValue);
+
+	useEffect(() => {
+		setSelected(defaultValue);
+	}, [defaultValue]);
 
 	return (
 		<>
@@ -143,7 +157,11 @@ export function QuickSwitcher() {
 				title="Search"
 				description="Search or ask Janus"
 			>
-				<Command shouldFilter={false}>
+				<Command
+					shouldFilter={false}
+					value={selected}
+					onValueChange={setSelected}
+				>
 					<CommandInput
 						placeholder="Search or ask Janus…"
 						value={query}
