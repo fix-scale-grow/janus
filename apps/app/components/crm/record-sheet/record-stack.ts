@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import {
 	parseAsArrayOf,
 	parseAsString,
@@ -11,6 +12,8 @@ import {
 	TIMELINE_PARAM,
 	timelineTabParser,
 } from "@/components/crm/timeline/timeline-search-params";
+import { useCrmCache } from "@/lib/trpc/cache";
+import { useTRPC } from "@/lib/trpc/client";
 
 const RECORD_KINDS = ["contact", "deal"] as const;
 
@@ -41,6 +44,20 @@ export function recordKey(ref: RecordRef): string {
 	return `${ref.kind}:${ref.id}`;
 }
 
+type RecentTouchKind =
+	| "contact"
+	| "deal"
+	| "drawing"
+	| "estimate"
+	| "invoice"
+	| "contract"
+	| "project";
+
+const RECENT_KIND: Partial<Record<RecordKind, RecentTouchKind>> = {
+	contact: "contact",
+	deal: "deal",
+};
+
 function parseRef(raw: string): RecordRef | null {
 	const [kind, ...rest] = raw.split(":");
 	const id = rest.join(":");
@@ -52,6 +69,15 @@ function parseRef(raw: string): RecordRef | null {
 
 export function useRecordStack() {
 	const [{ record }, setParams] = useQueryStates(params);
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+
+	const touchRecent = useMutation(
+		trpc.recents.touch.mutationOptions({
+			onSuccess: () => void cache.recents(),
+			onError: () => {},
+		}),
+	);
 
 	const stack = useMemo(
 		() => record.map(parseRef).filter((ref): ref is RecordRef => ref !== null),
@@ -88,8 +114,13 @@ export function useRecordStack() {
 				stack.length === 0 ? "push" : "replace",
 				options?.tab ?? null,
 			);
+
+			const recentKind = RECENT_KIND[ref.kind];
+			if (recentKind) {
+				touchRecent.mutate({ kind: recentKind, recordId: ref.id });
+			}
 		},
-		[stack, write],
+		[stack, write, touchRecent],
 	);
 
 	const close = useCallback(

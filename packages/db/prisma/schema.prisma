@@ -60,6 +60,8 @@ model User {
 
   views UserView[]
 
+  recentRecords RecentRecord[]
+
   createdForms Form[] @relation("FormCreator")
 
   photos Photo[] @relation("PhotoUploader")
@@ -931,6 +933,7 @@ model Deal {
   id            String              @id @default(cuid())
   conversations AgentConversation[]
   name          String
+  number        Int                 @unique @default(autoincrement())
   description   String?
   ownerId       String
   owner         User                @relation("DealOwner", fields: [ownerId], references: [id])
@@ -1580,6 +1583,10 @@ model AppSetting {
   trackingConfigHash       String?
   trackingPaused           Boolean @default(false)
 
+  navLayout String?
+
+  dealNumberStart Int?
+
   updatedAt DateTime @updatedAt
 
   @@map("appSetting")
@@ -2066,4 +2073,17 @@ model ProjectPhoto {
   @@unique([projectId, photoId])
   @@index([projectId, sortOrder])
   @@map("project_photo")
+}
+
+model RecentRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  recordId  String
+  touchedAt DateTime @default(now())
+
+  @@unique([userId, kind, recordId])
+  @@index([userId, touchedAt])
+  @@map("recent_record")
 }

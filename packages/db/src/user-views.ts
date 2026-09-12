@@ -40,6 +40,7 @@ export const viewStateSchema = z
 		pageSize: z.number().int().positive().optional(),
 		density: z.enum(["comfortable", "compact"]).optional(),
 		navOrder: z.array(z.string().max(100)).max(40).optional(),
+		navHidden: z.array(z.string().max(120)).max(60).optional(),
 		dashboardLayout: z.array(dashboardLayoutEntry).max(20).optional(),
 		dashboardLayoutVersion: z.number().int().optional(),
 	})

@@ -23,6 +23,11 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { useMobileNav } from "@/components/mobile-nav";
+import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
+import { RecentsMenu } from "@/components/nav/recents-menu";
+import { SearchPill } from "@/components/nav/search-pill";
+import { TopNav } from "@/components/nav/top-nav";
+import type { NavPermissions } from "@/components/nav/use-nav-items";
 import { signOutAndRedirect } from "@/lib/sign-out";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -30,7 +35,19 @@ import { workspaceLabel } from "@/lib/workspace-label";
 
 type User = { name: string; email: string; image: string | null };
 
-export function AppHeader({ user }: { user: User }) {
+export function AppHeader({
+	user,
+	navLayout,
+	initialPermissions,
+	initialNavOrder,
+	initialNavHidden,
+}: {
+	user: User;
+	navLayout: "RAIL" | "TOP_BAR";
+	initialPermissions?: NavPermissions;
+	initialNavOrder?: string[];
+	initialNavHidden?: string[];
+}) {
 	const { setOpen: setMobileNavOpen } = useMobileNav();
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
@@ -58,10 +75,28 @@ export function AppHeader({ user }: { user: User }) {
 					<Logo className="size-5" src={logoUrl} alt={label} />
 				</Link>
 				<Separator orientation="vertical" className="mx-1 h-5 bg-transparent" />
-				<span className="min-w-0 truncate font-medium text-sm">{label}</span>
+				<span className="min-w-0 shrink-0 truncate font-medium text-sm">
+					{label}
+				</span>
 			</div>
 
-			<div className="ml-auto flex shrink-0 items-center gap-1.5">
+			{navLayout === "TOP_BAR" ? (
+				<div className="hidden min-w-0 flex-1 items-center gap-1 md:flex">
+					<QuickCreateMenu variant="bar" />
+					<RecentsMenu variant="bar" />
+					<Separator orientation="vertical" className="mx-1 h-5" />
+					<TopNav
+						initialPermissions={initialPermissions}
+						initialNavOrder={initialNavOrder}
+						initialNavHidden={initialNavHidden}
+					/>
+				</div>
+			) : null}
+
+			<div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5">
+				<div className="hidden md:block">
+					<SearchPill variant="bar" />
+				</div>
 				<UserMenu
 					user={user}
 					onSignOut={() => {

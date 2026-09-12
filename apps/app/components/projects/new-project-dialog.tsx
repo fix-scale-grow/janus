@@ -37,16 +37,22 @@ export type NewProjectDefaults = {
 export function NewProjectDialog({
 	trigger,
 	defaults,
+	open: openProp,
+	onOpenChange,
 }: {
 	trigger?: ReactNode;
 	defaults?: NewProjectDefaults;
-}) {
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+} = {}) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
 
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = openProp ?? internalOpen;
+	const setOpen = onOpenChange ?? setInternalOpen;
 	const [name, setName] = useState(defaults?.name ?? "");
 	const [startDate, setStartDate] = useState(() => toDay(new Date()));
 	const [goalDate, setGoalDate] = useState("");
@@ -86,14 +92,16 @@ export function NewProjectDialog({
 				if (!next) reset();
 			}}
 		>
-			<DialogTrigger asChild>
-				{trigger ?? (
-					<Button size="sm">
-						<Icon icon={Add} data-icon="inline-start" />
-						New project
-					</Button>
-				)}
-			</DialogTrigger>
+			{openProp === undefined ? (
+				<DialogTrigger asChild>
+					{trigger ?? (
+						<Button size="sm">
+							<Icon icon={Add} data-icon="inline-start" />
+							New project
+						</Button>
+					)}
+				</DialogTrigger>
+			) : null}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>New project</DialogTitle>

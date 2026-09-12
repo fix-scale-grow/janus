@@ -50,6 +50,7 @@ import { toast } from "sonner";
 import { contactName } from "@/components/crm/contact-name";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { LocalDay } from "@/components/local-date-time";
+import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
 	PageShell,
 	PageShellActions,
@@ -365,6 +366,7 @@ export function ContractDetail({
 	contractId: string;
 	initialContract: ContractDetailData;
 }) {
+	useRecentTouch("contract", contractId);
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const queryClient = useQueryClient();

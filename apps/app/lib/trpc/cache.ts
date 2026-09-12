@@ -35,6 +35,7 @@ export type CrmCache = {
 	fieldCoverage(id?: string, options?: Options): Promise<void>;
 	pipeline(options?: Options): Promise<void>;
 	forms(id?: string, options?: Options): Promise<void>;
+	recents(options?: Options): Promise<void>;
 	removed(record: RemovedRecord): Promise<void>;
 	removedMany(records: RemovedRecords): Promise<void>;
 	conversationRemoved(id: string): Promise<void>;
@@ -168,6 +169,8 @@ export function useCrmCache(): CrmCache {
 				[trpc.forms.list.queryKey(), trpc.forms.submissions.pathKey()],
 				options,
 			),
+
+		recents: (options) => run([trpc.recents.list.queryKey()], [], options),
 
 		contact: (id, options) =>
 			run(
@@ -383,6 +386,8 @@ export function useCrmCache(): CrmCache {
 				[
 					trpc.settings.agentModel.queryKey(),
 					trpc.settings.researchKey.queryKey(),
+					trpc.settings.navLayout.queryKey(),
+					trpc.settings.dealNumbering.queryKey(),
 				],
 				[],
 				options,

@@ -35,7 +35,26 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 		sortable: true,
 		hideable: false,
 		width: "w-[30%]",
-		cell: (row) => <span className="truncate font-medium">{row.name}</span>,
+		cell: (row) => (
+			<span className="flex min-w-0 items-center gap-1.5">
+				<span className="shrink-0 text-muted-foreground tabular-nums">
+					#{row.number}
+				</span>
+				<span className="truncate font-medium">{row.name}</span>
+			</span>
+		),
+	},
+	{
+		id: "number",
+		header: "Number",
+		label: "Number",
+		sortable: true,
+		defaultHidden: true,
+		align: "right",
+		width: "w-[10%]",
+		cell: (row) => (
+			<span className="tabular-nums text-muted-foreground">#{row.number}</span>
+		),
 	},
 	{
 		id: "stage",

@@ -30,6 +30,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { contactName } from "@/components/crm/contact-name";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import { ProjectPhotosDialog } from "@/components/photos/project-photos-dialog";
 import {
 	ProjectClientLink,
@@ -67,6 +68,7 @@ function countdown(goalDate: string | null): string | null {
 }
 
 export function ProjectHeader({ id }: { id: string }) {
+	useRecentTouch("project", id);
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();

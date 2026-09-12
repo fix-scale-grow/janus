@@ -16,6 +16,7 @@ const ROOT = "/settings";
 
 const ITEMS: SettingsNavItem[] = [
 	{ title: "General", href: ROOT },
+	{ title: "Navigation", href: `${ROOT}/navigation` },
 	{ title: "Tracking & Analytics", href: `${ROOT}/tracking` },
 	{ title: "Connections", href: `${ROOT}/connections` },
 	{ title: "Price book", href: `${ROOT}/price-book` },

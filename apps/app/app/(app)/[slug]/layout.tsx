@@ -6,24 +6,27 @@ import { AppIconRail, AppIconRailFallback } from "@/components/app-icon-rail";
 import { QuickSwitcher } from "@/components/crm/quick-switcher";
 import { RecordSheetHost } from "@/components/crm/record-sheet/record-sheet-host";
 import { MobileNavProvider } from "@/components/mobile-nav";
+import { readInstallNavLayout } from "@/lib/nav-layout";
 import { requireMailboxAccess } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 
-export default function AppLayout({
+export default async function AppLayout({
 	children,
 	params,
 }: LayoutProps<"/[slug]">) {
+	const navLayout = await readInstallNavLayout();
+
 	return (
 		<MobileNavProvider>
 			<div className="isolate flex h-svh flex-col">
 				<Suspense fallback={<AppHeaderFallback />}>
-					<WorkspaceHeader params={params} />
+					<WorkspaceHeader params={params} navLayout={navLayout} />
 				</Suspense>
 
 				<div className="flex min-h-0 flex-1">
-					<Suspense fallback={<AppIconRailFallback />}>
-						<AppRail />
+					<Suspense fallback={<AppIconRailFallback navLayout={navLayout} />}>
+						<AppRail navLayout={navLayout} />
 					</Suspense>
 					{children}
 				</div>
@@ -40,13 +43,17 @@ export default function AppLayout({
 	);
 }
 
-async function AppRail() {
+async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 	await connection();
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
 	const [permissions, navView] = await Promise.all([
-		queryClient.fetchQuery(trpc.permissions.mine.queryOptions()),
-		queryClient.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
+		queryClient
+			.fetchQuery(trpc.permissions.mine.queryOptions())
+			.catch(() => undefined),
+		queryClient
+			.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" }))
+			.catch(() => undefined),
 		queryClient.prefetchQuery(
 			trpc.views.get.queryOptions({ tableId: "dashboard" }),
 		),
@@ -55,8 +62,10 @@ async function AppRail() {
 	return (
 		<HydrateClient>
 			<AppIconRail
-				initialPermissionKeys={permissions.keys}
+				navLayout={navLayout}
+				initialPermissions={permissions}
 				initialNavOrder={navView?.navOrder}
+				initialNavHidden={navView?.navHidden}
 			/>
 		</HydrateClient>
 	);
@@ -64,7 +73,10 @@ async function AppRail() {
 
 async function WorkspaceHeader({
 	params,
-}: Pick<LayoutProps<"/[slug]">, "params">) {
+	navLayout,
+}: Pick<LayoutProps<"/[slug]">, "params"> & {
+	navLayout: "RAIL" | "TOP_BAR";
+}) {
 	await connection();
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
@@ -74,15 +86,20 @@ async function WorkspaceHeader({
 			unstable_rethrow(error);
 			return null;
 		});
-	const permissionsPromise = queryClient.prefetchQuery(
-		trpc.permissions.mine.queryOptions(),
-	);
-	const [{ user }, { slug }, workspace] = await Promise.all([
-		requireMailboxAccess(),
-		params,
-		workspacePromise,
-		permissionsPromise,
-	]);
+	const permissionsPromise = queryClient
+		.fetchQuery(trpc.permissions.mine.queryOptions())
+		.catch(() => undefined);
+	const navViewPromise = queryClient
+		.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" }))
+		.catch(() => undefined);
+	const [{ user }, { slug }, workspace, permissions, navView] =
+		await Promise.all([
+			requireMailboxAccess(),
+			params,
+			workspacePromise,
+			permissionsPromise,
+			navViewPromise,
+		]);
 
 	if (workspace && workspace.slug !== slug) notFound();
 
@@ -94,6 +111,10 @@ async function WorkspaceHeader({
 					email: user.email,
 					image: user.image ?? null,
 				}}
+				navLayout={navLayout}
+				initialPermissions={permissions}
+				initialNavOrder={navView?.navOrder}
+				initialNavHidden={navView?.navHidden}
 			/>
 		</HydrateClient>
 	);

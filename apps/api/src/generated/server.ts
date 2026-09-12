@@ -34,9 +34,10 @@ import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
+import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
-import { setAgentModelInput, setResearchKeyInput } from "../settings/settings.contracts";
+import { setAgentModelInput, setResearchKeyInput, setNavLayoutInput, setDealNumberStartInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolBulkSetServiceInput, symbolPackInput } from "../symbols/symbols.contracts";
@@ -66,6 +67,7 @@ import type { PermissionsRouter } from "../permissions/permissions.router";
 import type { PhotosRouter } from "../photos/photos.router";
 import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
+import type { RecentsRouter } from "../recents/recents.router";
 import type { ReportsRouter } from "../reports/reports.router";
 import type { SearchRouter } from "../search/search.router";
 import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
@@ -725,6 +727,13 @@ const appRouter = t.router({
       .input(projectIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskRemove"]>>)
     }),
+  recents: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RecentsRouter["list"]>>),
+    touch: publicProcedure
+      .input(recentTouchInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RecentsRouter["touch"]>>)
+    }),
   reports: t.router({
     byClient: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byClient"]>>),
@@ -770,7 +779,17 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["researchKey"]>>),
     setResearchKey: publicProcedure
       .input(setResearchKeyInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setResearchKey"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setResearchKey"]>>),
+    navLayout: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["navLayout"]>>),
+    setNavLayout: publicProcedure
+      .input(setNavLayoutInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setNavLayout"]>>),
+    dealNumbering: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["dealNumbering"]>>),
+    setDealNumberStart: publicProcedure
+      .input(setDealNumberStartInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setDealNumberStart"]>>)
     }),
   slack: t.router({
     status: publicProcedure

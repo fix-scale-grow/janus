@@ -27,6 +27,12 @@ import UserMultiple from "@carbon/icons-react/es/UserMultiple";
 export type NavMatch = "exact" | "prefix";
 export type NavStatus = "live" | "planned";
 
+export type NavChild = {
+	id: string;
+	title: string;
+	href: string;
+};
+
 export type JanusModule = {
 	title: string;
 	href: string;
@@ -37,6 +43,7 @@ export type JanusModule = {
 	/** v0-suite source route this module ports from (design contract). */
 	source?: string;
 	permission?: string;
+	children?: NavChild[];
 };
 
 /** A module already wired to a real engine route; guaranteed to carry an icon. */
@@ -71,6 +78,10 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: UserMultiple,
 		source: "app/(app)/contacts",
+		children: [
+			{ id: "/contacts:new", title: "New contact", href: "/contacts?new=1" },
+			{ id: "/contacts:all", title: "All contacts", href: "/contacts" },
+		],
 	},
 	{
 		title: "Sales",
@@ -87,6 +98,37 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Settings,
 		source: "app/(app)/settings",
+		children: [
+			{
+				id: "/settings:price-book",
+				title: "Price book",
+				href: "/settings/price-book",
+			},
+			{ id: "/settings:crews", title: "Crews", href: "/settings/crews" },
+			{ id: "/settings:symbols", title: "Symbols", href: "/settings/symbols" },
+			{
+				id: "/settings:templates",
+				title: "Templates",
+				href: "/settings/templates",
+			},
+			{ id: "/settings:fields", title: "Fields", href: "/settings/fields" },
+			{
+				id: "/settings:pipeline",
+				title: "Pipeline",
+				href: "/settings/pipeline",
+			},
+			{ id: "/settings:forms", title: "Forms", href: "/settings/forms" },
+			{
+				id: "/settings:tracking",
+				title: "Tracking & Analytics",
+				href: "/settings/tracking",
+			},
+			{
+				id: "/settings:connections",
+				title: "Connections",
+				href: "/settings/connections",
+			},
+		],
 	},
 	{
 		title: "Production",

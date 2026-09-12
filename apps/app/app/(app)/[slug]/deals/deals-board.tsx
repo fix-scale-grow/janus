@@ -412,8 +412,13 @@ function DealCardBody({
 				className="flex flex-col gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				<span className="flex items-start justify-between gap-2">
-					<span className="min-w-0 truncate text-sm font-medium text-foreground">
-						{row.name}
+					<span className="flex min-w-0 items-center gap-1.5">
+						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+							#{row.number}
+						</span>
+						<span className="min-w-0 truncate text-sm font-medium text-foreground">
+							{row.name}
+						</span>
 					</span>
 					<span className="shrink-0 text-sm tabular-nums text-muted-foreground">
 						{row.amountCents === null
