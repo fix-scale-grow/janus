@@ -946,3 +946,22 @@
 	border-radius: var(--radius-lg);
 	opacity: 1;
 }
+
+.react-resizable-handle-se {
+	width: 22px;
+	height: 22px;
+	cursor: nwse-resize;
+	background-image: none;
+}
+
+.react-resizable-handle-se::after {
+	content: "";
+	position: absolute;
+	right: 4px;
+	bottom: 4px;
+	width: 8px;
+	height: 8px;
+	border-right: 2px solid var(--muted-foreground);
+	border-bottom: 2px solid var(--muted-foreground);
+	border-bottom-right-radius: var(--radius-sm);
+}
