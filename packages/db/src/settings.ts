@@ -121,6 +121,52 @@ export async function writeRatesRefreshedAt(
 	});
 }
 
+export const NAV_LAYOUTS = ["RAIL", "TOP_BAR"] as const;
+
+export type NavLayout = (typeof NAV_LAYOUTS)[number];
+
+export const DEFAULT_NAV_LAYOUT: NavLayout = "RAIL";
+
+export async function readNavLayout(db: Db): Promise<NavLayout> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { navLayout: true },
+	});
+
+	return row?.navLayout === "TOP_BAR" ? "TOP_BAR" : DEFAULT_NAV_LAYOUT;
+}
+
+export async function writeNavLayout(
+	db: Db,
+	navLayout: NavLayout,
+): Promise<void> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, navLayout },
+		update: { navLayout },
+	});
+}
+
+export async function readDealNumberStart(db: Db): Promise<number | null> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { dealNumberStart: true },
+	});
+
+	return row?.dealNumberStart ?? null;
+}
+
+export async function writeDealNumberStart(
+	db: Db,
+	dealNumberStart: number,
+): Promise<void> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, dealNumberStart },
+		update: { dealNumberStart },
+	});
+}
+
 export function maskKey(key: string): string {
 	const trimmed = key.trim();
 	return trimmed.length > 4 ? `••••${trimmed.slice(-4)}` : "••••";

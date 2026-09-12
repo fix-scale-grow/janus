@@ -19,3 +19,15 @@ export const setResearchKeyInput = z.object({
 });
 
 export type SetResearchKeyInput = z.infer<typeof setResearchKeyInput>;
+
+export const setNavLayoutInput = z.object({
+	layout: z.enum(["RAIL", "TOP_BAR"]),
+});
+
+export type SetNavLayoutInput = z.infer<typeof setNavLayoutInput>;
+
+export const setDealNumberStartInput = z.object({
+	start: z.number().int().min(1).max(99_999_999),
+});
+
+export type SetDealNumberStartInput = z.infer<typeof setDealNumberStartInput>;
