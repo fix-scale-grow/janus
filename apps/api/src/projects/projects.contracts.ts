@@ -89,7 +89,8 @@ export const projectIdInput = z.object({ id: z.string().min(1) });
 export type ProjectIdInput = z.infer<typeof projectIdInput>;
 
 export const projectCreateInput = z.object({
-	dealId: z.string().min(1),
+	dealId: z.string().min(1).optional(),
+	contactId: z.string().min(1).optional(),
 	name: z.string().trim().min(1).max(PROJECTS.project.nameMax),
 	goal: z.string().trim().max(PROJECTS.project.goalMax).optional(),
 	startDate: dayInput,
@@ -105,6 +106,10 @@ export const projectUpdateInput = z.object({
 	status: statusEnum.optional(),
 	startDate: dayInput.optional(),
 	goalDate: dayInput.nullable().optional(),
+	dealId: z.string().min(1).nullable().optional(),
+	contactId: z.string().min(1).nullable().optional(),
+	estimateId: z.string().min(1).nullable().optional(),
+	invoiceId: z.string().min(1).nullable().optional(),
 });
 
 export type ProjectUpdateInput = z.infer<typeof projectUpdateInput>;

@@ -64,7 +64,9 @@ export function ProjectsTable({ savedState }: { savedState?: SavedTableView }) {
 			width: "w-[16%]",
 			hideBelow: "md",
 			cell: (row) => (
-				<span className="truncate text-muted-foreground">{row.deal.name}</span>
+				<span className="truncate text-muted-foreground">
+					{row.deal?.name ?? "—"}
+				</span>
 			),
 		},
 		{
@@ -72,20 +74,25 @@ export function ProjectsTable({ savedState }: { savedState?: SavedTableView }) {
 			header: "Client",
 			width: "w-[16%]",
 			hideBelow: "md",
-			cell: (row) => (
-				<span className="truncate text-muted-foreground">
-					{row.deal.contacts[0] ? (
-						<>
-							{contactName(row.deal.contacts[0])}
-							{row.deal.contacts.length > 1
-								? ` +${row.deal.contacts.length - 1}`
-								: ""}
-						</>
-					) : (
-						"—"
-					)}
-				</span>
-			),
+			cell: (row) => {
+				const clients = row.deal?.contacts.length
+					? row.deal.contacts
+					: row.contact
+						? [row.contact]
+						: [];
+				return (
+					<span className="truncate text-muted-foreground">
+						{clients[0] ? (
+							<>
+								{contactName(clients[0])}
+								{clients.length > 1 ? ` +${clients.length - 1}` : ""}
+							</>
+						) : (
+							"—"
+						)}
+					</span>
+				);
+			},
 		},
 		{
 			id: "progress",

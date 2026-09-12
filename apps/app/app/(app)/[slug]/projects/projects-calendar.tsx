@@ -67,7 +67,7 @@ type ProjectSpan = {
 	id: string;
 	name: string;
 	status: CalendarRow["status"];
-	dealName: string;
+	dealName: string | null;
 	clientName: string | null;
 	goalDate: Date | null;
 	startDay: Date;
@@ -166,10 +166,12 @@ export function ProjectsCalendar({ viewToggle }: { viewToggle: ReactNode }) {
 				id: row.id,
 				name: row.name,
 				status: row.status,
-				dealName: row.deal.name,
-				clientName: row.deal.contacts[0]
+				dealName: row.deal?.name ?? null,
+				clientName: row.deal?.contacts[0]
 					? contactName(row.deal.contacts[0])
-					: null,
+					: row.contact
+						? contactName(row.contact)
+						: null,
 				goalDate: row.goalDate ? new Date(row.goalDate) : null,
 				startDay: new Date(row.startDate),
 				endDay: new Date(row.endDate),
@@ -451,7 +453,7 @@ function ProjectBar({
 				}
 				router.push(workspaceUrl(`/projects/${span.id}`));
 			}}
-			title={`${span.name} — ${span.dealName}${span.clientName ? ` · ${span.clientName}` : ""}`}
+			title={`${span.name}${span.dealName ? ` — ${span.dealName}` : ""}${span.clientName ? ` · ${span.clientName}` : ""}`}
 			style={{
 				gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
 				marginTop: `${bar.lane * 1.75}rem`,

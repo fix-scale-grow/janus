@@ -392,6 +392,7 @@ model Contact {
   invoices        Invoice[]
   contracts       Contract[]
   photos          Photo[]
+  projects        Project[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -1111,6 +1112,7 @@ model Estimate {
   invoices        Invoice[]
   contracts       Contract[]
   photoLinks      EstimatePhoto[]
+  projects        Project[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -1188,6 +1190,7 @@ model Invoice {
   lineItems   InvoiceLineItem[]
   contracts   Contract[]
   photoLinks  InvoicePhoto[]
+  projects    Project[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -1234,8 +1237,14 @@ model Project {
   status      ProjectStatus @default(ACTIVE)
   startDate   DateTime
   goalDate    DateTime?
-  dealId      String
-  deal        Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  dealId      String?
+  deal        Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contactId   String?
+  contact     Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  estimateId  String?
+  estimate    Estimate?     @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  invoiceId   String?
+  invoice     Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   createdById String
   createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
   tasks       ProjectTask[]
@@ -1244,6 +1253,9 @@ model Project {
   updatedAt   DateTime      @updatedAt
 
   @@index([dealId])
+  @@index([contactId])
+  @@index([estimateId])
+  @@index([invoiceId])
   @@index([status])
   @@index([updatedAt])
   @@map("project")

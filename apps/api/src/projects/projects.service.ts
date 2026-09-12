@@ -52,13 +52,21 @@ type DealRow = {
 	}[];
 };
 
-function flattenDeal(deal: DealRow) {
+function flattenDeal(deal: DealRow | null) {
+	if (!deal) return null;
 	return {
 		id: deal.id,
 		name: deal.name,
 		contacts: deal.contacts.map(({ contact }) => contact),
 	};
 }
+
+const ANCHOR_SELECT = {
+	deal: { select: DEAL_SELECT },
+	contact: { select: { id: true, firstName: true, lastName: true } },
+	estimate: { select: { id: true, title: true } },
+	invoice: { select: { id: true, number: true } },
+} as const;
 
 const LIST_SELECT = {
 	id: true,
@@ -67,7 +75,7 @@ const LIST_SELECT = {
 	startDate: true,
 	goalDate: true,
 	updatedAt: true,
-	deal: { select: DEAL_SELECT },
+	...ANCHOR_SELECT,
 	tasks: { select: { status: true } },
 } as const;
 
@@ -131,6 +139,7 @@ export class ProjectsService {
 				startDate: true,
 				goalDate: true,
 				deal: { select: DEAL_SELECT },
+				contact: { select: { id: true, firstName: true, lastName: true } },
 			},
 		});
 
@@ -185,7 +194,7 @@ export class ProjectsService {
 		const row = await this.db.project.findUnique({
 			where: { id },
 			include: {
-				deal: { select: DEAL_SELECT },
+				...ANCHOR_SELECT,
 				tasks: {
 					orderBy: [{ startDay: "asc" }, { sortOrder: "asc" }],
 					include: {
@@ -204,17 +213,13 @@ export class ProjectsService {
 	}
 
 	async create(input: ProjectCreateInput, userId: string) {
-		const deal = await this.db.deal.findUnique({
-			where: { id: input.dealId },
-			select: { id: true },
-		});
-		if (!deal) {
-			throw new NotFoundException(`No deal with id ${input.dealId}.`);
-		}
+		if (input.dealId) await this.ensureLinked("deal", input.dealId);
+		if (input.contactId) await this.ensureLinked("contact", input.contactId);
 
 		return this.db.project.create({
 			data: {
-				dealId: input.dealId,
+				dealId: input.dealId ?? null,
+				contactId: input.contactId ?? null,
 				name: input.name,
 				goal: input.goal,
 				startDate: input.startDate,
@@ -226,6 +231,18 @@ export class ProjectsService {
 
 	async update(input: ProjectUpdateInput) {
 		const { id, ...data } = input;
+		if (typeof data.dealId === "string") {
+			await this.ensureLinked("deal", data.dealId);
+		}
+		if (typeof data.contactId === "string") {
+			await this.ensureLinked("contact", data.contactId);
+		}
+		if (typeof data.estimateId === "string") {
+			await this.ensureLinked("estimate", data.estimateId);
+		}
+		if (typeof data.invoiceId === "string") {
+			await this.ensureLinked("invoice", data.invoiceId);
+		}
 		try {
 			return await this.db.project.update({
 				where: { id },
@@ -233,6 +250,32 @@ export class ProjectsService {
 			});
 		} catch (error) {
 			throw this.translate(error, id);
+		}
+	}
+
+	private async ensureLinked(
+		model: "deal" | "contact" | "estimate" | "invoice",
+		id: string,
+	) {
+		const row =
+			model === "deal"
+				? await this.db.deal.findUnique({ where: { id }, select: { id: true } })
+				: model === "contact"
+					? await this.db.contact.findUnique({
+							where: { id },
+							select: { id: true },
+						})
+					: model === "estimate"
+						? await this.db.estimate.findUnique({
+								where: { id },
+								select: { id: true },
+							})
+						: await this.db.invoice.findUnique({
+								where: { id },
+								select: { id: true },
+							});
+		if (!row) {
+			throw new NotFoundException(`No ${model} with id ${id}.`);
 		}
 	}
 
