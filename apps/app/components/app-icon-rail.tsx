@@ -131,6 +131,7 @@ function RailChildrenTrigger({
 					variant="ghost"
 					size="icon-2xs"
 					aria-label={`${item.title} sections`}
+					onPointerDown={(event) => event.stopPropagation()}
 					className={cn(
 						"absolute right-0 bottom-0 bg-background text-muted-foreground shadow-2xs hover:bg-muted hover:text-foreground",
 						active && "text-foreground",
@@ -169,25 +170,23 @@ function SortableRailLink({
 		useSortable({ id: item.section });
 
 	return (
-		<div className="relative">
-			<div
-				ref={setNodeRef}
-				style={{ transform: CSS.Transform.toString(transform), transition }}
-				className={cn("touch-none", isDragging && "relative z-10 opacity-60")}
-				{...listeners}
-			>
-				<RailLink
-					item={item}
-					active={active}
-					onPrefetch={onPrefetch}
-					onLinkClick={(event) => {
-						if (suppressClick.current) {
-							suppressClick.current = false;
-							event.preventDefault();
-						}
-					}}
-				/>
-			</div>
+		<div
+			ref={setNodeRef}
+			style={{ transform: CSS.Transform.toString(transform), transition }}
+			className={cn("relative touch-none", isDragging && "z-10 opacity-60")}
+			{...listeners}
+		>
+			<RailLink
+				item={item}
+				active={active}
+				onPrefetch={onPrefetch}
+				onLinkClick={(event) => {
+					if (suppressClick.current) {
+						suppressClick.current = false;
+						event.preventDefault();
+					}
+				}}
+			/>
 			<RailChildrenTrigger item={item} active={active} />
 		</div>
 	);
