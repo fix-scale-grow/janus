@@ -73,9 +73,8 @@ export function WidgetShell({
 	return (
 		<Card
 			className={cn(
-				"min-w-0 h-full flex flex-col",
-				isEditing &&
-					"border border-dashed hover:ring-1 hover:ring-ring/50",
+				"min-w-0 h-full flex flex-col border border-primary/20 dark:border-primary/15",
+				isEditing && "border-dashed hover:ring-1 hover:ring-ring/50",
 			)}
 		>
 			<CardHeader>
