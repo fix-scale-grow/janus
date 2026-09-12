@@ -947,14 +947,15 @@
 	opacity: 1;
 }
 
-.react-resizable-handle-se {
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se {
 	width: 22px;
 	height: 22px;
 	cursor: nwse-resize;
 	background-image: none;
+	opacity: 1 !important;
 }
 
-.react-resizable-handle-se::after {
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se::after {
 	content: "";
 	position: absolute;
 	right: 3px;
@@ -967,6 +968,7 @@
 	opacity: 0.6;
 }
 
-.react-resizable-handle-se:hover::after {
+.react-grid-item
+	> .react-resizable-handle.react-resizable-handle-se:hover::after {
 	opacity: 1;
 }
