@@ -215,11 +215,15 @@ export class ProjectsService {
 	async create(input: ProjectCreateInput, userId: string) {
 		if (input.dealId) await this.ensureLinked("deal", input.dealId);
 		if (input.contactId) await this.ensureLinked("contact", input.contactId);
+		if (input.estimateId) await this.ensureLinked("estimate", input.estimateId);
+		if (input.invoiceId) await this.ensureLinked("invoice", input.invoiceId);
 
 		return this.db.project.create({
 			data: {
 				dealId: input.dealId ?? null,
 				contactId: input.contactId ?? null,
+				estimateId: input.estimateId ?? null,
+				invoiceId: input.invoiceId ?? null,
 				name: input.name,
 				goal: input.goal,
 				startDate: input.startDate,
