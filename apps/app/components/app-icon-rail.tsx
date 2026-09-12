@@ -41,113 +41,29 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type MouseEvent, useMemo, useRef, useState } from "react";
+import { type MouseEvent, useRef } from "react";
 import { AgentBuilderSidebar } from "@/components/agent-builder/agent-builder-sidebar";
 import { usePrefetchSection } from "@/components/crm/section-prefetch";
 import { useMobileNav } from "@/components/mobile-nav";
+import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
+import { RecentsMenu } from "@/components/nav/recents-menu";
 import {
-	JANUS_LIVE_NAV,
-	type LiveNavItem,
-	type NavChild,
-} from "@/lib/janus-nav";
-import { applyNavHidden, isChildHidden } from "@/lib/nav-children";
-import { applyNavOrder } from "@/lib/nav-order";
-import { useCrmCache } from "@/lib/trpc/cache";
-import { useTRPC } from "@/lib/trpc/client";
-import type { RouterOutputs } from "@/lib/trpc/types";
-import { useWorkspaceUrl } from "@/lib/use-workspace-url";
+	isNavChildActive,
+	isNavItemActive,
+	type NavItem,
+	useNavItems,
+} from "@/components/nav/use-nav-items";
+import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
 
-type RailItem = LiveNavItem;
-type Pipeline = RouterOutputs["pipelines"]["list"][number];
-const DEALS_MODULE_HREF = "/deals";
-
-function useVisibleItems(): RailItem[] {
-	const trpc = useTRPC();
-	const permissions = useQuery(trpc.permissions.mine.queryOptions());
-	const keys = permissions.data?.keys;
-
-	return useMemo(
-		() =>
-			JANUS_LIVE_NAV.filter(
-				(item) =>
-					!item.permission || (keys?.includes(item.permission) ?? false),
-			),
-		[keys],
-	);
-}
-
-function useNavOrder(): {
-	order: string[] | undefined;
-	saveOrder: (next: string[]) => void;
-} {
-	const trpc = useTRPC();
-	const cache = useCrmCache();
-	const [pending, setPending] = useState<string[] | undefined>(undefined);
-	const view = useQuery(trpc.views.get.queryOptions({ tableId: "nav" }));
-	const save = useMutation(trpc.views.save.mutationOptions());
-
-	const saveOrder = (next: string[]) => {
-		setPending(next);
-		if (view.isPending) return;
-		save.mutate(
-			{ tableId: "nav", state: { ...view.data, navOrder: next } },
-			{ onSuccess: () => void cache.views("nav", { settle: "record" }) },
-		);
-	};
-
-	return { order: pending ?? view.data?.navOrder, saveOrder };
-}
-
-function useNavHidden(): string[] | undefined {
-	const trpc = useTRPC();
-	const view = useQuery(trpc.views.get.queryOptions({ tableId: "nav" }));
-
-	return view.data?.navHidden;
-}
-
-function useDealsStageChildren(): NavChild[] {
-	const trpc = useTRPC();
-	const pipelines = useQuery(
-		trpc.pipelines.list.queryOptions({ includeArchived: false }),
-	);
-
-	return useMemo(() => {
-		const active: Pipeline | undefined =
-			pipelines.data?.find((pipeline) => pipeline.archivedAt === null) ??
-			pipelines.data?.[0];
-
-		return (active?.stages ?? []).map((stage) => ({
-			id: `${DEALS_MODULE_HREF}:${stage.id}`,
-			title: stage.label,
-			href: `${DEALS_MODULE_HREF}?stage=${stage.id}`,
-		}));
-	}, [pipelines.data]);
-}
+type RailItem = NavItem;
 
 function isActive(item: RailItem, pathname: string): boolean {
-	return (
-		pathname === item.href ||
-		(item.match === "prefix" && pathname.startsWith(item.href)) ||
-		Boolean(item.related?.some((prefix) => pathname.startsWith(prefix)))
-	);
+	return isNavItemActive(item, pathname);
 }
 
-function isChildActive(
-	child: NavChild,
-	pathname: string,
-	searchParams: URLSearchParams,
-): boolean {
-	const [childPath, childQuery] = child.href.split("?");
-	if (childPath !== pathname) return false;
-	if (!childQuery) return true;
-
-	return Array.from(new URLSearchParams(childQuery)).every(
-		([key, value]) => searchParams.get(key) === value,
-	);
-}
+const isChildActive = isNavChildActive;
 
 function RailLink({
 	item,
@@ -351,7 +267,13 @@ function MobileRailIconLink({
 	);
 }
 
-export function AppIconRailFallback() {
+export function AppIconRailFallback({
+	navLayout = "RAIL",
+}: {
+	navLayout?: "RAIL" | "TOP_BAR";
+}) {
+	if (navLayout === "TOP_BAR") return null;
+
 	return (
 		<nav
 			aria-label="Primary"
@@ -374,42 +296,17 @@ export function AppIconRailFallback() {
 	);
 }
 
-export function AppIconRail() {
+export function AppIconRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 	const pathname = usePathname();
-	const workspaceUrl = useWorkspaceUrl();
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
-	const visible = useVisibleItems();
-	const { order, saveOrder } = useNavOrder();
-	const hidden = useNavHidden();
-	const dealsStageChildren = useDealsStageChildren();
+	const { items, sectionIds, saveOrder } = useNavItems();
 	const suppressClick = useRef(false);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
 	);
 
-	const items = useMemo(
-		() =>
-			applyNavOrder(applyNavHidden(visible, hidden), order).map((item) => {
-				const children = (
-					item.href === DEALS_MODULE_HREF ? dealsStageChildren : item.children
-				)?.filter((child) => !isChildHidden(child.id, hidden));
-
-				return {
-					...item,
-					section: item.href,
-					href: workspaceUrl(item.href),
-					related: item.related?.map((path) => workspaceUrl(path)),
-					children: children?.map((child) => ({
-						...child,
-						href: workspaceUrl(child.href),
-					})),
-				};
-			}),
-		[visible, order, hidden, dealsStageChildren, workspaceUrl],
-	);
-	const sectionIds = useMemo(() => items.map((item) => item.section), [items]);
 	const inChat = items.some(
 		(item) => item.title === "Janus AI" && isActive(item, pathname),
 	);
@@ -432,33 +329,38 @@ export function AppIconRail() {
 
 	return (
 		<>
-			<nav
-				aria-label="Primary"
-				className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
-			>
-				<DndContext
-					id="app-rail-sort"
-					sensors={sensors}
-					collisionDetection={closestCenter}
-					modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-					onDragEnd={handleDragEnd}
+			{navLayout === "TOP_BAR" ? null : (
+				<nav
+					aria-label="Primary"
+					className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
 				>
-					<SortableContext
-						items={sectionIds}
-						strategy={verticalListSortingStrategy}
+					<QuickCreateMenu variant="rail" />
+					<RecentsMenu variant="rail" />
+					<div className="my-1 h-px w-5 bg-border" />
+					<DndContext
+						id="app-rail-sort"
+						sensors={sensors}
+						collisionDetection={closestCenter}
+						modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+						onDragEnd={handleDragEnd}
 					>
-						{items.map((item) => (
-							<SortableRailLink
-								key={item.section}
-								item={item}
-								active={isActive(item, pathname)}
-								onPrefetch={() => prefetchSection(item.section)}
-								suppressClick={suppressClick}
-							/>
-						))}
-					</SortableContext>
-				</DndContext>
-			</nav>
+						<SortableContext
+							items={sectionIds}
+							strategy={verticalListSortingStrategy}
+						>
+							{items.map((item) => (
+								<SortableRailLink
+									key={item.section}
+									item={item}
+									active={isActive(item, pathname)}
+									onPrefetch={() => prefetchSection(item.section)}
+									suppressClick={suppressClick}
+								/>
+							))}
+						</SortableContext>
+					</DndContext>
+				</nav>
+			)}
 
 			<Sheet open={open} onOpenChange={setOpen}>
 				{inChat ? (
