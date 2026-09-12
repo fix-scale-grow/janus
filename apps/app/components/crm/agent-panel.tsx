@@ -276,6 +276,7 @@ function Thread({
 		ask(initialMessage);
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: initialMessage must re-fire this effect when a second question arrives on an already-mounted panel
 	useEffect(() => {
 		sendInitialMessage();
 	}, [initialMessage]);

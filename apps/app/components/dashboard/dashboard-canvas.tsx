@@ -53,6 +53,7 @@ function useMeasuredHeight(
 	watch: unknown,
 ): number {
 	const [height, setHeight] = useState(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: watch forces a remeasure when the breakpoint flips, the body reads ref.current not watch itself
 	useEffect(() => {
 		const node = ref.current;
 		if (!node) return;
@@ -112,16 +113,16 @@ function GridGuides({
 			className="pointer-events-none absolute inset-0 opacity-50"
 			style={{ height: heightPx }}
 		>
-			{columnLines.map((left, index) => (
+			{columnLines.map((left) => (
 				<div
-					key={`col-${index}`}
+					key={`col-${left}`}
 					className="absolute top-0 w-px"
 					style={{ left, height: heightPx, background: "var(--border)" }}
 				/>
 			))}
-			{rowLines.map((top, index) => (
+			{rowLines.map((top) => (
 				<div
-					key={`row-${index}`}
+					key={`row-${top}`}
 					className="absolute left-0 h-px"
 					style={{ top, width, background: "var(--border)" }}
 				/>

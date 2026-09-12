@@ -22,7 +22,11 @@ import { TasksUpcomingWidget } from "@/components/dashboard/widgets/tasks-upcomi
 import { TrendWidget } from "@/components/dashboard/widgets/trend-widget";
 import { useTRPC } from "@/lib/trpc/client";
 import type { WidgetMeta } from "./layout";
-import { pipelineBoardMeta, visibleWidgets, WIDGET_META } from "./widget-registry-meta";
+import {
+	pipelineBoardMeta,
+	visibleWidgets,
+	WIDGET_META,
+} from "./widget-registry-meta";
 
 const WIDGET_COMPONENTS: Record<string, ComponentType> = {
 	"stat-won-month": StatWonMonthWidget,
