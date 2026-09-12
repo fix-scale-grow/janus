@@ -6,11 +6,12 @@ import {
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
-import { PROJECTS } from "./projects.config";
+import { DAY_MS, PROJECTS } from "./projects.config";
 import type {
 	ProjectCalendarInput,
 	ProjectCreateInput,
 	ProjectListInput,
+	ProjectMoveScheduleInput,
 	ProjectUpdateInput,
 	TaskCreateInput,
 	TaskMoveInput,
@@ -32,6 +33,33 @@ function sameDay(a: Date | null, b: Date | null): boolean {
 	return a.getTime() === b.getTime();
 }
 
+const DEAL_SELECT = {
+	id: true,
+	name: true,
+	contacts: {
+		select: {
+			contact: { select: { id: true, firstName: true, lastName: true } },
+		},
+		orderBy: { contact: { firstName: "asc" } },
+	},
+} as const;
+
+type DealRow = {
+	id: string;
+	name: string;
+	contacts: {
+		contact: { id: string; firstName: string; lastName: string | null };
+	}[];
+};
+
+function flattenDeal(deal: DealRow) {
+	return {
+		id: deal.id,
+		name: deal.name,
+		contacts: deal.contacts.map(({ contact }) => contact),
+	};
+}
+
 const LIST_SELECT = {
 	id: true,
 	name: true,
@@ -39,12 +67,7 @@ const LIST_SELECT = {
 	startDate: true,
 	goalDate: true,
 	updatedAt: true,
-	deal: {
-		select: {
-			id: true,
-			name: true,
-		},
-	},
+	deal: { select: DEAL_SELECT },
 	tasks: { select: { status: true } },
 } as const;
 
@@ -68,8 +91,9 @@ export class ProjectsService {
 		]);
 
 		return {
-			rows: rows.map(({ tasks, ...row }) => ({
+			rows: rows.map(({ tasks, deal, ...row }) => ({
 				...row,
+				deal: flattenDeal(deal),
 				taskCounts: {
 					total: tasks.length,
 					done: tasks.filter((task) => task.status === "DONE").length,
@@ -84,48 +108,84 @@ export class ProjectsService {
 		const rows = await this.db.project.findMany({
 			where: {
 				...(input.status ? { status: input.status } : {}),
-				startDate: { lte: input.to },
-				OR: [{ goalDate: { gte: input.from } }, { goalDate: null }],
+				AND: [
+					{
+						OR: [
+							{ startDate: { lte: input.to } },
+							{ tasks: { some: { startDay: { lte: input.to } } } },
+						],
+					},
+					{
+						OR: [
+							{ goalDate: { gte: input.from } },
+							{ goalDate: null },
+							{ tasks: { some: { endDay: { gte: input.from } } } },
+						],
+					},
+				],
 			},
-			orderBy: [{ startDate: "asc" }, { name: "asc" }],
 			select: {
 				id: true,
 				name: true,
 				status: true,
 				startDate: true,
 				goalDate: true,
-				deal: { select: { id: true, name: true } },
-				tasks: {
-					where: { endDay: { not: null } },
-					orderBy: { endDay: "desc" },
-					take: 1,
-					select: { endDay: true },
-				},
+				deal: { select: DEAL_SELECT },
 			},
 		});
 
+		const extents = await this.db.projectTask.groupBy({
+			by: ["projectId"],
+			where: {
+				projectId: { in: rows.map((row) => row.id) },
+				OR: [{ startDay: { not: null } }, { endDay: { not: null } }],
+			},
+			_min: { startDay: true },
+			_max: { endDay: true },
+		});
+		const extentByProject = new Map(
+			extents.map((extent) => [
+				extent.projectId,
+				{ firstStart: extent._min.startDay, lastEnd: extent._max.endDay },
+			]),
+		);
+
 		return rows
-			.map(({ tasks, ...row }) => {
-				const fallbackEnd = row.goalDate ?? tasks[0]?.endDay ?? row.startDate;
+			.map(({ deal, ...row }) => {
+				const extent = extentByProject.get(row.id);
+				const startDate = extent?.firstStart ?? row.startDate;
+				const endCandidates = [row.goalDate, extent?.lastEnd].filter(
+					(value): value is Date => value !== null && value !== undefined,
+				);
+				const lastCandidate =
+					endCandidates.length > 0
+						? new Date(
+								Math.max(...endCandidates.map((value) => value.getTime())),
+							)
+						: startDate;
 				const endDate =
-					fallbackEnd.getTime() < row.startDate.getTime()
-						? row.startDate
-						: fallbackEnd;
-				return { ...row, endDate };
+					lastCandidate.getTime() < startDate.getTime()
+						? startDate
+						: lastCandidate;
+				return { ...row, deal: flattenDeal(deal), startDate, endDate };
 			})
-			.filter((row) => row.endDate.getTime() >= input.from.getTime());
+			.filter(
+				(row) =>
+					row.endDate.getTime() >= input.from.getTime() &&
+					row.startDate.getTime() <= input.to.getTime(),
+			)
+			.sort(
+				(a, b) =>
+					a.startDate.getTime() - b.startDate.getTime() ||
+					a.name.localeCompare(b.name),
+			);
 	}
 
 	async byId(id: string) {
 		const row = await this.db.project.findUnique({
 			where: { id },
 			include: {
-				deal: {
-					select: {
-						id: true,
-						name: true,
-					},
-				},
+				deal: { select: DEAL_SELECT },
 				tasks: {
 					orderBy: [{ startDay: "asc" }, { sortOrder: "asc" }],
 					include: {
@@ -140,7 +200,7 @@ export class ProjectsService {
 			throw new NotFoundException(`No project with id ${id}.`);
 		}
 
-		return row;
+		return { ...row, deal: flattenDeal(row.deal) };
 	}
 
 	async create(input: ProjectCreateInput, userId: string) {
@@ -174,6 +234,38 @@ export class ProjectsService {
 		} catch (error) {
 			throw this.translate(error, id);
 		}
+	}
+
+	async moveSchedule(input: ProjectMoveScheduleInput) {
+		return this.db.$transaction(async (tx) => {
+			const project = await tx.project.findUnique({
+				where: { id: input.id },
+				select: { id: true, startDate: true, goalDate: true },
+			});
+			if (!project) {
+				throw new NotFoundException(`No project with id ${input.id}.`);
+			}
+
+			const shift = (value: Date): Date =>
+				new Date(value.getTime() + input.deltaDays * DAY_MS);
+
+			await tx.$executeRaw`
+				UPDATE "project_task"
+				SET "startDay" = "startDay" + ${input.deltaDays} * interval '1 day',
+					"endDay" = "endDay" + ${input.deltaDays} * interval '1 day',
+					"updatedAt" = now()
+				WHERE "projectId" = ${project.id}
+					AND ("startDay" IS NOT NULL OR "endDay" IS NOT NULL)
+			`;
+
+			return tx.project.update({
+				where: { id: project.id },
+				data: {
+					startDate: shift(project.startDate),
+					...(project.goalDate ? { goalDate: shift(project.goalDate) } : {}),
+				},
+			});
+		});
 	}
 
 	async remove(id: string) {

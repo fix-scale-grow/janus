@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	projectCalendarInput,
 	projectCreateInput,
+	projectMoveScheduleInput,
 	spanDays,
 	taskCreateInput,
 	taskMoveInput,
@@ -75,6 +76,44 @@ describe("projectCalendarInput", () => {
 		});
 
 		expect(result.success).toBe(true);
+	});
+});
+
+describe("projectMoveScheduleInput", () => {
+	it("accepts a negative delta", () => {
+		const result = projectMoveScheduleInput.safeParse({
+			id: "project_1",
+			deltaDays: -5,
+		});
+
+		expect(result.success).toBe(true);
+	});
+
+	it("rejects a zero delta", () => {
+		const result = projectMoveScheduleInput.safeParse({
+			id: "project_1",
+			deltaDays: 0,
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects a delta over the cap", () => {
+		const result = projectMoveScheduleInput.safeParse({
+			id: "project_1",
+			deltaDays: 63,
+		});
+
+		expect(result.success).toBe(false);
+	});
+
+	it("rejects a fractional delta", () => {
+		const result = projectMoveScheduleInput.safeParse({
+			id: "project_1",
+			deltaDays: 1.5,
+		});
+
+		expect(result.success).toBe(false);
 	});
 });
 

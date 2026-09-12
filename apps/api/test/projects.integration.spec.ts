@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { NotFoundException } from "@nestjs/common";
 import { ProjectsService } from "../src/projects/projects.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "projects-spec";
@@ -437,6 +438,190 @@ describe("ProjectsService", () => {
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.endDate).toEqual(new Date("2027-10-20T00:00:00.000Z"));
+	});
+
+	it("derives the calendar span from scheduled tasks when they exist", async () => {
+		const from = new Date("2028-01-01T00:00:00.000Z");
+		const to = new Date("2028-01-31T00:00:00.000Z");
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Cal derived ${suffix}`,
+				startDate: new Date("2028-01-08T00:00:00.000Z"),
+			},
+			userId,
+		);
+		await service.taskCreate({
+			projectId: project.id,
+			name: "First job",
+			startDay: new Date("2028-01-15T00:00:00.000Z"),
+			endDay: new Date("2028-01-17T00:00:00.000Z"),
+		});
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Second job",
+			startDay: new Date("2028-01-25T00:00:00.000Z"),
+			endDay: new Date("2028-01-25T00:00:00.000Z"),
+		});
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.startDate).toEqual(new Date("2028-01-15T00:00:00.000Z"));
+		expect(found?.endDate).toEqual(new Date("2028-01-25T00:00:00.000Z"));
+	});
+
+	it("extends the calendar end past the goal when tasks run later", async () => {
+		const from = new Date("2028-02-01T00:00:00.000Z");
+		const to = new Date("2028-02-28T00:00:00.000Z");
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Cal pastgoal ${suffix}`,
+				startDate: new Date("2028-02-05T00:00:00.000Z"),
+				goalDate: new Date("2028-02-15T00:00:00.000Z"),
+			},
+			userId,
+		);
+		await service.taskCreate({
+			projectId: project.id,
+			name: "Overrun",
+			startDay: new Date("2028-02-10T00:00:00.000Z"),
+			endDay: new Date("2028-02-20T00:00:00.000Z"),
+		});
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.startDate).toEqual(new Date("2028-02-10T00:00:00.000Z"));
+		expect(found?.endDate).toEqual(new Date("2028-02-20T00:00:00.000Z"));
+	});
+
+	it("returns the deal contacts on list, byId and calendar rows", async () => {
+		const contact = await db.contact.create({
+			data: {
+				id: `contact-${suffix}`,
+				firstName: "Casey",
+				lastName: "Client",
+				email: `casey-${suffix}@example.test`,
+			},
+			select: { id: true },
+		});
+		await db.dealContact.create({
+			data: { dealId, contactId: contact.id },
+		});
+
+		const project = await service.create(
+			{
+				dealId,
+				name: `Client project ${suffix}`,
+				startDate: new Date("2028-03-10T00:00:00.000Z"),
+			},
+			userId,
+		);
+
+		const found = await service.byId(project.id);
+		expect(found.deal.contacts.map((row) => row.id)).toContain(contact.id);
+
+		const listed = await service.list({
+			dealId,
+			q: "",
+			sort: "",
+			dir: "asc",
+			page: 1,
+			pageSize: 25,
+		});
+		const listedRow = listed.rows.find((row) => row.id === project.id);
+		expect(listedRow?.deal.contacts[0]?.firstName).toBe("Casey");
+
+		const calendar = await service.calendarRange({
+			from: new Date("2028-03-01T00:00:00.000Z"),
+			to: new Date("2028-03-31T00:00:00.000Z"),
+		});
+		const calendarRow = calendar.find((row) => row.id === project.id);
+		expect(calendarRow?.deal.contacts[0]?.lastName).toBe("Client");
+
+		await db.dealContact.deleteMany({ where: { contactId: contact.id } });
+		await db.contact.delete({ where: { id: contact.id } });
+	});
+
+	it("shifts start, goal and scheduled tasks together on moveSchedule", async () => {
+		const project = await service.create(
+			{
+				dealId,
+				name: `Shift project ${suffix}`,
+				startDate: new Date("2028-04-01T00:00:00.000Z"),
+				goalDate: new Date("2028-04-10T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const scheduled = await service.taskCreate({
+			projectId: project.id,
+			name: "Scheduled",
+			startDay: new Date("2028-04-03T00:00:00.000Z"),
+			endDay: new Date("2028-04-04T00:00:00.000Z"),
+		});
+		const unscheduled = await service.taskCreate({
+			projectId: project.id,
+			name: "Unscheduled",
+			endDay: null,
+		});
+		const legacy = await db.projectTask.create({
+			data: {
+				projectId: project.id,
+				name: "Legacy end only",
+				endDay: new Date("2028-04-08T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+
+		const moved = await service.moveSchedule({
+			id: project.id,
+			deltaDays: 3,
+		});
+
+		expect(moved.startDate).toEqual(new Date("2028-04-04T00:00:00.000Z"));
+		expect(moved.goalDate).toEqual(new Date("2028-04-13T00:00:00.000Z"));
+
+		const after = await service.byId(project.id);
+		const movedTask = after.tasks.find((task) => task.id === scheduled.id);
+		expect(movedTask?.startDay).toEqual(new Date("2028-04-06T00:00:00.000Z"));
+		expect(movedTask?.endDay).toEqual(new Date("2028-04-07T00:00:00.000Z"));
+
+		const untouched = after.tasks.find((task) => task.id === unscheduled.id);
+		expect(untouched?.startDay).toBeNull();
+		expect(untouched?.endDay).toBeNull();
+
+		const legacyAfter = after.tasks.find((task) => task.id === legacy.id);
+		expect(legacyAfter?.startDay).toBeNull();
+		expect(legacyAfter?.endDay).toEqual(new Date("2028-04-11T00:00:00.000Z"));
+	});
+
+	it("keeps a null goal on moveSchedule and rejects an unknown project", async () => {
+		const project = await service.create(
+			{
+				dealId,
+				name: `Shift goalless ${suffix}`,
+				startDate: new Date("2028-05-01T00:00:00.000Z"),
+			},
+			userId,
+		);
+
+		const moved = await service.moveSchedule({
+			id: project.id,
+			deltaDays: -2,
+		});
+		expect(moved.startDate).toEqual(new Date("2028-04-29T00:00:00.000Z"));
+		expect(moved.goalDate).toBeNull();
+
+		try {
+			await service.moveSchedule({ id: "missing-project", deltaDays: 1 });
+			expect.unreachable("moveSchedule accepted an unknown project");
+		} catch (error) {
+			expect(error).toBeInstanceOf(NotFoundException);
+		}
 	});
 
 	it("cascades the deletion of a deal to its project and tasks", async () => {

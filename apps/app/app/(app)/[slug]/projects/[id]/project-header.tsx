@@ -1,5 +1,6 @@
 "use client";
 
+import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import ImageIcon from "@carbon/icons-react/es/Image";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
@@ -23,9 +24,11 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { contactName } from "@/components/crm/contact-name";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { ProjectPhotosDialog } from "@/components/photos/project-photos-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -142,18 +145,50 @@ export function ProjectHeader({ id }: { id: string }) {
 						>
 							{project.deal.name}
 						</button>
+						{project.deal.contacts.slice(0, 2).map((contact) => (
+							<span
+								key={contact.id}
+								className="flex items-center gap-x-2 truncate"
+							>
+								<span>·</span>
+								<button
+									type="button"
+									onClick={() =>
+										openRecord({ kind: "contact", id: contact.id })
+									}
+									className="truncate underline-offset-2 hover:underline"
+								>
+									{contactName(contact)}
+								</button>
+							</span>
+						))}
+						{project.deal.contacts.length > 2 ? (
+							<span>+{project.deal.contacts.length - 2} more</span>
+						) : null}
 						<span>·</span>
 						<button
 							type="button"
-							onClick={() => openRecord({ kind: "deal", id: project.deal.id })}
+							onClick={() =>
+								openRecord(
+									{ kind: "deal", id: project.deal.id },
+									{ tab: "costs" },
+								)
+							}
 							className="truncate text-muted-foreground underline-offset-2 hover:underline"
 						>
-							Job costs
+							Costs
 						</button>
 					</div>
 				</div>
 
 				<div className="flex shrink-0 items-center gap-2">
+					<Button variant="outline" size="sm" asChild>
+						<Link href={workspaceUrl("/projects")}>
+							<Icon icon={ArrowLeft} data-icon="inline-start" />
+							Back
+						</Link>
+					</Button>
+
 					<Select
 						value={project.status}
 						onValueChange={(status) =>

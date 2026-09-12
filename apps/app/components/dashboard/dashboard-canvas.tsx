@@ -114,7 +114,7 @@ function GridGuides({
 
 	return (
 		<div
-			className="pointer-events-none absolute inset-0 opacity-50"
+			className="pointer-events-none absolute inset-0 z-0 opacity-50"
 			style={{ height: heightPx }}
 		>
 			{columnLines.map((left) => (
@@ -245,6 +245,14 @@ export function DashboardCanvas({
 		);
 	}
 
+	function suppressBodySelection() {
+		document.body.classList.add("select-none");
+	}
+
+	function restoreBodySelection() {
+		document.body.classList.remove("select-none");
+	}
+
 	const grid = mounted ? (
 		<GridLayout
 			width={width}
@@ -268,6 +276,10 @@ export function DashboardCanvas({
 			}}
 			compactor={verticalCompactor}
 			onLayoutChange={handleLayoutChange}
+			onDragStart={suppressBodySelection}
+			onDragStop={restoreBodySelection}
+			onResizeStart={suppressBodySelection}
+			onResizeStop={restoreBodySelection}
 		>
 			{rglLayout.map((item) => {
 				const widget = widgetsById.get(item.i);
@@ -325,9 +337,8 @@ export function DashboardCanvas({
 	return (
 		<div
 			ref={containerRef}
-			className={cn("relative", editing && "bg-muted/30")}
+			className={cn("relative", editing && "bg-muted/30 select-none")}
 		>
-			{grid}
 			{editing && mounted && (
 				<GridGuides
 					width={width}
@@ -338,6 +349,7 @@ export function DashboardCanvas({
 					heightPx={gridHeight}
 				/>
 			)}
+			<div className="relative z-10">{grid}</div>
 		</div>
 	);
 }

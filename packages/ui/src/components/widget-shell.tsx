@@ -73,8 +73,8 @@ export function WidgetShell({
 	return (
 		<Card
 			className={cn(
-				"min-w-0 h-full flex flex-col",
-				isEditing && "border border-dashed",
+				"min-w-0 h-full flex flex-col border border-primary/20 dark:border-primary/15",
+				isEditing && "border-dashed hover:ring-1 hover:ring-ring/50",
 			)}
 		>
 			<CardHeader>
@@ -83,7 +83,7 @@ export function WidgetShell({
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<span
-									className="janus-widget-drag cursor-grab text-muted-foreground"
+									className="janus-widget-drag flex cursor-grab items-center justify-center rounded-sm bg-secondary p-1 text-muted-foreground hover:bg-accent"
 									aria-hidden
 								>
 									<Icon icon={Draggable} />

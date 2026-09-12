@@ -62,18 +62,22 @@ export function TaskBar({
 			id: bar.task.id,
 			data: { startKey: dayKey(bar.task.startDay) },
 		});
-	const [previewDelta, setPreviewDelta] = useState(0);
+	const [previewEndDelta, setPreviewEndDelta] = useState(0);
+	const [previewStartDelta, setPreviewStartDelta] = useState(0);
 	const done = bar.task.status === "DONE";
 	const displayEndCol = bar.clippedEnd
 		? bar.endCol
-		: Math.max(bar.startCol, Math.min(6, bar.endCol + previewDelta));
+		: Math.max(bar.startCol, Math.min(6, bar.endCol + previewEndDelta));
+	const displayStartCol = bar.clippedStart
+		? bar.startCol
+		: Math.min(displayEndCol, Math.max(0, bar.startCol + previewStartDelta));
 
 	return (
 		<div
 			ref={setNodeRef}
 			data-board-drag=""
 			style={{
-				gridColumn: `${bar.startCol + 1} / ${displayEndCol + 2}`,
+				gridColumn: `${displayStartCol + 1} / ${displayEndCol + 2}`,
 				marginTop: `${bar.lane * LANE_HEIGHT_REM[density ?? "comfortable"]}rem`,
 				transform: CSS.Translate.toString(transform),
 			}}
@@ -88,6 +92,15 @@ export function TaskBar({
 			{...listeners}
 		>
 			{!bar.clippedStart ? (
+				<ResizeHandle
+					edge="start"
+					task={bar.task}
+					projectId={projectId}
+					onPreview={setPreviewStartDelta}
+					bounds={{ min: -bar.startCol, max: bar.endCol - bar.startCol }}
+				/>
+			) : null}
+			{!bar.clippedStart ? (
 				<Icon icon={Draggable} className="size-3 shrink-0 opacity-60" />
 			) : null}
 			<TaskPopover projectId={projectId} task={bar.task} density={density}>
@@ -98,9 +111,11 @@ export function TaskBar({
 			</TaskPopover>
 			{!bar.clippedEnd ? (
 				<ResizeHandle
+					edge="end"
 					task={bar.task}
 					projectId={projectId}
-					onPreview={setPreviewDelta}
+					onPreview={setPreviewEndDelta}
+					bounds={{ min: bar.startCol - bar.endCol, max: 6 - bar.endCol }}
 				/>
 			) : null}
 		</div>
@@ -108,13 +123,17 @@ export function TaskBar({
 }
 
 function ResizeHandle({
+	edge,
 	task,
 	projectId,
 	onPreview,
+	bounds,
 }: {
+	edge: "start" | "end";
 	task: CalendarTask;
 	projectId: string;
 	onPreview: (deltaDays: number) => void;
+	bounds: { min: number; max: number };
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -134,6 +153,23 @@ function ResizeHandle({
 		return endDay;
 	};
 
+	const clampStart = (startDay: Date): Date => {
+		const minStart = addDays(task.endDay, -(CALENDAR.maxTaskSpanDays - 1));
+		if (startDay.getTime() > task.endDay.getTime()) return task.endDay;
+		if (startDay.getTime() < minStart.getTime()) return minStart;
+		return startDay;
+	};
+
+	const clampedDelta = (rawDelta: number): number => {
+		const visible = Math.min(bounds.max, Math.max(bounds.min, rawDelta));
+		if (edge === "start") {
+			const clamped = clampStart(addDays(task.startDay, visible));
+			return Math.round((clamped.getTime() - task.startDay.getTime()) / DAY_MS);
+		}
+		const clamped = clampEnd(addDays(task.endDay, visible));
+		return Math.round((clamped.getTime() - task.endDay.getTime()) / DAY_MS);
+	};
+
 	const rawDeltaDays = (
 		event: { clientX: number },
 		state: { startX: number; cellWidth: number },
@@ -150,12 +186,17 @@ function ResizeHandle({
 	const onPointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
 		const state = drag.current;
 		if (!state) return;
-		const clampedEnd = clampEnd(
-			addDays(task.endDay, rawDeltaDays(event, state)),
-		);
-		onPreview(
-			Math.round((clampedEnd.getTime() - task.endDay.getTime()) / DAY_MS),
-		);
+		if ((event.buttons & 1) === 0) {
+			drag.current = null;
+			onPreview(0);
+			return;
+		}
+		onPreview(clampedDelta(rawDeltaDays(event, state)));
+	};
+
+	const onPointerCancel = () => {
+		drag.current = null;
+		onPreview(0);
 	};
 
 	const onPointerUp = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -166,23 +207,27 @@ function ResizeHandle({
 		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
-		const delta = rawDeltaDays(event, state);
+		const delta = clampedDelta(rawDeltaDays(event, state));
 		if (delta === 0) return;
-		const endDay = clampEnd(addDays(task.endDay, delta));
 		taskMove.mutate({
 			id: task.id,
-			startDay: task.startDay,
-			endDay,
+			startDay:
+				edge === "start" ? addDays(task.startDay, delta) : task.startDay,
+			endDay: edge === "end" ? addDays(task.endDay, delta) : task.endDay,
 			sortOrder: task.sortOrder,
 		});
 	};
 
 	return (
 		<span
-			className="w-1.5 shrink-0 cursor-ew-resize self-stretch"
+			className="flex w-2 shrink-0 cursor-ew-resize items-center justify-center self-stretch"
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
-		/>
+			onPointerCancel={onPointerCancel}
+			onLostPointerCapture={onPointerCancel}
+		>
+			<span className="h-3 w-0.5 rounded-sm bg-current opacity-30" />
+		</span>
 	);
 }
