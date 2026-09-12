@@ -48,8 +48,12 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
 	const [permissions, navView] = await Promise.all([
-		queryClient.fetchQuery(trpc.permissions.mine.queryOptions()),
-		queryClient.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
+		queryClient
+			.fetchQuery(trpc.permissions.mine.queryOptions())
+			.catch(() => undefined),
+		queryClient
+			.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" }))
+			.catch(() => undefined),
 		queryClient.prefetchQuery(
 			trpc.views.get.queryOptions({ tableId: "dashboard" }),
 		),
@@ -82,12 +86,12 @@ async function WorkspaceHeader({
 			unstable_rethrow(error);
 			return null;
 		});
-	const permissionsPromise = queryClient.fetchQuery(
-		trpc.permissions.mine.queryOptions(),
-	);
-	const navViewPromise = queryClient.fetchQuery(
-		trpc.views.get.queryOptions({ tableId: "nav" }),
-	);
+	const permissionsPromise = queryClient
+		.fetchQuery(trpc.permissions.mine.queryOptions())
+		.catch(() => undefined);
+	const navViewPromise = queryClient
+		.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" }))
+		.catch(() => undefined);
 	const [{ user }, { slug }, workspace, permissions, navView] =
 		await Promise.all([
 			requireMailboxAccess(),
