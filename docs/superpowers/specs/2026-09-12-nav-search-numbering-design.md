@@ -49,9 +49,12 @@ optional children — destinations, not pages:
 - New top-bar shell: one row (not AccuLynx's two) — logo/brand, nav groups
   with dropdown children, then the search pill right-aligned. Brand accent
   via the existing brand-theme tokens.
-- Position is an INSTALL setting: `Organization.navLayout` enum
-  `RAIL | TOP_BAR` (default RAIL), edited in Settings › General beside the
-  brand section, applied in the [slug] layout server-side (no flash).
+- Position is an INSTALL setting on the `AppSetting` singleton (amended
+  2026-09-12: NOT Organization — workspace.update requires resending
+  name/website and risks clobbering a concurrent rename): `navLayout`
+  `"RAIL" | "TOP_BAR"` (default RAIL), dedicated `settings.*` procs,
+  admin-gated, edited in Settings › General, applied in the [slug] layout
+  server-side (no flash). `dealNumberStart` lives beside it.
 
 ## Bounded customization
 
@@ -71,13 +74,21 @@ Settings › General › Navigation section:
 - Collapsed pill (both shells): "Search or ask Janus…" — top-right in the
   top bar; bottom of the rail as an icon in rail mode. Expands on click
   (and via keyboard shortcut) into a wide input with a results dropdown.
-- Instant fuzzy search, single `search.everything` tRPC query, debounced,
-  grouped hits: Jobs (deal name + #number + stage), Contacts (name),
-  Addresses (contact + drawing address fields), Documents (estimate/invoice/
-  contract by number). Digits-first input ranks number matches on top.
-- Postgres trigram (`pg_trgm`) indexes on the searched columns so exact
-  strings never miss; ILIKE prefix fallback if the extension is unavailable
-  (self-hoster rule: missing capability degrades, never throws).
+- Instant fuzzy search: EXTEND the existing `search.quick` proc + ⌘K
+  quick-switcher (amended 2026-09-12 — both already exist) rather than build
+  new. Grouped hits: Jobs (deal name + #number + stage), Contacts
+  (name/email/company), Documents (invoice/contract by number, estimates),
+  Addresses (Drawing.address — the ONLY address column in the schema — plus
+  TEXT custom-field values, which is where installs actually store
+  addresses). Digits-first input ranks number matches on top. A first-class
+  Deal/Contact address column is deliberately NOT added here (job-domain
+  scope; ledgered for Kyle).
+- `CREATE EXTENSION IF NOT EXISTS pg_trgm` migration + GIN trigram indexes
+  on the hot searched columns (deal.name, contact names/company,
+  drawing.address) so ILIKE-with-wildcard is index-accelerated and exact
+  strings never miss; if the extension cannot be created the migration and
+  queries still work (plain ILIKE — self-hoster rule: missing capability
+  degrades, never throws).
 - Last row of the dropdown, always: "Ask Janus: '<query>' →" — opens a
   WORKSPACE-kind conversation (the dashboard Ask-Janus substrate) seeded
   with the query. Question-shaped input (ends with ?, starts with an
