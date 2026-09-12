@@ -11,6 +11,7 @@ import {
 import { WidgetShell } from "@crm/ui/components/widget-shell";
 import { useState } from "react";
 import { AgentPanel } from "@/components/crm/agent-panel";
+import { useRecordSheetView } from "@/components/crm/record-sheet/record-stack";
 import { recordCopy } from "@/lib/agent-record";
 
 export function AskJanusWidget() {
@@ -18,6 +19,7 @@ export function AskJanusWidget() {
 	const [question, setQuestion] = useState("");
 	const [open, setOpen] = useState(false);
 	const [initialMessage, setInitialMessage] = useState<string | undefined>();
+	const { setThread } = useRecordSheetView("overview");
 
 	return (
 		<WidgetShell title={copy.title} description="Your CRM, one question away">
@@ -45,7 +47,10 @@ export function AskJanusWidget() {
 				open={open}
 				onOpenChange={(next) => {
 					setOpen(next);
-					if (!next) setInitialMessage(undefined);
+					if (!next) {
+						setInitialMessage(undefined);
+						setThread(null);
+					}
 				}}
 			>
 				<SheetContent className="gap-0 p-0" size="lg">

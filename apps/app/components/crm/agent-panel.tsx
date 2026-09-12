@@ -132,7 +132,7 @@ function LoadedAgentPanel({
 	);
 	const { openId, current } = resolveThread({
 		conversations: history,
-		fromUrl: thread,
+		fromUrl: initialMessage ? null : thread,
 		landedOn,
 	});
 
@@ -271,15 +271,15 @@ function Thread({
 	};
 
 	const sendInitialMessage = useEffectEvent(() => {
-		if (!initialMessage || initialMessageSent.current) return;
+		if (!initialMessage || initialMessageSent.current || locked) return;
 		initialMessageSent.current = true;
 		ask(initialMessage);
 	});
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: initialMessage must re-fire this effect when a second question arrives on an already-mounted panel
+	// biome-ignore lint/correctness/useExhaustiveDependencies: initialMessage must re-fire this effect when a second question arrives on an already-mounted panel, locked must re-fire it once the panel unlocks
 	useEffect(() => {
 		sendInitialMessage();
-	}, [initialMessage]);
+	}, [initialMessage, locked]);
 
 	const respondToApproval = async (response: ApprovalResponse) => {
 		await agent.send({ inputResponses: [response] });
