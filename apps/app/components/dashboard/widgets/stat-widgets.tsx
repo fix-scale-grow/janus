@@ -62,9 +62,9 @@ function StatWonMonthBody() {
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 
 	return (
-		<div className="flex flex-1 items-center p-4 md:p-6">
+		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
 			<StatCard
-				className="p-0"
+				className="p-0 md:p-0"
 				value={money(wonThisMonth.valueCents)}
 				delta={changeDelta(
 					wonThisMonth.valueCents,
@@ -102,9 +102,9 @@ function StatOpenPipelineBody() {
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 
 	return (
-		<div className="flex flex-1 items-center p-4 md:p-6">
+		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
 			<StatCard
-				className="p-0"
+				className="p-0 md:p-0"
 				value={money(pipeline.totalCents)}
 				description={`${formatCount(pipeline.totalDeals, "deal")} in progress · ${money(closingThisMonthTotal.valueCents)} due this month`}
 			/>
@@ -136,9 +136,9 @@ function StatWinRateBody() {
 	const { performance } = summary;
 
 	return (
-		<div className="flex flex-1 items-center p-4 md:p-6">
+		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
 			<StatCard
-				className="p-0"
+				className="p-0 md:p-0"
 				label={`Win rate (${performance.windowDays}d)`}
 				value={
 					performance.winRate === null
@@ -180,9 +180,9 @@ function StatAvgDealBody() {
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
 
 	return (
-		<div className="flex flex-1 items-center p-4 md:p-6">
+		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
 			<StatCard
-				className="p-0"
+				className="p-0 md:p-0"
 				label={`Average deal (${performance.windowDays}d)`}
 				value={
 					performance.avgDealCents === null

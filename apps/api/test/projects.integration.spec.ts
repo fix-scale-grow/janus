@@ -314,7 +314,7 @@ describe("ProjectsService", () => {
 
 		const found = rows.find((row) => row.id === spanning.id);
 		expect(found?.endDate).toEqual(new Date("2027-03-05T00:00:00.000Z"));
-		expect(found?.deal.id).toBe(dealId);
+		expect(found?.deal?.id).toBe(dealId);
 	});
 
 	it("falls back to the last scheduled task end when there is no goal date", async () => {
@@ -523,7 +523,7 @@ describe("ProjectsService", () => {
 		);
 
 		const found = await service.byId(project.id);
-		expect(found.deal.contacts.map((row) => row.id)).toContain(contact.id);
+		expect(found.deal?.contacts.map((row) => row.id)).toContain(contact.id);
 
 		const listed = await service.list({
 			dealId,
@@ -534,14 +534,14 @@ describe("ProjectsService", () => {
 			pageSize: 25,
 		});
 		const listedRow = listed.rows.find((row) => row.id === project.id);
-		expect(listedRow?.deal.contacts[0]?.firstName).toBe("Casey");
+		expect(listedRow?.deal?.contacts[0]?.firstName).toBe("Casey");
 
 		const calendar = await service.calendarRange({
 			from: new Date("2028-03-01T00:00:00.000Z"),
 			to: new Date("2028-03-31T00:00:00.000Z"),
 		});
 		const calendarRow = calendar.find((row) => row.id === project.id);
-		expect(calendarRow?.deal.contacts[0]?.lastName).toBe("Client");
+		expect(calendarRow?.deal?.contacts[0]?.lastName).toBe("Client");
 
 		await db.dealContact.deleteMany({ where: { contactId: contact.id } });
 		await db.contact.delete({ where: { id: contact.id } });
@@ -624,7 +624,92 @@ describe("ProjectsService", () => {
 		}
 	});
 
-	it("cascades the deletion of a deal to its project and tasks", async () => {
+	it("creates a standalone project and links records after", async () => {
+		const project = await service.create(
+			{
+				name: `Standalone ${suffix}`,
+				startDate: new Date("2028-06-01T00:00:00.000Z"),
+			},
+			userId,
+		);
+		expect(project.dealId).toBeNull();
+
+		const found = await service.byId(project.id);
+		expect(found.deal).toBeNull();
+
+		const contact = await db.contact.create({
+			data: {
+				id: `contact-solo-${suffix}`,
+				firstName: "Solo",
+				lastName: "Client",
+				email: `solo-${suffix}@example.test`,
+			},
+			select: { id: true },
+		});
+		const estimate = await db.estimate.create({
+			data: {
+				id: `estimate-solo-${suffix}`,
+				title: "Roof estimate",
+				createdById: userId,
+			},
+			select: { id: true },
+		});
+		const invoice = await db.invoice.create({
+			data: { id: `invoice-solo-${suffix}`, createdById: userId },
+			select: { id: true },
+		});
+
+		await service.update({
+			id: project.id,
+			contactId: contact.id,
+			estimateId: estimate.id,
+			invoiceId: invoice.id,
+		});
+		const linked = await service.byId(project.id);
+		expect(linked.contact?.id).toBe(contact.id);
+		expect(linked.estimate?.title).toBe("Roof estimate");
+		expect(linked.invoice?.id).toBe(invoice.id);
+
+		const listed = await service.list({
+			q: "",
+			sort: "",
+			dir: "asc",
+			page: 1,
+			pageSize: 100,
+		});
+		const listedRow = listed.rows.find((row) => row.id === project.id);
+		expect(listedRow?.deal).toBeNull();
+		expect(listedRow?.contact?.firstName).toBe("Solo");
+
+		const calendar = await service.calendarRange({
+			from: new Date("2028-06-01T00:00:00.000Z"),
+			to: new Date("2028-06-30T00:00:00.000Z"),
+		});
+		const calendarRow = calendar.find((row) => row.id === project.id);
+		expect(calendarRow?.contact?.firstName).toBe("Solo");
+
+		await db.estimate.delete({ where: { id: estimate.id } });
+		const afterEstimateDelete = await service.byId(project.id);
+		expect(afterEstimateDelete.estimate).toBeNull();
+
+		try {
+			await service.update({ id: project.id, invoiceId: "missing-invoice" });
+			expect.unreachable("update accepted an unknown invoice");
+		} catch (error) {
+			expect(error).toBeInstanceOf(NotFoundException);
+		}
+
+		await service.update({ id: project.id, contactId: null, invoiceId: null });
+		const unlinked = await service.byId(project.id);
+		expect(unlinked.contact).toBeNull();
+		expect(unlinked.invoice).toBeNull();
+
+		await db.project.delete({ where: { id: project.id } });
+		await db.invoice.delete({ where: { id: invoice.id } });
+		await db.contact.delete({ where: { id: contact.id } });
+	});
+
+	it("keeps a project and its tasks when its deal is deleted", async () => {
 		const secondDeal = await db.deal.create({
 			data: {
 				id: `deal-cascade-${suffix}`,
@@ -651,14 +736,11 @@ describe("ProjectsService", () => {
 
 		await db.deal.delete({ where: { id: secondDeal.id } });
 
-		const projectCount = await db.project.count({
-			where: { id: project.id },
-		});
-		const taskCount = await db.projectTask.count({
-			where: { projectId: project.id },
-		});
+		const survivor = await service.byId(project.id);
+		expect(survivor.deal).toBeNull();
+		expect(survivor.tasks).toHaveLength(1);
 
-		expect(projectCount).toBe(0);
-		expect(taskCount).toBe(0);
+		await db.projectTask.deleteMany({ where: { projectId: project.id } });
+		await db.project.delete({ where: { id: project.id } });
 	});
 });

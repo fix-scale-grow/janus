@@ -47,9 +47,9 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 	await connection();
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
-	await Promise.all([
-		queryClient.prefetchQuery(trpc.permissions.mine.queryOptions()),
-		queryClient.prefetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
+	const [permissions, navView] = await Promise.all([
+		queryClient.fetchQuery(trpc.permissions.mine.queryOptions()),
+		queryClient.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" })),
 		queryClient.prefetchQuery(
 			trpc.views.get.queryOptions({ tableId: "dashboard" }),
 		),
@@ -57,7 +57,12 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 
 	return (
 		<HydrateClient>
-			<AppIconRail navLayout={navLayout} />
+			<AppIconRail
+				navLayout={navLayout}
+				initialPermissionKeys={permissions.keys}
+				initialNavOrder={navView?.navOrder}
+				initialNavHidden={navView?.navHidden}
+			/>
 		</HydrateClient>
 	);
 }
@@ -77,15 +82,20 @@ async function WorkspaceHeader({
 			unstable_rethrow(error);
 			return null;
 		});
-	const permissionsPromise = queryClient.prefetchQuery(
+	const permissionsPromise = queryClient.fetchQuery(
 		trpc.permissions.mine.queryOptions(),
 	);
-	const [{ user }, { slug }, workspace] = await Promise.all([
-		requireMailboxAccess(),
-		params,
-		workspacePromise,
-		permissionsPromise,
-	]);
+	const navViewPromise = queryClient.fetchQuery(
+		trpc.views.get.queryOptions({ tableId: "nav" }),
+	);
+	const [{ user }, { slug }, workspace, permissions, navView] =
+		await Promise.all([
+			requireMailboxAccess(),
+			params,
+			workspacePromise,
+			permissionsPromise,
+			navViewPromise,
+		]);
 
 	if (workspace && workspace.slug !== slug) notFound();
 
@@ -98,6 +108,9 @@ async function WorkspaceHeader({
 					image: user.image ?? null,
 				}}
 				navLayout={navLayout}
+				initialPermissionKeys={permissions.keys}
+				initialNavOrder={navView?.navOrder}
+				initialNavHidden={navView?.navHidden}
 			/>
 		</HydrateClient>
 	);

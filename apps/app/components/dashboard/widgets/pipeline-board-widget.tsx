@@ -54,7 +54,7 @@ function PipelineBoardBody({
 	}
 
 	return (
-		<div className="flex flex-1 gap-3 overflow-x-auto p-4">
+		<div className="flex flex-1 gap-3 overflow-x-auto p-4 md:px-6">
 			{stages.map((stage) => (
 				<PipelineBoardColumn
 					key={stage.id}

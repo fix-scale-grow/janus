@@ -77,11 +77,13 @@ export function ProjectPhotosDialog({
 	onOpenChange,
 	projectId,
 	dealId,
+	contactId = null,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	projectId: string;
 	dealId: string | null;
+	contactId?: string | null;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -210,7 +212,7 @@ export function ProjectPhotosDialog({
 				open={attachOpen}
 				onOpenChange={setAttachOpen}
 				dealId={dealId}
-				contactId={null}
+				contactId={contactId}
 				linkedPhotoIds={photoIds}
 				attaching={linkProject.isPending}
 				onAttach={procs.attach}

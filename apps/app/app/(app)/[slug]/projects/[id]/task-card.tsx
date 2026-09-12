@@ -1,5 +1,15 @@
 "use client";
 
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@crm/ui/components/alert-dialog";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import { DatePicker } from "@crm/ui/components/date-picker";
@@ -120,6 +130,7 @@ export function TaskPopover({
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const [open, setOpen] = useState(false);
+	const [confirmingRemove, setConfirmingRemove] = useState(false);
 	const [name, setName] = useState(task.name);
 	const [note, setNote] = useState(task.note ?? "");
 
@@ -145,12 +156,19 @@ export function TaskPopover({
 	const remove = useMutation(
 		trpc.projects.taskRemove.mutationOptions({
 			onSuccess: () => {
+				setConfirmingRemove(false);
 				void cache.project(projectId, { settle: "record" });
 				void cache.crews();
 			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+
+	const save = () => {
+		commitName();
+		commitNote();
+		setOpen(false);
+	};
 
 	const commitName = () => {
 		const trimmed = name.trim();
@@ -203,124 +221,157 @@ export function TaskPopover({
 	};
 
 	return (
-		<Popover
-			open={open}
-			onOpenChange={(next) => {
-				setOpen(next);
-				if (next) {
-					setName(task.name);
-					setNote(task.note ?? "");
-				}
-			}}
-		>
-			<PopoverTrigger asChild>{children}</PopoverTrigger>
-			<PopoverContent
-				align="start"
-				onClick={(event) => event.stopPropagation()}
+		<>
+			<Popover
+				open={open}
+				onOpenChange={(next) => {
+					setOpen(next);
+					if (next) {
+						setName(task.name);
+						setNote(task.note ?? "");
+					}
+				}}
 			>
-				<div className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2.5")}>
-					<button
-						type="button"
-						onClick={() =>
-							cycleStatus.mutate({
-								id: task.id,
-								status: STATUS_FLOW[task.status],
-							})
-						}
-						disabled={cycleStatus.isPending}
-						className="self-start"
-					>
-						<Badge variant={STATUS_VARIANT[task.status]}>
-							{STATUS_LABEL[task.status]}
-						</Badge>
-					</button>
-					<Input
-						value={name}
-						onChange={(event) => setName(event.target.value)}
-						onBlur={commitName}
-						placeholder="Task name"
-					/>
-					{compact ? null : (
-						<Textarea
-							value={note}
-							onChange={(event) => setNote(event.target.value)}
-							onBlur={commitNote}
-							placeholder="Note"
-							rows={3}
+				<PopoverTrigger asChild>{children}</PopoverTrigger>
+				<PopoverContent
+					align="start"
+					onClick={(event) => event.stopPropagation()}
+				>
+					<div className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2.5")}>
+						<button
+							type="button"
+							onClick={() =>
+								cycleStatus.mutate({
+									id: task.id,
+									status: STATUS_FLOW[task.status],
+								})
+							}
+							disabled={cycleStatus.isPending}
+							className="self-start"
+						>
+							<Badge variant={STATUS_VARIANT[task.status]}>
+								{STATUS_LABEL[task.status]}
+							</Badge>
+						</button>
+						<Input
+							value={name}
+							onChange={(event) => setName(event.target.value)}
+							onBlur={commitName}
+							placeholder="Task name"
 						/>
-					)}
-					<Select
-						value={task.assignee?.id ?? "unassigned"}
-						onValueChange={(value) =>
-							update.mutate({
-								id: task.id,
-								assigneeId: value === "unassigned" ? null : value,
-							})
-						}
-					>
-						<SelectTrigger size="sm" className="w-full">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="unassigned">Unassigned</SelectItem>
-							{(users.data ?? []).map((user) => (
-								<SelectItem key={user.id} value={user.id}>
-									{user.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<Select
-						value={task.crew?.id ?? "none"}
-						onValueChange={(value) =>
-							update.mutate({
-								id: task.id,
-								crewId: value === "none" ? null : value,
-							})
-						}
-					>
-						<SelectTrigger size="sm" className="w-full">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="none">No crew</SelectItem>
-							{(crews.data ?? [])
-								.filter((crew) => !crew.archived)
-								.map((crew) => (
-									<SelectItem key={crew.id} value={crew.id}>
-										<span
-											className={cn(
-												"size-2 shrink-0 rounded-full",
-												(CREW_COLOR_CLASSES[crew.color] ?? NO_CREW_CLASSES).dot,
-											)}
-										/>
-										{crew.name}
+						{compact ? null : (
+							<Textarea
+								value={note}
+								onChange={(event) => setNote(event.target.value)}
+								onBlur={commitNote}
+								placeholder="Note"
+								rows={3}
+							/>
+						)}
+						<Select
+							value={task.assignee?.id ?? "unassigned"}
+							onValueChange={(value) =>
+								update.mutate({
+									id: task.id,
+									assigneeId: value === "unassigned" ? null : value,
+								})
+							}
+						>
+							<SelectTrigger size="sm" className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="unassigned">Unassigned</SelectItem>
+								{(users.data ?? []).map((user) => (
+									<SelectItem key={user.id} value={user.id}>
+										{user.name}
 									</SelectItem>
 								))}
-						</SelectContent>
-					</Select>
-					<div className="flex items-center gap-2">
-						<DatePicker
-							value={toDayKey(task.startDay)}
-							onChange={commitStart}
-							placeholder="Start"
-						/>
-						<DatePicker
-							value={toDayKey(task.endDay)}
-							onChange={commitEnd}
-							placeholder="End"
-						/>
+							</SelectContent>
+						</Select>
+						<Select
+							value={task.crew?.id ?? "none"}
+							onValueChange={(value) =>
+								update.mutate({
+									id: task.id,
+									crewId: value === "none" ? null : value,
+								})
+							}
+						>
+							<SelectTrigger size="sm" className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="none">No crew</SelectItem>
+								{(crews.data ?? [])
+									.filter((crew) => !crew.archived)
+									.map((crew) => (
+										<SelectItem key={crew.id} value={crew.id}>
+											<span
+												className={cn(
+													"size-2 shrink-0 rounded-full",
+													(CREW_COLOR_CLASSES[crew.color] ?? NO_CREW_CLASSES)
+														.dot,
+												)}
+											/>
+											{crew.name}
+										</SelectItem>
+									))}
+							</SelectContent>
+						</Select>
+						<div className="flex items-center gap-2">
+							<DatePicker
+								value={toDayKey(task.startDay)}
+								onChange={commitStart}
+								placeholder="Start"
+							/>
+							<DatePicker
+								value={toDayKey(task.endDay)}
+								onChange={commitEnd}
+								placeholder="End"
+							/>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button size="sm" className="flex-1" onClick={save}>
+								Save
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									setOpen(false);
+									setConfirmingRemove(true);
+								}}
+							>
+								Remove task
+							</Button>
+						</div>
 					</div>
-					<Button
-						variant="destructive"
-						size="sm"
-						disabled={remove.isPending}
-						onClick={() => remove.mutate({ id: task.id })}
-					>
-						Remove task
-					</Button>
-				</div>
-			</PopoverContent>
-		</Popover>
+				</PopoverContent>
+			</Popover>
+			<AlertDialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
+				<AlertDialogContent onClick={(event) => event.stopPropagation()}>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Remove {task.name}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This removes the task from the project.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							variant="destructive"
+							disabled={remove.isPending}
+							onClick={(event) => {
+								event.preventDefault();
+								remove.mutate({ id: task.id });
+							}}
+						>
+							Continue
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }

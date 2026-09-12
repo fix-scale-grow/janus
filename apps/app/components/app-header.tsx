@@ -37,9 +37,15 @@ type User = { name: string; email: string; image: string | null };
 export function AppHeader({
 	user,
 	navLayout,
+	initialPermissionKeys,
+	initialNavOrder,
+	initialNavHidden,
 }: {
 	user: User;
 	navLayout: "RAIL" | "TOP_BAR";
+	initialPermissionKeys?: string[];
+	initialNavOrder?: string[];
+	initialNavHidden?: string[];
 }) {
 	const { setOpen: setMobileNavOpen } = useMobileNav();
 	const trpc = useTRPC();
@@ -78,7 +84,11 @@ export function AppHeader({
 					<QuickCreateMenu variant="bar" />
 					<RecentsMenu variant="bar" />
 					<Separator orientation="vertical" className="mx-1 h-5" />
-					<TopNav />
+					<TopNav
+						initialPermissionKeys={initialPermissionKeys}
+						initialNavOrder={initialNavOrder}
+						initialNavHidden={initialNavHidden}
+					/>
 				</div>
 			) : null}
 

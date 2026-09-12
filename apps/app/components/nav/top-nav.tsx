@@ -24,11 +24,23 @@ import {
 	useNavItems,
 } from "@/components/nav/use-nav-items";
 
-export function TopNav() {
+export function TopNav({
+	initialPermissionKeys,
+	initialNavOrder,
+	initialNavHidden,
+}: {
+	initialPermissionKeys?: string[];
+	initialNavOrder?: string[];
+	initialNavHidden?: string[];
+} = {}) {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const prefetchSection = usePrefetchSection();
-	const { items } = useNavItems();
+	const { items } = useNavItems({
+		permissionKeys: initialPermissionKeys,
+		navOrder: initialNavOrder,
+		navHidden: initialNavHidden,
+	});
 
 	return (
 		<NavBar className="min-w-0 overflow-x-auto">

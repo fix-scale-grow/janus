@@ -17,12 +17,36 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 export type NavItem = LiveNavItem & { section: string };
 
 type Pipeline = RouterOutputs["pipelines"]["list"][number];
+type Permissions = RouterOutputs["permissions"]["mine"];
+type NavView = RouterOutputs["views"]["get"];
 
 export const DEALS_MODULE_HREF = "/deals";
 
-function useVisibleItems(): LiveNavItem[] {
+export type NavItemsSeed = {
+	permissionKeys?: string[];
+	navOrder?: string[];
+	navHidden?: string[];
+};
+
+function seedPermissions(seed?: NavItemsSeed): Permissions | undefined {
+	if (!seed?.permissionKeys) return undefined;
+	return { keys: seed.permissionKeys, isAdmin: false };
+}
+
+function seedNavView(seed?: NavItemsSeed): NavView | undefined {
+	if (seed?.navOrder === undefined && seed?.navHidden === undefined) {
+		return undefined;
+	}
+	return { navOrder: seed.navOrder, navHidden: seed.navHidden };
+}
+
+function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
 	const trpc = useTRPC();
-	const permissions = useQuery(trpc.permissions.mine.queryOptions());
+	const initialData = seedPermissions(seed);
+	const permissions = useQuery({
+		...trpc.permissions.mine.queryOptions(),
+		...(initialData ? { initialData } : {}),
+	});
 	const keys = permissions.data?.keys;
 
 	return useMemo(
@@ -35,14 +59,18 @@ function useVisibleItems(): LiveNavItem[] {
 	);
 }
 
-function useNavOrder(): {
+function useNavOrder(seed?: NavItemsSeed): {
 	order: string[] | undefined;
 	saveOrder: (next: string[]) => void;
 } {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const [pending, setPending] = useState<string[] | undefined>(undefined);
-	const view = useQuery(trpc.views.get.queryOptions({ tableId: "nav" }));
+	const initialData = seedNavView(seed);
+	const view = useQuery({
+		...trpc.views.get.queryOptions({ tableId: "nav" }),
+		...(initialData ? { initialData } : {}),
+	});
 	const save = useMutation(trpc.views.save.mutationOptions());
 
 	const saveOrder = (next: string[]) => {
@@ -57,9 +85,13 @@ function useNavOrder(): {
 	return { order: pending ?? view.data?.navOrder, saveOrder };
 }
 
-function useNavHidden(): string[] | undefined {
+function useNavHidden(seed?: NavItemsSeed): string[] | undefined {
 	const trpc = useTRPC();
-	const view = useQuery(trpc.views.get.queryOptions({ tableId: "nav" }));
+	const initialData = seedNavView(seed);
+	const view = useQuery({
+		...trpc.views.get.queryOptions({ tableId: "nav" }),
+		...(initialData ? { initialData } : {}),
+	});
 
 	return view.data?.navHidden;
 }
@@ -108,16 +140,16 @@ export function isNavChildActive(
 	);
 }
 
-export function useNavItems(): {
+export function useNavItems(seed?: NavItemsSeed): {
 	items: NavItem[];
 	sectionIds: string[];
 	order: string[] | undefined;
 	saveOrder: (next: string[]) => void;
 } {
 	const workspaceUrl = useWorkspaceUrl();
-	const visible = useVisibleItems();
-	const { order, saveOrder } = useNavOrder();
-	const hidden = useNavHidden();
+	const visible = useVisibleItems(seed);
+	const { order, saveOrder } = useNavOrder(seed);
+	const hidden = useNavHidden(seed);
 	const dealsStageChildren = useDealsStageChildren();
 
 	const items = useMemo(

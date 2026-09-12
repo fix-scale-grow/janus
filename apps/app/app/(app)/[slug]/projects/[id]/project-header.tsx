@@ -32,6 +32,12 @@ import { contactName } from "@/components/crm/contact-name";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import { ProjectPhotosDialog } from "@/components/photos/project-photos-dialog";
+import {
+	ProjectClientLink,
+	ProjectDealLink,
+	ProjectEstimateLink,
+	ProjectInvoiceLink,
+} from "@/components/projects/project-links";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -140,14 +146,21 @@ export function ProjectHeader({ id }: { id: string }) {
 					)}
 
 					<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-sm">
-						<button
-							type="button"
-							onClick={() => openRecord({ kind: "deal", id: project.deal.id })}
-							className="truncate underline-offset-2 hover:underline"
-						>
-							{project.deal.name}
-						</button>
-						{project.deal.contacts.slice(0, 2).map((contact) => (
+						{project.deal ? (
+							<button
+								type="button"
+								onClick={() => {
+									if (!project.deal) return;
+									openRecord({ kind: "deal", id: project.deal.id });
+								}}
+								className="truncate underline-offset-2 hover:underline"
+							>
+								{project.deal.name}
+							</button>
+						) : (
+							<ProjectDealLink project={project} />
+						)}
+						{(project.deal?.contacts ?? []).slice(0, 2).map((contact) => (
 							<span
 								key={contact.id}
 								className="flex items-center gap-x-2 truncate"
@@ -164,22 +177,37 @@ export function ProjectHeader({ id }: { id: string }) {
 								</button>
 							</span>
 						))}
-						{project.deal.contacts.length > 2 ? (
-							<span>+{project.deal.contacts.length - 2} more</span>
+						{(project.deal?.contacts.length ?? 0) > 2 ? (
+							<span>+{(project.deal?.contacts.length ?? 0) - 2} more</span>
 						) : null}
+						{project.deal ? null : (
+							<>
+								<span>·</span>
+								<ProjectClientLink project={project} />
+							</>
+						)}
 						<span>·</span>
-						<button
-							type="button"
-							onClick={() =>
-								openRecord(
-									{ kind: "deal", id: project.deal.id },
-									{ tab: "costs" },
-								)
-							}
-							className="truncate text-muted-foreground underline-offset-2 hover:underline"
-						>
-							Costs
-						</button>
+						<ProjectEstimateLink project={project} />
+						<span>·</span>
+						<ProjectInvoiceLink project={project} />
+						{project.deal ? (
+							<>
+								<span>·</span>
+								<button
+									type="button"
+									onClick={() => {
+										if (!project.deal) return;
+										openRecord(
+											{ kind: "deal", id: project.deal.id },
+											{ tab: "costs" },
+										);
+									}}
+									className="truncate text-muted-foreground underline-offset-2 hover:underline"
+								>
+									Costs
+								</button>
+							</>
+						) : null}
 					</div>
 				</div>
 
@@ -244,7 +272,10 @@ export function ProjectHeader({ id }: { id: string }) {
 					<AlertDialogHeader>
 						<AlertDialogTitle>Delete {project.name}?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Its tasks go with it. {project.deal.name} stays in the CRM.
+							Its tasks go with it.{" "}
+							{project.deal
+								? `${project.deal.name} stays in the CRM.`
+								: "Linked records stay in the CRM."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -263,7 +294,8 @@ export function ProjectHeader({ id }: { id: string }) {
 				open={photosOpen}
 				onOpenChange={setPhotosOpen}
 				projectId={id}
-				dealId={project.deal.id}
+				dealId={project.deal?.id ?? null}
+				contactId={project.contact?.id ?? null}
 			/>
 		</div>
 	);

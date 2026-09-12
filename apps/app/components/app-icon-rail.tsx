@@ -297,11 +297,25 @@ export function AppIconRailFallback({
 	);
 }
 
-export function AppIconRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
+export function AppIconRail({
+	navLayout,
+	initialPermissionKeys,
+	initialNavOrder,
+	initialNavHidden,
+}: {
+	navLayout: "RAIL" | "TOP_BAR";
+	initialPermissionKeys?: string[];
+	initialNavOrder?: string[];
+	initialNavHidden?: string[];
+}) {
 	const pathname = usePathname();
 	const { open, setOpen } = useMobileNav();
 	const prefetchSection = usePrefetchSection();
-	const { items, sectionIds, saveOrder } = useNavItems();
+	const { items, sectionIds, saveOrder } = useNavItems({
+		permissionKeys: initialPermissionKeys,
+		navOrder: initialNavOrder,
+		navHidden: initialNavHidden,
+	});
 	const suppressClick = useRef(false);
 
 	const sensors = useSensors(
