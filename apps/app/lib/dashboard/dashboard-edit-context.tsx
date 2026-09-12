@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
+import { DASHBOARD } from "./dashboard-config";
 import {
 	addEntry,
 	DASHBOARD_LAYOUT_VERSION,
@@ -40,6 +41,7 @@ type DashboardEditContextValue = {
 	layout: DashboardLayoutEntry[];
 	widgets: DashboardWidget[];
 	addable: DashboardWidget[];
+	atWidgetCap: boolean;
 	savePending: boolean;
 	customise: () => void;
 	cancel: () => void;
@@ -75,16 +77,20 @@ export function DashboardEditProvider({ children }: { children: ReactNode }) {
 	const editing = draft !== null;
 	const layout = draft ?? resolved;
 
+	const atWidgetCap = layout.length >= DASHBOARD.grid.maxWidgets;
+
 	const addable = useMemo(() => {
+		if (atWidgetCap) return [];
 		const present = new Set(layout.map((entry) => entry.id));
 		return widgets.filter((widget) => !present.has(widget.id));
-	}, [widgets, layout]);
+	}, [widgets, layout, atWidgetCap]);
 
 	const value: DashboardEditContextValue = {
 		editing,
 		layout,
 		widgets,
 		addable,
+		atWidgetCap,
 		savePending: save.isPending,
 		customise: () => setDraft(resolved),
 		cancel: () => setDraft(null),

@@ -10,6 +10,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@crm/ui/components/popover";
+import { DASHBOARD } from "@/lib/dashboard/dashboard-config";
 import type { DashboardWidget } from "@/lib/dashboard/dashboard-edit-context";
 import { useDashboardEdit } from "@/lib/dashboard/dashboard-edit-context";
 
@@ -39,8 +40,17 @@ function AddWidgetRow({
 }
 
 export function CustomiseControls() {
-	const { editing, addable, savePending, customise, cancel, done, reset, add } =
-		useDashboardEdit();
+	const {
+		editing,
+		addable,
+		atWidgetCap,
+		savePending,
+		customise,
+		cancel,
+		done,
+		reset,
+		add,
+	} = useDashboardEdit();
 
 	if (!editing) {
 		return (
@@ -68,7 +78,11 @@ export function CustomiseControls() {
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent align="end" className="w-80">
-					{addable.length === 0 ? (
+					{atWidgetCap ? (
+						<p className="text-muted-foreground text-xs">
+							Widget limit reached ({DASHBOARD.grid.maxWidgets})
+						</p>
+					) : addable.length === 0 ? (
 						<p className="text-muted-foreground">
 							Every widget is on the dashboard.
 						</p>
