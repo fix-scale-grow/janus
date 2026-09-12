@@ -20,19 +20,29 @@ import { Textarea } from "@crm/ui/components/textarea";
 import { toDay } from "@crm/ui/lib/format";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
-export function NewProjectDialog() {
+export function NewProjectDialog({
+	trigger,
+	open: openProp,
+	onOpenChange,
+}: {
+	trigger?: ReactNode;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+} = {}) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
 
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = openProp ?? internalOpen;
+	const setOpen = onOpenChange ?? setInternalOpen;
 	const [name, setName] = useState("");
 	const [startDate, setStartDate] = useState(() => toDay(new Date()));
 	const [goalDate, setGoalDate] = useState("");
@@ -72,12 +82,16 @@ export function NewProjectDialog() {
 				if (!next) reset();
 			}}
 		>
-			<DialogTrigger asChild>
-				<Button size="sm">
-					<Icon icon={Add} data-icon="inline-start" />
-					New project
-				</Button>
-			</DialogTrigger>
+			{openProp === undefined ? (
+				<DialogTrigger asChild>
+					{trigger ?? (
+						<Button size="sm">
+							<Icon icon={Add} data-icon="inline-start" />
+							New project
+						</Button>
+					)}
+				</DialogTrigger>
+			) : null}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>New project</DialogTitle>

@@ -21,7 +21,9 @@ import {
 } from "@crm/ui/components/tooltip";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
+import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -31,6 +33,7 @@ export function QuickCreateMenu({ variant }: { variant: "rail" | "bar" }) {
 	const cache = useCrmCache();
 	const router = useRouter();
 	const workspaceUrl = useWorkspaceUrl();
+	const [creatingProject, setCreatingProject] = useState(false);
 
 	const createEstimate = useMutation(
 		trpc.estimates.create.mutationOptions({
@@ -62,6 +65,10 @@ export function QuickCreateMenu({ variant }: { variant: "rail" | "bar" }) {
 			onSelect: () => router.push(workspaceUrl("/deals?new=1")),
 		},
 		{
+			label: "New project",
+			onSelect: () => setCreatingProject(true),
+		},
+		{
 			label: "New drawing",
 			onSelect: () => createDrawing.mutate({ background: "WHITEBOARD" }),
 		},
@@ -72,41 +79,47 @@ export function QuickCreateMenu({ variant }: { variant: "rail" | "bar" }) {
 	];
 
 	return (
-		<DropdownMenu>
-			{variant === "rail" ? (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<DropdownMenuTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								aria-label="New"
-								className="text-muted-foreground"
-							>
-								<Icon icon={Add} />
-							</Button>
-						</DropdownMenuTrigger>
-					</TooltipTrigger>
-					<TooltipContent side="right">New</TooltipContent>
-				</Tooltip>
-			) : (
-				<DropdownMenuTrigger asChild>
-					<NavBarItem asChild hasChildren>
-						<button type="button">
-							<NavBarItemIcon icon={Add} />
-							New
-							<NavBarItemChevron />
-						</button>
-					</NavBarItem>
-				</DropdownMenuTrigger>
-			)}
-			<DropdownMenuContent align="start" className="min-w-44">
-				{items.map((item) => (
-					<DropdownMenuItem key={item.label} onSelect={item.onSelect}>
-						{item.label}
-					</DropdownMenuItem>
-				))}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<>
+			<DropdownMenu>
+				{variant === "rail" ? (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label="New"
+									className="text-muted-foreground"
+								>
+									<Icon icon={Add} />
+								</Button>
+							</DropdownMenuTrigger>
+						</TooltipTrigger>
+						<TooltipContent side="right">New</TooltipContent>
+					</Tooltip>
+				) : (
+					<DropdownMenuTrigger asChild>
+						<NavBarItem asChild hasChildren>
+							<button type="button">
+								<NavBarItemIcon icon={Add} />
+								New
+								<NavBarItemChevron />
+							</button>
+						</NavBarItem>
+					</DropdownMenuTrigger>
+				)}
+				<DropdownMenuContent align="start" className="min-w-44">
+					{items.map((item) => (
+						<DropdownMenuItem key={item.label} onSelect={item.onSelect}>
+							{item.label}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuContent>
+			</DropdownMenu>
+			<NewProjectDialog
+				open={creatingProject}
+				onOpenChange={setCreatingProject}
+			/>
+		</>
 	);
 }

@@ -386,6 +386,8 @@ export function useCrmCache(): CrmCache {
 				[
 					trpc.settings.agentModel.queryKey(),
 					trpc.settings.researchKey.queryKey(),
+					trpc.settings.navLayout.queryKey(),
+					trpc.settings.dealNumbering.queryKey(),
 				],
 				[],
 				options,

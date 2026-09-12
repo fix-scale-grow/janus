@@ -108,6 +108,7 @@ const SORTABLE: Record<
 	(dir: Prisma.SortOrder) => Prisma.DealOrderByWithRelationInput[]
 > = {
 	name: (dir) => [{ name: dir }],
+	number: (dir) => [{ number: dir }],
 	stage: (dir) => [{ stage: { position: dir } }, { expectedCloseDate: "asc" }],
 	amount: (dir) => [{ baseAmount: { sort: dir, nulls: "last" } }],
 	expectedCloseDate: (dir) => [{ expectedCloseDate: dir }],
@@ -151,6 +152,7 @@ export class DealsService {
 				select: {
 					id: true,
 					name: true,
+					number: true,
 					stage: { select: STAGE_SELECT },
 					productionStage: true,
 					amount: true,
@@ -218,6 +220,7 @@ export class DealsService {
 			select: {
 				id: true,
 				name: true,
+				number: true,
 				description: true,
 				stage: { select: STAGE_SELECT },
 				productionStage: true,
@@ -788,9 +791,16 @@ export class DealsService {
 		const term = q.trim();
 		if (!term) return {};
 
-		return {
-			OR: [{ name: { contains: term, mode: "insensitive" } }],
-		};
+		const or: Prisma.DealWhereInput[] = [
+			{ name: { contains: term, mode: "insensitive" } },
+		];
+
+		const asNumber = Number(term);
+		if (Number.isInteger(asNumber)) {
+			or.push({ number: asNumber });
+		}
+
+		return { OR: or };
 	}
 
 	private buildWhere(input: DealListInput): Prisma.DealWhereInput {

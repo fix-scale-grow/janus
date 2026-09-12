@@ -215,7 +215,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 		<RecordSheetFrame
 			loading={query.isPending}
 			error={query.error?.message ?? null}
-			title={deal?.name ?? "Deal"}
+			title={deal ? `#${deal.number} · ${deal.name}` : "Deal"}
 			actions={
 				deal ? (
 					<>
