@@ -957,11 +957,16 @@
 .react-resizable-handle-se::after {
 	content: "";
 	position: absolute;
-	right: 4px;
-	bottom: 4px;
-	width: 8px;
-	height: 8px;
-	border-right: 2px solid var(--muted-foreground);
-	border-bottom: 2px solid var(--muted-foreground);
+	right: 3px;
+	bottom: 3px;
+	width: 12px;
+	height: 12px;
+	border-right: 2px solid var(--foreground);
+	border-bottom: 2px solid var(--foreground);
 	border-bottom-right-radius: var(--radius-sm);
+	opacity: 0.6;
+}
+
+.react-resizable-handle-se:hover::after {
+	opacity: 1;
 }
