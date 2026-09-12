@@ -34,6 +34,7 @@ import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
+import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
 import { setAgentModelInput, setResearchKeyInput, setNavLayoutInput, setDealNumberStartInput } from "../settings/settings.contracts";
@@ -66,6 +67,7 @@ import type { PermissionsRouter } from "../permissions/permissions.router";
 import type { PhotosRouter } from "../photos/photos.router";
 import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
+import type { RecentsRouter } from "../recents/recents.router";
 import type { ReportsRouter } from "../reports/reports.router";
 import type { SearchRouter } from "../search/search.router";
 import type { ServicesCatalogRouter } from "../services-catalog/services-catalog.router";
@@ -724,6 +726,13 @@ const appRouter = t.router({
     taskRemove: publicProcedure
       .input(projectIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskRemove"]>>)
+    }),
+  recents: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RecentsRouter["list"]>>),
+    touch: publicProcedure
+      .input(recentTouchInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RecentsRouter["touch"]>>)
     }),
   reports: t.router({
     byClient: publicProcedure

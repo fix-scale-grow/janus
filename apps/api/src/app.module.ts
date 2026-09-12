@@ -34,6 +34,7 @@ import { PermissionsModule } from "./permissions/permissions.module";
 import { PhotosModule } from "./photos/photos.module";
 import { PipelinesModule } from "./pipelines/pipelines.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { RecentsModule } from "./recents/recents.module";
 import { ReportsModule } from "./reports/reports.module";
 import { SearchModule } from "./search/search.module";
 import { ServicesCatalogModule } from "./services-catalog/services-catalog.module";
@@ -90,6 +91,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		ActivitiesModule,
 		AgentModule,
 		DashboardModule,
+		RecentsModule,
 		SearchModule,
 		ServicesCatalogModule,
 		SymbolsModule,
