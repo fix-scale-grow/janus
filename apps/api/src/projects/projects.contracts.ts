@@ -109,6 +109,20 @@ export const projectUpdateInput = z.object({
 
 export type ProjectUpdateInput = z.infer<typeof projectUpdateInput>;
 
+export const projectMoveScheduleInput = z.object({
+	id: z.string().min(1),
+	deltaDays: z
+		.number()
+		.int()
+		.min(-PROJECTS.calendar.moveMaxDays)
+		.max(PROJECTS.calendar.moveMaxDays)
+		.refine((value) => value !== 0, {
+			message: "The move is zero days.",
+		}),
+});
+
+export type ProjectMoveScheduleInput = z.infer<typeof projectMoveScheduleInput>;
+
 export const taskCreateInput = z
 	.object({
 		projectId: z.string().min(1),

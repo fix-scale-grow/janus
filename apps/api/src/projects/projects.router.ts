@@ -15,6 +15,7 @@ import {
 	projectCreateInput,
 	projectIdInput,
 	projectListInput,
+	projectMoveScheduleInput,
 	projectUpdateInput,
 	taskCreateInput,
 	taskMoveInput,
@@ -60,6 +61,11 @@ export class ProjectsRouter {
 	@Mutation({ input: projectUpdateInput })
 	async update(@Input() input: z.infer<typeof projectUpdateInput>) {
 		return this.projects.update(input);
+	}
+
+	@Mutation({ input: projectMoveScheduleInput })
+	async moveSchedule(@Input() input: z.infer<typeof projectMoveScheduleInput>) {
+		return this.projects.moveSchedule(input);
 	}
 
 	@Mutation({ input: projectIdInput })
