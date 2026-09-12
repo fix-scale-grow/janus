@@ -21,11 +21,13 @@ import {
 	useSummary,
 	WidgetBoundary,
 } from "@/components/dashboard/summary-context";
+import {
+	WIDGET_CELL as CELL,
+	WIDGET_TABLE_GUTTER,
+} from "@/components/dashboard/widgets/widget-table";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { stageColor } from "@/lib/stage-presentation";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
-
-const CELL = "px-3 py-2.5 align-middle";
 
 const OPEN_COLUMNS: SimpleTableColumn[] = [
 	{ id: "deal", header: "Deal" },
@@ -85,7 +87,12 @@ function DealsOpenBody({ biggestOpen }: { biggestOpen: BiggestOpenDeal[] }) {
 
 	return (
 		<CardPanel>
-			<SimpleTable variant="panel" surface="page" columns={OPEN_COLUMNS}>
+			<SimpleTable
+				variant="panel"
+				surface="page"
+				columns={OPEN_COLUMNS}
+				className={WIDGET_TABLE_GUTTER}
+			>
 				{biggestOpen.map((deal) => (
 					<SimpleTableRow
 						key={deal.id}

@@ -67,6 +67,23 @@ function boardComponentFor(pipelineId: string, title: string): ComponentType {
 	return component;
 }
 
+export function widgetsFor(
+	keys: string[],
+	pipelines: { id: string; name: string }[],
+): (WidgetMeta & { component: ComponentType })[] {
+	const boardWidgets = pipelines.map((pipeline) => {
+		const meta = pipelineBoardMeta(pipeline);
+		return {
+			...meta,
+			component: boardComponentFor(meta.pipelineId, meta.title),
+		};
+	});
+	return [
+		...visibleWidgets(DASHBOARD_WIDGETS, keys),
+		...visibleWidgets(boardWidgets, keys),
+	];
+}
+
 export function useVisibleWidgets(): (WidgetMeta & {
 	component: ComponentType;
 })[] {
@@ -75,20 +92,10 @@ export function useVisibleWidgets(): (WidgetMeta & {
 	const pipelines = useQuery(
 		trpc.pipelines.list.queryOptions({ includeArchived: false }),
 	);
-	const keys = permissions.data?.keys ?? [];
-	const boardWidgets = useMemo(
-		() =>
-			(pipelines.data ?? []).map((pipeline) => {
-				const meta = pipelineBoardMeta(pipeline);
-				return {
-					...meta,
-					component: boardComponentFor(meta.pipelineId, meta.title),
-				};
-			}),
-		[pipelines.data],
+	const keys = permissions.data?.keys;
+	const pipelineRows = pipelines.data;
+	return useMemo(
+		() => widgetsFor(keys ?? [], pipelineRows ?? []),
+		[keys, pipelineRows],
 	);
-	return [
-		...visibleWidgets(DASHBOARD_WIDGETS, keys),
-		...visibleWidgets(boardWidgets, keys),
-	];
 }
