@@ -24,7 +24,7 @@ export function AskJanusWidget() {
 	return (
 		<WidgetShell title={copy.title} description="Your CRM, one question away">
 			<form
-				className="flex min-w-0 flex-1 items-center gap-2 p-4"
+				className="flex min-w-0 flex-1 items-center gap-2 p-4 md:px-6"
 				onSubmit={(event) => {
 					event.preventDefault();
 					const trimmed = question.trim();
