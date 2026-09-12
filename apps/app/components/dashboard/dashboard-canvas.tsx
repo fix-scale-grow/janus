@@ -24,7 +24,10 @@ import { DASHBOARD } from "@/lib/dashboard/dashboard-config";
 import type { WidgetMeta } from "@/lib/dashboard/layout";
 
 const DESKTOP_MEDIA_QUERY = "(min-width: 640px)";
-const GRID_MARGIN: [number, number] = [10, 10];
+const GRID_MARGIN: [number, number] = [
+	DASHBOARD.grid.marginPx,
+	DASHBOARD.grid.marginPx,
+];
 
 function subscribeToDesktopBreakpoint(callback: () => void) {
 	const mql = window.matchMedia(DESKTOP_MEDIA_QUERY);
