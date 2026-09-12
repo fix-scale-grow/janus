@@ -212,6 +212,28 @@ describe("PhotosService", () => {
 		expect(result.rows[0]?.filename).toBe(`contact-${suffix}.jpg`);
 	});
 
+	it("includes the deal's contacts' photos when asked", async () => {
+		await db.dealContact.create({ data: { dealId, contactId } });
+
+		const withContacts = await service.list({
+			dealId,
+			includeDealContacts: true,
+		});
+		const dealOnly = await service.list({ dealId });
+
+		expect(withContacts.total).toBe(3);
+		expect(
+			withContacts.rows.some(
+				(row) => row.filename === `contact-${suffix}.jpg`,
+			),
+		).toBe(true);
+		expect(dealOnly.total).toBe(2);
+
+		await db.dealContact.delete({
+			where: { dealId_contactId: { dealId, contactId } },
+		});
+	});
+
 	it("links a photo to an estimate idempotently", async () => {
 		const photo = await db.photo.create({
 			data: {
