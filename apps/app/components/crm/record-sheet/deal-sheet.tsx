@@ -227,7 +227,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 						<RecordActions
 							record={{ kind: "deal", id: deal.id }}
 							name={deal.name}
-							consequence={`Its stage history, notes and agent conversations go too. The ${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM.`}
+							consequence={`Its stage history, notes and agent conversations go too. The ${deal.contacts.length === 1 ? "person" : "people"} on it stay in the CRM, and any projects are kept and unlinked.`}
 						/>
 					</>
 				) : null

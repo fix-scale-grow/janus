@@ -10,11 +10,67 @@ import { builderToken } from "../agent/lib/custom-agent-dispatch";
 
 const suffix = crypto.randomUUID();
 const userId = `builder-runtime-user-${suffix}`;
+const STALE_FIXTURE_MS = 60 * 60 * 1000;
 let conversationId = "";
 let agentId = "";
 const conversationIds: string[] = [];
 
+async function purgeBuilderRuntimeData(userIds: string[]) {
+	if (userIds.length === 0) return;
+	const ownedConversationIds = (
+		await db.agentConversation.findMany({
+			where: { userId: { in: userIds } },
+			select: { id: true },
+		})
+	).map((row) => row.id);
+	const agentIds = (
+		await db.agentDefinition.findMany({
+			where: { createdById: { in: userIds } },
+			select: { id: true },
+		})
+	).map((agent) => agent.id);
+	await db.agentBuilderArtifact.deleteMany({
+		where: {
+			OR: [
+				{ conversationId: { in: ownedConversationIds } },
+				{ version: { agentId: { in: agentIds } } },
+			],
+		},
+	});
+	if (agentIds.length > 0) {
+		await db.agentAuditEvent.deleteMany({
+			where: { agentId: { in: agentIds } },
+		});
+		await db.agentTrigger.deleteMany({
+			where: { agentId: { in: agentIds } },
+		});
+		await db.agentDefinition.updateMany({
+			where: { id: { in: agentIds } },
+			data: { currentVersionId: null },
+		});
+		await db.agentVersion.deleteMany({
+			where: { agentId: { in: agentIds } },
+		});
+		await db.agentDefinition.deleteMany({
+			where: { id: { in: agentIds } },
+		});
+	}
+	await db.agentConversation.deleteMany({
+		where: { id: { in: ownedConversationIds } },
+	});
+	await db.member.deleteMany({ where: { userId: { in: userIds } } });
+	await db.user.deleteMany({ where: { id: { in: userIds } } });
+}
+
 beforeAll(async () => {
+	const stale = await db.user.findMany({
+		where: {
+			id: { startsWith: "builder-runtime-user-" },
+			createdAt: { lt: new Date(Date.now() - STALE_FIXTURE_MS) },
+		},
+		select: { id: true },
+	});
+	await purgeBuilderRuntimeData(stale.map((row) => row.id));
 	await db.user.create({
 		data: {
 			id: userId,
@@ -35,42 +91,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	const agentIds = (
-		await db.agentDefinition.findMany({
-			where: { createdById: userId },
-			select: { id: true },
-		})
-	).map((agent) => agent.id);
-	if (agentIds.length > 0) {
-		await db.agentBuilderArtifact.deleteMany({
-			where: {
-				OR: [
-					{ conversationId: { in: conversationIds } },
-					{ version: { agentId: { in: agentIds } } },
-				],
-			},
-		});
-		await db.agentAuditEvent.deleteMany({
-			where: { agentId: { in: agentIds } },
-		});
-		await db.agentTrigger.deleteMany({
-			where: { agentId: { in: agentIds } },
-		});
-		await db.agentDefinition.updateMany({
-			where: { id: { in: agentIds } },
-			data: { currentVersionId: null },
-		});
-		await db.agentVersion.deleteMany({
-			where: { agentId: { in: agentIds } },
-		});
-		await db.agentDefinition.deleteMany({
-			where: { id: { in: agentIds } },
-		});
-	}
-	await db.agentConversation.deleteMany({
-		where: { id: { in: conversationIds } },
-	});
-	await db.user.deleteMany({ where: { id: userId } });
+	await purgeBuilderRuntimeData([userId]);
 });
 
 describe("builder persistence", () => {

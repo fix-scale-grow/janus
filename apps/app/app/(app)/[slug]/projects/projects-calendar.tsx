@@ -455,6 +455,7 @@ function ProjectBar({
 			}}
 			title={`${span.name}${span.dealName ? ` — ${span.dealName}` : ""}${span.clientName ? ` · ${span.clientName}` : ""}`}
 			style={{
+				gridRow: "1",
 				gridColumn: `${bar.startCol + 1} / ${bar.endCol + 2}`,
 				marginTop: `${bar.lane * 1.75}rem`,
 				transform: CSS.Translate.toString(transform),

@@ -26,12 +26,22 @@ import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
+export type NewProjectDefaults = {
+	name?: string;
+	dealId?: string;
+	contactId?: string;
+	estimateId?: string;
+	invoiceId?: string;
+};
+
 export function NewProjectDialog({
 	trigger,
+	defaults,
 	open: openProp,
 	onOpenChange,
 }: {
 	trigger?: ReactNode;
+	defaults?: NewProjectDefaults;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 } = {}) {
@@ -43,7 +53,7 @@ export function NewProjectDialog({
 	const [internalOpen, setInternalOpen] = useState(false);
 	const open = openProp ?? internalOpen;
 	const setOpen = onOpenChange ?? setInternalOpen;
-	const [name, setName] = useState("");
+	const [name, setName] = useState(defaults?.name ?? "");
 	const [startDate, setStartDate] = useState(() => toDay(new Date()));
 	const [goalDate, setGoalDate] = useState("");
 	const [goal, setGoal] = useState("");
@@ -54,7 +64,7 @@ export function NewProjectDialog({
 	const goalId = useId();
 
 	const reset = () => {
-		setName("");
+		setName(defaults?.name ?? "");
 		setStartDate(toDay(new Date()));
 		setGoalDate("");
 		setGoal("");
@@ -96,8 +106,9 @@ export function NewProjectDialog({
 				<DialogHeader>
 					<DialogTitle>New project</DialogTitle>
 					<DialogDescription>
-						Plan the work day by day. Attach a client, estimate or invoice from
-						the project page afterwards.
+						{defaults?.invoiceId || defaults?.dealId || defaults?.contactId
+							? "Plan the work day by day. The linked records come attached."
+							: "Plan the work day by day. Attach a client, estimate or invoice from the project page afterwards."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -111,6 +122,10 @@ export function NewProjectDialog({
 							goal: goal.trim() || undefined,
 							startDate,
 							goalDate: goalDate || undefined,
+							dealId: defaults?.dealId,
+							contactId: defaults?.contactId,
+							estimateId: defaults?.estimateId,
+							invoiceId: defaults?.invoiceId,
 						});
 					}}
 				>

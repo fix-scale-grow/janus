@@ -91,6 +91,8 @@ export type ProjectIdInput = z.infer<typeof projectIdInput>;
 export const projectCreateInput = z.object({
 	dealId: z.string().min(1).optional(),
 	contactId: z.string().min(1).optional(),
+	estimateId: z.string().min(1).optional(),
+	invoiceId: z.string().min(1).optional(),
 	name: z.string().trim().min(1).max(PROJECTS.project.nameMax),
 	goal: z.string().trim().max(PROJECTS.project.goalMax).optional(),
 	startDate: dayInput,

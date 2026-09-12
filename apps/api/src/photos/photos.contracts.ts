@@ -11,6 +11,7 @@ const projectPhotoStageEnum = z.enum(
 export const photoListInput = z.object({
 	dealId: z.string().optional(),
 	contactId: z.string().optional(),
+	includeDealContacts: z.boolean().optional(),
 });
 
 export type PhotoListInput = z.infer<typeof photoListInput>;

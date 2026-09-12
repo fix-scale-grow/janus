@@ -46,6 +46,7 @@ import {
 	PageShellTitle,
 } from "@/components/page-shell";
 import { LinkedPhotosSection } from "@/components/photos/linked-photos-section";
+import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -310,6 +311,19 @@ export function InvoiceDetail({
 							Mark paid
 						</Button>
 					) : null}
+					<NewProjectDialog
+						trigger={
+							<Button variant="outline" size="sm">
+								Start project
+							</Button>
+						}
+						defaults={{
+							name: `Invoice #${data.number} project`,
+							dealId: data.dealId ?? undefined,
+							contactId: data.contactId ?? undefined,
+							invoiceId: invoiceId,
+						}}
+					/>
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/invoices")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />

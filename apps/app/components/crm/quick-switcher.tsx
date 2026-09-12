@@ -94,6 +94,11 @@ export function QuickSwitcher() {
 	const hits = results.data?.hits ?? [];
 	const trimmedQuery = query.trim();
 
+	const groupOrder: (typeof KINDS)[number][] = [];
+	for (const hit of hits) {
+		if (!groupOrder.includes(hit.kind)) groupOrder.push(hit.kind);
+	}
+
 	const close = () => {
 		setQuery("");
 		setCommitted("");
@@ -178,7 +183,7 @@ export function QuickSwitcher() {
 							<CommandGroup heading="Ask Janus">{askRow}</CommandGroup>
 						) : null}
 
-						{KINDS.map((kind) => {
+						{groupOrder.map((kind) => {
 							const group = hits.filter((hit) => hit.kind === kind);
 							if (group.length === 0) return null;
 
