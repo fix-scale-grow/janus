@@ -501,8 +501,9 @@ export class EstimatesService {
 			);
 		}
 
+		let updated: { id: string; contactId: string | null };
 		try {
-			return await this.db.estimate.update({
+			updated = await this.db.estimate.update({
 				where: { id: input.id },
 				data: { contactId },
 				select: { id: true, contactId: true },
@@ -510,6 +511,8 @@ export class EstimatesService {
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
+		await this.photos.reanchorForEstimate(input.id, { contactId });
+		return updated;
 	}
 
 	async document(id: string): Promise<{ filename: string; base64: string }> {

@@ -334,6 +334,47 @@ export class PhotosService {
 		});
 	}
 
+	async reanchorForEstimate(
+		estimateId: string,
+		anchor: { dealId?: string | null; contactId?: string | null },
+	): Promise<void> {
+		await this.reanchorLinked(
+			{ estimateLinks: { some: { estimateId } } },
+			anchor,
+		);
+	}
+
+	async reanchorForInvoice(
+		invoiceId: string,
+		anchor: { dealId?: string | null; contactId?: string | null },
+	): Promise<void> {
+		await this.reanchorLinked({ invoiceLinks: { some: { invoiceId } } }, anchor);
+	}
+
+	private async reanchorLinked(
+		linkWhere: Prisma.PhotoWhereInput,
+		anchor: { dealId?: string | null; contactId?: string | null },
+	): Promise<void> {
+		const data = anchor.dealId
+			? { dealId: anchor.dealId }
+			: anchor.contactId
+				? { contactId: anchor.contactId }
+				: null;
+		if (!data) return;
+
+		try {
+			await this.db.photo.updateMany({
+				where: { ...linkWhere, dealId: null, contactId: null },
+				data,
+			});
+		} catch (error) {
+			this.logger.error(
+				{ message: "Photo re-anchor failed", anchor },
+				error instanceof Error ? error.stack : undefined,
+			);
+		}
+	}
+
 	async pdfPhotosForEstimate(estimateId: string): Promise<PdfPhoto[]> {
 		const links = await this.db.estimatePhoto.findMany({
 			where: { estimateId, includeInPdf: true },

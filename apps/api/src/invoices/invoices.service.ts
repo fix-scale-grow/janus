@@ -269,8 +269,15 @@ export class InvoicesService {
 	}
 
 	async update(input: InvoiceUpdateInput) {
+		let updated: {
+			id: string;
+			notes: string | null;
+			dueAt: Date | null;
+			issuedAt: Date | null;
+			contactId: string | null;
+		};
 		try {
-			return await this.db.invoice.update({
+			updated = await this.db.invoice.update({
 				where: { id: input.id },
 				data: input.data,
 				select: {
@@ -284,6 +291,12 @@ export class InvoicesService {
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
+		if (typeof input.data.contactId === "string") {
+			await this.photos.reanchorForInvoice(input.id, {
+				contactId: input.data.contactId,
+			});
+		}
+		return updated;
 	}
 
 	async delete(id: string) {
