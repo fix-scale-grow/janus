@@ -55,6 +55,7 @@ import {
 	isNavItemActive,
 	type NavItem,
 	type NavPermissions,
+	type NavPipelines,
 	useNavItems,
 } from "@/components/nav/use-nav-items";
 import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
@@ -302,11 +303,13 @@ export function AppIconRail({
 	initialPermissions,
 	initialNavOrder,
 	initialNavHidden,
+	initialPipelines,
 }: {
 	navLayout: "RAIL" | "TOP_BAR";
 	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
+	initialPipelines?: NavPipelines;
 }) {
 	const pathname = usePathname();
 	const { open, setOpen } = useMobileNav();
@@ -315,6 +318,7 @@ export function AppIconRail({
 		permissions: initialPermissions,
 		navOrder: initialNavOrder,
 		navHidden: initialNavHidden,
+		pipelines: initialPipelines,
 	});
 	const suppressClick = useRef(false);
 

@@ -21,6 +21,7 @@ type Permissions = RouterOutputs["permissions"]["mine"];
 type NavView = RouterOutputs["views"]["get"];
 
 export type NavPermissions = Permissions;
+export type NavPipelines = RouterOutputs["pipelines"]["list"];
 
 export const DEALS_MODULE_HREF = "/deals";
 
@@ -28,6 +29,7 @@ export type NavItemsSeed = {
 	permissions?: Permissions;
 	navOrder?: string[];
 	navHidden?: string[];
+	pipelines?: NavPipelines;
 };
 
 function seedPermissions(seed?: NavItemsSeed): Permissions | undefined {
@@ -97,11 +99,13 @@ function useNavHidden(seed?: NavItemsSeed): string[] | undefined {
 	return view.data?.navHidden;
 }
 
-function useDealsStageChildren(): NavChild[] {
+function useDealsStageChildren(seed?: NavItemsSeed): NavChild[] {
 	const trpc = useTRPC();
-	const pipelines = useQuery(
-		trpc.pipelines.list.queryOptions({ includeArchived: false }),
-	);
+	const initialData = seed?.pipelines;
+	const pipelines = useQuery({
+		...trpc.pipelines.list.queryOptions({ includeArchived: false }),
+		...(initialData ? { initialData } : {}),
+	});
 
 	return useMemo(() => {
 		const active: Pipeline | undefined =
@@ -151,7 +155,7 @@ export function useNavItems(seed?: NavItemsSeed): {
 	const visible = useVisibleItems(seed);
 	const { order, saveOrder } = useNavOrder(seed);
 	const hidden = useNavHidden(seed);
-	const dealsStageChildren = useDealsStageChildren();
+	const dealsStageChildren = useDealsStageChildren(seed);
 
 	const items = useMemo(
 		() =>

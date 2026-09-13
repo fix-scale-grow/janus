@@ -11,6 +11,8 @@ import { requireMailboxAccess } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 
+export const instant = false;
+
 export default async function AppLayout({
 	children,
 	params,
@@ -47,12 +49,15 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 	await connection();
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
-	const [permissions, navView] = await Promise.all([
+	const [permissions, navView, pipelines] = await Promise.all([
 		queryClient
 			.fetchQuery(trpc.permissions.mine.queryOptions())
 			.catch(() => undefined),
 		queryClient
 			.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" }))
+			.catch(() => undefined),
+		queryClient
+			.fetchQuery(trpc.pipelines.list.queryOptions({ includeArchived: false }))
 			.catch(() => undefined),
 		queryClient.prefetchQuery(
 			trpc.views.get.queryOptions({ tableId: "dashboard" }),
@@ -66,6 +71,7 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 				initialPermissions={permissions}
 				initialNavOrder={navView?.navOrder}
 				initialNavHidden={navView?.navHidden}
+				initialPipelines={pipelines}
 			/>
 		</HydrateClient>
 	);
@@ -92,13 +98,17 @@ async function WorkspaceHeader({
 	const navViewPromise = queryClient
 		.fetchQuery(trpc.views.get.queryOptions({ tableId: "nav" }))
 		.catch(() => undefined);
-	const [{ user }, { slug }, workspace, permissions, navView] =
+	const pipelinesPromise = queryClient
+		.fetchQuery(trpc.pipelines.list.queryOptions({ includeArchived: false }))
+		.catch(() => undefined);
+	const [{ user }, { slug }, workspace, permissions, navView, pipelines] =
 		await Promise.all([
 			requireMailboxAccess(),
 			params,
 			workspacePromise,
 			permissionsPromise,
 			navViewPromise,
+			pipelinesPromise,
 		]);
 
 	if (workspace && workspace.slug !== slug) notFound();
@@ -115,6 +125,7 @@ async function WorkspaceHeader({
 				initialPermissions={permissions}
 				initialNavOrder={navView?.navOrder}
 				initialNavHidden={navView?.navHidden}
+				initialPipelines={pipelines}
 			/>
 		</HydrateClient>
 	);

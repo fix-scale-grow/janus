@@ -22,6 +22,7 @@ import {
 	isNavItemActive,
 	type NavItem,
 	type NavPermissions,
+	type NavPipelines,
 	useNavItems,
 } from "@/components/nav/use-nav-items";
 
@@ -29,10 +30,12 @@ export function TopNav({
 	initialPermissions,
 	initialNavOrder,
 	initialNavHidden,
+	initialPipelines,
 }: {
 	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
+	initialPipelines?: NavPipelines;
 } = {}) {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -41,6 +44,7 @@ export function TopNav({
 		permissions: initialPermissions,
 		navOrder: initialNavOrder,
 		navHidden: initialNavHidden,
+		pipelines: initialPipelines,
 	});
 
 	return (

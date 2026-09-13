@@ -27,7 +27,10 @@ import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
 import { RecentsMenu } from "@/components/nav/recents-menu";
 import { SearchPill } from "@/components/nav/search-pill";
 import { TopNav } from "@/components/nav/top-nav";
-import type { NavPermissions } from "@/components/nav/use-nav-items";
+import type {
+	NavPermissions,
+	NavPipelines,
+} from "@/components/nav/use-nav-items";
 import { signOutAndRedirect } from "@/lib/sign-out";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -41,12 +44,14 @@ export function AppHeader({
 	initialPermissions,
 	initialNavOrder,
 	initialNavHidden,
+	initialPipelines,
 }: {
 	user: User;
 	navLayout: "RAIL" | "TOP_BAR";
 	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
+	initialPipelines?: NavPipelines;
 }) {
 	const { setOpen: setMobileNavOpen } = useMobileNav();
 	const trpc = useTRPC();
@@ -89,6 +94,7 @@ export function AppHeader({
 						initialPermissions={initialPermissions}
 						initialNavOrder={initialNavOrder}
 						initialNavHidden={initialNavHidden}
+						initialPipelines={initialPipelines}
 					/>
 				</div>
 			) : null}
