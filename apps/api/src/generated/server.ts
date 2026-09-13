@@ -31,6 +31,7 @@ import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInpu
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
+import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, setWorksheetTemplateInput } from "../permits/permits.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
@@ -64,6 +65,7 @@ import type { GoogleRouter } from "../google/google.router";
 import type { InvoicesRouter } from "../invoices/invoices.router";
 import type { MicrosoftRouter } from "../microsoft/microsoft.router";
 import type { PermissionsRouter } from "../permissions/permissions.router";
+import type { PermitsRouter } from "../permits/permits.router";
 import type { PhotosRouter } from "../photos/photos.router";
 import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
@@ -602,6 +604,37 @@ const appRouter = t.router({
     revoke: publicProcedure
       .input(permissionGrantInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["revoke"]>>)
+    }),
+  permits: t.router({
+    resolveJurisdiction: publicProcedure
+      .input(resolveJurisdictionInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["resolveJurisdiction"]>>),
+    jurisdictions: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["jurisdictions"]>>),
+    playbook: publicProcedure
+      .input(playbookInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["playbook"]>>),
+    playbookById: publicProcedure
+      .input(playbookIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["playbookById"]>>),
+    setPlaybookFact: publicProcedure
+      .input(setPlaybookFactInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setPlaybookFact"]>>),
+    verifyPlaybookFact: publicProcedure
+      .input(playbookFactPathInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["verifyPlaybookFact"]>>),
+    clearPlaybookFact: publicProcedure
+      .input(playbookFactPathInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["clearPlaybookFact"]>>),
+    setPlaybookDocuments: publicProcedure
+      .input(setPlaybookDocumentsInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setPlaybookDocuments"]>>),
+    setPlaybookInspections: publicProcedure
+      .input(setPlaybookInspectionsInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setPlaybookInspections"]>>),
+    setWorksheetTemplate: publicProcedure
+      .input(setWorksheetTemplateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setWorksheetTemplate"]>>)
     }),
   photos: t.router({
     list: publicProcedure
