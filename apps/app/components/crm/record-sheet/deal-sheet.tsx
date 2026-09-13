@@ -60,6 +60,7 @@ import {
 	LocalDay,
 	LocalRelativeTime,
 } from "@/components/local-date-time";
+import { DealPermits } from "@/components/permits/deal-permits";
 import { PhotoGrid } from "@/components/photos/photo-grid";
 import { DealProjects } from "@/components/projects/deal-projects";
 import { dialHref, reachableContact } from "@/lib/dial";
@@ -201,6 +202,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					value: "contracts",
 					label: "Contracts",
 					content: <DealContracts deal={deal} />,
+				},
+				{
+					value: "permits",
+					label: "Permits",
+					content: <DealPermits dealId={deal.id} />,
 				},
 				{
 					value: "agent",

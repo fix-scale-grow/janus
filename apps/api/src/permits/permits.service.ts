@@ -124,7 +124,10 @@ export class PermitsService {
 				skip,
 				take: PERMITS.list.pageSize,
 				orderBy: { createdAt: "desc" },
-				include: { jurisdiction: true },
+				include: {
+					jurisdiction: true,
+					deal: { select: { id: true, name: true, number: true } },
+				},
 			}),
 			this.db.permit.count({ where }),
 		]);

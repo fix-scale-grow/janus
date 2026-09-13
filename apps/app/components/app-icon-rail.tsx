@@ -304,12 +304,14 @@ export function AppIconRail({
 	initialNavOrder,
 	initialNavHidden,
 	initialPipelines,
+	initialPermitsEnabled,
 }: {
 	navLayout: "RAIL" | "TOP_BAR";
 	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
 	initialPipelines?: NavPipelines;
+	initialPermitsEnabled?: boolean;
 }) {
 	const pathname = usePathname();
 	const { open, setOpen } = useMobileNav();
@@ -319,6 +321,7 @@ export function AppIconRail({
 		navOrder: initialNavOrder,
 		navHidden: initialNavHidden,
 		pipelines: initialPipelines,
+		permitsEnabled: initialPermitsEnabled,
 	});
 	const suppressClick = useRef(false);
 

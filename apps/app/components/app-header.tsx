@@ -45,6 +45,7 @@ export function AppHeader({
 	initialNavOrder,
 	initialNavHidden,
 	initialPipelines,
+	initialPermitsEnabled,
 }: {
 	user: User;
 	navLayout: "RAIL" | "TOP_BAR";
@@ -52,6 +53,7 @@ export function AppHeader({
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
 	initialPipelines?: NavPipelines;
+	initialPermitsEnabled?: boolean;
 }) {
 	const { setOpen: setMobileNavOpen } = useMobileNav();
 	const trpc = useTRPC();
@@ -95,6 +97,7 @@ export function AppHeader({
 						initialNavOrder={initialNavOrder}
 						initialNavHidden={initialNavHidden}
 						initialPipelines={initialPipelines}
+						initialPermitsEnabled={initialPermitsEnabled}
 					/>
 				</div>
 			) : null}

@@ -7,7 +7,11 @@ import {
 	type LiveNavItem,
 	type NavChild,
 } from "@/lib/janus-nav";
-import { applyNavHidden, isChildHidden } from "@/lib/nav-children";
+import {
+	applyNavHidden,
+	applyPermitsGate,
+	isChildHidden,
+} from "@/lib/nav-children";
 import { applyNavOrder } from "@/lib/nav-order";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -30,6 +34,7 @@ export type NavItemsSeed = {
 	navOrder?: string[];
 	navHidden?: string[];
 	pipelines?: NavPipelines;
+	permitsEnabled?: boolean;
 };
 
 function seedPermissions(seed?: NavItemsSeed): Permissions | undefined {
@@ -51,14 +56,18 @@ function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
 		...(initialData ? { initialData } : {}),
 	});
 	const keys = permissions.data?.keys;
+	const permitsEnabled = seed?.permitsEnabled ?? false;
 
 	return useMemo(
 		() =>
-			JANUS_LIVE_NAV.filter(
-				(item) =>
-					!item.permission || (keys?.includes(item.permission) ?? false),
+			applyPermitsGate(
+				JANUS_LIVE_NAV.filter(
+					(item) =>
+						!item.permission || (keys?.includes(item.permission) ?? false),
+				),
+				permitsEnabled,
 			),
-		[keys],
+		[keys, permitsEnabled],
 	);
 }
 
