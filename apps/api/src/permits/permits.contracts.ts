@@ -1,4 +1,9 @@
-import { JurisdictionKind, PermitType } from "@crm/db";
+import {
+	InspectionResult,
+	JurisdictionKind,
+	PermitStatus,
+	PermitType,
+} from "@crm/db";
 import {
 	inspectionEntry,
 	requiredDocumentEntry,
@@ -14,6 +19,16 @@ const jurisdictionKindEnum = z.enum(
 const permitTypeEnum = z.enum(
 	Object.values(PermitType) as [PermitType, ...PermitType[]],
 );
+
+const permitStatusEnum = z.enum(
+	Object.values(PermitStatus) as [PermitStatus, ...PermitStatus[]],
+);
+
+const inspectionResultEnum = z.enum(
+	Object.values(InspectionResult) as [InspectionResult, ...InspectionResult[]],
+);
+
+const worksheetKey = z.string().regex(/^[a-z0-9_]{1,60}$/);
 
 export const resolveJurisdictionInput = z.object({
 	name: z.string().trim().min(1).max(160),
@@ -100,3 +115,101 @@ export const setWorksheetTemplateInput = z.object({
 export type SetWorksheetTemplateInput = z.infer<
 	typeof setWorksheetTemplateInput
 >;
+
+export const permitDealIdInput = z.object({ dealId: z.string().min(1) });
+
+export type PermitDealIdInput = z.infer<typeof permitDealIdInput>;
+
+export const permitIdInput = z.object({ permitId: z.string().min(1) });
+
+export type PermitIdInput = z.infer<typeof permitIdInput>;
+
+export const permitListInput = z.object({
+	status: permitStatusEnum.optional(),
+	jurisdictionId: z.string().min(1).optional(),
+	page: z.number().int().min(1).default(1),
+});
+
+export type PermitListInput = z.infer<typeof permitListInput>;
+
+export const createPermitInput = z.object({
+	dealId: z.string().min(1),
+	jurisdictionId: z.string().min(1),
+	permitType: permitTypeEnum,
+	typeLabel: z.string().trim().max(160).optional(),
+});
+
+export type CreatePermitInput = z.infer<typeof createPermitInput>;
+
+export const setPermitStatusInput = z.object({
+	permitId: z.string().min(1),
+	status: permitStatusEnum,
+	deniedReason: z.string().trim().max(2000).optional(),
+});
+
+export type SetPermitStatusInput = z.infer<typeof setPermitStatusInput>;
+
+export const updatePermitInput = z.object({
+	permitId: z.string().min(1),
+	permitNumber: z.string().trim().max(120).nullable().optional(),
+	feeCents: z
+		.number()
+		.int()
+		.min(0)
+		.max(PERMITS.permit.maxFeeCents)
+		.nullable()
+		.optional(),
+	expiresAt: z.coerce.date().nullable().optional(),
+});
+
+export type UpdatePermitInput = z.infer<typeof updatePermitInput>;
+
+export const setPermitAnswerInput = z.object({
+	permitId: z.string().min(1),
+	key: worksheetKey,
+	value: z.string().max(4000),
+});
+
+export type SetPermitAnswerInput = z.infer<typeof setPermitAnswerInput>;
+
+export const approvePermitAnswerInput = z.object({
+	permitId: z.string().min(1),
+	key: worksheetKey,
+	value: z.string().max(4000).optional(),
+});
+
+export type ApprovePermitAnswerInput = z.infer<typeof approvePermitAnswerInput>;
+
+export const clearPermitAnswerInput = z.object({
+	permitId: z.string().min(1),
+	key: worksheetKey,
+});
+
+export type ClearPermitAnswerInput = z.infer<typeof clearPermitAnswerInput>;
+
+export const attachChecklistDocumentInput = z.object({
+	permitId: z.string().min(1),
+	slotKey: z.string().min(1).max(60),
+	lockerDocumentId: z.string().min(1).nullable().optional(),
+});
+
+export type AttachChecklistDocumentInput = z.infer<
+	typeof attachChecklistDocumentInput
+>;
+
+export const setInspectionInput = z.object({
+	permitId: z.string().min(1),
+	inspectionId: z.string().min(1).optional(),
+	name: z.string().trim().min(1).max(120),
+	scheduledFor: z.coerce.date().nullable().optional(),
+	result: inspectionResultEnum.optional(),
+	note: z.string().trim().max(2000).nullable().optional(),
+});
+
+export type SetInspectionInput = z.infer<typeof setInspectionInput>;
+
+export const inspectionIdInput = z.object({
+	inspectionId: z.string().min(1),
+});
+
+export type InspectionIdInput = z.infer<typeof inspectionIdInput>;

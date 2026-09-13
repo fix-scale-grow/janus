@@ -31,7 +31,7 @@ import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInpu
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
-import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, setWorksheetTemplateInput } from "../permits/permits.contracts";
+import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, setWorksheetTemplateInput, permitDealIdInput, permitListInput, permitIdInput, createPermitInput, setPermitStatusInput, updatePermitInput, setPermitAnswerInput, approvePermitAnswerInput, clearPermitAnswerInput, attachChecklistDocumentInput, setInspectionInput, inspectionIdInput } from "../permits/permits.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
@@ -634,7 +634,55 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setPlaybookInspections"]>>),
     setWorksheetTemplate: publicProcedure
       .input(setWorksheetTemplateInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setWorksheetTemplate"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setWorksheetTemplate"]>>),
+    listByDeal: publicProcedure
+      .input(permitDealIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["listByDeal"]>>),
+    list: publicProcedure
+      .input(permitListInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["list"]>>),
+    byId: publicProcedure
+      .input(permitIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["byId"]>>),
+    create: publicProcedure
+      .input(createPermitInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["create"]>>),
+    setStatus: publicProcedure
+      .input(setPermitStatusInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setStatus"]>>),
+    update: publicProcedure
+      .input(updatePermitInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["update"]>>),
+    setAnswer: publicProcedure
+      .input(setPermitAnswerInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setAnswer"]>>),
+    applyPrefills: publicProcedure
+      .input(permitIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["applyPrefills"]>>),
+    approveAnswer: publicProcedure
+      .input(approvePermitAnswerInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["approveAnswer"]>>),
+    approveAllReviewed: publicProcedure
+      .input(permitIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["approveAllReviewed"]>>),
+    clearAnswer: publicProcedure
+      .input(clearPermitAnswerInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["clearAnswer"]>>),
+    attachChecklistDocument: publicProcedure
+      .input(attachChecklistDocumentInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["attachChecklistDocument"]>>),
+    setInspection: publicProcedure
+      .input(setInspectionInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setInspection"]>>),
+    deleteInspection: publicProcedure
+      .input(inspectionIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["deleteInspection"]>>),
+    dismissPrompt: publicProcedure
+      .input(permitDealIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["dismissPrompt"]>>),
+    promptState: publicProcedure
+      .input(permitDealIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["promptState"]>>)
     }),
   photos: t.router({
     list: publicProcedure

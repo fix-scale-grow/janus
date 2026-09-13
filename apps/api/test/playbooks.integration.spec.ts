@@ -2,13 +2,14 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import type { PlaybookFacts } from "@crm/db/permits";
 import { BadRequestException } from "@nestjs/common";
+import { PermitPrefillService } from "../src/permits/permit-prefill.service";
 import { PermitsService } from "../src/permits/permits.service";
 import { PlaybooksService } from "../src/permits/playbooks.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "playbooks-spec";
 
-const permits = new PermitsService(db);
 const playbooks = new PlaybooksService(db);
+const permits = new PermitsService(db, playbooks, new PermitPrefillService(db));
 
 let userId: string;
 const jurisdictionIds: string[] = [];
