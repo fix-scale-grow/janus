@@ -29,7 +29,7 @@ export default function TeamSettingsPage({
 				<PageShellHeading>
 					<PageShellTitle>Team</PageShellTitle>
 					<PageShellDescription>
-						Everyone in the business — who signs in, and the crews in the field.
+						Who signs in to the CRM, and the crews out in the field.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
