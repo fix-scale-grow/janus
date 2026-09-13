@@ -26,6 +26,9 @@ export type CrmCache = {
 	invoice(id?: string, options?: Options): Promise<void>;
 	permit(id?: string, options?: Options): Promise<void>;
 	permitPrompt(dealId: string, options?: Options): Promise<void>;
+	jurisdiction(options?: Options): Promise<void>;
+	playbook(id?: string, options?: Options): Promise<void>;
+	locker(options?: Options): Promise<void>;
 	project(id?: string, options?: Options): Promise<void>;
 	photos(options?: Options): Promise<void>;
 	contract(id?: string, options?: Options): Promise<void>;
@@ -274,6 +277,23 @@ export function useCrmCache(): CrmCache {
 
 		permitPrompt: (dealId, options) =>
 			run([trpc.permits.promptState.queryKey({ dealId })], [], options),
+
+		jurisdiction: (options) =>
+			run([trpc.permits.jurisdictions.queryKey()], [], options),
+
+		playbook: (id, options) =>
+			run(
+				[
+					id
+						? trpc.permits.playbookById.queryKey({ id })
+						: trpc.permits.playbookById.queryKey(),
+					trpc.permits.playbook.queryKey(),
+				],
+				[trpc.permits.jurisdictions.queryKey(), trpc.permits.byId.queryKey()],
+				options,
+			),
+
+		locker: (options) => run([trpc.permits.lockerList.queryKey()], [], options),
 
 		project: (id, options) =>
 			run(

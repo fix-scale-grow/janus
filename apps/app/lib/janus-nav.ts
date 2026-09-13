@@ -120,6 +120,11 @@ export const JANUS_NAV: JanusModule[] = [
 			},
 			{ id: "/settings:forms", title: "Forms", href: "/settings/forms" },
 			{
+				id: "/settings:permits",
+				title: "Permits",
+				href: "/settings/permits",
+			},
+			{
 				id: "/settings:tracking",
 				title: "Tracking & Analytics",
 				href: "/settings/tracking",

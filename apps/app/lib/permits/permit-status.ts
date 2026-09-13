@@ -115,3 +115,63 @@ export const WORKSHEET_ANSWER_ORIGIN_LABEL: Record<
 
 export const PERMIT_DISCLAIMER =
 	"Janus assists with preparation. You are responsible for verifying all information and requirements with the issuing authority.";
+
+export const LOCKER_KINDS = [
+	"LICENSE",
+	"COI",
+	"REGISTRATION",
+	"OTHER",
+] as const;
+
+export type LockerKind = (typeof LOCKER_KINDS)[number];
+
+export const LOCKER_KIND_LABEL: Record<LockerKind, string> = {
+	LICENSE: "License",
+	COI: "Certificate of insurance",
+	REGISTRATION: "Registration",
+	OTHER: "Other",
+};
+
+export const WORKSHEET_PREFILL_KEYS = [
+	"job_address",
+	"job_name",
+	"job_number",
+	"job_valuation",
+	"owner_name",
+	"owner_email",
+	"owner_phone",
+	"contractor_name",
+	"scope_of_work",
+] as const;
+
+export type WorksheetPrefillKey = (typeof WORKSHEET_PREFILL_KEYS)[number];
+
+export const WORKSHEET_PREFILL_LABEL: Record<WorksheetPrefillKey, string> = {
+	job_address: "Job address",
+	job_name: "Job name",
+	job_number: "Job number",
+	job_valuation: "Job valuation",
+	owner_name: "Owner name",
+	owner_email: "Owner email",
+	owner_phone: "Owner phone",
+	contractor_name: "Contractor name",
+	scope_of_work: "Scope of work",
+};
+
+export const FACT_PATHS = [
+	"neededWhen",
+	"whoMayPull",
+	"howToApply",
+	"feeSchedule",
+	"typicalTurnaround",
+] as const;
+
+export type FactPath = (typeof FACT_PATHS)[number];
+
+export const FACT_PATH_LABEL: Record<FactPath, string> = {
+	neededWhen: "When it's needed",
+	whoMayPull: "Who may pull it",
+	howToApply: "How to apply",
+	feeSchedule: "Fee schedule",
+	typicalTurnaround: "Typical turnaround",
+};
