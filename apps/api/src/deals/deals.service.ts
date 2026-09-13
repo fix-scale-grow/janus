@@ -34,6 +34,7 @@ import {
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
 import { FieldsService } from "../fields/fields.service";
+import { PermitTriggerService } from "../permits/permit-trigger.service";
 import { parseNumberQuery } from "../search/search.config";
 import {
 	countsByKey,
@@ -128,6 +129,7 @@ export class DealsService {
 		private readonly stamp: ActivityStampService,
 		private readonly conversion: ConversionService,
 		private readonly fields: FieldsService,
+		private readonly permitTrigger: PermitTriggerService,
 	) {}
 
 	async list(input: DealListInput) {
@@ -525,6 +527,7 @@ export class DealsService {
 		const { updated, now, fromKey, toKey } = transition;
 
 		await this.stamp.touch({ dealId: updated.id }, now);
+		await this.permitTrigger.onStageChanged(updated.id, updated.stageId);
 
 		this.logger.log({
 			message: "Deal stage changed",

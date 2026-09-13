@@ -14,6 +14,7 @@ import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
+import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
 
 const suffix = process.env.TEST_RUN_ID ?? "fields-spec";
@@ -36,7 +37,17 @@ const conversion = new ConversionService(db);
 
 const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
-const deals = new DealsService(db, agent, stamp, conversion, fields);
+const permitTrigger = {
+	onStageChanged: async () => undefined,
+} as unknown as PermitTriggerService;
+const deals = new DealsService(
+	db,
+	agent,
+	stamp,
+	conversion,
+	fields,
+	permitTrigger,
+);
 
 let contactId: string;
 let bridgeSecret: string | undefined;

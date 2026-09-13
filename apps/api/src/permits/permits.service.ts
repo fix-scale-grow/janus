@@ -51,6 +51,26 @@ function isNotFound(error: unknown): boolean {
 	);
 }
 
+export function guessJurisdictionFromAddress(
+	address: string | null,
+): { name: string; state: string } | null {
+	if (!address) return null;
+	const parts = address
+		.split(",")
+		.map((part) => part.trim())
+		.filter(Boolean);
+	if (parts.length < 2) return null;
+
+	const last = parts[parts.length - 1];
+	const stateMatch = last?.match(/\b([A-Za-z]{2})\b/);
+	if (!stateMatch?.[1]) return null;
+
+	const name = parts[parts.length - 2];
+	if (!name) return null;
+
+	return { name, state: stateMatch[1].toUpperCase() };
+}
+
 @Injectable()
 export class PermitsService {
 	constructor(
@@ -540,7 +560,7 @@ export class PermitsService {
 			permitCount === 0 &&
 			dismissal === null;
 
-		const jurisdictionGuess = this.guessJurisdiction(
+		const jurisdictionGuess = guessJurisdictionFromAddress(
 			deal.drawings[0]?.address ?? null,
 		);
 
@@ -573,26 +593,6 @@ export class PermitsService {
 		if (!playbook) return null;
 
 		return parsePlaybookFacts(playbook.facts).neededWhen?.value ?? null;
-	}
-
-	private guessJurisdiction(
-		address: string | null,
-	): { name: string; state: string } | null {
-		if (!address) return null;
-		const parts = address
-			.split(",")
-			.map((part) => part.trim())
-			.filter(Boolean);
-		if (parts.length < 2) return null;
-
-		const last = parts[parts.length - 1];
-		const stateMatch = last?.match(/\b([A-Za-z]{2})\b/);
-		if (!stateMatch?.[1]) return null;
-
-		const name = parts[parts.length - 2];
-		if (!name) return null;
-
-		return { name, state: stateMatch[1].toUpperCase() };
 	}
 
 	private worksheetStatus(

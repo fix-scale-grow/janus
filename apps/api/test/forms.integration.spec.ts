@@ -31,6 +31,7 @@ import {
 import { FormsService } from "../src/forms/forms.service";
 import { FormsPublicController } from "../src/forms/forms-public.controller";
 import { MailerService } from "../src/mailer/mailer.service";
+import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
 import { MergeContextService } from "../src/templates/merge-context.service";
 import { TemplatesService } from "../src/templates/templates.service";
 import { TrackingCounterService } from "../src/tracking/tracking-counter.service";
@@ -59,7 +60,17 @@ const agent = {
 const stamp = new ActivityStampService(db);
 const conversion = new ConversionService(db);
 const fields = new FieldsService(db, agent);
-const deals = new DealsService(db, agent, stamp, conversion, fields);
+const permitTrigger = {
+	onStageChanged: async () => undefined,
+} as unknown as PermitTriggerService;
+const deals = new DealsService(
+	db,
+	agent,
+	stamp,
+	conversion,
+	fields,
+	permitTrigger,
+);
 const counters = new TrackingCounterService(db);
 const mergeContext = new MergeContextService(db);
 const filing = new TrackingFilingService(db, counters, agent, stamp, fields);

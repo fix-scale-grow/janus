@@ -6,6 +6,7 @@ import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
+import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "deals-stages-spec";
 const prefix = `spec_${suffix}`;
@@ -17,7 +18,17 @@ const conversion = new ConversionService(db);
 const fields = new FieldsService(db, {
 	fieldBackfill: async () => undefined,
 } as never);
-const deals = new DealsService(db, agentTrigger, stamp, conversion, fields);
+const permitTrigger = {
+	onStageChanged: async () => undefined,
+} as unknown as PermitTriggerService;
+const deals = new DealsService(
+	db,
+	agentTrigger,
+	stamp,
+	conversion,
+	fields,
+	permitTrigger,
+);
 
 let ownerId: string;
 let pipelineAId: string;
