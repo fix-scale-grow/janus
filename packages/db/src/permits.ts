@@ -112,6 +112,85 @@ export function canTransition(from: PermitStatus, to: PermitStatus): boolean {
 	return TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+function normalizeMatchKeySegment(value: string): string {
+	return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function buildJurisdictionMatchKey(
+	state: string,
+	kind: string,
+	name: string,
+): string {
+	return [state, kind, name].map(normalizeMatchKeySegment).join(":");
+}
+
+export function guessJurisdictionFromAddress(
+	address: string | null,
+): { name: string; state: string } | null {
+	if (!address) return null;
+	const parts = address
+		.split(",")
+		.map((part) => part.trim())
+		.filter(Boolean);
+	if (parts.length < 2) return null;
+
+	const last = parts[parts.length - 1];
+	const stateMatch = last?.match(/\b([A-Za-z]{2})\b/);
+	if (!stateMatch?.[1]) return null;
+
+	const name = parts[parts.length - 2];
+	if (!name) return null;
+
+	return { name, state: stateMatch[1].toUpperCase() };
+}
+
+function mergeProvenanceFact(
+	existing: ProvenanceFact | null,
+	incoming: ProvenanceFact | null,
+): ProvenanceFact | null {
+	if (existing?.verifiedById) return existing;
+	if (!incoming) return existing;
+	return { ...incoming, verifiedById: null, verifiedAt: null };
+}
+
+export function mergeDraftFacts(
+	existing: PlaybookFacts,
+	draft: PlaybookFacts,
+): PlaybookFacts {
+	const prerequisiteCount = Math.max(
+		existing.prerequisites.length,
+		draft.prerequisites.length,
+	);
+	const prerequisites: ProvenanceFact[] = [];
+	for (let index = 0; index < prerequisiteCount; index += 1) {
+		const merged = mergeProvenanceFact(
+			existing.prerequisites[index] ?? null,
+			draft.prerequisites[index] ?? null,
+		);
+		if (merged) prerequisites.push(merged);
+	}
+
+	return {
+		neededWhen: mergeProvenanceFact(existing.neededWhen, draft.neededWhen),
+		whoMayPull: mergeProvenanceFact(existing.whoMayPull, draft.whoMayPull),
+		prerequisites,
+		howToApply: mergeProvenanceFact(existing.howToApply, draft.howToApply),
+		feeSchedule: mergeProvenanceFact(existing.feeSchedule, draft.feeSchedule),
+		typicalTurnaround: mergeProvenanceFact(
+			existing.typicalTurnaround,
+			draft.typicalTurnaround,
+		),
+		requiredDocuments:
+			existing.requiredDocuments.length === 0
+				? draft.requiredDocuments
+				: existing.requiredDocuments,
+		inspections:
+			existing.inspections.length === 0
+				? draft.inspections
+				: existing.inspections,
+	};
+}
+
 function firstIssueMessage(error: z.ZodError): string {
 	const issue = error.issues[0];
 	if (!issue) return "unknown issue";

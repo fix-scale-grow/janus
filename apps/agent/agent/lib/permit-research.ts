@@ -5,6 +5,8 @@ import {
 	Prisma as PrismaNamespace,
 } from "@crm/db";
 import {
+	buildJurisdictionMatchKey,
+	mergeDraftFacts,
 	type PlaybookFacts,
 	type ProvenanceFact,
 	parsePlaybookFacts,
@@ -80,38 +82,6 @@ export type JurisdictionInput = z.infer<typeof jurisdictionInput>;
 
 export { permitTypeEnum };
 
-function normalizeSegment(value: string): string {
-	return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-export function buildJurisdictionMatchKey(
-	state: string,
-	kind: string,
-	name: string,
-): string {
-	return [state, kind, name].map(normalizeSegment).join(":");
-}
-
-export function guessJurisdictionFromAddress(
-	address: string | null,
-): { name: string; state: string } | null {
-	if (!address) return null;
-	const parts = address
-		.split(",")
-		.map((part) => part.trim())
-		.filter(Boolean);
-	if (parts.length < 2) return null;
-
-	const last = parts[parts.length - 1];
-	const stateMatch = last?.match(/\b([A-Za-z]{2})\b/);
-	if (!stateMatch?.[1]) return null;
-
-	const name = parts[parts.length - 2];
-	if (!name) return null;
-
-	return { name, state: stateMatch[1].toUpperCase() };
-}
-
 export function missingSourcePaths(draft: DraftPlaybookFacts): string[] {
 	const missing: string[] = [];
 
@@ -171,53 +141,6 @@ function draftToPlaybookFacts(draft: DraftPlaybookFacts): PlaybookFacts {
 			when: inspection.when ?? null,
 			criticalNote: inspection.criticalNote ?? null,
 		})),
-	};
-}
-
-function mergeFact(
-	existing: ProvenanceFact | null,
-	incoming: ProvenanceFact | null,
-): ProvenanceFact | null {
-	if (existing?.verifiedById) return existing;
-	if (!incoming) return existing;
-	return { ...incoming, verifiedById: null, verifiedAt: null };
-}
-
-export function mergeDraftFacts(
-	existing: PlaybookFacts,
-	draft: PlaybookFacts,
-): PlaybookFacts {
-	const prerequisiteCount = Math.max(
-		existing.prerequisites.length,
-		draft.prerequisites.length,
-	);
-	const prerequisites: ProvenanceFact[] = [];
-	for (let index = 0; index < prerequisiteCount; index += 1) {
-		const merged = mergeFact(
-			existing.prerequisites[index] ?? null,
-			draft.prerequisites[index] ?? null,
-		);
-		if (merged) prerequisites.push(merged);
-	}
-
-	return {
-		neededWhen: mergeFact(existing.neededWhen, draft.neededWhen),
-		whoMayPull: mergeFact(existing.whoMayPull, draft.whoMayPull),
-		prerequisites,
-		howToApply: mergeFact(existing.howToApply, draft.howToApply),
-		feeSchedule: mergeFact(existing.feeSchedule, draft.feeSchedule),
-		typicalTurnaround: mergeFact(
-			existing.typicalTurnaround,
-			draft.typicalTurnaround,
-		),
-		requiredDocuments:
-			existing.requiredDocuments.length === 0
-				? draft.requiredDocuments
-				: existing.requiredDocuments,
-		inspections:
-			existing.inspections.length === 0
-				? draft.inspections
-				: existing.inspections,
 	};
 }
 
@@ -398,7 +321,9 @@ function fenceFact(label: string, fact: ProvenanceFact | null): FencedFact {
 	if (!fact) return null;
 	return {
 		value: fenceUntrusted(label, fact.value),
-		sourceUrl: fact.sourceUrl,
+		sourceUrl: fact.sourceUrl
+			? fenceUntrusted(`${label} source`, fact.sourceUrl)
+			: null,
 		verified: fact.verifiedById !== null,
 	};
 }
@@ -501,7 +426,9 @@ export async function loadPlaybookSummary(input: {
 				key: doc.key,
 				label: fenceUntrusted("required document label", doc.label),
 				reusable: doc.reusable,
-				sourceUrl: doc.sourceUrl,
+				sourceUrl: doc.sourceUrl
+					? fenceUntrusted("required document source", doc.sourceUrl)
+					: null,
 			})),
 			inspections: facts.inspections.map((inspection) => ({
 				name: fenceUntrusted("inspection name", inspection.name),

@@ -1,10 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, PermitType, type Prisma } from "@crm/db";
-import { parsePlaybookFacts } from "@crm/db/permits";
-import {
-	buildJurisdictionMatchKey,
-	writePlaybookDraft,
-} from "../agent/lib/permit-research";
+import { buildJurisdictionMatchKey, parsePlaybookFacts } from "@crm/db/permits";
+import { writePlaybookDraft } from "../agent/lib/permit-research";
 import writePlaybookDraftTool from "../agent/tools/write_playbook_draft";
 import { PERMIT_PLAYBOOK_OVERRIDE } from "./injection-fixtures";
 

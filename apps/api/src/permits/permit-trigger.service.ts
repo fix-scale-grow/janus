@@ -1,11 +1,13 @@
 import type { Db } from "@crm/db";
-import { parsePlaybookFacts } from "@crm/db/permits";
+import {
+	guessJurisdictionFromAddress,
+	parsePlaybookFacts,
+} from "@crm/db/permits";
 import { readPermitSettings } from "@crm/db/settings";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
 import { FACT_SINGLETON_PATHS } from "./permits.contracts";
-import { guessJurisdictionFromAddress } from "./permits.service";
 
 @Injectable()
 export class PermitTriggerService {

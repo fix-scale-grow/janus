@@ -55,14 +55,6 @@ export function capabilitiesFrom(
 			gives: "open-web context with citations",
 		},
 		{
-			id: "web_fetch",
-			from: "ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN",
-			label: "Official-source web access (web_fetch/web_search)",
-			gives:
-				"fetching and searching a jurisdiction's own site for permit rules — the only source a permit playbook may draw from",
-			enabled: resolveProvider(process.env) !== null,
-		},
-		{
 			id: CONTEXT_DEV,
 			from: "Settings → General",
 			label: "Workspace brand data",

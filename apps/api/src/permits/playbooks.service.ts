@@ -1,5 +1,6 @@
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import {
+	mergeDraftFacts,
 	type PlaybookFacts,
 	type ProvenanceFact,
 	parsePlaybookFacts,
@@ -71,53 +72,6 @@ function factsToJson(facts: PlaybookFacts): PrismaNamespace.InputJsonValue {
 		requiredDocuments: facts.requiredDocuments,
 		inspections: facts.inspections,
 	} as PrismaNamespace.InputJsonValue;
-}
-
-function mergeFact(
-	existing: ProvenanceFact | null,
-	incoming: ProvenanceFact | null,
-): ProvenanceFact | null {
-	if (existing?.verifiedById) return existing;
-	if (!incoming) return existing;
-	return { ...incoming, verifiedById: null, verifiedAt: null };
-}
-
-export function mergeDraftFacts(
-	existing: PlaybookFacts,
-	draft: PlaybookFacts,
-): PlaybookFacts {
-	const prerequisiteCount = Math.max(
-		existing.prerequisites.length,
-		draft.prerequisites.length,
-	);
-	const prerequisites: ProvenanceFact[] = [];
-	for (let index = 0; index < prerequisiteCount; index += 1) {
-		const merged = mergeFact(
-			existing.prerequisites[index] ?? null,
-			draft.prerequisites[index] ?? null,
-		);
-		if (merged) prerequisites.push(merged);
-	}
-
-	return {
-		neededWhen: mergeFact(existing.neededWhen, draft.neededWhen),
-		whoMayPull: mergeFact(existing.whoMayPull, draft.whoMayPull),
-		prerequisites,
-		howToApply: mergeFact(existing.howToApply, draft.howToApply),
-		feeSchedule: mergeFact(existing.feeSchedule, draft.feeSchedule),
-		typicalTurnaround: mergeFact(
-			existing.typicalTurnaround,
-			draft.typicalTurnaround,
-		),
-		requiredDocuments:
-			existing.requiredDocuments.length === 0
-				? draft.requiredDocuments
-				: existing.requiredDocuments,
-		inspections:
-			existing.inspections.length === 0
-				? draft.inspections
-				: existing.inspections,
-	};
 }
 
 @Injectable()

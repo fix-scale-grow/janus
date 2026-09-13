@@ -1,11 +1,9 @@
 import { db } from "@crm/db";
+import { guessJurisdictionFromAddress } from "@crm/db/permits";
 import { websiteUrl } from "@crm/db/workspace";
 import { capabilitiesMarkdown, enabled } from "./capabilities";
 import { JANUS_ROLE } from "./janus-role";
-import {
-	guessJurisdictionFromAddress,
-	RESEARCH_RULES,
-} from "./permit-research";
+import { RESEARCH_RULES } from "./permit-research";
 import { fenceUntrusted } from "./untrusted";
 import { identity, usMarkdown, type WorkspaceIdentity } from "./workspace";
 
@@ -260,7 +258,7 @@ export async function permitResearchPreamble(
 
 	const address = deal.drawings[0]?.address ?? null;
 	const guess = guessJurisdictionFromAddress(address);
-	const hasWebAccess = await enabled("web_fetch");
+	const canWebSearch = await enabled("anthropic");
 
 	const markdown = [
 		"## This session",
@@ -282,14 +280,11 @@ export async function permitResearchPreamble(
 		"",
 		RESEARCH_RULES,
 		"",
-		hasWebAccess
-			? "This install can fetch and search the web, so you can read a jurisdiction's own site directly."
-			: [
-					"This install has no web access configured, so official sources cannot be",
-					"read. This is not a failure and retrying will not help. Write nothing —",
-					"`write_playbook_draft` requires a source URL for every fact, and none can",
-					"be obtained here. End the session without drafting anything.",
-				].join(" "),
+		canWebSearch
+			? "This install can fetch a page directly with `web_fetch`, and `web_search` is also available for finding the right official page in the first place."
+			: "This install can fetch a page directly with `web_fetch`. `web_search` is not available here, so find the official page yourself — from the jurisdiction guess above, a known city or county domain pattern, or a page already linked in an existing playbook.",
+		"",
+		"A fetch can still fail, or land on a page that says nothing useful — that is normal, not a reason to stop. Write up what you found and say plainly what you could not confirm. No source, no fact: never draft one without a page to point at.",
 		"",
 		await closing(),
 	].join("\n");
