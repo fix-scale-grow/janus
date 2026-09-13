@@ -4,7 +4,7 @@ import Add from "@carbon/icons-react/es/Add";
 import Certificate from "@carbon/icons-react/es/Certificate";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -12,6 +12,7 @@ import {
 	DetailSheetEmpty,
 	DetailSheetSection,
 } from "@/components/detail-sheet";
+import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
 import { NewPermitDialog } from "./new-permit-dialog";
@@ -20,7 +21,7 @@ import { PermitPromptBanner } from "./permit-prompt-banner";
 
 export function DealPermits({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
-	const queryClient = useQueryClient();
+	const cache = useCrmCache();
 	const dismissGuard = useSubmitGuard();
 	const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -29,10 +30,7 @@ export function DealPermits({ dealId }: { dealId: string }) {
 
 	const dismiss = useMutation(
 		trpc.permits.dismissPrompt.mutationOptions({
-			onSuccess: () =>
-				queryClient.invalidateQueries({
-					queryKey: trpc.permits.promptState.queryKey({ dealId }),
-				}),
+			onSuccess: () => cache.permitPrompt(dealId),
 			onError: (error: { message: string }) => toast.error(error.message),
 			onSettled: () => dismissGuard.release(),
 		}),

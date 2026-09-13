@@ -31,16 +31,26 @@ import { PermitStatusBadge } from "@/components/permits/permit-status-badge";
 import {
 	PERMIT_STATUS_LABEL,
 	PERMIT_TYPE_LABEL,
+	type PermitStatus,
+	type PermitType,
 } from "@/lib/permits/permit-status";
 import { useTRPC } from "@/lib/trpc/client";
-import type { RouterOutputs } from "@/lib/trpc/types";
 import {
 	PERMIT_STATUS_FILTERS,
 	type PermitStatusFilter,
 	permitsParsers,
 } from "./permits-search-params";
 
-type PermitRow = RouterOutputs["permits"]["list"]["rows"][number];
+type PermitListRow = {
+	id: string;
+	dealId: string;
+	deal: { name: string; number: number } | null;
+	jurisdiction: { name: string; state: string };
+	typeLabel: string;
+	permitType: PermitType;
+	status: PermitStatus;
+	updatedAt: string;
+};
 
 const COLUMNS: SimpleTableColumn[] = [
 	{ id: "deal", header: "Deal", width: "w-[26%]" },
@@ -55,8 +65,8 @@ const STATUS_LABELS: Record<PermitStatusFilter, string> = {
 	...PERMIT_STATUS_LABEL,
 };
 
-function dealLabel(deal: PermitRow["deal"]): string {
-	if (!deal) return "—";
+function dealLabel(deal: PermitListRow["deal"]): string {
+	if (!deal) return "No deal";
 	return `${deal.name} #${deal.number}`;
 }
 
@@ -76,7 +86,7 @@ export function PermitsTable() {
 		placeholderData: (previous) => previous,
 	});
 
-	const rows = permits.data?.rows ?? [];
+	const rows = (permits.data?.rows ?? []) as unknown as PermitListRow[];
 
 	return (
 		<div className="flex flex-col gap-4">
