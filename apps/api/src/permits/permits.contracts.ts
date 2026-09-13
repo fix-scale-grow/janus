@@ -213,3 +213,11 @@ export const inspectionIdInput = z.object({
 });
 
 export type InspectionIdInput = z.infer<typeof inspectionIdInput>;
+
+export const lockerRenameInput = z.object({
+	lockerDocumentId: z.string().min(1),
+	label: z.string().trim().min(1).max(160),
+	kind: z.string().trim().min(1).max(60).optional(),
+});
+
+export type LockerRenameInput = z.infer<typeof lockerRenameInput>;

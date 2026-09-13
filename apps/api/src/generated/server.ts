@@ -31,7 +31,7 @@ import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInpu
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
-import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, setWorksheetTemplateInput, permitDealIdInput, permitListInput, permitIdInput, createPermitInput, setPermitStatusInput, updatePermitInput, setPermitAnswerInput, approvePermitAnswerInput, clearPermitAnswerInput, attachChecklistDocumentInput, setInspectionInput, inspectionIdInput } from "../permits/permits.contracts";
+import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, setWorksheetTemplateInput, permitDealIdInput, permitListInput, permitIdInput, createPermitInput, setPermitStatusInput, updatePermitInput, setPermitAnswerInput, approvePermitAnswerInput, clearPermitAnswerInput, attachChecklistDocumentInput, lockerRenameInput, setInspectionInput, inspectionIdInput } from "../permits/permits.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
@@ -671,6 +671,11 @@ const appRouter = t.router({
     attachChecklistDocument: publicProcedure
       .input(attachChecklistDocumentInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["attachChecklistDocument"]>>),
+    lockerList: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["lockerList"]>>),
+    lockerRename: publicProcedure
+      .input(lockerRenameInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["lockerRename"]>>),
     setInspection: publicProcedure
       .input(setInspectionInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setInspection"]>>),

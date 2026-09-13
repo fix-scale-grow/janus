@@ -413,6 +413,38 @@ describe("PermitsService checklist", () => {
 			NotFoundException,
 		);
 	});
+
+	it("deleting the locker row leaves the slot's lockerDocumentId null via SetNull", async () => {
+		const permit = await createPermit();
+		const found = await permits.byId(permit.id);
+		const slot = found.documents[0];
+		if (!slot) throw new Error("expected a scaffolded checklist slot");
+
+		const locker = await db.lockerDocument.create({
+			data: {
+				id: `permits-locker-delete-${suffix}`,
+				label: "Deletable scan",
+				fileName: "deletable.pdf",
+				contentType: "application/pdf",
+				createdById: userId,
+			},
+		});
+
+		await permits.attachChecklistDocument({
+			permitId: permit.id,
+			slotKey: slot.slotKey,
+			lockerDocumentId: locker.id,
+		});
+
+		await db.lockerDocument.delete({ where: { id: locker.id } });
+
+		const afterDelete = await permits.byId(permit.id);
+		const afterSlot = afterDelete.documents.find(
+			(doc) => doc.slotKey === slot.slotKey,
+		);
+		expect(afterSlot?.lockerDocumentId).toBeNull();
+		expect(afterSlot?.filePath).toBeNull();
+	});
 });
 
 describe("PermitsService.promptState", () => {

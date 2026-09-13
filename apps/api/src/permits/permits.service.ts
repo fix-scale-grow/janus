@@ -21,6 +21,7 @@ import type {
 	ClearPermitAnswerInput,
 	CreatePermitInput,
 	InspectionIdInput,
+	LockerRenameInput,
 	PermitDealIdInput,
 	PermitIdInput,
 	PermitListInput,
@@ -464,6 +465,45 @@ export class PermitsService {
 				},
 			});
 		});
+	}
+
+	async lockerList() {
+		const rows = await this.db.lockerDocument.findMany({
+			orderBy: { createdAt: "desc" },
+			select: {
+				id: true,
+				label: true,
+				kind: true,
+				fileName: true,
+				contentType: true,
+				createdAt: true,
+				_count: { select: { permitDocuments: true } },
+			},
+		});
+
+		return rows.map(({ _count, ...row }) => ({
+			...row,
+			referencingCount: _count.permitDocuments,
+		}));
+	}
+
+	async lockerRename(input: LockerRenameInput) {
+		const data: Prisma.LockerDocumentUpdateInput = { label: input.label };
+		if (input.kind !== undefined) data.kind = input.kind;
+
+		try {
+			return await this.db.lockerDocument.update({
+				where: { id: input.lockerDocumentId },
+				data,
+			});
+		} catch (error) {
+			if (isNotFound(error)) {
+				throw new NotFoundException(
+					`No locker document with id ${input.lockerDocumentId}.`,
+				);
+			}
+			throw error;
+		}
 	}
 
 	async setInspection(input: SetInspectionInput) {

@@ -16,6 +16,7 @@ import {
 	clearPermitAnswerInput,
 	createPermitInput,
 	inspectionIdInput,
+	lockerRenameInput,
 	permitDealIdInput,
 	permitIdInput,
 	permitListInput,
@@ -178,6 +179,16 @@ export class PermitsRouter {
 		@Input() input: z.infer<typeof attachChecklistDocumentInput>,
 	) {
 		return this.permits.attachChecklistDocument(input);
+	}
+
+	@Query()
+	async lockerList() {
+		return this.permits.lockerList();
+	}
+
+	@Mutation({ input: lockerRenameInput })
+	async lockerRename(@Input() input: z.infer<typeof lockerRenameInput>) {
+		return this.permits.lockerRename(input);
 	}
 
 	@Mutation({ input: setInspectionInput })
