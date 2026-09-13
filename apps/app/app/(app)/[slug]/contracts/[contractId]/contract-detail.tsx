@@ -2,10 +2,11 @@
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import Download from "@carbon/icons-react/es/Download";
-import View from "@carbon/icons-react/es/View";
 import Link_ from "@carbon/icons-react/es/Link";
 import Send from "@carbon/icons-react/es/Send";
 import StopSign from "@carbon/icons-react/es/StopSign";
+import View from "@carbon/icons-react/es/View";
+import { TemplatePurpose } from "@crm/db/enums";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -48,10 +49,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { TemplatePurpose } from "@crm/db/enums";
 import { contactName } from "@/components/crm/contact-name";
-import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { LocalDay } from "@/components/local-date-time";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {

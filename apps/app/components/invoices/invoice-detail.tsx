@@ -3,8 +3,8 @@
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Download from "@carbon/icons-react/es/Download";
-import View from "@carbon/icons-react/es/View";
 import Send from "@carbon/icons-react/es/Send";
+import View from "@carbon/icons-react/es/View";
 import { TemplatePurpose } from "@crm/db/enums";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
