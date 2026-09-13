@@ -35,6 +35,7 @@ const params = {
 	tab: parseAsString,
 	add: parseAsStringLiteral(RECORD_FORMS),
 	thread: parseAsString,
+	ask: parseAsString,
 	fields: parseAsStringLiteral(RECORD_KINDS),
 	field: parseAsString,
 	[TIMELINE_PARAM]: timelineTabParser,
@@ -96,6 +97,7 @@ export function useRecordStack() {
 					tab,
 					add: null,
 					thread: null,
+					ask: null,
 					fields: null,
 					field: null,
 					[TIMELINE_PARAM]: null,
@@ -165,7 +167,7 @@ export function useFieldsSheet() {
 }
 
 export function useRecordSheetView(fallbackTab: string) {
-	const [{ tab, add, thread }, setParams] = useQueryStates(params);
+	const [{ tab, add, thread, ask }, setParams] = useQueryStates(params);
 
 	const active = add ? FORM_TAB[add] : (tab ?? fallbackTab);
 
@@ -191,5 +193,33 @@ export function useRecordSheetView(fallbackTab: string) {
 		[setParams],
 	);
 
-	return { tab: active, setTab, form: add, setForm, thread, setThread };
+	const openAgent = useCallback(
+		(message: string) => {
+			void setParams({
+				tab: "agent" === fallbackTab ? null : "agent",
+				add: null,
+				thread: null,
+				ask: message,
+				[TIMELINE_PARAM]: null,
+			});
+		},
+		[setParams, fallbackTab],
+	);
+
+	const clearAsk = useCallback(
+		() => void setParams({ ask: null }),
+		[setParams],
+	);
+
+	return {
+		tab: active,
+		setTab,
+		form: add,
+		setForm,
+		thread,
+		setThread,
+		ask,
+		openAgent,
+		clearAsk,
+	};
 }

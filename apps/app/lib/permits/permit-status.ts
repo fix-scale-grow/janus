@@ -77,3 +77,41 @@ export const JURISDICTION_KIND_LABEL: Record<JurisdictionKind, string> = {
 export const INSPECTION_RESULTS = ["PENDING", "PASSED", "FAILED"] as const;
 
 export type InspectionResult = (typeof INSPECTION_RESULTS)[number];
+
+export const WORKSHEET_FIELD_TYPES = [
+	"TEXT",
+	"NUMBER",
+	"DATE",
+	"CHECKBOX",
+] as const;
+
+export type WorksheetFieldType = (typeof WORKSHEET_FIELD_TYPES)[number];
+
+export const WORKSHEET_FIELD_TYPE_LABEL: Record<WorksheetFieldType, string> = {
+	TEXT: "Text",
+	NUMBER: "Number",
+	DATE: "Date",
+	CHECKBOX: "Checkbox",
+};
+
+export const WORKSHEET_ANSWER_ORIGINS = [
+	"HUMAN",
+	"AI",
+	"CRM",
+	"LOCKER",
+] as const;
+
+export type WorksheetAnswerOrigin = (typeof WORKSHEET_ANSWER_ORIGINS)[number];
+
+export const WORKSHEET_ANSWER_ORIGIN_LABEL: Record<
+	WorksheetAnswerOrigin,
+	string
+> = {
+	HUMAN: "You typed",
+	AI: "Janus drafted",
+	CRM: "From the job records",
+	LOCKER: "From the locker",
+};
+
+export const PERMIT_DISCLAIMER =
+	"Janus assists with preparation. You are responsible for verifying all information and requirements with the issuing authority.";

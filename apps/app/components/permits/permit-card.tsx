@@ -40,10 +40,6 @@ export function PermitCard({ permitId }: { permitId: string }) {
 	const permit = query.data;
 	const isSaving = (field: "permitNumber" | "feeCents" | "expiresAt") =>
 		update.isPending && Boolean(update.variables && field in update.variables);
-	const approvedCount = Object.values(permit.worksheetAnswers).filter(
-		(answer) => answer.state === "APPROVED",
-	).length;
-	const totalCount = permit.worksheetTemplate.length;
 
 	return (
 		<Card>
@@ -117,10 +113,7 @@ export function PermitCard({ permitId }: { permitId: string }) {
 					inspections={permit.inspections}
 				/>
 
-				<WorksheetSummary
-					approvedCount={totalCount > 0 ? approvedCount : null}
-					totalCount={totalCount > 0 ? totalCount : null}
-				/>
+				<WorksheetSummary permit={permit} />
 			</CardContent>
 		</Card>
 	);

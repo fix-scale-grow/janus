@@ -138,6 +138,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 		setTab,
 		form: adding,
 		setForm: setAdding,
+		ask,
 	} = useRecordSheetView("overview");
 
 	const query = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
@@ -211,7 +212,12 @@ export function DealSheet({ dealId }: { dealId: string }) {
 				{
 					value: "agent",
 					label: "Agent",
-					content: <AgentPanel record={{ kind: "deal", id: deal.id }} />,
+					content: (
+						<AgentPanel
+							record={{ kind: "deal", id: deal.id }}
+							initialMessage={ask ?? undefined}
+						/>
+					),
 					keepMounted: true,
 				},
 			]
