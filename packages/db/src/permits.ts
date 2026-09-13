@@ -14,6 +14,14 @@ export const PERMIT_TYPES = [
 	"OTHER",
 ] as const;
 
+export const LOCKER_KINDS = [
+	"LICENSE",
+	"COI",
+	"REGISTRATION",
+	"OTHER",
+] as const;
+export type LockerKind = (typeof LOCKER_KINDS)[number];
+
 export const provenanceFact = z.object({
 	value: z.string().trim().min(1).max(2000),
 	sourceUrl: z.string().trim().url().max(500).nullable(),

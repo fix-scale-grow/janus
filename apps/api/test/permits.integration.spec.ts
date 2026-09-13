@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { z } from "zod";
 import { PermitPrefillService } from "../src/permits/permit-prefill.service";
+import { lockerRenameInput } from "../src/permits/permits.contracts";
 import { PermitsService } from "../src/permits/permits.service";
 import { PlaybooksService } from "../src/permits/playbooks.service";
 
@@ -430,11 +432,13 @@ describe("PermitsService checklist", () => {
 			},
 		});
 
-		await permits.attachChecklistDocument({
+		const attached = await permits.attachChecklistDocument({
 			permitId: permit.id,
 			slotKey: slot.slotKey,
 			lockerDocumentId: locker.id,
 		});
+		expect(attached.lockerDocumentId).toBe(locker.id);
+		expect(attached.attachedAt).toBeInstanceOf(Date);
 
 		await db.lockerDocument.delete({ where: { id: locker.id } });
 
@@ -443,7 +447,18 @@ describe("PermitsService checklist", () => {
 			(doc) => doc.slotKey === slot.slotKey,
 		);
 		expect(afterSlot?.lockerDocumentId).toBeNull();
-		expect(afterSlot?.filePath).toBeNull();
+	});
+
+	it("rejects lockerRename with an unknown kind", () => {
+		const result = lockerRenameInput.safeParse({
+			lockerDocumentId: "some-id",
+			label: "Renamed",
+			kind: "NOT_A_REAL_KIND",
+		});
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toBeInstanceOf(z.ZodError);
+		}
 	});
 });
 

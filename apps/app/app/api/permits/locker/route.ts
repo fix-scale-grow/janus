@@ -1,4 +1,5 @@
 import { db } from "@crm/db";
+import { LOCKER_KINDS } from "@crm/db/permits";
 import { NextResponse } from "next/server";
 import {
 	PERMIT_FILE_TYPES,
@@ -44,10 +45,22 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
+	if (
+		kind !== null &&
+		!(LOCKER_KINDS as readonly string[]).includes(
+			typeof kind === "string" ? kind : "",
+		)
+	) {
+		return NextResponse.json(
+			{ error: "Unknown locker kind." },
+			{ status: 400 },
+		);
+	}
+
 	const locker = await db.lockerDocument.create({
 		data: {
 			label: label.trim(),
-			kind: typeof kind === "string" && kind.trim() ? kind.trim() : "OTHER",
+			kind: typeof kind === "string" ? kind : "OTHER",
 			fileName: "",
 			contentType: file.type,
 			createdById: session.user.id,

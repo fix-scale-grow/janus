@@ -6,6 +6,7 @@ import {
 } from "@crm/db";
 import {
 	inspectionEntry,
+	LOCKER_KINDS,
 	requiredDocumentEntry,
 	worksheetTemplate,
 } from "@crm/db/permits";
@@ -217,7 +218,7 @@ export type InspectionIdInput = z.infer<typeof inspectionIdInput>;
 export const lockerRenameInput = z.object({
 	lockerDocumentId: z.string().min(1),
 	label: z.string().trim().min(1).max(160),
-	kind: z.string().trim().min(1).max(60).optional(),
+	kind: z.enum(LOCKER_KINDS).optional(),
 });
 
 export type LockerRenameInput = z.infer<typeof lockerRenameInput>;
