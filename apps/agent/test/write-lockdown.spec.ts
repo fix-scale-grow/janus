@@ -30,6 +30,8 @@ const FREE_TOOLS = new Set([
 	"read_deal_history.ts",
 	"read_drawing.ts",
 	"read_estimate.ts",
+	"read_permit.ts",
+	"read_playbook.ts",
 	"read_price_book.ts",
 	"record_fact.ts",
 	"research_person.ts",
@@ -38,6 +40,7 @@ const FREE_TOOLS = new Set([
 	"search_crm.ts",
 	"set_chat_title.ts",
 	"write_brief.ts",
+	"write_playbook_draft.ts",
 	"write_workspace_profile.ts",
 ]);
 

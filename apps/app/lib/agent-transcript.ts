@@ -85,6 +85,9 @@ const VERBS: Record<string, string> = {
 	list_drawings: "Looked for a drawing",
 	attach_drawing: "Attached the drawing to the record",
 	read_estimate: "Read the estimate",
+	read_permit: "Read the permit",
+	read_playbook: "Read the permit playbook",
+	write_playbook_draft: "Drafted permit playbook facts",
 
 	load_skill: "Read its instructions for this",
 	web_search: "Searched the web",
