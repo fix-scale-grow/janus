@@ -45,7 +45,8 @@ export function worksheetBlockingReason(params: {
 		(answer) => answer.value !== "" && answer.state === "NEEDS_REVIEW",
 	).length;
 	if (needsReview > 0) {
-		return `${needsReview} field${needsReview === 1 ? "" : "s"} await review`;
+		const plural = needsReview !== 1;
+		return `${needsReview} field${plural ? "s" : ""} ${plural ? "await" : "awaits"} review`;
 	}
 
 	const missing = fields.find(

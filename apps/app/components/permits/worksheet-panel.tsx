@@ -211,7 +211,11 @@ export function WorksheetPanel({
 
 	const generateWorksheetPdfPlaceholder = () => {
 		toast("PDF generation lands with the next update.");
+		generateGuard.release();
 	};
+
+	const runGenerate = () =>
+		generateGuard.guard(generateWorksheetPdfPlaceholder);
 
 	const onGenerateClick = () => {
 		if (hardBlocked) return;
@@ -219,7 +223,7 @@ export function WorksheetPanel({
 			setDisclaimerOpen(true);
 			return;
 		}
-		generateGuard.guard(generateWorksheetPdfPlaceholder);
+		runGenerate();
 	};
 
 	return (
@@ -370,7 +374,7 @@ export function WorksheetPanel({
 									acceptDisclaimer.mutate(undefined, {
 										onSuccess: () => {
 											setDisclaimerOpen(false);
-											generateGuard.guard(generateWorksheetPdfPlaceholder);
+											runGenerate();
 										},
 									})
 								}

@@ -68,7 +68,7 @@ describe("worksheetBlockingReason", () => {
 			},
 			disclaimerAccepted: true,
 		});
-		expect(reason).toBe("1 field await review");
+		expect(reason).toBe("1 field awaits review");
 	});
 
 	it("pluralizes multiple fields awaiting review", () => {

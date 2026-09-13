@@ -20,6 +20,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { ContractsTable } from "@/app/(app)/[slug]/contracts/contracts-table";
 import { NewContractButton } from "@/app/(app)/[slug]/contracts/new-contract-button";
@@ -139,7 +140,12 @@ export function DealSheet({ dealId }: { dealId: string }) {
 		form: adding,
 		setForm: setAdding,
 		ask,
+		clearAsk,
 	} = useRecordSheetView("overview");
+
+	useEffect(() => {
+		if (ask) clearAsk();
+	}, [ask, clearAsk]);
 
 	const query = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
 	const deal = query.data;
