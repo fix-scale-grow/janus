@@ -2,6 +2,7 @@
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import Download from "@carbon/icons-react/es/Download";
+import View from "@carbon/icons-react/es/View";
 import Link_ from "@carbon/icons-react/es/Link";
 import Send from "@carbon/icons-react/es/Send";
 import StopSign from "@carbon/icons-react/es/StopSign";
@@ -47,7 +48,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TemplatePurpose } from "@crm/db/enums";
 import { contactName } from "@/components/crm/contact-name";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { RecordLink } from "@/components/crm/record-sheet/record-link";
 import { LocalDay } from "@/components/local-date-time";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
@@ -397,6 +400,7 @@ export function ContractDetail({
 	const [titleDraft, setTitleDraft] = useState(data.title);
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
+	const [previewOpen, setPreviewOpen] = useState(false);
 	const [voidOpen, setVoidOpen] = useState(false);
 
 	const mergeFields = useMergeFields();
@@ -549,6 +553,14 @@ export function ContractDetail({
 					<Button
 						variant="outline"
 						size="sm"
+						onClick={() => setPreviewOpen(true)}
+					>
+						<Icon icon={View} data-icon="inline-start" />
+						Preview
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
 						disabled={downloading}
 						onClick={downloadPdf}
 					>
@@ -669,6 +681,19 @@ export function ContractDetail({
 				defaultTo={data.sentTo ?? contact.data?.email ?? ""}
 				open={sendOpen}
 				onOpenChange={setSendOpen}
+			/>
+
+			<DocumentPreviewDialog
+				open={previewOpen}
+				onOpenChange={setPreviewOpen}
+				kind="contract"
+				documentId={contractId}
+				entityLabel="contract"
+				purpose={TemplatePurpose.CONTRACT_SEND}
+				refs={{
+					dealId: data.dealId ?? undefined,
+					contactId: data.contactId ?? undefined,
+				}}
 			/>
 
 			<AlertDialog open={voidOpen} onOpenChange={setVoidOpen}>

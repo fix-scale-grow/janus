@@ -4,6 +4,7 @@ import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Document from "@carbon/icons-react/es/Document";
 import Download from "@carbon/icons-react/es/Download";
+import View from "@carbon/icons-react/es/View";
 import Money from "@carbon/icons-react/es/Money";
 import Send from "@carbon/icons-react/es/Send";
 import { TemplatePurpose } from "@crm/db/enums";
@@ -46,6 +47,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
@@ -180,6 +182,7 @@ export function EstimateBuilder({
 	const [resyncResult, setResyncResult] = useState<ResyncResult | null>(null);
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
+	const [previewOpen, setPreviewOpen] = useState(false);
 	const [assignContactOpen, setAssignContactOpen] = useState(false);
 
 	const setQueryData = (
@@ -409,6 +412,14 @@ export function EstimateBuilder({
 					<Button
 						variant="outline"
 						size="sm"
+						onClick={() => setPreviewOpen(true)}
+					>
+						<Icon icon={View} data-icon="inline-start" />
+						Preview
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
 						disabled={downloading}
 						onClick={downloadPdf}
 					>
@@ -576,6 +587,20 @@ export function EstimateBuilder({
 				open={sendOpen}
 				onOpenChange={setSendOpen}
 				mutation={sendEstimate}
+			/>
+
+			<DocumentPreviewDialog
+				open={previewOpen}
+				onOpenChange={setPreviewOpen}
+				kind="estimate"
+				documentId={estimateId}
+				entityLabel="estimate"
+				purpose={TemplatePurpose.ESTIMATE_SEND}
+				refs={{
+					estimateId,
+					dealId: data.dealId ?? undefined,
+					contactId: data.contact?.id,
+				}}
 			/>
 		</PageShell>
 	);

@@ -3,6 +3,7 @@
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Download from "@carbon/icons-react/es/Download";
+import View from "@carbon/icons-react/es/View";
 import Send from "@carbon/icons-react/es/Send";
 import { TemplatePurpose } from "@crm/db/enums";
 import { Badge } from "@crm/ui/components/badge";
@@ -35,6 +36,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
@@ -151,6 +153,7 @@ export function InvoiceDetail({
 
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
+	const [previewOpen, setPreviewOpen] = useState(false);
 	const [assignContactOpen, setAssignContactOpen] = useState(false);
 
 	const setQueryData = (
@@ -297,6 +300,14 @@ export function InvoiceDetail({
 						open={assignContactOpen}
 						onOpenChange={setAssignContactOpen}
 					/>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setPreviewOpen(true)}
+					>
+						<Icon icon={View} data-icon="inline-start" />
+						Preview
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
@@ -448,6 +459,20 @@ export function InvoiceDetail({
 				open={sendOpen}
 				onOpenChange={setSendOpen}
 				mutation={sendInvoice}
+			/>
+
+			<DocumentPreviewDialog
+				open={previewOpen}
+				onOpenChange={setPreviewOpen}
+				kind="invoice"
+				documentId={invoiceId}
+				entityLabel="invoice"
+				purpose={TemplatePurpose.INVOICE_SEND}
+				refs={{
+					invoiceId,
+					dealId: data.dealId ?? undefined,
+					contactId: data.contactId ?? undefined,
+				}}
 			/>
 		</PageShell>
 	);
