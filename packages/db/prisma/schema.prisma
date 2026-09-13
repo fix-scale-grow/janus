@@ -66,6 +66,9 @@ model User {
 
   photos Photo[] @relation("PhotoUploader")
 
+  createdPermits         Permit[]         @relation("PermitCreator")
+  createdLockerDocuments LockerDocument[] @relation("LockerCreator")
+
   @@unique([email])
   @@map("user")
 }
@@ -957,19 +960,21 @@ model Deal {
 
   lastActivityAt DateTime?
 
-  contacts        DealContact[]
-  activities      Activity[]
-  fieldValues     FieldValue[]
-  drawings        Drawing[]
-  estimates       Estimate[]
-  invoices        Invoice[]
-  projects        Project[]
-  contracts       Contract[]
-  jobCosts        JobCost[]
-  formSubmissions FormSubmission[]
-  photos          Photo[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  contacts              DealContact[]
+  activities            Activity[]
+  fieldValues           FieldValue[]
+  drawings              Drawing[]
+  estimates             Estimate[]
+  invoices              Invoice[]
+  projects              Project[]
+  contracts             Contract[]
+  jobCosts              JobCost[]
+  formSubmissions       FormSubmission[]
+  photos                Photo[]
+  permits               Permit[]
+  permitPromptDismissal PermitPromptDismissal?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   @@index([ownerId])
   @@index([stageId])
@@ -1234,26 +1239,26 @@ enum ProjectTaskStatus {
 }
 
 model Project {
-  id          String        @id @default(cuid())
+  id          String         @id @default(cuid())
   name        String
   goal        String?
-  status      ProjectStatus @default(ACTIVE)
+  status      ProjectStatus  @default(ACTIVE)
   startDate   DateTime
   goalDate    DateTime?
   dealId      String?
-  deal        Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  deal        Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
   contactId   String?
-  contact     Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contact     Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
   estimateId  String?
-  estimate    Estimate?     @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  estimate    Estimate?      @relation(fields: [estimateId], references: [id], onDelete: SetNull)
   invoiceId   String?
-  invoice     Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoice     Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   createdById String
-  createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
+  createdBy   User           @relation("ProjectCreator", fields: [createdById], references: [id])
   tasks       ProjectTask[]
   photoLinks  ProjectPhoto[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@index([dealId])
   @@index([contactId])
@@ -1586,6 +1591,13 @@ model AppSetting {
   navLayout String?
 
   dealNumberStart Int?
+
+  permitsEnabled               Boolean   @default(false)
+  permitStates                 String[]  @default([])
+  permitTriggerStageIds        String[]  @default([])
+  permitDisclaimerVersion      Int?
+  permitDisclaimerAcceptedById String?
+  permitDisclaimerAcceptedAt   DateTime?
 
   updatedAt DateTime @updatedAt
 
@@ -2086,4 +2098,151 @@ model RecentRecord {
   @@unique([userId, kind, recordId])
   @@index([userId, touchedAt])
   @@map("recent_record")
+}
+
+enum JurisdictionKind {
+  CITY
+  COUNTY
+  STATE
+}
+
+enum PermitType {
+  BUILDING
+  ROOFING
+  ELECTRICAL
+  PLUMBING
+  MECHANICAL
+  OTHER
+}
+
+enum PermitStatus {
+  DRAFT
+  READY_TO_SUBMIT
+  SUBMITTED
+  ISSUED
+  INSPECTIONS
+  CLOSED
+  DENIED
+  EXPIRED
+}
+
+enum InspectionResult {
+  PENDING
+  PASSED
+  FAILED
+}
+
+model Jurisdiction {
+  id        String           @id @default(cuid())
+  name      String
+  kind      JurisdictionKind
+  state     String
+  matchKey  String           @unique
+  createdAt DateTime         @default(now())
+  playbooks PermitPlaybook[]
+  permits   Permit[]
+
+  @@map("jurisdiction")
+}
+
+model PermitPlaybook {
+  id                String       @id @default(cuid())
+  jurisdictionId    String
+  jurisdiction      Jurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  permitType        PermitType
+  typeLabel         String       @default("")
+  facts             Json         @default("{}")
+  worksheetTemplate Json         @default("[]")
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  permits           Permit[]
+
+  @@unique([jurisdictionId, permitType, typeLabel])
+  @@map("permit_playbook")
+}
+
+model Permit {
+  id               String             @id @default(cuid())
+  dealId           String
+  deal             Deal               @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  jurisdictionId   String
+  jurisdiction     Jurisdiction       @relation(fields: [jurisdictionId], references: [id], onDelete: Restrict)
+  playbookId       String?
+  playbook         PermitPlaybook?    @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  status           PermitStatus       @default(DRAFT)
+  permitType       PermitType
+  typeLabel        String             @default("")
+  permitNumber     String?
+  feeCents         Int?
+  submittedAt      DateTime?
+  issuedAt         DateTime?
+  expiresAt        DateTime?
+  closedAt         DateTime?
+  deniedReason     String?
+  worksheetAnswers Json               @default("{}")
+  createdById      String
+  createdBy        User               @relation("PermitCreator", fields: [createdById], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  documents        PermitDocument[]
+  inspections      PermitInspection[]
+
+  @@index([dealId])
+  @@index([status])
+  @@map("permit")
+}
+
+model PermitDocument {
+  id               String          @id @default(cuid())
+  permitId         String
+  permit           Permit          @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  slotKey          String
+  label            String
+  filePath         String?
+  lockerDocumentId String?
+  lockerDocument   LockerDocument? @relation(fields: [lockerDocumentId], references: [id], onDelete: SetNull)
+  attachedAt       DateTime?
+  sortOrder        Int             @default(0)
+
+  @@unique([permitId, slotKey])
+  @@map("permit_document")
+}
+
+model PermitInspection {
+  id           String           @id @default(cuid())
+  permitId     String
+  permit       Permit           @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  name         String
+  criticalNote String?
+  scheduledFor DateTime?
+  result       InspectionResult @default(PENDING)
+  note         String?
+  sortOrder    Int              @default(0)
+
+  @@index([permitId])
+  @@map("permit_inspection")
+}
+
+model LockerDocument {
+  id              String           @id @default(cuid())
+  label           String
+  kind            String           @default("OTHER")
+  fileName        String
+  contentType     String
+  createdById     String
+  createdBy       User             @relation("LockerCreator", fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+  permitDocuments PermitDocument[]
+
+  @@map("locker_document")
+}
+
+model PermitPromptDismissal {
+  id        String   @id @default(cuid())
+  dealId    String   @unique
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@map("permit_prompt_dismissal")
 }
