@@ -250,7 +250,9 @@ function fillWorksheetOutcome(
 ): string | null {
 	if (!isFillWorksheetOutput(output)) return null;
 	if (!output.applied) return `Not applied — ${output.reason}`;
-	return "Applied — fields await your review";
+	const count = (output.filled ?? []).length;
+	const verb = count === 1 ? "awaits" : "await";
+	return `Applied — ${plural(count, "field")} ${verb} your review`;
 }
 
 function genericOutcome(output: Record<string, unknown> | null): string | null {

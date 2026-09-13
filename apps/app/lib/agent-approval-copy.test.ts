@@ -296,7 +296,20 @@ describe("fill_worksheet approval copy", () => {
 				permitId: "permit1",
 				dealId: "deal1",
 			}),
-		).toBe("Applied — fields await your review");
+		).toBe("Applied — 2 fields await your review");
+	});
+
+	it("uses singular agreement for a single field", () => {
+		const copy = approvalCopyFor("fill_worksheet");
+		expect(
+			copy.outcome?.({
+				applied: true,
+				filled: ["job_address"],
+				skipped: [],
+				permitId: "permit1",
+				dealId: "deal1",
+			}),
+		).toBe("Applied — 1 field awaits your review");
 	});
 
 	it("phrases a fill_worksheet failure with the reason", () => {
