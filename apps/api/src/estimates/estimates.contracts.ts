@@ -45,6 +45,17 @@ export const estimateRenameInput = z.object({
 
 export type EstimateRenameInput = z.infer<typeof estimateRenameInput>;
 
+const documentText = z.string().trim().max(5000).nullable().optional();
+
+export const estimateUpdateTextInput = z.object({
+	id: z.string().min(1),
+	introNote: documentText,
+	scopeOfWork: documentText,
+	terms: documentText,
+});
+
+export type EstimateUpdateTextInput = z.infer<typeof estimateUpdateTextInput>;
+
 export const estimateSetStatusInput = z.object({
 	id: z.string().min(1),
 	status: statusEnum,

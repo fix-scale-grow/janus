@@ -11,6 +11,7 @@ import {
 import type { ReactElement } from "react";
 import { createElement } from "react";
 import { formatCents } from "../documents/pdf-money";
+import { textBlockSections } from "../documents/pdf-text-blocks";
 
 const renderToBuffer = (
 	ReactPdf as unknown as {
@@ -48,6 +49,9 @@ export type EstimatePdfEstimate = {
 	lineItems: EstimatePdfLineItem[];
 	contact: EstimatePdfContact | null;
 	photos: EstimatePdfPhoto[];
+	introNote: string | null;
+	scopeOfWork: string | null;
+	terms: string | null;
 };
 
 const GENERAL_GROUP = "General";
@@ -245,6 +249,7 @@ export async function renderEstimatePdf(
 	const totals = tierTotals(estimate.lineItems);
 	const priceField = TIER_PRICE_FIELD[estimate.selectedTier];
 	const groups = groupByArea(estimate.lineItems);
+	const textBlocks = textBlockSections(estimate);
 
 	const rows = groups.map(([areaLabel, items]) =>
 		createElement(
@@ -396,9 +401,12 @@ export async function renderEstimatePdf(
 				estimate.createdAt.toLocaleDateString(),
 			),
 			contactBlock,
+			textBlocks.intro,
 			...rows,
+			textBlocks.scope,
 			photosSection,
 			optionsStrip,
+			textBlocks.terms,
 		),
 	);
 

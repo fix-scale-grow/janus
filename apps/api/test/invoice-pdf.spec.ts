@@ -41,6 +41,9 @@ function fixture() {
 			},
 		],
 		photos: [],
+		introNote: null as string | null,
+		scopeOfWork: null as string | null,
+		terms: null as string | null,
 	};
 }
 
@@ -50,6 +53,22 @@ describe("renderInvoicePdf", () => {
 
 		expect(buffer.length).toBeGreaterThan(0);
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+	});
+
+	it("renders the document text blocks", async () => {
+		const bare = await renderInvoicePdf(fixture(), "Acme Roofing");
+		const full = await renderInvoicePdf(
+			{
+				...fixture(),
+				introNote: "Thanks for your business.",
+				scopeOfWork: "Full tear-off and re-roof as quoted.",
+				terms: "Payment due within 15 days.",
+			},
+			"Acme Roofing",
+		);
+
+		expect(full.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+		expect(full.length).toBeGreaterThan(bare.length);
 	});
 
 	it("renders without a contact or notes", async () => {

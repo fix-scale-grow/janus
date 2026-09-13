@@ -1109,6 +1109,9 @@ model Estimate {
   drawing      Drawing?       @relation(fields: [drawingId], references: [id], onDelete: SetNull)
 
   drawingSyncedAt DateTime?
+  introNote       String?
+  scopeOfWork     String?
+  terms           String?
   createdById     String
   createdBy       User               @relation("EstimateCreator", fields: [createdById], references: [id])
   lineItems       EstimateLineItem[]
@@ -1182,6 +1185,9 @@ model Invoice {
   dueAt       DateTime?
   paidAt      DateTime?
   notes       String?
+  introNote   String?
+  scopeOfWork String?
+  terms       String?
   estimateId  String?
   estimate    Estimate?         @relation(fields: [estimateId], references: [id], onDelete: SetNull)
   dealId      String?

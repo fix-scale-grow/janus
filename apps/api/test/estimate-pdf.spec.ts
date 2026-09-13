@@ -43,6 +43,9 @@ function fixture() {
 			},
 		],
 		photos: [],
+		introNote: null as string | null,
+		scopeOfWork: null as string | null,
+		terms: null as string | null,
 	};
 }
 
@@ -52,6 +55,22 @@ describe("renderEstimatePdf", () => {
 
 		expect(buffer.length).toBeGreaterThan(0);
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+	});
+
+	it("renders the document text blocks", async () => {
+		const bare = await renderEstimatePdf(fixture(), "Acme Roofing");
+		const full = await renderEstimatePdf(
+			{
+				...fixture(),
+				introNote: "Thanks for having us out to look at the roof.",
+				scopeOfWork: "Tear off both layers, replace decking as needed.",
+				terms: "Half due at signing, the rest on completion.",
+			},
+			"Acme Roofing",
+		);
+
+		expect(full.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+		expect(full.length).toBeGreaterThan(bare.length);
 	});
 
 	it("renders without a contact", async () => {

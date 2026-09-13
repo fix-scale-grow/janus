@@ -37,6 +37,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
+import { DocumentTextFields } from "@/components/documents/document-text-fields";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
@@ -388,6 +389,17 @@ export function InvoiceDetail({
 							rows={3}
 						/>
 					</Field>
+
+					<DocumentTextFields
+						values={{
+							introNote: data.introNote,
+							scopeOfWork: data.scopeOfWork,
+							terms: data.terms,
+						}}
+						onCommit={(field, next) =>
+							update.mutate({ id: invoiceId, data: { [field]: next } })
+						}
+					/>
 
 					{data.lineItems.length === 0 ? (
 						<Empty>

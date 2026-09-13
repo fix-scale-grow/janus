@@ -23,6 +23,7 @@ import {
 	estimateSetStatusInput,
 	estimateSetTierInput,
 	estimateUpdateLineItemInput,
+	estimateUpdateTextInput,
 } from "./estimates.contracts";
 import { EstimatesService } from "./estimates.service";
 
@@ -54,6 +55,11 @@ export class EstimatesRouter {
 	@Mutation({ input: estimateRenameInput })
 	async rename(@Input() input: z.infer<typeof estimateRenameInput>) {
 		return this.estimates.rename(input);
+	}
+
+	@Mutation({ input: estimateUpdateTextInput })
+	async updateText(@Input() input: z.infer<typeof estimateUpdateTextInput>) {
+		return this.estimates.updateText(input);
 	}
 
 	@Mutation({ input: estimateSetStatusInput })
