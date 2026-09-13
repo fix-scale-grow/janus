@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
 	const thumb = formData.get("thumb");
 	const dealId = formData.get("dealId");
 	const contactId = formData.get("contactId");
+	const estimateId = formData.get("estimateId");
+	const invoiceId = formData.get("invoiceId");
 	const filename = formData.get("filename");
 	const width = Number(formData.get("width"));
 	const height = Number(formData.get("height"));
@@ -49,9 +51,14 @@ export async function POST(request: NextRequest) {
 			{ status: 413 },
 		);
 	}
-	if (typeof dealId !== "string" && typeof contactId !== "string") {
+	if (
+		typeof dealId !== "string" &&
+		typeof contactId !== "string" &&
+		typeof estimateId !== "string" &&
+		typeof invoiceId !== "string"
+	) {
 		return NextResponse.json(
-			{ error: "A photo needs a deal or a contact." },
+			{ error: "A photo needs a deal, contact, estimate or invoice." },
 			{ status: 400 },
 		);
 	}
@@ -78,6 +85,28 @@ export async function POST(request: NextRequest) {
 				{ status: 404 },
 			);
 	}
+	if (typeof estimateId === "string") {
+		const estimate = await db.estimate.findUnique({
+			where: { id: estimateId },
+			select: { id: true },
+		});
+		if (!estimate)
+			return NextResponse.json(
+				{ error: "The estimate was not found." },
+				{ status: 404 },
+			);
+	}
+	if (typeof invoiceId === "string") {
+		const invoice = await db.invoice.findUnique({
+			where: { id: invoiceId },
+			select: { id: true },
+		});
+		if (!invoice)
+			return NextResponse.json(
+				{ error: "The invoice was not found." },
+				{ status: 404 },
+			);
+	}
 
 	const masterBytes = Buffer.from(await master.arrayBuffer());
 	const thumbBytes = Buffer.from(await thumb.arrayBuffer());
@@ -96,19 +125,58 @@ export async function POST(request: NextRequest) {
 			? new Date(Number(takenAtRaw))
 			: null;
 
-	const photo = await db.photo.create({
-		data: {
-			dealId: typeof dealId === "string" ? dealId : null,
-			contactId: typeof contactId === "string" ? contactId : null,
-			uploadedById: session.user.id,
-			filename: filename.trim().slice(0, 300),
-			mimeType: "image/jpeg",
-			sizeBytes: masterBytes.length,
-			width,
-			height,
-			takenAt,
-		},
-	});
+	const photoData = {
+		dealId: typeof dealId === "string" ? dealId : null,
+		contactId: typeof contactId === "string" ? contactId : null,
+		uploadedById: session.user.id,
+		filename: filename.trim().slice(0, 300),
+		mimeType: "image/jpeg",
+		sizeBytes: masterBytes.length,
+		width,
+		height,
+		takenAt,
+	};
+
+	const documentTarget =
+		photoData.dealId === null && photoData.contactId === null
+			? typeof estimateId === "string"
+				? ({ kind: "estimate", id: estimateId } as const)
+				: typeof invoiceId === "string"
+					? ({ kind: "invoice", id: invoiceId } as const)
+					: null
+			: null;
+
+	const photo = documentTarget
+		? await db.$transaction(async (tx) => {
+				const created = await tx.photo.create({ data: photoData });
+				if (documentTarget.kind === "estimate") {
+					const sortOrder = await tx.estimatePhoto.count({
+						where: { estimateId: documentTarget.id },
+					});
+					await tx.estimatePhoto.create({
+						data: {
+							estimateId: documentTarget.id,
+							photoId: created.id,
+							includeInPdf: true,
+							sortOrder,
+						},
+					});
+				} else {
+					const sortOrder = await tx.invoicePhoto.count({
+						where: { invoiceId: documentTarget.id },
+					});
+					await tx.invoicePhoto.create({
+						data: {
+							invoiceId: documentTarget.id,
+							photoId: created.id,
+							includeInPdf: true,
+							sortOrder,
+						},
+					});
+				}
+				return created;
+			})
+		: await db.photo.create({ data: photoData });
 
 	const saved = await savePhotoFiles(photo.id, masterBytes, thumbBytes);
 	if (!saved) {

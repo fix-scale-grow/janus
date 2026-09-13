@@ -8,6 +8,8 @@ import { useCrmCache } from "@/lib/trpc/cache";
 type UsePhotoUploadInput = {
 	dealId?: string;
 	contactId?: string;
+	estimateId?: string;
+	invoiceId?: string;
 };
 
 type UploadResult = {
@@ -18,6 +20,8 @@ type UploadResult = {
 export function usePhotoUpload({
 	dealId,
 	contactId,
+	estimateId,
+	invoiceId,
 }: UsePhotoUploadInput): UploadResult {
 	const cache = useCrmCache();
 	const [pending, setPending] = useState(0);
@@ -37,6 +41,8 @@ export function usePhotoUpload({
 				body.set("thumb", processed.thumb);
 				if (dealId) body.set("dealId", dealId);
 				if (contactId) body.set("contactId", contactId);
+				if (estimateId) body.set("estimateId", estimateId);
+				if (invoiceId) body.set("invoiceId", invoiceId);
 				body.set("filename", file.name);
 				body.set("width", String(processed.width));
 				body.set("height", String(processed.height));
