@@ -37,7 +37,7 @@ import { projectListInput, projectCalendarInput, projectIdInput, projectCreateIn
 import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
-import { setAgentModelInput, setResearchKeyInput, setNavLayoutInput, setDealNumberStartInput } from "../settings/settings.contracts";
+import { setAgentModelInput, setResearchKeyInput, setNavLayoutInput, setDealNumberStartInput, setPermitsInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolBulkSetServiceInput, symbolPackInput } from "../symbols/symbols.contracts";
@@ -789,7 +789,14 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["dealNumbering"]>>),
     setDealNumberStart: publicProcedure
       .input(setDealNumberStartInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setDealNumberStart"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setDealNumberStart"]>>),
+    permits: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["permits"]>>),
+    setPermits: publicProcedure
+      .input(setPermitsInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setPermits"]>>),
+    acceptPermitDisclaimer: publicProcedure
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["acceptPermitDisclaimer"]>>)
     }),
   slack: t.router({
     status: publicProcedure

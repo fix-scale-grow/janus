@@ -167,6 +167,183 @@ export async function writeDealNumberStart(
 	});
 }
 
+export const US_STATES = [
+	"AL",
+	"AK",
+	"AZ",
+	"AR",
+	"CA",
+	"CO",
+	"CT",
+	"DE",
+	"FL",
+	"GA",
+	"HI",
+	"ID",
+	"IL",
+	"IN",
+	"IA",
+	"KS",
+	"KY",
+	"LA",
+	"ME",
+	"MD",
+	"MA",
+	"MI",
+	"MN",
+	"MS",
+	"MO",
+	"MT",
+	"NE",
+	"NV",
+	"NH",
+	"NJ",
+	"NM",
+	"NY",
+	"NC",
+	"ND",
+	"OH",
+	"OK",
+	"OR",
+	"PA",
+	"RI",
+	"SC",
+	"SD",
+	"TN",
+	"TX",
+	"UT",
+	"VT",
+	"VA",
+	"WA",
+	"WV",
+	"WI",
+	"WY",
+	"DC",
+	"AS",
+	"GU",
+	"MP",
+	"PR",
+	"VI",
+] as const;
+
+export type UsState = (typeof US_STATES)[number];
+
+export interface PermitDisclaimerSetting {
+	acceptedById: string;
+	acceptedAt: Date;
+	version: number;
+}
+
+export interface PermitSettings {
+	permitsEnabled: boolean;
+	permitStates: UsState[];
+	permitTriggerStageIds: string[];
+	disclaimer: PermitDisclaimerSetting | null;
+}
+
+export interface PermitSettingsPatch {
+	permitsEnabled?: boolean;
+	permitStates?: UsState[];
+	permitTriggerStageIds?: string[];
+}
+
+export async function readPermitSettings(db: Db): Promise<PermitSettings> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: {
+			permitsEnabled: true,
+			permitStates: true,
+			permitTriggerStageIds: true,
+			permitDisclaimerVersion: true,
+			permitDisclaimerAcceptedById: true,
+			permitDisclaimerAcceptedAt: true,
+		},
+	});
+
+	const disclaimer =
+		row?.permitDisclaimerVersion != null &&
+		row.permitDisclaimerAcceptedById != null &&
+		row.permitDisclaimerAcceptedAt != null
+			? {
+					acceptedById: row.permitDisclaimerAcceptedById,
+					acceptedAt: row.permitDisclaimerAcceptedAt,
+					version: row.permitDisclaimerVersion,
+				}
+			: null;
+
+	return {
+		permitsEnabled: row?.permitsEnabled ?? false,
+		permitStates: (row?.permitStates ?? []) as UsState[],
+		permitTriggerStageIds: row?.permitTriggerStageIds ?? [],
+		disclaimer,
+	};
+}
+
+export async function writePermitSettings(
+	db: Db,
+	patch: PermitSettingsPatch,
+): Promise<void> {
+	const fields = {
+		...(patch.permitsEnabled !== undefined && {
+			permitsEnabled: patch.permitsEnabled,
+		}),
+		...(patch.permitStates !== undefined && {
+			permitStates: patch.permitStates,
+		}),
+		...(patch.permitTriggerStageIds !== undefined && {
+			permitTriggerStageIds: patch.permitTriggerStageIds,
+		}),
+	};
+
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, ...fields },
+		update: fields,
+	});
+}
+
+export async function acceptPermitDisclaimerSetting(
+	db: Db,
+	userId: string,
+	version: number,
+): Promise<PermitDisclaimerSetting> {
+	const existing = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: {
+			permitDisclaimerVersion: true,
+			permitDisclaimerAcceptedById: true,
+			permitDisclaimerAcceptedAt: true,
+		},
+	});
+
+	if (
+		existing?.permitDisclaimerVersion === version &&
+		existing.permitDisclaimerAcceptedById != null &&
+		existing.permitDisclaimerAcceptedAt != null
+	) {
+		return {
+			acceptedById: existing.permitDisclaimerAcceptedById,
+			acceptedAt: existing.permitDisclaimerAcceptedAt,
+			version: existing.permitDisclaimerVersion,
+		};
+	}
+
+	const acceptedAt = new Date();
+	const fields = {
+		permitDisclaimerVersion: version,
+		permitDisclaimerAcceptedById: userId,
+		permitDisclaimerAcceptedAt: acceptedAt,
+	};
+
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: { id: SETTINGS_ID, ...fields },
+		update: fields,
+	});
+
+	return { acceptedById: userId, acceptedAt, version };
+}
+
 export function maskKey(key: string): string {
 	const trimmed = key.trim();
 	return trimmed.length > 4 ? `••••${trimmed.slice(-4)}` : "••••";

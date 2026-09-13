@@ -14,6 +14,7 @@ import {
 	setAgentModelInput,
 	setDealNumberStartInput,
 	setNavLayoutInput,
+	setPermitsInput,
 	setResearchKeyInput,
 } from "./settings.contracts";
 import { SettingsService } from "./settings.service";
@@ -74,5 +75,27 @@ export class SettingsRouter {
 		@Input() input: z.infer<typeof setDealNumberStartInput>,
 	) {
 		return this.settings.setDealNumberStart(ctx.user.id, input.start);
+	}
+
+	@Query()
+	async permits() {
+		return this.settings.permits();
+	}
+
+	@Mutation({ input: setPermitsInput })
+	async setPermits(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof setPermitsInput>,
+	) {
+		return this.settings.setPermits(ctx.user.id, {
+			enabled: input.enabled,
+			states: input.states,
+			triggerStageIds: input.triggerStageIds,
+		});
+	}
+
+	@Mutation()
+	async acceptPermitDisclaimer(@Ctx() ctx: AuthedTrpcContext) {
+		return this.settings.acceptPermitDisclaimer(ctx.user.id);
 	}
 }
