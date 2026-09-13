@@ -33,9 +33,11 @@ Trade-agnostic (all US blue-collar trades), US-only.
   card offering to open permits — not silent, not fully proactive.
 - Documents are **checklist + attach**, with a workspace document locker for
   reusables (license, COI, city registrations) that auto-attach.
-- Application filling is **guided fill**, never portal automation: Janus
-  prepares an editable worksheet of answers; the human submits to the city.
-  A one-time liability acceptance gates worksheet generation.
+- Application filling offers **two modes — AI fill or guided fill** — never
+  portal automation: Janus prepares an editable worksheet of answers; the
+  human approves every field and submits to the city. A one-time liability
+  acceptance gates worksheet generation. (Amended 2026-09-13: Kyle upgraded
+  guided-fill-only to a mode choice with a per-field approval sweep.)
 
 ## Feature gate
 
@@ -82,7 +84,9 @@ All new tables; no changes to existing models beyond relations.
 - `Permit` — dealId, playbookId, status (DRAFT → READY_TO_SUBMIT →
   SUBMITTED → ISSUED → INSPECTIONS → CLOSED, plus DENIED and EXPIRED),
   permitNumber, feeCents, submittedAt, issuedAt, expiresAt, closedAt,
-  worksheet answers (Json, parsed by the template schema). Many per deal.
+  worksheet answers (Json, parsed by the template schema; each answer
+  carries value, origin, approval state, approvedById?, approvedAt?).
+  Many per deal.
 - `PermitDocument` — permitId, checklist slot key, attached file (local-disk
   pattern) or lockerDocumentId reference, status (MISSING | ATTACHED).
 - `PermitInspection` — permitId, name, scheduledFor, result
@@ -132,17 +136,35 @@ scaffolded. Decline is quiet and logged. Per-rule autonomy follows the
 existing Auto-run / +evidence / Ask-first pattern; permits default to
 Ask-first.
 
-## Guided fill
+## Filling the worksheet — AI fill or guided fill
 
-- Opening a DRAFT permit shows the worksheet from the playbook template.
-  Janus pre-fills every field it can from CRM data (deal address and
-  contacts, contract/estimate valuation, workspace license and insurance
-  from the locker, parcel lookups are out of scope) and marks each prefill
-  with its origin. Owner edits anything; template edits (add/remove fields)
-  are offered inline and write back to the playbook template as unverified.
-- Blanks get a conversational assist: "Ask Janus" on the worksheet walks
-  remaining fields.
-- Generate is gated on the one-time workspace liability acceptance:
+- Opening a DRAFT permit's worksheet asks the owner to pick a mode:
+  **AI fill** (Janus drafts everything, owner reviews) or **guided fill**
+  (Janus walks the owner through it). The choice is per permit; the owner
+  can re-run AI fill on remaining blanks at any time.
+- Every worksheet field carries an approval state:
+  `EMPTY → NEEDS_REVIEW → APPROVED`. AI-written values land as
+  NEEDS_REVIEW with a visible origin ("from the contract", "drafted from
+  estimate line items", "from the document locker"). Human-typed values are
+  born APPROVED. Editing an AI value approves it. Approval is logged per
+  field (userId + timestamp) — the same audit pattern as playbook
+  verification, because Janus will make mistakes and the review sweep is
+  what makes them the client's catch.
+- **AI fill**: Janus fills every field it can — direct CRM prefills (deal
+  address and contacts, contract/estimate valuation, license and insurance
+  from the locker; parcel lookups are out of scope) plus drafted content
+  such as the scope-of-work description composed from estimate line items.
+  Fields Janus cannot source stay EMPTY, never guessed. The owner then
+  sweeps the worksheet: approve, edit-then-approve, or clear each field;
+  an "approve all" control exists but each field still logs individually.
+- **Guided fill**: Janus walks the blanks conversationally ("Ask Janus" on
+  the worksheet); direct CRM prefills still appear as NEEDS_REVIEW, the
+  rest the owner types.
+- Template edits (add/remove/rename fields) are offered inline in both
+  modes and write back to the playbook template as unverified.
+- Generate is blocked until every non-empty field is APPROVED and required
+  fields are non-empty, and gated on the one-time workspace liability
+  acceptance:
   "Janus assists with preparation. You are responsible for verifying all
   information and requirements with the issuing authority." Logged with
   user, timestamp, disclaimer version; every generated worksheet footer
@@ -186,8 +208,9 @@ Ask-first.
   the Phase C pattern (playbook facts are untrusted web text — fenced);
   write-lockdown table gains any new tools.
 - Playwright walkthrough: enable feature → stage trigger card → accept →
-  checklist + locker attach → guided fill → liability accept → PDF in
-  outbox/attachments → inspection on calendar → verify a playbook fact.
+  checklist + locker attach → AI fill → approval sweep (generate blocked
+  while a field is NEEDS_REVIEW) → liability accept → PDF in
+  outbox/attachments; guided-fill variant covered at the integration level → inspection on calendar → verify a playbook fact.
 
 ## Out of scope (v1)
 
