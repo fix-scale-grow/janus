@@ -16,17 +16,16 @@ const ROOT = "/settings";
 
 const ITEMS: SettingsNavItem[] = [
 	{ title: "General", href: ROOT },
+	{ title: "Team", href: `${ROOT}/team` },
 	{ title: "Navigation", href: `${ROOT}/navigation` },
 	{ title: "Tracking & Analytics", href: `${ROOT}/tracking` },
 	{ title: "Connections", href: `${ROOT}/connections` },
 	{ title: "Price book", href: `${ROOT}/price-book` },
-	{ title: "Crews", href: `${ROOT}/crews` },
 	{ title: "Symbols", href: `${ROOT}/symbols` },
 	{ title: "Templates", href: `${ROOT}/templates` },
 	{ title: "Fields", href: `${ROOT}/fields` },
 	{ title: "Pipeline", href: `${ROOT}/pipeline` },
 	{ title: "Forms", href: `${ROOT}/forms` },
-	{ title: "Members", href: `${ROOT}/members` },
 	{ title: "SSO", href: `${ROOT}/sso` },
 ];
 

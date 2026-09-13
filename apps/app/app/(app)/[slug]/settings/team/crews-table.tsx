@@ -16,7 +16,7 @@ import {
 } from "@crm/ui/components/alert-dialog";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
-import { Card, CardHeader, CardTitle } from "@crm/ui/components/card";
+import { Card } from "@crm/ui/components/card";
 import {
 	Empty,
 	EmptyDescription,
@@ -240,10 +240,6 @@ export function CrewsTable() {
 
 	return (
 		<Card>
-			<CardHeader>
-				<CardTitle>Crews</CardTitle>
-			</CardHeader>
-
 			{crews.isPending ? (
 				<div className="flex items-center justify-center gap-2 rounded-lg border bg-card p-10 text-muted-foreground text-xs">
 					<Spinner data-icon="inline-start" />
