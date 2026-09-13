@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function ProductionPage() {
 	return (
-		<PageShell className="min-h-0" contained>
+		<PageShell className="min-h-0" contained fullWidth>
 			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle>Production</PageShellTitle>

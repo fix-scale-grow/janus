@@ -59,8 +59,11 @@ export class ProjectsRouter {
 	}
 
 	@Mutation({ input: projectUpdateInput })
-	async update(@Input() input: z.infer<typeof projectUpdateInput>) {
-		return this.projects.update(input);
+	async update(
+		@Input() input: z.infer<typeof projectUpdateInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.projects.update(input, ctx.user.id);
 	}
 
 	@Mutation({ input: projectMoveScheduleInput })
@@ -79,8 +82,11 @@ export class ProjectsRouter {
 	}
 
 	@Mutation({ input: taskUpdateInput })
-	async taskUpdate(@Input() input: z.infer<typeof taskUpdateInput>) {
-		return this.projects.taskUpdate(input);
+	async taskUpdate(
+		@Input() input: z.infer<typeof taskUpdateInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.projects.taskUpdate(input, ctx.user.id);
 	}
 
 	@Mutation({ input: taskMoveInput })

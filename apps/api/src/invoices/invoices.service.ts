@@ -8,6 +8,7 @@ import {
 import { InjectDatabase } from "../database/database.constants";
 import { MailerService } from "../mailer/mailer.service";
 import { PhotosService } from "../photos/photos.service";
+import { ProductionAdvanceService } from "../production/production-advance.service";
 import { MergeContextService } from "../templates/merge-context.service";
 import {
 	assertMergeComplete,
@@ -88,6 +89,7 @@ export class InvoicesService {
 		private readonly templates: TemplatesService,
 		private readonly mergeContext: MergeContextService,
 		private readonly photos: PhotosService,
+		private readonly production: ProductionAdvanceService,
 	) {}
 
 	async list(input: InvoiceListInput) {
@@ -209,7 +211,7 @@ export class InvoicesService {
 		});
 	}
 
-	async setStatus(input: InvoiceSetStatusInput) {
+	async setStatus(input: InvoiceSetStatusInput, actingUserId: string) {
 		const invoice = await this.db.invoice.findUnique({
 			where: { id: input.id },
 			select: { issuedAt: true },
@@ -221,27 +223,49 @@ export class InvoicesService {
 		const issuedAt =
 			input.status === "SENT" && !invoice.issuedAt ? new Date() : undefined;
 
+		let updated: {
+			id: string;
+			status: string;
+			issuedAt: Date | null;
+			dealId: string | null;
+		};
 		try {
-			return await this.db.invoice.update({
+			updated = await this.db.invoice.update({
 				where: { id: input.id },
 				data: { status: input.status, ...(issuedAt ? { issuedAt } : {}) },
-				select: { id: true, status: true, issuedAt: true },
+				select: { id: true, status: true, issuedAt: true, dealId: true },
 			});
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
+		if (input.status === "PAID" && updated.dealId) {
+			await this.production.advanceWhenPaid(updated.dealId, actingUserId);
+		}
+		const { dealId: _dealId, ...result } = updated;
+		return result;
 	}
 
-	async markPaid(id: string) {
+	async markPaid(id: string, actingUserId: string) {
+		let updated: {
+			id: string;
+			status: string;
+			paidAt: Date | null;
+			dealId: string | null;
+		};
 		try {
-			return await this.db.invoice.update({
+			updated = await this.db.invoice.update({
 				where: { id },
 				data: { status: "PAID", paidAt: new Date() },
-				select: { id: true, status: true, paidAt: true },
+				select: { id: true, status: true, paidAt: true, dealId: true },
 			});
 		} catch (error) {
 			throw this.translate(error, id);
 		}
+		if (updated.dealId) {
+			await this.production.advanceWhenPaid(updated.dealId, actingUserId);
+		}
+		const { dealId: _dealId, ...result } = updated;
+		return result;
 	}
 
 	async update(input: InvoiceUpdateInput) {

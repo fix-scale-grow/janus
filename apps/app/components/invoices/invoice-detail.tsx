@@ -167,14 +167,22 @@ export function InvoiceDetail({
 			onMutate: (input) => {
 				setQueryData((previous) => ({ ...previous, status: input.status }));
 			},
-			onSuccess: () => void cache.invoice(invoiceId, { settle: "record" }),
+			onSuccess: (result) => {
+				void cache.invoice(invoiceId, { settle: "record" });
+				if (result.status === "PAID" && data?.dealId) {
+					void cache.deal(data.dealId);
+				}
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
 
 	const markPaid = useMutation(
 		trpc.invoices.markPaid.mutationOptions({
-			onSuccess: () => void cache.invoice(invoiceId, { settle: "record" }),
+			onSuccess: () => {
+				void cache.invoice(invoiceId, { settle: "record" });
+				if (data?.dealId) void cache.deal(data.dealId);
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);

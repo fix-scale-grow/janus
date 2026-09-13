@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import { NotFoundException } from "@nestjs/common";
+import { ProductionAdvanceService } from "../src/production/production-advance.service";
 import { ProjectsService } from "../src/projects/projects.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "projects-spec";
 
-const service = new ProjectsService(db);
+const service = new ProjectsService(db, new ProductionAdvanceService(db));
 
 let userId: string;
 let dealId: string;
@@ -258,7 +259,7 @@ describe("ProjectsService", () => {
 
 		expect(rowBefore?.taskCounts).toEqual({ total: 3, done: 0 });
 
-		await service.taskUpdate({ id: task.id, status: "DONE" });
+		await service.taskUpdate({ id: task.id, status: "DONE" }, userId);
 
 		const listAfter = await service.list({
 			dealId,
@@ -411,7 +412,7 @@ describe("ProjectsService", () => {
 			},
 			userId,
 		);
-		await service.update({ id: held.id, status: "ON_HOLD" });
+		await service.update({ id: held.id, status: "ON_HOLD" }, userId);
 
 		const rows = await service.calendarRange({ from, to, status: "ACTIVE" });
 		const ids = rows.map((row) => row.id);
@@ -659,12 +660,15 @@ describe("ProjectsService", () => {
 			select: { id: true },
 		});
 
-		await service.update({
-			id: project.id,
-			contactId: contact.id,
-			estimateId: estimate.id,
-			invoiceId: invoice.id,
-		});
+		await service.update(
+			{
+				id: project.id,
+				contactId: contact.id,
+				estimateId: estimate.id,
+				invoiceId: invoice.id,
+			},
+			userId,
+		);
 		const linked = await service.byId(project.id);
 		expect(linked.contact?.id).toBe(contact.id);
 		expect(linked.estimate?.title).toBe("Roof estimate");
@@ -693,13 +697,19 @@ describe("ProjectsService", () => {
 		expect(afterEstimateDelete.estimate).toBeNull();
 
 		try {
-			await service.update({ id: project.id, invoiceId: "missing-invoice" });
+			await service.update(
+				{ id: project.id, invoiceId: "missing-invoice" },
+				userId,
+			);
 			expect.unreachable("update accepted an unknown invoice");
 		} catch (error) {
 			expect(error).toBeInstanceOf(NotFoundException);
 		}
 
-		await service.update({ id: project.id, contactId: null, invoiceId: null });
+		await service.update(
+			{ id: project.id, contactId: null, invoiceId: null },
+			userId,
+		);
 		const unlinked = await service.byId(project.id);
 		expect(unlinked.contact).toBeNull();
 		expect(unlinked.invoice).toBeNull();

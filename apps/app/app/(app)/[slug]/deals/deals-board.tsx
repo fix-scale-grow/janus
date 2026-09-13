@@ -298,7 +298,7 @@ function BoardColumn({
 	const total = rows.reduce((sum, row) => sum + (row.baseAmountCents ?? 0), 0);
 
 	return (
-		<div className="flex w-72 min-h-0 shrink-0 flex-col">
+		<div className="flex w-72 min-h-0 shrink-0 grow flex-col">
 			<div className="mb-2 rounded-lg border border-border bg-card px-3 py-2.5">
 				<div className="flex items-center justify-between">
 					<span className="flex items-center gap-2 text-sm font-semibold text-foreground">

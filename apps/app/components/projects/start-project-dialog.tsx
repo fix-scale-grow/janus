@@ -62,6 +62,7 @@ export function StartProjectDialog({
 		trpc.projects.create.mutationOptions({
 			onSuccess: async (project) => {
 				await cache.project(project.id);
+				void cache.deal(dealId);
 				setOpen(false);
 				reset();
 				router.push(workspaceUrl(`/projects/${project.id}`));

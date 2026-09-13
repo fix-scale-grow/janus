@@ -4,6 +4,7 @@ import { BadRequestException } from "@nestjs/common";
 import { InvoicesService } from "../src/invoices/invoices.service";
 import type { MailerService } from "../src/mailer/mailer.service";
 import type { PhotosService } from "../src/photos/photos.service";
+import type { ProductionAdvanceService } from "../src/production/production-advance.service";
 import type { MergeContextService } from "../src/templates/merge-context.service";
 import type { TemplateBlock } from "../src/templates/template-blocks";
 import type { TemplatesService } from "../src/templates/templates.service";
@@ -121,6 +122,11 @@ const noPhotos = {
 	pdfPhotosForInvoice: async () => [],
 } as unknown as PhotosService;
 
+const noProduction = {
+	advance: async () => {},
+	advanceWhenPaid: async () => {},
+} as unknown as ProductionAdvanceService;
+
 describe("InvoicesService.send", () => {
 	it("throws and never flips status when delivery fails", async () => {
 		const { db, updateData } = fakeDb(null);
@@ -131,6 +137,7 @@ describe("InvoicesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext(),
 			noPhotos,
+			noProduction,
 		);
 
 		await expect(service.send({ id: "inv1" })).rejects.toBeInstanceOf(
@@ -149,6 +156,7 @@ describe("InvoicesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext(),
 			noPhotos,
+			noProduction,
 		);
 
 		const result = await service.send({ id: "inv1" });
@@ -167,6 +175,7 @@ describe("InvoicesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext(),
 			noPhotos,
+			noProduction,
 		);
 
 		const result = await service.send({ id: "inv1" });
@@ -184,6 +193,7 @@ describe("InvoicesService.send", () => {
 			fakeTemplates("Your invoice from {{business.name}}"),
 			fakeMergeContext(),
 			noPhotos,
+			noProduction,
 		);
 
 		await service.send({ id: "inv1" });
@@ -200,6 +210,7 @@ describe("InvoicesService.send", () => {
 			fakeTemplates(),
 			fakeMergeContext(),
 			noPhotos,
+			noProduction,
 		);
 
 		await service.send({ id: "inv1", personalNote: "Thanks again!" });
@@ -216,6 +227,7 @@ describe("InvoicesService.send", () => {
 			fakeTemplates("Your invoice from {{business.name}}"),
 			fakeMergeContext(),
 			noPhotos,
+			noProduction,
 		);
 
 		await service.send({ id: "inv1", subject: "Custom subject" });

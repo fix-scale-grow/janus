@@ -58,13 +58,16 @@ export class InvoicesRouter {
 	}
 
 	@Mutation({ input: invoiceSetStatusInput })
-	async setStatus(@Input() input: z.infer<typeof invoiceSetStatusInput>) {
-		return this.invoices.setStatus(input);
+	async setStatus(
+		@Input() input: z.infer<typeof invoiceSetStatusInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.invoices.setStatus(input, ctx.user.id);
 	}
 
 	@Mutation({ input: invoiceIdInput })
-	async markPaid(@Input("id") id: string) {
-		return this.invoices.markPaid(id);
+	async markPaid(@Input("id") id: string, @Ctx() ctx: AuthedTrpcContext) {
+		return this.invoices.markPaid(id, ctx.user.id);
 	}
 
 	@Mutation({ input: invoiceUpdateInput })

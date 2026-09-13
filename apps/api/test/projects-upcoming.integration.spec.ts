@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { ProductionAdvanceService } from "../src/production/production-advance.service";
 import { ProjectsService } from "../src/projects/projects.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "projects-upcoming-spec";
 
-const service = new ProjectsService(db);
+const service = new ProjectsService(db, new ProductionAdvanceService(db));
 
 let userId: string;
 let dealId: string;
@@ -75,7 +76,7 @@ beforeAll(async () => {
 		startDay: tomorrow,
 		endDay: tomorrow,
 	});
-	await service.taskUpdate({ id: doneTomorrowTask.id, status: "DONE" });
+	await service.taskUpdate({ id: doneTomorrowTask.id, status: "DONE" }, userId);
 
 	await service.taskCreate({
 		projectId,

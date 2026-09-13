@@ -102,7 +102,13 @@ export function useCycleTaskStatus(projectId: string) {
 				}
 				toast.error(error.message);
 			},
-			onSettled: () => void cache.project(projectId),
+			onSettled: () => {
+				void cache.project(projectId);
+				const dealId = queryClient.getQueryData<Project>(
+					trpc.projects.byId.queryKey({ id: projectId }),
+				)?.dealId;
+				if (dealId) void cache.deal(dealId);
+			},
 		}),
 	);
 }

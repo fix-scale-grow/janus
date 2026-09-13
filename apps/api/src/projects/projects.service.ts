@@ -1,10 +1,12 @@
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import { ProductionStage, ProjectTaskStatus } from "@crm/db/enums";
 import {
 	BadRequestException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import { ProductionAdvanceService } from "../production/production-advance.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
 import { DAY_MS, PROJECTS } from "./projects.config";
 import type {
@@ -81,7 +83,10 @@ const LIST_SELECT = {
 
 @Injectable()
 export class ProjectsService {
-	constructor(@InjectDatabase() private readonly db: Db) {}
+	constructor(
+		@InjectDatabase() private readonly db: Db,
+		private readonly production: ProductionAdvanceService,
+	) {}
 
 	async list(input: ProjectListInput) {
 		const where = this.buildWhere(input);
@@ -218,7 +223,7 @@ export class ProjectsService {
 		if (input.estimateId) await this.ensureLinked("estimate", input.estimateId);
 		if (input.invoiceId) await this.ensureLinked("invoice", input.invoiceId);
 
-		return this.db.project.create({
+		const project = await this.db.project.create({
 			data: {
 				dealId: input.dealId ?? null,
 				contactId: input.contactId ?? null,
@@ -231,9 +236,17 @@ export class ProjectsService {
 				createdById: userId,
 			},
 		});
+		if (project.dealId) {
+			await this.production.advance(
+				project.dealId,
+				ProductionStage.SCHEDULED,
+				userId,
+			);
+		}
+		return project;
 	}
 
-	async update(input: ProjectUpdateInput) {
+	async update(input: ProjectUpdateInput, actingUserId: string) {
 		const { id, ...data } = input;
 		if (typeof data.dealId === "string") {
 			await this.ensureLinked("deal", data.dealId);
@@ -247,14 +260,23 @@ export class ProjectsService {
 		if (typeof data.invoiceId === "string") {
 			await this.ensureLinked("invoice", data.invoiceId);
 		}
+		let project: Awaited<ReturnType<Db["project"]["update"]>>;
 		try {
-			return await this.db.project.update({
+			project = await this.db.project.update({
 				where: { id },
 				data,
 			});
 		} catch (error) {
 			throw this.translate(error, id);
 		}
+		if (typeof data.dealId === "string") {
+			await this.production.advance(
+				data.dealId,
+				ProductionStage.SCHEDULED,
+				actingUserId,
+			);
+		}
+		return project;
 	}
 
 	private async ensureLinked(
@@ -358,15 +380,53 @@ export class ProjectsService {
 		});
 	}
 
-	async taskUpdate(input: TaskUpdateInput) {
+	async taskUpdate(input: TaskUpdateInput, actingUserId: string) {
 		const { id, ...data } = input;
+		let task: Awaited<ReturnType<Db["projectTask"]["update"]>>;
 		try {
-			return await this.db.projectTask.update({
+			task = await this.db.projectTask.update({
 				where: { id },
 				data,
 			});
 		} catch (error) {
 			throw this.translate(error, id);
+		}
+		if (data.status !== undefined) {
+			await this.advanceFromTaskStatus(task.projectId, actingUserId);
+		}
+		return task;
+	}
+
+	private async advanceFromTaskStatus(projectId: string, actingUserId: string) {
+		const project = await this.db.project.findUnique({
+			where: { id: projectId },
+			select: {
+				dealId: true,
+				tasks: { select: { status: true } },
+			},
+		});
+		if (!project?.dealId || project.tasks.length === 0) return;
+
+		const statuses = project.tasks.map((task) => task.status);
+		const allDone = statuses.every(
+			(status) => status === ProjectTaskStatus.DONE,
+		);
+		const anyStarted = statuses.some(
+			(status) => status !== ProjectTaskStatus.TODO,
+		);
+
+		if (allDone) {
+			await this.production.advance(
+				project.dealId,
+				ProductionStage.COMPLETE,
+				actingUserId,
+			);
+		} else if (anyStarted) {
+			await this.production.advance(
+				project.dealId,
+				ProductionStage.IN_PROGRESS,
+				actingUserId,
+			);
 		}
 	}
 
