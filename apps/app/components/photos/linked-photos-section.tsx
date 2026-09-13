@@ -43,11 +43,13 @@ export function LinkedPhotosSection({
 	targetId,
 	dealId,
 	contactId,
+	onAttachAnchor,
 }: {
 	surface: "estimate" | "invoice";
 	targetId: string;
 	dealId: string | null;
 	contactId: string | null;
+	onAttachAnchor?: () => void;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -264,6 +266,9 @@ export function LinkedPhotosSection({
 				onOpenChange={setDialogOpen}
 				dealId={dealId}
 				contactId={contactId}
+				estimateId={isEstimate ? targetId : undefined}
+				invoiceId={isEstimate ? undefined : targetId}
+				onAttachAnchor={onAttachAnchor}
 				linkedPhotoIds={photoIds}
 				attaching={attachPending}
 				onAttach={procs.attach}

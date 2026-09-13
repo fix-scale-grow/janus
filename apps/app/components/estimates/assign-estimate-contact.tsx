@@ -33,14 +33,23 @@ export type EstimateContact = RouterOutputs["estimates"]["byId"]["contact"];
 export function AssignEstimateContact({
 	estimateId,
 	contact,
+	open: openProp,
+	onOpenChange,
 }: {
 	estimateId: string;
 	contact: EstimateContact;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = openProp ?? internalOpen;
+	const setOpen = (next: boolean) => {
+		onOpenChange?.(next);
+		if (openProp === undefined) setInternalOpen(next);
+	};
 	const [mode, setMode] = useState<"existing" | "new">("existing");
 	const [query, setQuery] = useState("");
 	const [text, setText] = useSearchInput(query, setQuery);

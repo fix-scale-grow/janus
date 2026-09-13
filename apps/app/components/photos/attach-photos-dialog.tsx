@@ -42,6 +42,9 @@ export function AttachPhotosDialog({
 	onOpenChange,
 	dealId,
 	contactId,
+	estimateId,
+	invoiceId,
+	onAttachAnchor,
 	linkedPhotoIds,
 	attaching,
 	onAttach,
@@ -50,6 +53,9 @@ export function AttachPhotosDialog({
 	onOpenChange: (open: boolean) => void;
 	dealId: string | null;
 	contactId: string | null;
+	estimateId?: string;
+	invoiceId?: string;
+	onAttachAnchor?: () => void;
 	linkedPhotoIds: string[];
 	attaching: boolean;
 	onAttach: (photoId: string) => void;
@@ -60,6 +66,8 @@ export function AttachPhotosDialog({
 	const { upload, uploading } = usePhotoUpload({
 		dealId: dealId ?? undefined,
 		contactId: dealId ? undefined : (contactId ?? undefined),
+		estimateId: anchorless ? estimateId : undefined,
+		invoiceId: anchorless && !estimateId ? invoiceId : undefined,
 	});
 
 	const photos = useQuery({
@@ -84,7 +92,7 @@ export function AttachPhotosDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				{anchorless ? (
+				{anchorless && !estimateId && !invoiceId ? (
 					<Empty>
 						<EmptyHeader>
 							<EmptyMedia variant="icon">
@@ -96,6 +104,48 @@ export function AttachPhotosDialog({
 							</EmptyDescription>
 						</EmptyHeader>
 					</Empty>
+				) : anchorless ? (
+					<div className="flex flex-col gap-4">
+						<input
+							ref={fileInput}
+							type="file"
+							accept="image/*"
+							multiple
+							className="sr-only"
+							onChange={(event) => {
+								const files = Array.from(event.target.files ?? []);
+								event.target.value = "";
+								if (files.length > 0) void upload(files);
+							}}
+						/>
+						<div className="flex flex-wrap items-center gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								disabled={uploading}
+								onClick={() => fileInput.current?.click()}
+							>
+								<Icon icon={Add} />
+								Upload photos
+							</Button>
+							{onAttachAnchor ? (
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={() => {
+										onOpenChange(false);
+										onAttachAnchor();
+									}}
+								>
+									Attach a job or contact
+								</Button>
+							) : null}
+						</div>
+						<p className="text-muted-foreground text-sm">
+							Uploads attach straight to this document. Attach a job or contact
+							to pick from their photo library too.
+						</p>
+					</div>
 				) : (
 					<div className="flex flex-col gap-4">
 						<input

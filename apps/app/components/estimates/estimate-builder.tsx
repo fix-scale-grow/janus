@@ -180,6 +180,7 @@ export function EstimateBuilder({
 	const [resyncResult, setResyncResult] = useState<ResyncResult | null>(null);
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
+	const [assignContactOpen, setAssignContactOpen] = useState(false);
 
 	const setQueryData = (
 		updater: (previous: EstimateDetail) => EstimateDetail,
@@ -402,6 +403,8 @@ export function EstimateBuilder({
 					<AssignEstimateContact
 						estimateId={estimateId}
 						contact={data.contact}
+						open={assignContactOpen}
+						onOpenChange={setAssignContactOpen}
 					/>
 					<Button
 						variant="outline"
@@ -524,6 +527,7 @@ export function EstimateBuilder({
 						targetId={estimateId}
 						dealId={data.dealId ?? null}
 						contactId={data.contactId ?? null}
+						onAttachAnchor={() => setAssignContactOpen(true)}
 					/>
 				</div>
 			</PageShellContent>

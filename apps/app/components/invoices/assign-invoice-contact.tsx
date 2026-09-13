@@ -28,14 +28,23 @@ import { useTRPC } from "@/lib/trpc/client";
 export function AssignInvoiceContact({
 	invoiceId,
 	contactId,
+	open: openProp,
+	onOpenChange,
 }: {
 	invoiceId: string;
 	contactId: string | null;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const open = openProp ?? internalOpen;
+	const setOpen = (next: boolean) => {
+		onOpenChange?.(next);
+		if (openProp === undefined) setInternalOpen(next);
+	};
 	const [query, setQuery] = useState("");
 	const [text, setText] = useSearchInput(query, setQuery);
 

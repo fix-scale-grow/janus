@@ -151,6 +151,7 @@ export function InvoiceDetail({
 
 	const [downloading, setDownloading] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
+	const [assignContactOpen, setAssignContactOpen] = useState(false);
 
 	const setQueryData = (
 		updater: (previous: InvoiceDetailData) => InvoiceDetailData,
@@ -293,6 +294,8 @@ export function InvoiceDetail({
 					<AssignInvoiceContact
 						invoiceId={invoiceId}
 						contactId={data.contactId}
+						open={assignContactOpen}
+						onOpenChange={setAssignContactOpen}
 					/>
 					<Button
 						variant="outline"
@@ -421,6 +424,7 @@ export function InvoiceDetail({
 						targetId={invoiceId}
 						dealId={data.dealId ?? null}
 						contactId={data.contactId ?? null}
+						onAttachAnchor={() => setAssignContactOpen(true)}
 					/>
 
 					<div className="flex justify-end border-t pt-4">
