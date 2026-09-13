@@ -8,6 +8,7 @@ const DISABLED_TOOLS = new Set(["agent.ts"]);
 
 const GATED_BY_APPROVAL_CARD = new Set([
 	"archive_field.ts",
+	"fill_worksheet.ts",
 	"propose_drawing_tags.ts",
 	"propose_estimate_lines.ts",
 	"record_job_change.ts",

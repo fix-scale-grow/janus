@@ -88,6 +88,7 @@ const VERBS: Record<string, string> = {
 	read_permit: "Read the permit",
 	read_playbook: "Read the permit playbook",
 	write_playbook_draft: "Drafted permit playbook facts",
+	fill_worksheet: "Filled worksheet fields for review",
 
 	load_skill: "Read its instructions for this",
 	web_search: "Searched the web",

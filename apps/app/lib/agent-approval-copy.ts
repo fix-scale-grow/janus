@@ -224,6 +224,35 @@ function serviceUpdateOutcome(
 	return `Applied — ${plural((output.diff ?? []).length, "field")} updated`;
 }
 
+type FillWorksheetInput = { permitId: string; answers: Record<string, string> };
+
+function isFillWorksheetInput(
+	value: Record<string, unknown> | null,
+): value is FillWorksheetInput {
+	if (value === null) return false;
+	return (
+		typeof value.permitId === "string" &&
+		value.answers !== null &&
+		typeof value.answers === "object"
+	);
+}
+
+type FillWorksheetOutput = AppliedOutput & { filled?: unknown[] };
+
+function isFillWorksheetOutput(value: unknown): value is FillWorksheetOutput {
+	if (!isAppliedOutput(value)) return false;
+	if (!value.applied) return true;
+	return Array.isArray((value as Record<string, unknown>).filled);
+}
+
+function fillWorksheetOutcome(
+	output: Record<string, unknown> | null,
+): string | null {
+	if (!isFillWorksheetOutput(output)) return null;
+	if (!output.applied) return `Not applied — ${output.reason}`;
+	return "Applied — fields await your review";
+}
+
 function genericOutcome(output: Record<string, unknown> | null): string | null {
 	if (output === null) return null;
 	if (output.applied === false) {
@@ -305,11 +334,32 @@ export const APPROVAL_COPY: Record<string, ApprovalCopy> = {
 		},
 		outcome: estimateLinesOutcome,
 	},
+
+	fill_worksheet: {
+		title: "Approve worksheet AI fill",
+		render: (input) => {
+			if (!isFillWorksheetInput(input)) return [{ rows: [] }];
+			const keys = Object.keys(input.answers);
+
+			return [
+				{
+					rows: [
+						{
+							label: "Fields",
+							value: plural(keys.length, "field"),
+						},
+					],
+				},
+			];
+		},
+		outcome: fillWorksheetOutcome,
+	},
 };
 
 export type CacheInvalidationEntry =
 	| { kind: "drawing"; id: string }
 	| { kind: "estimate"; id: string }
+	| { kind: "permit"; id: string }
 	| { kind: "service"; id: string };
 
 function stringField(
@@ -324,12 +374,13 @@ const APPROVAL_INVALIDATION: Record<
 	string,
 	(
 		input: Record<string, unknown> | null,
-		recordId: string,
+		recordId: string | null,
 	) => CacheInvalidationEntry[]
 > = {
-	propose_drawing_tags: (input, recordId) => [
-		{ kind: "drawing", id: stringField(input, "drawingId") ?? recordId },
-	],
+	propose_drawing_tags: (input, recordId) => {
+		const id = stringField(input, "drawingId") ?? recordId;
+		return id ? [{ kind: "drawing", id }] : [];
+	},
 	propose_estimate_lines: (input) => {
 		const id = stringField(input, "estimateId");
 		return id ? [{ kind: "estimate", id }] : [];
@@ -338,12 +389,16 @@ const APPROVAL_INVALIDATION: Record<
 		const id = stringField(input, "serviceId");
 		return id ? [{ kind: "service", id }] : [];
 	},
+	fill_worksheet: (input) => {
+		const id = stringField(input, "permitId");
+		return id ? [{ kind: "permit", id }] : [];
+	},
 };
 
 export function invalidationFor(
 	toolName: string,
 	input: Record<string, unknown> | null,
-	recordId: string,
+	recordId: string | null,
 ): CacheInvalidationEntry[] {
 	return APPROVAL_INVALIDATION[toolName]?.(input, recordId) ?? [];
 }
