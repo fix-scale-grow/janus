@@ -13,7 +13,7 @@ import { TEMPLATE_PURPOSE_ORDER } from "@/components/templates/template-labels";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
-import { DocumentChromeForm } from "./document-chrome-form";
+import { DocumentChromeCard } from "./document-chrome-card";
 import { TemplatesTable } from "./templates-table";
 
 export const metadata: Metadata = {
@@ -62,7 +62,7 @@ async function Templates() {
 		<HydrateClient>
 			<div className="flex max-w-4xl flex-col gap-6">
 				<TemplatesTable />
-				<DocumentChromeForm />
+				<DocumentChromeCard />
 			</div>
 		</HydrateClient>
 	);
