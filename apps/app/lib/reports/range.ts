@@ -46,7 +46,11 @@ export function presetRange(
 		return { from: new Date(dayStart.getTime() - 89 * DAY_MS), to };
 	}
 	return {
-		from: new Date(dayStart.getFullYear(), dayStart.getMonth() - 11, dayStart.getDate()),
+		from: new Date(
+			dayStart.getFullYear(),
+			dayStart.getMonth() - 11,
+			dayStart.getDate(),
+		),
 		to,
 	};
 }
