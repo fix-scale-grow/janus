@@ -123,6 +123,23 @@ export class DrawingsService {
 
 		try {
 			return await this.db.$transaction(async (tx) => {
+				if (input.expectedSceneUpdatedAt !== undefined) {
+					const stored = await tx.drawing.findUnique({
+						where: { id: input.id },
+						select: { sceneUpdatedAt: true },
+					});
+					if (!stored) {
+						throw new NotFoundException(`No drawing with id ${input.id}.`);
+					}
+					const expected = input.expectedSceneUpdatedAt?.getTime() ?? null;
+					const actual = stored.sceneUpdatedAt?.getTime() ?? null;
+					if (expected !== actual) {
+						throw new ConflictException(
+							"This drawing changed in another window. Reload to keep editing.",
+						);
+					}
+				}
+
 				const updated = await tx.drawing.update({
 					where: { id: input.id },
 					data: {
@@ -132,7 +149,7 @@ export class DrawingsService {
 							| Prisma.InputJsonValue
 							| undefined,
 					},
-					select: { updatedAt: true },
+					select: { updatedAt: true, sceneUpdatedAt: true },
 				});
 
 				if (needsVersion) {

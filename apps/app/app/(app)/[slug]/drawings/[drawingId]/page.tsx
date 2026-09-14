@@ -44,6 +44,7 @@ async function PrefetchedDrawing({
 			address={row.address}
 			initialScene={parseDrawingScene(row.scene)}
 			initialScale={parseDrawingScale(row.scale)}
+			initialSceneUpdatedAt={row.sceneUpdatedAt}
 			maptilerApiKey={maptilerApiKey()}
 		/>
 	);

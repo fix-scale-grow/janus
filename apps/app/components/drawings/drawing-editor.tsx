@@ -30,8 +30,14 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@crm/ui/components/sheet";
+import { Spinner } from "@crm/ui/components/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
 import { Toggle } from "@crm/ui/components/toggle";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@crm/ui/components/tooltip";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type {
 	ExcalidrawImperativeAPI,
@@ -90,6 +96,7 @@ export type DrawingEditorProps = {
 	address: string | null;
 	initialScene: DrawingScene;
 	initialScale: DrawingScale | null;
+	initialSceneUpdatedAt: string | null;
 	maptilerApiKey: string | null;
 };
 
@@ -162,10 +169,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [historyOpen, setHistoryOpen] = useState(false);
 	const [clearOpen, setClearOpen] = useState(false);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
-	const { queueSave, cancelPending, flushPending } = useDrawingAutosave(
+	const { queueSave, cancelPending, flushPending, status } = useDrawingAutosave(
 		props.drawingId,
 		sceneRef,
 		scale,
+		props.initialSceneUpdatedAt,
 		() => {
 			if (apiRef.current) void captureThumbnail(apiRef.current);
 		},
@@ -828,13 +836,39 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					)}
 				</div>
 
-				<Button
-					className="absolute top-3 right-3 z-10"
-					onClick={() => setAskJanusOpen(true)}
-					variant="outline"
-				>
-					Ask Janus
-				</Button>
+				<div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+					{status === "conflict" ? (
+						<Button
+							onClick={() => window.location.reload()}
+							variant="destructive"
+						>
+							Changed elsewhere — reload
+						</Button>
+					) : (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button onClick={() => void flushPending()} variant="outline">
+									{status === "saving" ? (
+										<>
+											<Spinner data-icon="inline-start" />
+											Saving…
+										</>
+									) : (
+										"Saved"
+									)}
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>
+								{status === "saving"
+									? "Writing your changes now."
+									: "Everything is saved. Click to save again right away."}
+							</TooltipContent>
+						</Tooltip>
+					)}
+					<Button onClick={() => setAskJanusOpen(true)} variant="outline">
+						Ask Janus
+					</Button>
+				</div>
 
 				{surface === "sketch" && (
 					<DrawingToolbar

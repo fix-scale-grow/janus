@@ -57,6 +57,7 @@ export const drawingSaveSceneInput = z.object({
 	id: z.string().min(1),
 	scene: drawingScene,
 	scale: drawingScale.nullish(),
+	expectedSceneUpdatedAt: z.coerce.date().nullish(),
 });
 
 export type DrawingSaveSceneInput = z.infer<typeof drawingSaveSceneInput>;
