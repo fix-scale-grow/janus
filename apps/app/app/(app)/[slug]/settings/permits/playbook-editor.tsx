@@ -285,6 +285,9 @@ function DocumentsEditor({
 				label: "",
 				reusable: false,
 				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
 			},
 		]);
 	};
@@ -477,6 +480,8 @@ function InspectionsEditor({
 								name: "",
 								when: null,
 								criticalNote: null,
+								verifiedById: null,
+								verifiedAt: null,
 							},
 						])
 					}

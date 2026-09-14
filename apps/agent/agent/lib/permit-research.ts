@@ -135,11 +135,16 @@ function draftToPlaybookFacts(draft: DraftPlaybookFacts): PlaybookFacts {
 			label: doc.label,
 			reusable: doc.reusable,
 			sourceUrl: doc.sourceUrl ?? null,
+			lockerKind: null,
+			verifiedById: null,
+			verifiedAt: null,
 		})),
 		inspections: (draft.inspections ?? []).map((inspection) => ({
 			name: inspection.name,
 			when: inspection.when ?? null,
 			criticalNote: inspection.criticalNote ?? null,
+			verifiedById: null,
+			verifiedAt: null,
 		})),
 	};
 }
@@ -295,13 +300,22 @@ export async function writePlaybookDraft(
 		typeLabel,
 	});
 
-	const existingFacts = parsePlaybookFacts(playbook.facts);
-	const draftFacts = draftToPlaybookFacts(input.facts);
-	const merged = mergeDraftFacts(existingFacts, draftFacts);
+	await db.$transaction(async (tx) => {
+		await tx.$queryRaw`
+			SELECT id FROM "permit_playbook" WHERE id = ${playbook.id} FOR UPDATE
+		`;
+		const current = await tx.permitPlaybook.findUniqueOrThrow({
+			where: { id: playbook.id },
+			select: { facts: true },
+		});
+		const existingFacts = parsePlaybookFacts(current.facts);
+		const draftFacts = draftToPlaybookFacts(input.facts);
+		const merged = mergeDraftFacts(existingFacts, draftFacts);
 
-	await db.permitPlaybook.update({
-		where: { id: playbook.id },
-		data: { facts: factsToJson(merged) },
+		await tx.permitPlaybook.update({
+			where: { id: playbook.id },
+			data: { facts: factsToJson(merged) },
+		});
 	});
 
 	return {

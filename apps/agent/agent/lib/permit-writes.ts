@@ -16,6 +16,9 @@ export async function fillWorksheetAnswers(
 	answers: Record<string, string>,
 ): Promise<FillWorksheetResult> {
 	return db.$transaction(async (tx) => {
+		await tx.$queryRaw`
+			SELECT id FROM "permit" WHERE id = ${permitId} FOR UPDATE
+		`;
 		const permit = await tx.permit.findUnique({
 			where: { id: permitId },
 			select: { dealId: true, playbookId: true, worksheetAnswers: true },

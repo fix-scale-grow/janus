@@ -133,7 +133,10 @@ export function InspectionsSection({
 								size="icon-xs"
 								disabled={deleteInspection.isPending}
 								onClick={() =>
-									deleteInspection.mutate({ inspectionId: inspection.id })
+									deleteInspection.mutate({
+										permitId,
+										inspectionId: inspection.id,
+									})
 								}
 							>
 								<Icon icon={TrashCan} />

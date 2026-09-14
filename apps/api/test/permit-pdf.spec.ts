@@ -16,15 +16,16 @@ function fixture() {
 		feeCents: 15000,
 		currency: "USD",
 		fields: [
-			{ label: "Job name", value: "Smith re-roof" },
-			{ label: "Owner email", value: "" },
+			{ key: "job_name", label: "Job name", value: "Smith re-roof" },
+			{ key: "owner_email", label: "Owner email", value: "" },
 		],
 		checklist: [
-			{ label: "Site plan", attached: true },
-			{ label: "Elevations", attached: false },
+			{ slotKey: "site_plan", label: "Site plan", attached: true },
+			{ slotKey: "elevations", label: "Elevations", attached: false },
 		],
 		inspections: [
 			{
+				id: "inspection-1",
 				name: "Final inspection",
 				scheduledFor: new Date("2026-02-01"),
 				result: "PENDING",
