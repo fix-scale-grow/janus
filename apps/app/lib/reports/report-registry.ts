@@ -2,6 +2,11 @@ import type { ComponentType } from "react";
 import { ArAgingReport } from "@/components/reports/reports/ar-aging";
 import { CostBreakdownReport } from "@/components/reports/reports/cost-breakdown";
 import { JobProfitabilityReport } from "@/components/reports/reports/job-profitability";
+import { LeadSourcesReport } from "@/components/reports/reports/lead-sources";
+import { LeaderboardReport } from "@/components/reports/reports/leaderboard";
+import { PermitsReport } from "@/components/reports/reports/permits-report";
+import { PipelineReport } from "@/components/reports/reports/pipeline";
+import { ProductionReport } from "@/components/reports/reports/production";
 import { ProfitOverTimeReport } from "@/components/reports/reports/profit-over-time";
 
 export const REPORT_IDS = [
@@ -65,24 +70,28 @@ export const REPORT_REGISTRY: ReportMeta[] = [
 		title: "Sales leaderboard",
 		description: "Win rate, deals moved and activity logged, by owner.",
 		money: false,
+		component: LeaderboardReport,
 	},
 	{
 		id: "pipeline",
 		title: "Pipeline win/loss",
 		description: "Win rate, loss reasons and velocity, by stage.",
 		money: false,
+		component: PipelineReport,
 	},
 	{
 		id: "lead-sources",
 		title: "Lead sources",
 		description: "Contacts and deals by source, with form conversion.",
 		money: false,
+		component: LeadSourcesReport,
 	},
 	{
 		id: "production",
 		title: "Production and crews",
 		description: "Throughput by production stage and by crew.",
 		money: false,
+		component: ProductionReport,
 	},
 	{
 		id: "permits",
@@ -90,6 +99,7 @@ export const REPORT_REGISTRY: ReportMeta[] = [
 		description:
 			"Status, turnaround time by jurisdiction and inspection pass rate.",
 		money: false,
+		component: PermitsReport,
 	},
 ];
 
