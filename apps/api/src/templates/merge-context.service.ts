@@ -14,6 +14,7 @@ export type MergeContextRefs = {
 	contractId?: string;
 	senderName?: string;
 	signingLink?: string;
+	proposalLink?: string;
 	personalNote?: string;
 };
 
@@ -92,6 +93,7 @@ export class MergeContextService {
 
 		if (refs.senderName) context["sender.name"] = refs.senderName;
 		if (refs.signingLink) context.signing_link = refs.signingLink;
+		if (refs.proposalLink) context.proposal_link = refs.proposalLink;
 		if (refs.personalNote) context.personal_note = refs.personalNote;
 
 		if (refs.contactId) {

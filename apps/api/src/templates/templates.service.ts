@@ -159,7 +159,10 @@ export class TemplatesService {
 		const subject = template.subject
 			? applyMergeFields(template.subject, context)
 			: "";
-		const mode = input.purpose === "CONTRACT_BODY" ? "document" : "email";
+		const mode =
+			input.purpose === "CONTRACT_BODY" || input.purpose === "PROPOSAL_BODY"
+				? "document"
+				: "email";
 		const brand = await resolveEmailBrand(this.db);
 		const { html } = renderEmailHtml(blocks, context, mode, brand);
 
@@ -167,6 +170,7 @@ export class TemplatesService {
 		const tokens = collectTokens(template.subject ?? "", blocks);
 		const missing = missingMerges(tokens, context, registry).filter((entry) => {
 			if (entry.token === "signing_link") return false;
+			if (entry.token === "proposal_link") return false;
 			if (entry.token === "sender.name" && senderName) return false;
 			return true;
 		});

@@ -27,6 +27,16 @@ export const TEMPLATE_LABELS: Record<TemplatePurpose, TemplateLabel> = {
 		usedFor: "The agreement text a contract is built from.",
 		slug: "contract-body",
 	},
+	[TemplatePurpose.PROPOSAL_SEND]: {
+		name: "Proposal email",
+		usedFor: "Sent when a proposal link goes to a contact.",
+		slug: "proposal-email",
+	},
+	[TemplatePurpose.PROPOSAL_BODY]: {
+		name: "Standard proposal",
+		usedFor: "The starting sections a new proposal is built from.",
+		slug: "proposal-body",
+	},
 	[TemplatePurpose.FORM_NOTIFY]: {
 		name: "Form notification",
 		usedFor: "Sent to the workspace when a website form is submitted.",
@@ -37,6 +47,8 @@ export const TEMPLATE_LABELS: Record<TemplatePurpose, TemplateLabel> = {
 export const TEMPLATE_PURPOSE_ORDER: TemplatePurpose[] = [
 	TemplatePurpose.ESTIMATE_SEND,
 	TemplatePurpose.INVOICE_SEND,
+	TemplatePurpose.PROPOSAL_SEND,
+	TemplatePurpose.PROPOSAL_BODY,
 	TemplatePurpose.CONTRACT_SEND,
 	TemplatePurpose.CONTRACT_BODY,
 	TemplatePurpose.FORM_NOTIFY,

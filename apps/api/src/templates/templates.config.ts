@@ -26,7 +26,7 @@ export const MERGE_FIELDS = {
 	estimate: ["estimate.title", "estimate.total", "estimate.tier"],
 	invoice: ["invoice.number", "invoice.total", "invoice.due_date"],
 	contract: ["contract.number", "contract.title"],
-	send: ["signing_link", "personal_note"],
+	send: ["signing_link", "proposal_link", "personal_note"],
 	form: ["form.name"],
 } as const;
 
@@ -98,6 +98,7 @@ export const STATIC_MERGE_FIELD_GROUPS: StaticMergeFieldGroup[] = [
 		label: "Sending",
 		fields: [
 			{ token: "signing_link", label: "Signing link" },
+			{ token: "proposal_link", label: "Proposal link" },
 			{ token: "personal_note", label: "Personal note" },
 		],
 	},
@@ -126,6 +127,7 @@ export const SAMPLE_MERGE_CONTEXT: Record<MergeFieldToken, string> = {
 	"contract.number": "204",
 	"contract.title": "Roof replacement agreement",
 	signing_link: "https://app.example.com/sign/abc123",
+	proposal_link: "https://app.example.com/proposal/abc123",
 	personal_note: "Thanks again for choosing us, see you Tuesday!",
 	"form.name": "Roofing contact form",
 };
@@ -183,6 +185,34 @@ const formNotifyBlocks: TemplateBlocks = [
 	{ kind: "divider" },
 ];
 
+const proposalSendBlocks: TemplateBlocks = [
+	{ kind: "logo" },
+	{ kind: "heading", text: "Your proposal is ready" },
+	{
+		kind: "text",
+		html: "Hi {{contact.first_name}}, your proposal from {{business.name}} is ready to review. Open it online to see your options and pick the one that fits.",
+	},
+	{ kind: "button", label: "View your proposal" },
+	{ kind: "divider" },
+	{
+		kind: "text",
+		html: "If the button does not work, open this link: {{proposal_link}}. {{personal_note}}<br>Reply to this email with any questions.<br>{{sender.name}}, {{business.name}}",
+	},
+];
+
+const proposalBodyBlocks: TemplateBlocks = [
+	{ kind: "heading", text: "Prepared for {{contact.full_name}}" },
+	{
+		kind: "text",
+		html: "Thank you for the opportunity to work on {{deal.title}}. This proposal covers everything we discussed, with three options priced below. Pick the one that fits and accept online.",
+	},
+	{ kind: "heading", text: "Why {{business.name}}" },
+	{
+		kind: "text",
+		html: "Licensed and insured, with a workmanship warranty on every job. We show up when we say we will and leave the site cleaner than we found it.",
+	},
+];
+
 const contractBodyBlocks: TemplateBlocks = [
 	{ kind: "heading", text: "Roofing Services Agreement" },
 	{
@@ -238,6 +268,18 @@ export const DEFAULT_TEMPLATES: Record<
 		type: TemplateType.CONTRACT,
 		subject: null,
 		blocks: contractBodyBlocks,
+	},
+	[TemplatePurpose.PROPOSAL_SEND]: {
+		name: "Proposal email",
+		type: TemplateType.EMAIL,
+		subject: "Your proposal from {{business.name}}",
+		blocks: proposalSendBlocks,
+	},
+	[TemplatePurpose.PROPOSAL_BODY]: {
+		name: "Standard proposal",
+		type: TemplateType.CONTRACT,
+		subject: null,
+		blocks: proposalBodyBlocks,
 	},
 	[TemplatePurpose.FORM_NOTIFY]: {
 		name: "Form notification",
