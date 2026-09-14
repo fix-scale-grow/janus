@@ -14,9 +14,7 @@ export function KpiRow({ kpis }: { kpis: ReportKpi[] }) {
 	if (kpis.length === 0) return null;
 
 	return (
-		<div
-			className="grid gap-px overflow-hidden rounded-lg border bg-border [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]"
-		>
+		<div className="grid gap-px overflow-hidden rounded-lg border bg-border [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
 			{kpis.map((kpi) => (
 				<StatCard
 					key={kpi.key}
