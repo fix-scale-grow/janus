@@ -2,8 +2,10 @@
 
 import AreaCustom from "@carbon/icons-react/es/AreaCustom";
 import ArrowUpRight from "@carbon/icons-react/es/ArrowUpRight";
+import ColorPalette from "@carbon/icons-react/es/ColorPalette";
 import Cursor_1 from "@carbon/icons-react/es/Cursor_1";
 import DataVis_1 from "@carbon/icons-react/es/DataVis_1";
+import Download from "@carbon/icons-react/es/Download";
 import HistoryIcon from "@carbon/icons-react/es/History";
 import ImageIcon from "@carbon/icons-react/es/Image";
 import Location from "@carbon/icons-react/es/Location";
@@ -15,12 +17,16 @@ import Ruler from "@carbon/icons-react/es/Ruler";
 import Shapes from "@carbon/icons-react/es/Shapes";
 import SquareOutline from "@carbon/icons-react/es/SquareOutline";
 import StringText from "@carbon/icons-react/es/StringText";
+import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@crm/ui/components/dropdown-menu";
 import { type CarbonIcon, Icon } from "@crm/ui/components/icon";
@@ -43,15 +49,26 @@ export type OverflowAction =
 	| "background"
 	| "history"
 	| "mark-area"
-	| "mark-line";
+	| "mark-line"
+	| "export"
+	| "clear";
 
 export type DrawingToolbarProps = {
 	mode: ToolMode;
 	onModeChange: (mode: ToolMode) => void;
 	onOverflowAction: (action: OverflowAction) => void;
+	onCanvasBackground: (color: string) => void;
 	scaleLabel: string | null;
 	symbolPalette: React.ReactNode;
 };
+
+const CANVAS_BACKGROUNDS = [
+	{ color: "#ffffff", label: "White" },
+	{ color: "#f8f9fa", label: "Grey" },
+	{ color: "#f5faff", label: "Blue" },
+	{ color: "#fffce8", label: "Yellow" },
+	{ color: "#fdf8f6", label: "Beige" },
+] as const;
 
 const SHAPE_ICONS: Record<ShapeMode, CarbonIcon> = {
 	rectangle: SquareOutline,
@@ -226,6 +243,37 @@ export function DrawingToolbar(props: DrawingToolbarProps) {
 						>
 							<Icon icon={HistoryIcon} />
 							Version history
+						</DropdownMenuItem>
+						<DropdownMenuItem onSelect={() => props.onOverflowAction("export")}>
+							<Icon icon={Download} />
+							Export image
+						</DropdownMenuItem>
+						<DropdownMenuSub>
+							<DropdownMenuSubTrigger>
+								<Icon icon={ColorPalette} />
+								Canvas background
+							</DropdownMenuSubTrigger>
+							<DropdownMenuSubContent>
+								{CANVAS_BACKGROUNDS.map((option) => (
+									<DropdownMenuItem
+										key={option.color}
+										onSelect={() => props.onCanvasBackground(option.color)}
+									>
+										<span
+											className="size-4 rounded-sm border border-border"
+											style={{ backgroundColor: option.color }}
+										/>
+										{option.label}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuSubContent>
+						</DropdownMenuSub>
+						<DropdownMenuItem
+							onSelect={() => props.onOverflowAction("clear")}
+							variant="destructive"
+						>
+							<Icon icon={TrashCan} />
+							Clear canvas
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
 						<DropdownMenuLabel>Selected shapes</DropdownMenuLabel>

@@ -12,6 +12,16 @@ import {
 	scopeCustomData,
 	symbolPinCustomData,
 } from "@crm/drawings";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@crm/ui/components/alert-dialog";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
 import {
@@ -150,6 +160,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const markingArmedRef = useRef(false);
 	const calibrationOpenRef = useRef(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
+	const [clearOpen, setClearOpen] = useState(false);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
 	const { queueSave, cancelPending, flushPending } = useDrawingAutosave(
 		props.drawingId,
@@ -499,6 +510,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				"@excalidraw/excalidraw"
 			);
 			const size = DRAWINGS.pin.sizePx;
+			const accent = accentColors();
 			const customData: ScopeCustomData = {
 				scopeId: crypto.randomUUID(),
 				kind: "pin",
@@ -513,6 +525,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					y: scenePoint.y - size / 2,
 					width: size,
 					height: size,
+					strokeColor: accent.stroke,
+					backgroundColor: accent.fill,
+					fillStyle: "solid",
 					customData,
 				},
 			]);
@@ -537,14 +552,62 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		[placePin, setMode],
 	);
 
+	const exportImage = useCallback(async () => {
+		const api = apiRef.current;
+		if (!api) return;
+		const { exportToBlob } = await import("@excalidraw/excalidraw");
+		const blob = await exportToBlob({
+			elements: api.getSceneElements(),
+			appState: { ...api.getAppState(), exportBackground: true },
+			files: api.getFiles(),
+			mimeType: "image/png",
+		});
+		const url = URL.createObjectURL(blob);
+		const anchor = document.createElement("a");
+		anchor.href = url;
+		anchor.download = `${props.title || "drawing"}.png`;
+		anchor.click();
+		URL.revokeObjectURL(url);
+	}, [props.title]);
+
+	const setCanvasBackground = useCallback(
+		(color: string) => {
+			const api = apiRef.current;
+			if (!api) return;
+			api.updateScene({ appState: { viewBackgroundColor: color } });
+			queueSave();
+		},
+		[queueSave],
+	);
+
+	const clearCanvas = useCallback(async () => {
+		const api = apiRef.current;
+		if (!api) return;
+		const { CaptureUpdateAction, newElementWith } = await import(
+			"@excalidraw/excalidraw"
+		);
+		const elements = api
+			.getSceneElements()
+			.map((element) => newElementWith(element, { isDeleted: true }));
+		api.updateScene({
+			elements,
+			appState: { selectedElementIds: {} },
+			captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+		});
+		queueSave();
+		toast.success("Canvas cleared. Undo or version history brings it back.");
+	}, [queueSave]);
+
 	const handleOverflowAction = useCallback(
 		(action: OverflowAction) => {
 			if (action === "background") openFilePicker();
 			if (action === "history") setHistoryOpen(true);
 			if (action === "mark-area") void stampSelection("area");
 			if (action === "mark-line") void stampSelection("line");
+			if (action === "export") void exportImage();
+			if (action === "clear") setClearOpen(true);
 		},
-		[openFilePicker, stampSelection],
+		[openFilePicker, stampSelection, exportImage],
 	);
 
 	const updateShape = useCallback(
@@ -644,6 +707,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 						.janus-drawing-canvas .App-toolbar__extra-tools-trigger { display: none; }
 						.janus-drawing-canvas .App-toolbar-container { display: none; }
 						.janus-drawing-canvas .App-menu__left { margin-left: 56px; }
+						.janus-drawing-canvas .main-menu-trigger { display: none; }
 						.excalidraw-modal-container .HelpDialog__header { display: none; }
 					`}</style>
 					<JanusExcalidraw
@@ -675,7 +739,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					/>
 				)}
 
-				<div className="absolute top-3 left-14 z-10 flex items-center gap-2">
+				<div className="absolute top-3 left-3 z-10 flex items-center gap-2">
 					<div className="w-48 rounded-md border border-border bg-background">
 						<InlineTextCell
 							label="Drawing title"
@@ -715,13 +779,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					<DrawingToolbar
 						mode={mode}
 						onModeChange={(next) => {
-							if (next === modeRef.current) {
-								exitMode();
-								return;
-							}
+							if (next === modeRef.current) return;
 							cancelDraft();
 							setMode(next);
 						}}
+						onCanvasBackground={setCanvasBackground}
 						onOverflowAction={handleOverflowAction}
 						scaleLabel={scaleLabel}
 						symbolPalette={
@@ -805,6 +867,29 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				onRestored={handleRestored}
 				open={historyOpen}
 			/>
+
+			<AlertDialog onOpenChange={setClearOpen} open={clearOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Clear the canvas?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Every shape, measurement and pin on this drawing is removed. Undo
+							or version history brings them back.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								setClearOpen(false);
+								void clearCanvas();
+							}}
+						>
+							Clear canvas
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<Sheet onOpenChange={setAskJanusOpen} open={askJanusOpen}>
 				<SheetContent className="gap-0 p-0" size="lg">
