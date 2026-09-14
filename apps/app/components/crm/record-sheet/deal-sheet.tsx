@@ -77,24 +77,29 @@ import { useOpenRecord, useRecordSheetView } from "./record-stack";
 
 type Deal = RouterOutputs["deals"]["byId"];
 
-const CURRENCY_OPTIONS = CURRENCIES.map((entry) => ({
-	value: entry.code,
-	label: `${entry.code} · ${entry.name}`,
-}));
-
 function dealCurrency(currency: string) {
 	return normalizeCurrency(currency) || currency;
 }
 
-function currencyOptions(currency: string) {
-	if (CURRENCY_OPTIONS.some((option) => option.value === currency)) {
-		return CURRENCY_OPTIONS;
-	}
+function legacyCurrencyLabel(currency: string) {
+	const known = CURRENCIES.find((entry) => entry.code === currency);
+	return known
+		? `${known.code} · ${known.name}`
+		: `${currency} — no longer supported`;
+}
 
-	return [
-		{ value: currency, label: `${currency} — no longer supported` },
-		...CURRENCY_OPTIONS,
-	];
+function LegacyCurrency({ deal }: { deal: Deal }) {
+	const currency = dealCurrency(deal.currency);
+
+	if (currency === "USD") return null;
+
+	return (
+		<DetailSheetProperty label="Currency">
+			<span className="text-muted-foreground">
+				{legacyCurrencyLabel(currency)}
+			</span>
+		</DetailSheetProperty>
+	);
 }
 
 function ReportedValue({ deal }: { deal: Deal }) {
@@ -369,12 +374,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 							formatMoney(Math.round(Number(value) * 100), currency)
 						}
 					/>
-					<InlineSelectField
-						label="Currency"
-						value={currency}
-						options={currencyOptions(currency)}
-						onSave={(currency) => save({ currency })}
-					/>
+					<LegacyCurrency deal={deal} />
 					<ReportedValue deal={deal} />
 					<InlineDateField
 						label="Close date"

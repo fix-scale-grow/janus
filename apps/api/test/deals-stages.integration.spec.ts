@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import {
+	readReportingCurrency,
+	writeReportingCurrency,
+} from "@crm/db/settings";
 import { entryStageOf } from "@crm/db/stage-semantics";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
@@ -226,6 +230,24 @@ describe("create", () => {
 			select: { stageId: true },
 		});
 		expect(stored?.stageId).toBe(entry?.id);
+	});
+
+	it("stores USD when no currency is given", async () => {
+		const previous = await readReportingCurrency(db);
+		await writeReportingCurrency(db, "USD");
+
+		const deal = await deals.create({
+			name: `${prefix}_no_currency`,
+			ownerId,
+		});
+
+		const stored = await db.deal.findUnique({
+			where: { id: deal.id },
+			select: { currency: true },
+		});
+		expect(stored?.currency).toBe("USD");
+
+		await writeReportingCurrency(db, previous);
 	});
 
 	it("rejects an unknown stage id", async () => {

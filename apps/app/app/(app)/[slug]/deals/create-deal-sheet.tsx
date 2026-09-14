@@ -1,7 +1,6 @@
 "use client";
 
 import Add from "@carbon/icons-react/es/Add";
-import { CURRENCIES } from "@crm/db/currency";
 import { Button } from "@crm/ui/components/button";
 import { DatePicker } from "@crm/ui/components/date-picker";
 import {
@@ -74,7 +73,6 @@ function CreateDealForm() {
 	const [ownerId, setOwnerId] = useState(UNSET);
 	const [stage, setStage] = useState(UNSET);
 	const [amount, setAmount] = useState("");
-	const [currency, setCurrency] = useState("");
 	const [closeDate, setCloseDate] = useState("");
 
 	const nameId = useId();
@@ -83,14 +81,11 @@ function CreateDealForm() {
 
 	const users = useQuery(trpc.users.list.queryOptions());
 	const me = useQuery(trpc.users.me.queryOptions());
-	const currencies = useQuery(trpc.currency.settings.queryOptions());
 	const pipelines = useQuery(
 		trpc.pipelines.list.queryOptions({ includeArchived: false }),
 	);
 
 	const resolvedOwner = ownerId || me.data?.id || UNSET;
-	const workspaceCurrency = currencies.data?.reportingCurrency;
-	const resolvedCurrency = currency || workspaceCurrency || "USD";
 
 	const openStageGroups = groupStagesByPipeline(pipelines.data ?? [], {
 		filter: (candidate) => candidate.outcome === "OPEN",
@@ -111,7 +106,6 @@ function CreateDealForm() {
 				setName("");
 				setStage(UNSET);
 				setAmount("");
-				setCurrency("");
 				setCloseDate("");
 				openRecord({ kind: "deal", id: deal.id });
 			},
@@ -149,7 +143,6 @@ function CreateDealForm() {
 								amountCents: Number.isFinite(parsed)
 									? Math.round(parsed * 100)
 									: null,
-								currency: currency || workspaceCurrency,
 								expectedCloseDate: closeDate || null,
 							});
 						});
@@ -213,31 +206,14 @@ function CreateDealForm() {
 
 						<Field>
 							<FieldLabel htmlFor={amountId}>Amount</FieldLabel>
-							<div className="flex gap-2">
-								<Input
-									id={amountId}
-									value={amount}
-									onChange={(event) => setAmount(event.target.value)}
-									placeholder="24000"
-									inputMode="decimal"
-									autoComplete="off"
-								/>
-								<Select value={resolvedCurrency} onValueChange={setCurrency}>
-									<SelectTrigger
-										aria-label="Currency"
-										className="w-28 shrink-0"
-									>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{CURRENCIES.map((entry) => (
-											<SelectItem key={entry.code} value={entry.code}>
-												{entry.code}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
+							<Input
+								id={amountId}
+								value={amount}
+								onChange={(event) => setAmount(event.target.value)}
+								placeholder="24000"
+								inputMode="decimal"
+								autoComplete="off"
+							/>
 						</Field>
 
 						<Field>
