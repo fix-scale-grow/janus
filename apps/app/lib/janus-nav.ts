@@ -159,7 +159,6 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: ChartColumn,
 		source: "app/(app)/reports",
-		permission: "profit.view",
 	},
 	{
 		title: "Field",
