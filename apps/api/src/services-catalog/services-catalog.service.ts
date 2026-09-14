@@ -1,4 +1,5 @@
 import { type Db, Prisma as PrismaNamespace } from "@crm/db";
+import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { parseServiceModifier, type ServiceModifier } from "@crm/drawings";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
@@ -89,64 +90,68 @@ export class ServicesCatalogService {
 	}
 
 	async seedRoofing() {
-		const existing = await this.db.service.findMany({
-			select: { id: true, name: true, modifier: true },
-		});
-		const existingByName = new Map(
-			existing.map((row) => [row.name.toLowerCase(), row]),
-		);
+		return this.db.$transaction(async (tx) => {
+			await lockIdempotencyKey(tx, "services-catalog:seed-roofing");
 
-		const candidates = ROOFING_SEED.filter(
-			(seed) => !existingByName.has(seed.name.toLowerCase()),
-		);
+			const existing = await tx.service.findMany({
+				select: { id: true, name: true, modifier: true },
+			});
+			const existingByName = new Map(
+				existing.map((row) => [row.name.toLowerCase(), row]),
+			);
 
-		let created = 0;
+			const candidates = ROOFING_SEED.filter(
+				(seed) => !existingByName.has(seed.name.toLowerCase()),
+			);
 
-		for (const seed of candidates) {
-			try {
-				await this.db.service.create({
-					data: {
-						...seed,
-						trade: "roofing",
-						active: true,
-						modifier: toJsonModifier(seed.modifier),
-					},
-				});
-				created += 1;
-			} catch (error) {
-				if (
-					error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
-					error.code === "P2002" &&
-					seed.symbolId
-				) {
-					const { symbolId: _symbolId, ...withoutSymbol } = seed;
-					await this.db.service.create({
+			let created = 0;
+
+			for (const seed of candidates) {
+				try {
+					await tx.service.create({
 						data: {
-							...withoutSymbol,
+							...seed,
 							trade: "roofing",
 							active: true,
-							modifier: toJsonModifier(withoutSymbol.modifier),
+							modifier: toJsonModifier(seed.modifier),
 						},
 					});
 					created += 1;
-					continue;
+				} catch (error) {
+					if (
+						error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
+						error.code === "P2002" &&
+						seed.symbolId
+					) {
+						const { symbolId: _symbolId, ...withoutSymbol } = seed;
+						await tx.service.create({
+							data: {
+								...withoutSymbol,
+								trade: "roofing",
+								active: true,
+								modifier: toJsonModifier(withoutSymbol.modifier),
+							},
+						});
+						created += 1;
+						continue;
+					}
+					throw error;
 				}
-				throw error;
 			}
-		}
 
-		for (const name of PITCH_MODIFIED_SERVICE_NAMES) {
-			const row = existingByName.get(name.toLowerCase());
-			if (!row || row.modifier !== null) continue;
-			const seed = ROOFING_SEED.find((candidate) => candidate.name === name);
-			if (!seed?.modifier) continue;
-			await this.db.service.update({
-				where: { id: row.id },
-				data: { modifier: seed.modifier },
-			});
-		}
+			for (const name of PITCH_MODIFIED_SERVICE_NAMES) {
+				const row = existingByName.get(name.toLowerCase());
+				if (!row || row.modifier !== null) continue;
+				const seed = ROOFING_SEED.find((candidate) => candidate.name === name);
+				if (!seed?.modifier) continue;
+				await tx.service.update({
+					where: { id: row.id },
+					data: { modifier: seed.modifier },
+				});
+			}
 
-		return { created };
+			return { created };
+		});
 	}
 
 	private buildWhere(input: ServiceListInput) {
