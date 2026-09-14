@@ -315,6 +315,51 @@ function AreaTrend({
 	);
 }
 
+function BarLabelText({
+	x,
+	y,
+	width,
+	index,
+	data,
+	barLabel,
+}: {
+	x?: number | string;
+	y?: number | string;
+	width?: number | string;
+	index?: number;
+	data: Datum[];
+	barLabel: (datum: Datum) => string | number | null;
+}) {
+	const numX = Number(x);
+	const numY = Number(y);
+	const numWidth = Number(width);
+	if (
+		x === undefined ||
+		y === undefined ||
+		width === undefined ||
+		Number.isNaN(numX) ||
+		Number.isNaN(numY) ||
+		Number.isNaN(numWidth)
+	) {
+		return null;
+	}
+	if (index === undefined) return null;
+	const datum = data[index];
+	if (!datum) return null;
+	const label = barLabel(datum);
+	if (label === null) return null;
+	return (
+		<text
+			x={numX + numWidth / 2}
+			y={numY - 6}
+			textAnchor="middle"
+			className="fill-muted-foreground text-xs"
+		>
+			{label}
+		</text>
+	);
+}
+
 function BarTrend({
 	data,
 	config,
@@ -327,7 +372,11 @@ function BarTrend({
 	formatX,
 	formatValue,
 	stacked = false,
-}: CartesianProps & { stacked?: boolean }) {
+	barLabel,
+}: CartesianProps & {
+	stacked?: boolean;
+	barLabel?: (datum: Datum) => string | number | null;
+}) {
 	const keys = seriesKeys(config, series);
 
 	return (
@@ -353,7 +402,21 @@ function BarTrend({
 						radius={0}
 						stackId={stacked ? "stack" : undefined}
 						maxBarSize={40}
-					/>
+					>
+						{barLabel ? (
+							<LabelList
+								dataKey={key}
+								content={(props: {
+									x?: number | string;
+									y?: number | string;
+									width?: number | string;
+									index?: number;
+								}) => (
+									<BarLabelText {...props} data={data} barLabel={barLabel} />
+								)}
+							/>
+						) : null}
+					</Bar>
 				))}
 				{showLegend ? (
 					<ChartLegend

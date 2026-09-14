@@ -199,6 +199,13 @@ export function PipelineReport() {
 						config={CHART_CONFIG}
 						xKey="x"
 						height={240}
+						barLabel={(datum) => {
+							const row = stageRows.find(
+								(stage) => stage.stageLabel === datum.x,
+							);
+							if (!row || row.conversionPct === null) return null;
+							return formatPercent(row.conversionPct / 100);
+						}}
 					/>
 				</div>
 			) : null}
@@ -210,8 +217,6 @@ export function PipelineReport() {
 				emptyTitle="No losses in this range"
 			/>
 
-			<ExcludedDisclosure excluded={data?.excluded ?? 0} />
-
 			<div className="flex flex-col gap-3">
 				<h2 className="font-heading font-medium text-sm">Estimates funnel</h2>
 				<KpiRow kpis={data?.kpis ?? []} />
@@ -220,6 +225,7 @@ export function PipelineReport() {
 					rows={tierRows}
 					emptyTitle="No accepted estimates in this range"
 				/>
+				<ExcludedDisclosure excluded={data?.excluded ?? 0} />
 			</div>
 		</div>
 	);
