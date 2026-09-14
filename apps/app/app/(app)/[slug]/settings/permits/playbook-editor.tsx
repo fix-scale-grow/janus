@@ -306,15 +306,7 @@ function DocumentsEditor({
 							value={row.label}
 							disabled={pending}
 							onChange={(event) =>
-								updateRow(index, {
-									label: event.target.value,
-									key: uniqueWorksheetFieldKey(
-										event.target.value || "document",
-										draft
-											.filter((_, otherIndex) => otherIndex !== index)
-											.map((other) => other.key),
-									),
-								})
+								updateRow(index, { label: event.target.value })
 							}
 						/>
 						<Input
