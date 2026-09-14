@@ -405,6 +405,9 @@ model Contact {
   @@index([ownerId])
   @@index([lastActivityAt])
   @@map("contact")
+  @@index([firstName(ops: raw("gin_trgm_ops"))], type: Gin, map: "contact_firstName_trgm_idx")
+  @@index([lastName(ops: raw("gin_trgm_ops"))], type: Gin, map: "contact_lastName_trgm_idx")
+  @@index([companyName(ops: raw("gin_trgm_ops"))], type: Gin, map: "contact_companyName_trgm_idx")
 }
 
 enum FactBand {
@@ -985,6 +988,7 @@ model Deal {
   @@index([baseAmount])
   @@index([currency])
   @@map("deal")
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "deal_name_trgm_idx")
 }
 
 enum RateSource {
@@ -1045,6 +1049,7 @@ model Drawing {
   @@index([contactId])
   @@index([updatedAt])
   @@map("drawing")
+  @@index([address(ops: raw("gin_trgm_ops"))], type: Gin, map: "drawing_address_trgm_idx")
 }
 
 model DrawingVersion {

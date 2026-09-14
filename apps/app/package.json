@@ -7,7 +7,7 @@
 		"build": "next build",
 		"start": "next start",
 		"typegen": "next typegen",
-		"check-types": "tsc --noEmit",
+		"check-types": "next typegen && tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome check .",
 		"postinstall": "node scripts/sync-maplibre-worker.mjs"
