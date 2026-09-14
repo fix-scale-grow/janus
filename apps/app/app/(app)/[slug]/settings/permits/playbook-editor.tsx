@@ -46,6 +46,9 @@ import {
 	FACT_PATH_LABEL,
 	FACT_PATHS,
 	type FactPath,
+	LOCKER_KIND_LABEL,
+	LOCKER_KINDS,
+	type LockerKind,
 	type PermitType,
 	WORKSHEET_FIELD_TYPE_LABEL,
 	WORKSHEET_FIELD_TYPES,
@@ -64,6 +67,8 @@ import {
 	ADD_INSPECTION,
 	ADD_PREREQUISITE,
 	CANCEL,
+	DOCUMENT_KIND_LABEL,
+	DOCUMENT_KIND_NONE,
 	DOCUMENT_LABEL_LABEL,
 	DOCUMENT_REUSABLE_LABEL,
 	DOCUMENT_SOURCE_LABEL,
@@ -256,11 +261,17 @@ function FactRow({
 function DocumentsEditor({
 	documents,
 	pending,
+	verifyPending,
+	nameFor,
 	onSave,
+	onVerify,
 }: {
 	documents: RequiredDocument[];
 	pending: boolean;
+	verifyPending: boolean;
+	nameFor: (userId: string | null) => string | null;
 	onSave: (documents: RequiredDocument[]) => void;
+	onVerify: (key: string) => void;
 }) {
 	const [draft, setDraft] = useState<RequiredDocument[]>(documents);
 
@@ -285,6 +296,9 @@ function DocumentsEditor({
 				label: "",
 				reusable: false,
 				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
 			},
 		]);
 	};
@@ -294,59 +308,108 @@ function DocumentsEditor({
 			{draft.length === 0 ? (
 				<p className="text-muted-foreground text-sm">{DOCUMENTS_EMPTY}</p>
 			) : (
-				draft.map((row, index) => (
-					<div
-						key={row.key}
-						className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5"
-					>
-						<Input
-							aria-label={DOCUMENT_LABEL_LABEL}
-							placeholder={DOCUMENT_LABEL_LABEL}
-							className="min-w-0 flex-1"
-							value={row.label}
-							disabled={pending}
-							onChange={(event) =>
-								updateRow(index, { label: event.target.value })
-							}
-						/>
-						<Input
-							aria-label={DOCUMENT_SOURCE_LABEL}
-							placeholder={DOCUMENT_SOURCE_LABEL}
-							className="min-w-0 flex-1"
-							value={row.sourceUrl ?? ""}
-							disabled={pending}
-							onChange={(event) =>
-								updateRow(index, {
-									sourceUrl: event.target.value.trim() || null,
-								})
-							}
-						/>
-						<div className="flex shrink-0 items-center gap-1.5">
-							<Switch
-								checked={row.reusable}
-								disabled={pending}
-								onCheckedChange={(reusable) => updateRow(index, { reusable })}
-							/>
-							<span className="text-muted-foreground text-xs">
-								{DOCUMENT_REUSABLE_LABEL}
-							</span>
-						</div>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-xs"
-							disabled={pending}
-							onClick={() =>
-								setDraft((prev) =>
-									prev.filter((_, rowIndex) => rowIndex !== index),
-								)
-							}
+				draft.map((row, index) => {
+					const saved = documents.find((doc) => doc.key === row.key) ?? null;
+
+					return (
+						<div
+							key={row.key}
+							className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5"
 						>
-							<Icon icon={TrashCan} />
-							<span className="sr-only">{REMOVE}</span>
-						</Button>
-					</div>
-				))
+							<Input
+								aria-label={DOCUMENT_LABEL_LABEL}
+								placeholder={DOCUMENT_LABEL_LABEL}
+								className="min-w-0 flex-1"
+								value={row.label}
+								disabled={pending}
+								onChange={(event) =>
+									updateRow(index, { label: event.target.value })
+								}
+							/>
+							<Input
+								aria-label={DOCUMENT_SOURCE_LABEL}
+								placeholder={DOCUMENT_SOURCE_LABEL}
+								className="min-w-0 flex-1"
+								value={row.sourceUrl ?? ""}
+								disabled={pending}
+								onChange={(event) =>
+									updateRow(index, {
+										sourceUrl: event.target.value.trim() || null,
+									})
+								}
+							/>
+							<div className="flex shrink-0 items-center gap-1.5">
+								<Switch
+									checked={row.reusable}
+									disabled={pending}
+									onCheckedChange={(reusable) => updateRow(index, { reusable })}
+								/>
+								<span className="text-muted-foreground text-xs">
+									{DOCUMENT_REUSABLE_LABEL}
+								</span>
+							</div>
+							<Select
+								value={row.lockerKind ?? "none"}
+								disabled={pending}
+								onValueChange={(next) =>
+									updateRow(index, {
+										lockerKind: next === "none" ? null : (next as LockerKind),
+									})
+								}
+							>
+								<SelectTrigger
+									aria-label={DOCUMENT_KIND_LABEL}
+									className="w-40 shrink-0"
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">{DOCUMENT_KIND_NONE}</SelectItem>
+									{LOCKER_KINDS.map((kind) => (
+										<SelectItem key={kind} value={kind}>
+											{LOCKER_KIND_LABEL[kind]}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{saved ? (
+								saved.verifiedById ? (
+									<Badge variant="outline">
+										<Icon icon={Checkmark} data-icon="inline-start" />
+										{factVerifiedBy(nameFor(saved.verifiedById) ?? "someone")}
+									</Badge>
+								) : (
+									<div className="flex shrink-0 items-center gap-1.5">
+										<Badge variant="outline">{FACT_UNVERIFIED}</Badge>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={verifyPending}
+											onClick={() => onVerify(row.key)}
+										>
+											{FACT_CONFIRM}
+										</Button>
+									</div>
+								)
+							) : null}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								disabled={pending}
+								onClick={() =>
+									setDraft((prev) =>
+										prev.filter((_, rowIndex) => rowIndex !== index),
+									)
+								}
+							>
+								<Icon icon={TrashCan} />
+								<span className="sr-only">{REMOVE}</span>
+							</Button>
+						</div>
+					);
+				})
 			)}
 
 			<div className="flex items-center gap-2">
@@ -370,24 +433,37 @@ function DocumentsEditor({
 	);
 }
 
-type DraftInspection = InspectionEntry & { uiKey: string };
+type DraftInspection = InspectionEntry & {
+	uiKey: string;
+	savedIndex: number | null;
+};
 
 function toDraftInspections(inspections: InspectionEntry[]): DraftInspection[] {
-	return inspections.map((entry) => ({ ...entry, uiKey: crypto.randomUUID() }));
+	return inspections.map((entry, index) => ({
+		...entry,
+		uiKey: crypto.randomUUID(),
+		savedIndex: index,
+	}));
 }
 
 function fromDraftInspections(draft: DraftInspection[]): InspectionEntry[] {
-	return draft.map(({ uiKey, ...entry }) => entry);
+	return draft.map(({ uiKey, savedIndex, ...entry }) => entry);
 }
 
 function InspectionsEditor({
 	inspections,
 	pending,
+	verifyPending,
+	nameFor,
 	onSave,
+	onVerify,
 }: {
 	inspections: InspectionEntry[];
 	pending: boolean;
+	verifyPending: boolean;
+	nameFor: (userId: string | null) => string | null;
 	onSave: (inspections: InspectionEntry[]) => void;
+	onVerify: (index: number) => void;
 }) {
 	const [draft, setDraft] = useState<DraftInspection[]>(() =>
 		toDraftInspections(inspections),
@@ -409,59 +485,87 @@ function InspectionsEditor({
 			{draft.length === 0 ? (
 				<p className="text-muted-foreground text-sm">{INSPECTIONS_EMPTY}</p>
 			) : (
-				draft.map((row, index) => (
-					<div
-						key={row.uiKey}
-						className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5"
-					>
-						<Input
-							aria-label={INSPECTION_NAME_LABEL}
-							placeholder={INSPECTION_NAME_LABEL}
-							className="min-w-0 flex-1"
-							value={row.name}
-							disabled={pending}
-							onChange={(event) =>
-								updateRow(index, { name: event.target.value })
-							}
-						/>
-						<Input
-							aria-label={INSPECTION_WHEN_LABEL}
-							placeholder={INSPECTION_WHEN_LABEL}
-							className="min-w-0 flex-1"
-							value={row.when ?? ""}
-							disabled={pending}
-							onChange={(event) =>
-								updateRow(index, { when: event.target.value.trim() || null })
-							}
-						/>
-						<Input
-							aria-label={INSPECTION_NOTE_LABEL}
-							placeholder={INSPECTION_NOTE_LABEL}
-							className="min-w-0 flex-1"
-							value={row.criticalNote ?? ""}
-							disabled={pending}
-							onChange={(event) =>
-								updateRow(index, {
-									criticalNote: event.target.value.trim() || null,
-								})
-							}
-						/>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-xs"
-							disabled={pending}
-							onClick={() =>
-								setDraft((prev) =>
-									prev.filter((_, rowIndex) => rowIndex !== index),
-								)
-							}
+				draft.map((row, index) => {
+					const saved =
+						row.savedIndex !== null
+							? (inspections[row.savedIndex] ?? null)
+							: null;
+
+					return (
+						<div
+							key={row.uiKey}
+							className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5"
 						>
-							<Icon icon={TrashCan} />
-							<span className="sr-only">{REMOVE}</span>
-						</Button>
-					</div>
-				))
+							<Input
+								aria-label={INSPECTION_NAME_LABEL}
+								placeholder={INSPECTION_NAME_LABEL}
+								className="min-w-0 flex-1"
+								value={row.name}
+								disabled={pending}
+								onChange={(event) =>
+									updateRow(index, { name: event.target.value })
+								}
+							/>
+							<Input
+								aria-label={INSPECTION_WHEN_LABEL}
+								placeholder={INSPECTION_WHEN_LABEL}
+								className="min-w-0 flex-1"
+								value={row.when ?? ""}
+								disabled={pending}
+								onChange={(event) =>
+									updateRow(index, { when: event.target.value.trim() || null })
+								}
+							/>
+							<Input
+								aria-label={INSPECTION_NOTE_LABEL}
+								placeholder={INSPECTION_NOTE_LABEL}
+								className="min-w-0 flex-1"
+								value={row.criticalNote ?? ""}
+								disabled={pending}
+								onChange={(event) =>
+									updateRow(index, {
+										criticalNote: event.target.value.trim() || null,
+									})
+								}
+							/>
+							{saved ? (
+								saved.verifiedById ? (
+									<Badge variant="outline">
+										<Icon icon={Checkmark} data-icon="inline-start" />
+										{factVerifiedBy(nameFor(saved.verifiedById) ?? "someone")}
+									</Badge>
+								) : (
+									<div className="flex shrink-0 items-center gap-1.5">
+										<Badge variant="outline">{FACT_UNVERIFIED}</Badge>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={verifyPending}
+											onClick={() => onVerify(row.savedIndex as number)}
+										>
+											{FACT_CONFIRM}
+										</Button>
+									</div>
+								)
+							) : null}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								disabled={pending}
+								onClick={() =>
+									setDraft((prev) =>
+										prev.filter((_, rowIndex) => rowIndex !== index),
+									)
+								}
+							>
+								<Icon icon={TrashCan} />
+								<span className="sr-only">{REMOVE}</span>
+							</Button>
+						</div>
+					);
+				})
 			)}
 
 			<div className="flex items-center gap-2">
@@ -474,9 +578,12 @@ function InspectionsEditor({
 							...prev,
 							{
 								uiKey: crypto.randomUUID(),
+								savedIndex: null,
 								name: "",
 								when: null,
 								criticalNote: null,
+								verifiedById: null,
+								verifiedAt: null,
 							},
 						])
 					}
@@ -786,8 +893,22 @@ export function PlaybookEditor({
 				toast.error(permitsErrorMessage(error)),
 		}),
 	);
+	const verifyDocument = useMutation(
+		trpc.permits.verifyPlaybookDocument.mutationOptions({
+			onSuccess: invalidate,
+			onError: (error: { message: string }) =>
+				toast.error(permitsErrorMessage(error)),
+		}),
+	);
 	const setInspections = useMutation(
 		trpc.permits.setPlaybookInspections.mutationOptions({
+			onSuccess: invalidate,
+			onError: (error: { message: string }) =>
+				toast.error(permitsErrorMessage(error)),
+		}),
+	);
+	const verifyInspection = useMutation(
+		trpc.permits.verifyPlaybookInspection.mutationOptions({
 			onSuccess: invalidate,
 			onError: (error: { message: string }) =>
 				toast.error(permitsErrorMessage(error)),
@@ -932,8 +1053,13 @@ export function PlaybookEditor({
 						key={JSON.stringify(playbook.facts.requiredDocuments)}
 						documents={playbook.facts.requiredDocuments}
 						pending={setDocuments.isPending}
+						verifyPending={verifyDocument.isPending}
+						nameFor={nameFor}
 						onSave={(documents) =>
 							setDocuments.mutate({ playbookId: playbook.id, documents })
+						}
+						onVerify={(key) =>
+							verifyDocument.mutate({ playbookId: playbook.id, key })
 						}
 					/>
 				</CardContent>
@@ -948,8 +1074,13 @@ export function PlaybookEditor({
 						key={JSON.stringify(playbook.facts.inspections)}
 						inspections={playbook.facts.inspections}
 						pending={setInspections.isPending}
+						verifyPending={verifyInspection.isPending}
+						nameFor={nameFor}
 						onSave={(inspections) =>
 							setInspections.mutate({ playbookId: playbook.id, inspections })
+						}
+						onVerify={(index) =>
+							verifyInspection.mutate({ playbookId: playbook.id, index })
 						}
 					/>
 				</CardContent>

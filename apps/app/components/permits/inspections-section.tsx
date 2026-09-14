@@ -8,15 +8,24 @@ import { Button } from "@crm/ui/components/button";
 import { DatePicker } from "@crm/ui/components/date-picker";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@crm/ui/components/tooltip";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { isInspectionOverdue } from "@/lib/permits/permit-nags";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
 type Inspection = RouterOutputs["permits"]["byId"]["inspections"][number];
 type InspectionResult = Inspection["result"];
+
+const UNVERIFIED_TOOLTIP =
+	"Janus drafted this requirement. Confirm it in Settings > Permits.";
 
 const RESULT_CYCLE: Record<InspectionResult, InspectionResult> = {
 	PENDING: "PASSED",
@@ -50,6 +59,7 @@ export function InspectionsSection({
 	const cache = useCrmCache();
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
+	const now = new Date();
 
 	const setInspection = useMutation(
 		trpc.permits.setInspection.mutationOptions({
@@ -100,6 +110,17 @@ export function InspectionsSection({
 							<span className="min-w-0 flex-1 truncate text-sm">
 								{inspection.name}
 							</span>
+							{isInspectionOverdue(inspection, now) ? (
+								<Badge variant="warning">Overdue</Badge>
+							) : null}
+							{inspection.sourceVerified === false ? (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Badge variant="warning">Unverified</Badge>
+									</TooltipTrigger>
+									<TooltipContent>{UNVERIFIED_TOOLTIP}</TooltipContent>
+								</Tooltip>
+							) : null}
 							<DatePicker
 								value={inspection.scheduledFor?.slice(0, 10) ?? null}
 								placeholder="Schedule"
@@ -133,7 +154,10 @@ export function InspectionsSection({
 								size="icon-xs"
 								disabled={deleteInspection.isPending}
 								onClick={() =>
-									deleteInspection.mutate({ inspectionId: inspection.id })
+									deleteInspection.mutate({
+										permitId,
+										inspectionId: inspection.id,
+									})
 								}
 							>
 								<Icon icon={TrashCan} />

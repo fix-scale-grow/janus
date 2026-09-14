@@ -56,15 +56,15 @@ export function worksheetBlockingReason(params: {
 	).length;
 	if (needsReview > 0) {
 		const plural = needsReview !== 1;
-		return `${needsReview} field${plural ? "s" : ""} ${plural ? "await" : "awaits"} review`;
+		return `${needsReview} field${plural ? "s" : ""} ${plural ? "await" : "awaits"} review.`;
 	}
 
 	const missing = fields.find(
 		(field) => field.required && (answers[field.key]?.value ?? "") === "",
 	);
-	if (missing) return `${missing.label} is required`;
+	if (missing) return `${missing.label} is required.`;
 
-	if (!disclaimerAccepted) return "Accept the preparation disclaimer first";
+	if (!disclaimerAccepted) return "Accept the preparation disclaimer first.";
 
 	return null;
 }

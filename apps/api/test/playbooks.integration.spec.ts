@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
 import type { PlaybookFacts } from "@crm/db/permits";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { PermitPrefillService } from "../src/permits/permit-prefill.service";
 import { PermitsService } from "../src/permits/permits.service";
 import { PlaybooksService } from "../src/permits/playbooks.service";
@@ -13,6 +13,19 @@ const permits = new PermitsService(db, playbooks, new PermitPrefillService(db));
 
 let userId: string;
 const jurisdictionIds: string[] = [];
+
+async function expectRejects(
+	promise: Promise<unknown>,
+	errorType: new (...args: never[]) => Error,
+): Promise<void> {
+	let caught: unknown;
+	try {
+		await promise;
+	} catch (error) {
+		caught = error;
+	}
+	expect(caught).toBeInstanceOf(errorType);
+}
 
 function emptyFacts(): PlaybookFacts {
 	return {
@@ -203,7 +216,15 @@ describe("PlaybooksService facts", () => {
 
 		const firstDraft = emptyFacts();
 		firstDraft.requiredDocuments = [
-			{ key: "site_plan", label: "Site plan", reusable: true, sourceUrl: null },
+			{
+				key: "site_plan",
+				label: "Site plan",
+				reusable: true,
+				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
+			},
 		];
 		const afterFirst = await playbooks.upsertDraftFacts(
 			playbook.id,
@@ -218,12 +239,18 @@ describe("PlaybooksService facts", () => {
 				label: "Elevations",
 				reusable: true,
 				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
 			},
 			{
 				key: "survey",
 				label: "Survey",
 				reusable: false,
 				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
 			},
 		];
 		const afterSecond = await playbooks.upsertDraftFacts(
@@ -233,6 +260,232 @@ describe("PlaybooksService facts", () => {
 
 		expect(afterSecond.facts.requiredDocuments).toHaveLength(1);
 		expect(afterSecond.facts.requiredDocuments[0]?.key).toBe("site_plan");
+	});
+
+	it("serializes concurrent writes to the same playbook without losing either", async () => {
+		const jurisdiction = await makeJurisdiction(`Concurrency ${suffix}`);
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "ROOFING",
+		});
+
+		await playbooks.setFact({
+			playbookId: playbook.id,
+			factPath: "whoMayPull",
+			value: "Licensed contractor only",
+			sourceUrl: null,
+		});
+
+		async function safeRun(promise: Promise<unknown>): Promise<unknown> {
+			try {
+				return await promise;
+			} catch (error) {
+				return error;
+			}
+		}
+
+		const [verifyResult, setResult] = await Promise.all([
+			safeRun(
+				playbooks.verifyFact(
+					{ playbookId: playbook.id, factPath: "whoMayPull" },
+					userId,
+				),
+			),
+			safeRun(
+				playbooks.setFact({
+					playbookId: playbook.id,
+					factPath: "neededWhen",
+					value: "Before framing begins",
+					sourceUrl: null,
+				}),
+			),
+		]);
+
+		expect(verifyResult).not.toBeInstanceOf(Error);
+		expect(setResult).not.toBeInstanceOf(Error);
+
+		const final = await playbooks.byId(playbook.id);
+		expect(final.facts.whoMayPull?.verifiedById).toBe(userId);
+		expect(final.facts.neededWhen?.value).toBe("Before framing begins");
+	});
+
+	it("verifies a required document by key and preserves the stamp on an unchanged re-save", async () => {
+		const jurisdiction = await makeJurisdiction(`Verify Doc ${suffix}`);
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "ROOFING",
+		});
+
+		await playbooks.setDocuments({
+			playbookId: playbook.id,
+			documents: [
+				{
+					key: "site_plan",
+					label: "Site plan",
+					reusable: true,
+					sourceUrl: null,
+					lockerKind: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+
+		const verified = await playbooks.verifyDocument(
+			{ playbookId: playbook.id, key: "site_plan" },
+			userId,
+		);
+		expect(verified.facts.requiredDocuments[0]?.verifiedById).toBe(userId);
+
+		const resaved = await playbooks.setDocuments({
+			playbookId: playbook.id,
+			documents: [
+				{
+					key: "site_plan",
+					label: "Site plan",
+					reusable: true,
+					sourceUrl: null,
+					lockerKind: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+		expect(resaved.facts.requiredDocuments[0]?.verifiedById).toBe(userId);
+
+		const changed = await playbooks.setDocuments({
+			playbookId: playbook.id,
+			documents: [
+				{
+					key: "site_plan",
+					label: "Site plan (revised)",
+					reusable: true,
+					sourceUrl: null,
+					lockerKind: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+		expect(changed.facts.requiredDocuments[0]?.verifiedById).toBeNull();
+	});
+
+	it("404s verifyDocument for an unknown key", async () => {
+		const jurisdiction = await makeJurisdiction(`Verify Doc Miss ${suffix}`);
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "ROOFING",
+		});
+
+		await expectRejects(
+			playbooks.verifyDocument(
+				{ playbookId: playbook.id, key: "not_a_key" },
+				userId,
+			),
+			NotFoundException,
+		);
+	});
+
+	it("verifies an inspection by index and preserves the stamp on an unchanged re-save", async () => {
+		const jurisdiction = await makeJurisdiction(`Verify Insp ${suffix}`);
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "ROOFING",
+		});
+
+		await playbooks.setInspections({
+			playbookId: playbook.id,
+			inspections: [
+				{
+					name: "Final inspection",
+					when: null,
+					criticalNote: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+
+		const verified = await playbooks.verifyInspection(
+			{ playbookId: playbook.id, index: 0 },
+			userId,
+		);
+		expect(verified.facts.inspections[0]?.verifiedById).toBe(userId);
+
+		const resaved = await playbooks.setInspections({
+			playbookId: playbook.id,
+			inspections: [
+				{
+					name: "Final inspection",
+					when: null,
+					criticalNote: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+		expect(resaved.facts.inspections[0]?.verifiedById).toBe(userId);
+
+		const changed = await playbooks.setInspections({
+			playbookId: playbook.id,
+			inspections: [
+				{
+					name: "Final inspection",
+					when: "Before closeout",
+					criticalNote: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+		expect(changed.facts.inspections[0]?.verifiedById).toBeNull();
+	});
+
+	it("404s verifyInspection for an out of range index", async () => {
+		const jurisdiction = await makeJurisdiction(`Verify Insp Miss ${suffix}`);
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "ROOFING",
+		});
+
+		await expectRejects(
+			playbooks.verifyInspection({ playbookId: playbook.id, index: 0 }, userId),
+			NotFoundException,
+		);
+	});
+
+	it("parses an old-shape stored playbook (no verifiedById/verifiedAt/lockerKind on entries)", async () => {
+		const jurisdiction = await makeJurisdiction(`Old Shape ${suffix}`);
+		const created = await db.permitPlaybook.create({
+			data: {
+				jurisdictionId: jurisdiction.id,
+				permitType: "ROOFING",
+				facts: {
+					neededWhen: null,
+					whoMayPull: null,
+					prerequisites: [],
+					howToApply: null,
+					feeSchedule: null,
+					typicalTurnaround: null,
+					requiredDocuments: [
+						{
+							key: "site_plan",
+							label: "Site plan",
+							reusable: true,
+							sourceUrl: null,
+						},
+					],
+					inspections: [
+						{ name: "Final inspection", when: null, criticalNote: null },
+					],
+				},
+			},
+		});
+
+		const found = await playbooks.byId(created.id);
+		expect(found.facts.requiredDocuments[0]?.verifiedById).toBeNull();
+		expect(found.facts.requiredDocuments[0]?.lockerKind).toBeNull();
+		expect(found.facts.inspections[0]?.verifiedById).toBeNull();
 	});
 
 	it("400s a worksheet template with a duplicate field key", async () => {

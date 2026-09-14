@@ -1,6 +1,7 @@
 "use client";
 
 import Certificate from "@carbon/icons-react/es/Certificate";
+import WarningAlt from "@carbon/icons-react/es/WarningAlt";
 import {
 	Empty,
 	EmptyDescription,
@@ -23,11 +24,17 @@ import {
 } from "@crm/ui/components/simple-table";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { TableCell } from "@crm/ui/components/table";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@crm/ui/components/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalRelativeTime } from "@/components/local-date-time";
 import { PermitStatusBadge } from "@/components/permits/permit-status-badge";
+import { hasAnyPermitNag } from "@/lib/permits/permit-nags";
 import {
 	PERMIT_STATUS_LABEL,
 	PERMIT_TYPE_LABEL,
@@ -41,6 +48,18 @@ import {
 	permitsParsers,
 } from "./permits-search-params";
 
+type PermitListDocument = {
+	filePath: string | null;
+	lockerDocumentId: string | null;
+	sourceVerified: boolean | null;
+};
+
+type PermitListInspection = {
+	scheduledFor: string | null;
+	result: "PENDING" | "PASSED" | "FAILED";
+	sourceVerified: boolean | null;
+};
+
 type PermitListRow = {
 	id: string;
 	dealId: string;
@@ -49,15 +68,19 @@ type PermitListRow = {
 	typeLabel: string;
 	permitType: PermitType;
 	status: PermitStatus;
+	expiresAt: string | null;
 	updatedAt: string;
+	documents: PermitListDocument[];
+	inspections: PermitListInspection[];
 };
 
 const COLUMNS: SimpleTableColumn[] = [
-	{ id: "deal", header: "Deal", width: "w-[26%]" },
+	{ id: "flag", header: "", width: "w-8" },
+	{ id: "deal", header: "Deal", width: "w-[24%]" },
 	{ id: "jurisdiction", header: "Jurisdiction", width: "w-[22%]" },
-	{ id: "type", header: "Type", width: "w-[16%]" },
-	{ id: "status", header: "Status", width: "w-[16%]" },
-	{ id: "updated", header: "Updated", width: "w-[20%]", align: "right" },
+	{ id: "type", header: "Type", width: "w-[15%]" },
+	{ id: "status", header: "Status", width: "w-[15%]" },
+	{ id: "updated", header: "Updated", width: "w-[19%]", align: "right" },
 ];
 
 const STATUS_LABELS: Record<PermitStatusFilter, string> = {
@@ -127,29 +150,56 @@ export function PermitsTable() {
 				</Empty>
 			) : (
 				<SimpleTable columns={COLUMNS}>
-					{rows.map((permit) => (
-						<SimpleTableRow
-							key={permit.id}
-							clickable
-							onClick={() => openRecord({ kind: "deal", id: permit.dealId })}
-						>
-							<TableCell className="truncate px-3 py-2.5 font-medium">
-								{dealLabel(permit.deal)}
-							</TableCell>
-							<TableCell className="truncate px-3 py-2.5 text-muted-foreground">
-								{permit.jurisdiction.name}, {permit.jurisdiction.state}
-							</TableCell>
-							<TableCell className="truncate px-3 py-2.5 text-muted-foreground">
-								{permit.typeLabel || PERMIT_TYPE_LABEL[permit.permitType]}
-							</TableCell>
-							<TableCell className="px-3 py-2.5">
-								<PermitStatusBadge status={permit.status} />
-							</TableCell>
-							<TableCell className="px-3 py-2.5 text-right text-muted-foreground">
-								<LocalRelativeTime date={permit.updatedAt} />
-							</TableCell>
-						</SimpleTableRow>
-					))}
+					{rows.map((permit) => {
+						const flagged = hasAnyPermitNag({
+							status: permit.status,
+							expiresAt: permit.expiresAt,
+							documents: permit.documents,
+							inspections: permit.inspections,
+							now: new Date(),
+						});
+
+						return (
+							<SimpleTableRow
+								key={permit.id}
+								clickable
+								onClick={() => openRecord({ kind: "deal", id: permit.dealId })}
+							>
+								<TableCell className="px-3 py-2.5">
+									{flagged ? (
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<span className="inline-flex">
+													<Icon
+														icon={WarningAlt}
+														className="size-3.5 text-warning"
+													/>
+												</span>
+											</TooltipTrigger>
+											<TooltipContent>
+												This permit needs attention.
+											</TooltipContent>
+										</Tooltip>
+									) : null}
+								</TableCell>
+								<TableCell className="truncate px-3 py-2.5 font-medium">
+									{dealLabel(permit.deal)}
+								</TableCell>
+								<TableCell className="truncate px-3 py-2.5 text-muted-foreground">
+									{permit.jurisdiction.name}, {permit.jurisdiction.state}
+								</TableCell>
+								<TableCell className="truncate px-3 py-2.5 text-muted-foreground">
+									{permit.typeLabel || PERMIT_TYPE_LABEL[permit.permitType]}
+								</TableCell>
+								<TableCell className="px-3 py-2.5">
+									<PermitStatusBadge status={permit.status} />
+								</TableCell>
+								<TableCell className="px-3 py-2.5 text-right text-muted-foreground">
+									<LocalRelativeTime date={permit.updatedAt} />
+								</TableCell>
+							</SimpleTableRow>
+						);
+					})}
 				</SimpleTable>
 			)}
 		</div>

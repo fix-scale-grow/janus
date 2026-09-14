@@ -35,12 +35,17 @@ export const requiredDocumentEntry = z.object({
 	label: z.string().trim().min(1).max(160),
 	reusable: z.boolean(),
 	sourceUrl: z.string().trim().url().max(500).nullable(),
+	lockerKind: z.enum(LOCKER_KINDS).nullable().default(null),
+	verifiedById: z.string().nullable().default(null),
+	verifiedAt: z.coerce.date().nullable().default(null),
 });
 
 export const inspectionEntry = z.object({
 	name: z.string().trim().min(1).max(120),
 	when: z.string().trim().max(300).nullable(),
 	criticalNote: z.string().trim().max(300).nullable(),
+	verifiedById: z.string().nullable().default(null),
+	verifiedAt: z.coerce.date().nullable().default(null),
 });
 
 export const playbookFacts = z.object({
@@ -182,11 +187,20 @@ export function mergeDraftFacts(
 		),
 		requiredDocuments:
 			existing.requiredDocuments.length === 0
-				? draft.requiredDocuments
+				? draft.requiredDocuments.map((doc) => ({
+						...doc,
+						lockerKind: null,
+						verifiedById: null,
+						verifiedAt: null,
+					}))
 				: existing.requiredDocuments,
 		inspections:
 			existing.inspections.length === 0
-				? draft.inspections
+				? draft.inspections.map((inspection) => ({
+						...inspection,
+						verifiedById: null,
+						verifiedAt: null,
+					}))
 				: existing.inspections,
 	};
 }

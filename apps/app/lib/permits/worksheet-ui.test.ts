@@ -68,7 +68,7 @@ describe("worksheetBlockingReason", () => {
 			},
 			disclaimerAccepted: true,
 		});
-		expect(reason).toBe("1 field awaits review");
+		expect(reason).toBe("1 field awaits review.");
 	});
 
 	it("pluralizes multiple fields awaiting review", () => {
@@ -80,7 +80,7 @@ describe("worksheetBlockingReason", () => {
 			},
 			disclaimerAccepted: true,
 		});
-		expect(reason).toBe("2 fields await review");
+		expect(reason).toBe("2 fields await review.");
 	});
 
 	it("names the first missing required field", () => {
@@ -89,7 +89,7 @@ describe("worksheetBlockingReason", () => {
 			answers: {},
 			disclaimerAccepted: true,
 		});
-		expect(reason).toBe("Job valuation is required");
+		expect(reason).toBe("Job valuation is required.");
 	});
 
 	it("asks for the disclaimer once fields are clear", () => {
@@ -100,7 +100,7 @@ describe("worksheetBlockingReason", () => {
 			},
 			disclaimerAccepted: false,
 		});
-		expect(reason).toBe("Accept the preparation disclaimer first");
+		expect(reason).toBe("Accept the preparation disclaimer first.");
 	});
 
 	it("returns null once every gate passes", () => {

@@ -83,7 +83,9 @@ export async function POST(request: Request): Promise<Response> {
 			data: { filePath: fileName, attachedAt: new Date() },
 		});
 	} catch {
-		await removePermitFile(fileName);
+		try {
+			await removePermitFile(fileName);
+		} catch {}
 		return NextResponse.json(
 			{ error: "The file could not be saved." },
 			{ status: 500 },

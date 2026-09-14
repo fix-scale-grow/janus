@@ -137,6 +137,61 @@ describe("SettingsService permits", () => {
 		expect(read.permitTriggerStageIds).toEqual([stageId]);
 	});
 
+	it("defaults triggerStageIds to every WON stage on first enable when none is supplied", async () => {
+		await service.setPermits(adminUserId, {
+			enabled: false,
+			triggerStageIds: [],
+		});
+
+		const wonStages = await db.stage.findMany({
+			where: { outcome: "WON", archivedAt: null },
+			select: { id: true },
+		});
+
+		const after = await service.setPermits(adminUserId, { enabled: true });
+		expect(new Set(after.permitTriggerStageIds)).toEqual(
+			new Set(wonStages.map((stage) => stage.id)),
+		);
+
+		await service.setPermits(adminUserId, {
+			enabled: false,
+			triggerStageIds: [],
+		});
+	});
+
+	it("does not override an explicit triggerStageIds on first enable", async () => {
+		await service.setPermits(adminUserId, {
+			enabled: false,
+			triggerStageIds: [],
+		});
+
+		const after = await service.setPermits(adminUserId, {
+			enabled: true,
+			triggerStageIds: [stageId],
+		});
+		expect(after.permitTriggerStageIds).toEqual([stageId]);
+
+		await service.setPermits(adminUserId, {
+			enabled: false,
+			triggerStageIds: [],
+		});
+	});
+
+	it("does not repopulate triggerStageIds once it is already non-empty", async () => {
+		await service.setPermits(adminUserId, {
+			enabled: false,
+			triggerStageIds: [stageId],
+		});
+
+		const after = await service.setPermits(adminUserId, { enabled: true });
+		expect(after.permitTriggerStageIds).toEqual([stageId]);
+
+		await service.setPermits(adminUserId, {
+			enabled: false,
+			triggerStageIds: [],
+		});
+	});
+
 	it("setPermits rejects a non-admin", async () => {
 		await expectRejects(
 			service.setPermits(memberUserId, { enabled: true }),

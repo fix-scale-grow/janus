@@ -2262,21 +2262,23 @@ model PermitDocument {
   lockerDocument   LockerDocument? @relation(fields: [lockerDocumentId], references: [id], onDelete: SetNull)
   attachedAt       DateTime?
   sortOrder        Int             @default(0)
+  sourceVerified   Boolean?
 
   @@unique([permitId, slotKey])
   @@map("permit_document")
 }
 
 model PermitInspection {
-  id           String           @id @default(cuid())
-  permitId     String
-  permit       Permit           @relation(fields: [permitId], references: [id], onDelete: Cascade)
-  name         String
-  criticalNote String?
-  scheduledFor DateTime?
-  result       InspectionResult @default(PENDING)
-  note         String?
-  sortOrder    Int              @default(0)
+  id             String           @id @default(cuid())
+  permitId       String
+  permit         Permit           @relation(fields: [permitId], references: [id], onDelete: Cascade)
+  name           String
+  criticalNote   String?
+  scheduledFor   DateTime?
+  result         InspectionResult @default(PENDING)
+  note           String?
+  sortOrder      Int              @default(0)
+  sourceVerified Boolean?
 
   @@index([permitId])
   @@map("permit_inspection")

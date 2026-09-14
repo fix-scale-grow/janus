@@ -86,6 +86,8 @@ export const ADD_DOCUMENT = "Add document";
 export const DOCUMENT_LABEL_LABEL = "Label";
 export const DOCUMENT_REUSABLE_LABEL = "Reusable across permits";
 export const DOCUMENT_SOURCE_LABEL = "Source URL";
+export const DOCUMENT_KIND_LABEL = "Locker kind";
+export const DOCUMENT_KIND_NONE = "None";
 export const SAVE_DOCUMENTS = "Save documents";
 
 export const INSPECTIONS_TITLE = "Inspections";

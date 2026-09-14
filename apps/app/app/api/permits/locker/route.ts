@@ -83,7 +83,9 @@ export async function POST(request: Request): Promise<Response> {
 			data: { fileName },
 		});
 	} catch {
-		await removeLockerFile(fileName);
+		try {
+			await removeLockerFile(fileName);
+		} catch {}
 		await db.lockerDocument.delete({ where: { id: locker.id } });
 		return NextResponse.json(
 			{ error: "The file could not be saved." },

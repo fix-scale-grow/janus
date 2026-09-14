@@ -30,6 +30,7 @@ import {
 	monthWeeks,
 	weekOf,
 } from "@/lib/calendar/span-layout";
+import { isInspectionOverdue } from "@/lib/permits/permit-nags";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -195,11 +196,18 @@ export function CalendarView({
 	});
 	const inspections = useMemo<CalendarInspection[]>(() => {
 		const row = calendarRange.data?.find((entry) => entry.id === id);
-		return (row?.inspections ?? []).map((inspection) => ({
-			...inspection,
-			date: new Date(inspection.date),
-		}));
-	}, [calendarRange.data, id]);
+		return (row?.inspections ?? []).map((inspection) => {
+			const date = new Date(inspection.date);
+			return {
+				...inspection,
+				date,
+				overdue: isInspectionOverdue(
+					{ scheduledFor: date, result: inspection.result },
+					today,
+				),
+			};
+		});
+	}, [calendarRange.data, id, today]);
 
 	const activeTask =
 		activeId != null

@@ -1,5 +1,7 @@
 "use client";
 
+import WarningAlt from "@carbon/icons-react/es/WarningAlt";
+import { Badge } from "@crm/ui/components/badge";
 import {
 	Card,
 	CardContent,
@@ -7,10 +9,18 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@crm/ui/components/card";
+import { Icon } from "@crm/ui/components/icon";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InlineDateField, InlineField } from "@/components/crm/inline-field";
+import {
+	expiryNag,
+	hasMissingRequiredDocuments,
+	hasUnverifiedPlaybookEntries,
+	missingDocumentCount,
+	missingDocumentsMessage,
+} from "@/lib/permits/permit-nags";
 import { PERMIT_TYPE_LABEL } from "@/lib/permits/permit-status";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -19,6 +29,9 @@ import { InspectionsSection } from "./inspections-section";
 import { PermitStatusBadge } from "./permit-status-badge";
 import { PermitStatusControl } from "./permit-status-control";
 import { WorksheetSummary } from "./worksheet-summary";
+
+const UNVERIFIED_PLAYBOOK_WARNING =
+	"Unverified permit research is in use. Confirm the playbook in Settings > Permits.";
 
 export function PermitCard({ permitId }: { permitId: string }) {
 	const trpc = useTRPC();
@@ -41,6 +54,18 @@ export function PermitCard({ permitId }: { permitId: string }) {
 	const isSaving = (field: "permitNumber" | "feeCents" | "expiresAt") =>
 		update.isPending && Boolean(update.variables && field in update.variables);
 
+	const now = new Date();
+	const unverified = hasUnverifiedPlaybookEntries(permit);
+	const missingDocs = hasMissingRequiredDocuments({
+		status: permit.status,
+		documents: permit.documents,
+	});
+	const expiry = expiryNag({
+		status: permit.status,
+		expiresAt: permit.expiresAt,
+		now,
+	});
+
 	return (
 		<Card>
 			<CardHeader>
@@ -49,6 +74,7 @@ export function PermitCard({ permitId }: { permitId: string }) {
 						{permit.typeLabel || PERMIT_TYPE_LABEL[permit.permitType]}
 					</CardTitle>
 					<PermitStatusBadge status={permit.status} />
+					{expiry ? <Badge variant="warning">{expiry.label}</Badge> : null}
 				</div>
 				<CardDescription>
 					{permit.jurisdiction.name}, {permit.jurisdiction.state}
@@ -56,6 +82,19 @@ export function PermitCard({ permitId }: { permitId: string }) {
 			</CardHeader>
 
 			<CardContent className="flex flex-col gap-4">
+				{unverified ? (
+					<p className="flex items-center gap-1.5 text-warning text-xs">
+						<Icon icon={WarningAlt} className="size-3.5" />
+						{UNVERIFIED_PLAYBOOK_WARNING}
+					</p>
+				) : null}
+
+				{missingDocs ? (
+					<p className="flex items-center gap-1.5 text-warning text-xs">
+						<Icon icon={WarningAlt} className="size-3.5" />
+						{missingDocumentsMessage(missingDocumentCount(permit.documents))}
+					</p>
+				) : null}
 				<div className="grid gap-3 sm:grid-cols-3">
 					<InlineField
 						label="Permit #"

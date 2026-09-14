@@ -13,16 +13,19 @@ const renderToBuffer = (
 ).renderToBuffer;
 
 export type PermitPdfField = {
+	key: string;
 	label: string;
 	value: string;
 };
 
 export type PermitPdfChecklistItem = {
+	slotKey: string;
 	label: string;
 	attached: boolean;
 };
 
 export type PermitPdfInspection = {
+	id: string;
 	name: string;
 	scheduledFor: Date | null;
 	result: string;
@@ -151,7 +154,7 @@ export async function renderPermitWorksheetPdf(
 	const fieldRows = input.fields.map((field) =>
 		createElement(
 			View,
-			{ key: field.label, style: styles.fieldRow },
+			{ key: field.key, style: styles.fieldRow },
 			createElement(Text, { style: styles.fieldLabel }, field.label),
 			createElement(Text, { style: styles.fieldValue }, field.value),
 		),
@@ -160,7 +163,7 @@ export async function renderPermitWorksheetPdf(
 	const checklistRows = input.checklist.map((item) =>
 		createElement(
 			View,
-			{ key: item.label, style: styles.checklistRow },
+			{ key: item.slotKey, style: styles.checklistRow },
 			createElement(Text, { style: styles.checklistLabel }, item.label),
 			createElement(
 				Text,
@@ -186,7 +189,7 @@ export async function renderPermitWorksheetPdf(
 					...input.inspections.map((inspection) =>
 						createElement(
 							View,
-							{ key: inspection.name, style: styles.inspectionRow },
+							{ key: inspection.id, style: styles.inspectionRow },
 							createElement(
 								Text,
 								{ style: styles.inspectionName },

@@ -254,10 +254,26 @@ export class SettingsService {
 			}
 		}
 
+		const previous = await readPermitSettings(this.db);
+		let triggerStageIds = patch.triggerStageIds;
+
+		if (
+			patch.enabled === true &&
+			!previous.permitsEnabled &&
+			previous.permitTriggerStageIds.length === 0 &&
+			triggerStageIds === undefined
+		) {
+			const wonStages = await this.db.stage.findMany({
+				where: { outcome: "WON", archivedAt: null },
+				select: { id: true },
+			});
+			triggerStageIds = wonStages.map((stage) => stage.id);
+		}
+
 		await writePermitSettings(this.db, {
 			permitsEnabled: patch.enabled,
 			permitStates: patch.states,
-			permitTriggerStageIds: patch.triggerStageIds,
+			permitTriggerStageIds: triggerStageIds,
 		});
 
 		this.logger.log({ message: "Permit settings changed" });
