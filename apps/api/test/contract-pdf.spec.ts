@@ -65,8 +65,13 @@ describe("renderContractPdf", () => {
 					{ kind: "signature" },
 				],
 				accentColor: "#aa3311",
-				headerText: "AL Lic #12345",
-				footerText: "(555) 123-4567",
+				chrome: {
+					headerBlocks: [
+						{ kind: "heading", text: "{{business.name}}" },
+						{ kind: "text", html: "AL Lic #12345" },
+					],
+					footerBlocks: [{ kind: "text", html: "(555) 123-4567" }],
+				},
 				signature: {
 					kind: "typed",
 					data: "Jane Smith",

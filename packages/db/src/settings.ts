@@ -4,6 +4,7 @@ import {
 	isCurrencyCode,
 	normalizeCurrency,
 } from "./currency";
+import type { Prisma } from "./generated/prisma/client";
 import { PERMIT_DISCLAIMER_VERSION } from "./permits";
 
 export const SETTINGS_ID = "app";
@@ -358,39 +359,39 @@ export function maskKey(key: string): string {
 	return trimmed.length > 4 ? `••••${trimmed.slice(-4)}` : "••••";
 }
 
-export type DocumentChromeText = {
-	headerText: string | null;
-	footerText: string | null;
+export type DocumentChromeRaw = {
+	documentChrome: unknown;
+	legacyHeaderText: string | null;
+	legacyFooterText: string | null;
 };
 
-export async function readDocumentChromeText(
+export async function readDocumentChromeRaw(
 	db: Db,
-): Promise<DocumentChromeText> {
+): Promise<DocumentChromeRaw> {
 	const row = await db.appSetting.findUnique({
 		where: { id: SETTINGS_ID },
-		select: { documentHeaderText: true, documentFooterText: true },
+		select: {
+			documentChrome: true,
+			documentHeaderText: true,
+			documentFooterText: true,
+		},
 	});
 
 	return {
-		headerText: row?.documentHeaderText ?? null,
-		footerText: row?.documentFooterText ?? null,
+		documentChrome: row?.documentChrome ?? null,
+		legacyHeaderText: row?.documentHeaderText ?? null,
+		legacyFooterText: row?.documentFooterText ?? null,
 	};
 }
 
-export async function writeDocumentChromeText(
+export async function writeDocumentChromeRaw(
 	db: Db,
-	text: DocumentChromeText,
+	value: unknown,
 ): Promise<void> {
+	const documentChrome = value as Prisma.InputJsonValue;
 	await db.appSetting.upsert({
 		where: { id: SETTINGS_ID },
-		create: {
-			id: SETTINGS_ID,
-			documentHeaderText: text.headerText,
-			documentFooterText: text.footerText,
-		},
-		update: {
-			documentHeaderText: text.headerText,
-			documentFooterText: text.footerText,
-		},
+		create: { id: SETTINGS_ID, documentChrome },
+		update: { documentChrome },
 	});
 }

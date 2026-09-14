@@ -7,7 +7,6 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
-import { readDocumentChromeText } from "@crm/db/settings";
 import {
 	BadRequestException,
 	ConflictException,
@@ -16,6 +15,10 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import {
+	type DocumentChrome,
+	readDocumentChrome,
+} from "../documents/document-chrome";
 import { tierTotals } from "../estimates/estimate-pdf";
 import { invoiceTotalCents } from "../invoices/invoice-pdf";
 import { MailerService } from "../mailer/mailer.service";
@@ -485,8 +488,7 @@ export class ContractsService {
 				bodyHtmlBlocks: parseTemplateBlocks(contract.body),
 				context,
 				accentColor: chrome.accentColor,
-				headerText: chrome.headerText,
-				footerText: chrome.footerText,
+				chrome: chrome.chrome,
 				signature:
 					contract.signedAt &&
 					contract.signerName &&
@@ -614,18 +616,13 @@ export class ContractsService {
 
 	private async pdfChrome(): Promise<{
 		accentColor: string;
-		headerText: string | null;
-		footerText: string | null;
+		chrome: DocumentChrome;
 	}> {
-		const [brand, text] = await Promise.all([
+		const [brand, chrome] = await Promise.all([
 			resolveEmailBrand(this.db),
-			readDocumentChromeText(this.db),
+			readDocumentChrome(this.db),
 		]);
-		return {
-			accentColor: brand.color,
-			headerText: text.headerText,
-			footerText: text.footerText,
-		};
+		return { accentColor: brand.color, chrome };
 	}
 
 	private async contractBodySnapshot() {
@@ -691,8 +688,7 @@ export class ContractsService {
 					bodyHtmlBlocks: parseTemplateBlocks(contract.body),
 					context,
 					accentColor: chrome.accentColor,
-					headerText: chrome.headerText,
-					footerText: chrome.footerText,
+					chrome: chrome.chrome,
 					signature,
 				},
 				context["business.name"] ?? DEFAULT_WORKSPACE_NAME,

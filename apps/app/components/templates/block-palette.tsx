@@ -30,9 +30,11 @@ const BLOCK_KIND_ICONS: Record<TemplateBlockKind, CarbonIcon> = {
 
 export function BlockPalette({
 	purpose,
+	kinds,
 	onAdd,
 }: {
 	purpose: TemplatePurpose;
+	kinds?: TemplateBlockKind[];
 	onAdd: (kind: TemplateBlockKind) => void;
 }) {
 	return (
@@ -44,7 +46,7 @@ export function BlockPalette({
 				</p>
 			</div>
 			<div className="flex flex-col gap-1.5">
-				{blockKindsFor(purpose).map((kind) => (
+				{(kinds ?? blockKindsFor(purpose)).map((kind) => (
 					<Button
 						key={kind}
 						variant="outline"

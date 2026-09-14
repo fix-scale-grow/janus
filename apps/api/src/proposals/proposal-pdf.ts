@@ -11,6 +11,10 @@ import {
 import type { ReactElement } from "react";
 import { createElement } from "react";
 import { pdfChromeElements, renderBodyBlocks } from "../contracts/contract-pdf";
+import {
+	DEFAULT_DOCUMENT_CHROME,
+	type DocumentChrome,
+} from "../documents/document-chrome";
 import { formatCents } from "../documents/pdf-money";
 import {
 	type EstimatePdfLineItem,
@@ -42,8 +46,7 @@ export type ProposalPdfInput = {
 	photos: ProposalPdfPhoto[];
 	createdAt: Date;
 	accentColor?: string;
-	headerText?: string | null;
-	footerText?: string | null;
+	chrome?: DocumentChrome;
 };
 
 const TIER_ORDER: EstimateTier[] = ["GOOD", "BETTER", "BEST"];
@@ -164,7 +167,6 @@ export async function renderProposalPdf(
 	const cover = createElement(
 		View,
 		{ style: styles.cover },
-		createElement(Text, { style: styles.workspaceName }, workspaceName),
 		createElement(
 			Text,
 			{ style: styles.coverTitle },
@@ -258,11 +260,10 @@ export async function renderProposalPdf(
 			: null;
 
 	const chrome = pdfChromeElements({
-		workspaceName,
 		label: `Proposal #${proposal.number}`,
 		accentColor: proposal.accentColor ?? "#006b4f",
-		headerText: proposal.headerText ?? null,
-		footerText: proposal.footerText ?? null,
+		chrome: proposal.chrome ?? DEFAULT_DOCUMENT_CHROME,
+		context: proposal.context,
 	});
 
 	const document = createElement(

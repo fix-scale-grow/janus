@@ -4,21 +4,18 @@ import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
 import {
 	acceptPermitDisclaimerSetting,
 	DEFAULT_AGENT_MODEL,
-	type DocumentChromeText,
 	maskKey,
 	type NavLayout,
 	type PermitSettings,
 	readAgentModel,
 	readContextDevKey,
 	readDealNumberStart,
-	readDocumentChromeText,
 	readNavLayout,
 	readPermitSettings,
 	type UsState,
 	writeAgentModel,
 	writeContextDevKey,
 	writeDealNumberStart,
-	writeDocumentChromeText,
 	writeNavLayout,
 	writePermitSettings,
 } from "@crm/db/settings";
@@ -31,6 +28,11 @@ import {
 import { ResearchKeyService } from "../agent/research-key.service";
 import { BackfillService } from "../backfill/backfill.service";
 import { InjectDatabase } from "../database/database.constants";
+import {
+	type DocumentChrome,
+	readDocumentChrome,
+	writeDocumentChrome,
+} from "../documents/document-chrome";
 import {
 	type CatalogModel,
 	ModelCatalogService,
@@ -193,27 +195,24 @@ export class SettingsService {
 		return this.navLayout();
 	}
 
-	async documentChromeText(): Promise<DocumentChromeText> {
-		return readDocumentChromeText(this.db);
+	async documentChrome(): Promise<DocumentChrome> {
+		return readDocumentChrome(this.db);
 	}
 
-	async setDocumentChromeText(
+	async setDocumentChrome(
 		userId: string,
-		text: DocumentChromeText,
-	): Promise<DocumentChromeText> {
+		chrome: DocumentChrome,
+	): Promise<DocumentChrome> {
 		await this.requireAdmin(
 			userId,
-			"Only an owner or an admin can change document text.",
+			"Only an owner or an admin can change document layout.",
 		);
 
-		await writeDocumentChromeText(this.db, {
-			headerText: text.headerText?.trim() || null,
-			footerText: text.footerText?.trim() || null,
-		});
+		await writeDocumentChrome(this.db, chrome);
 
-		this.logger.log({ message: "Document header and footer text changed" });
+		this.logger.log({ message: "Document header and footer changed" });
 
-		return this.documentChromeText();
+		return this.documentChrome();
 	}
 
 	async dealNumbering(): Promise<DealNumberingSettings> {

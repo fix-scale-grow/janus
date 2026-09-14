@@ -9,6 +9,10 @@ import {
 } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { createElement } from "react";
+import {
+	DEFAULT_DOCUMENT_CHROME,
+	type DocumentChrome,
+} from "../documents/document-chrome";
 import { applyMergeFields } from "../templates/render-email";
 import type { TemplateBlocks } from "../templates/template-blocks";
 
@@ -32,61 +36,49 @@ export type ContractPdfInput = {
 	context: Record<string, string>;
 	signature?: ContractPdfSignature;
 	accentColor?: string;
-	headerText?: string | null;
-	footerText?: string | null;
+	chrome?: DocumentChrome;
 };
 
 export type PdfChrome = {
-	workspaceName: string;
 	label: string;
 	accentColor: string;
-	headerText: string | null;
-	footerText: string | null;
+	chrome: DocumentChrome;
+	context: Record<string, string>;
 };
 
 const DEFAULT_ACCENT = "#006b4f";
 
-export function pdfChromeElements(chrome: PdfChrome): {
+export function pdfChromeElements(input: PdfChrome): {
 	header: ReactElement;
 	footer: ReactElement;
 } {
+	const headerElements = renderBodyBlocks(
+		input.chrome.headerBlocks,
+		input.context,
+	);
+	const footerElements = renderBodyBlocks(
+		input.chrome.footerBlocks,
+		input.context,
+	);
+
 	const header = createElement(
 		View,
 		{ fixed: true, style: chromeStyles.band },
 		createElement(View, {
-			style: [chromeStyles.accentBar, { backgroundColor: chrome.accentColor }],
+			style: [chromeStyles.accentBar, { backgroundColor: input.accentColor }],
 		}),
 		createElement(
 			View,
 			{ style: chromeStyles.bandRow },
-			createElement(
-				View,
-				{ style: chromeStyles.bandLeft },
-				createElement(
-					Text,
-					{ style: chromeStyles.bandName },
-					chrome.workspaceName,
-				),
-				chrome.headerText?.trim()
-					? createElement(
-							Text,
-							{ style: chromeStyles.bandMeta },
-							chrome.headerText.trim(),
-						)
-					: null,
-			),
-			createElement(Text, { style: chromeStyles.bandLabel }, chrome.label),
+			createElement(View, { style: chromeStyles.bandLeft }, ...headerElements),
+			createElement(Text, { style: chromeStyles.bandLabel }, input.label),
 		),
 	);
 
 	const footer = createElement(
 		View,
 		{ fixed: true, style: chromeStyles.footer },
-		createElement(
-			Text,
-			{ style: chromeStyles.footerText },
-			chrome.footerText?.trim() || chrome.workspaceName,
-		),
+		createElement(View, { style: chromeStyles.footerLeft }, ...footerElements),
 		createElement(Text, {
 			style: chromeStyles.footerText,
 			render: ({
@@ -124,15 +116,7 @@ const chromeStyles = StyleSheet.create({
 	},
 	bandLeft: {
 		flexDirection: "column",
-		gap: 2,
-	},
-	bandName: {
-		fontSize: 12,
-		fontFamily: "Helvetica-Bold",
-	},
-	bandMeta: {
-		fontSize: 8,
-		color: "#666666",
+		flexShrink: 1,
 	},
 	bandLabel: {
 		fontSize: 9,
@@ -145,6 +129,11 @@ const chromeStyles = StyleSheet.create({
 		right: 40,
 		flexDirection: "row",
 		justifyContent: "space-between",
+		alignItems: "flex-end",
+	},
+	footerLeft: {
+		flexDirection: "column",
+		gap: 2,
 	},
 	footerText: {
 		fontSize: 8,
@@ -356,11 +345,10 @@ export async function renderContractPdf(
 		.filter((element): element is ReactElement => element !== null);
 
 	const chrome = pdfChromeElements({
-		workspaceName,
 		label: contractLabel,
 		accentColor: input.accentColor ?? DEFAULT_ACCENT,
-		headerText: input.headerText ?? null,
-		footerText: input.footerText ?? null,
+		chrome: input.chrome ?? DEFAULT_DOCUMENT_CHROME,
+		context: input.context,
 	});
 
 	const document = createElement(

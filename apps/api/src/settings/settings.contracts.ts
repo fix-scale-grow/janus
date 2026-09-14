@@ -1,5 +1,6 @@
 import { US_STATES } from "@crm/db/settings";
 import { z } from "zod";
+import { documentChromeSchema } from "../documents/document-chrome";
 
 export const setAgentModelInput = z.object({
 	modelId: z.string().trim().min(1).max(200).nullable(),
@@ -27,14 +28,9 @@ export const setNavLayoutInput = z.object({
 
 export type SetNavLayoutInput = z.infer<typeof setNavLayoutInput>;
 
-export const setDocumentChromeTextInput = z.object({
-	headerText: z.string().trim().max(200).nullable(),
-	footerText: z.string().trim().max(200).nullable(),
-});
+export const setDocumentChromeInput = documentChromeSchema;
 
-export type SetDocumentChromeTextInput = z.infer<
-	typeof setDocumentChromeTextInput
->;
+export type SetDocumentChromeInput = z.infer<typeof setDocumentChromeInput>;
 
 export const setDealNumberStartInput = z.object({
 	start: z.number().int().min(1).max(99_999_999),

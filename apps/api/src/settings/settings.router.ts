@@ -13,7 +13,7 @@ import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	setAgentModelInput,
 	setDealNumberStartInput,
-	setDocumentChromeTextInput,
+	setDocumentChromeInput,
 	setNavLayoutInput,
 	setPermitsInput,
 	setResearchKeyInput,
@@ -53,16 +53,16 @@ export class SettingsRouter {
 	}
 
 	@Query()
-	async documentChromeText() {
-		return this.settings.documentChromeText();
+	async documentChrome() {
+		return this.settings.documentChrome();
 	}
 
-	@Mutation({ input: setDocumentChromeTextInput })
-	async setDocumentChromeText(
+	@Mutation({ input: setDocumentChromeInput })
+	async setDocumentChrome(
 		@Ctx() ctx: AuthedTrpcContext,
-		@Input() input: z.infer<typeof setDocumentChromeTextInput>,
+		@Input() input: z.infer<typeof setDocumentChromeInput>,
 	) {
-		return this.settings.setDocumentChromeText(ctx.user.id, input);
+		return this.settings.setDocumentChrome(ctx.user.id, input);
 	}
 
 	@Query()

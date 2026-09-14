@@ -55,7 +55,7 @@ async function Templates() {
 
 	await Promise.all([
 		queryClient.prefetchQuery(trpc.templates.list.queryOptions()),
-		queryClient.prefetchQuery(trpc.settings.documentChromeText.queryOptions()),
+		queryClient.prefetchQuery(trpc.settings.documentChrome.queryOptions()),
 	]);
 
 	return (

@@ -1604,6 +1604,7 @@ model AppSetting {
   navLayout          String?
   documentHeaderText String?
   documentFooterText String?
+  documentChrome     Json?
 
   dealNumberStart Int?
 

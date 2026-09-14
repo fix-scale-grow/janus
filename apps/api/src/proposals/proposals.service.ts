@@ -2,7 +2,6 @@ import { randomBytes } from "node:crypto";
 import { appUrl, DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import type { Db, EstimateTier, Prisma } from "@crm/db";
 import { ActivityType } from "@crm/db/enums";
-import { readDocumentChromeText } from "@crm/db/settings";
 import {
 	BadRequestException,
 	ConflictException,
@@ -12,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { ContractsService } from "../contracts/contracts.service";
 import { InjectDatabase } from "../database/database.constants";
+import { readDocumentChrome } from "../documents/document-chrome";
 import { tierTotals } from "../estimates/estimate-pdf";
 import { MailerService } from "../mailer/mailer.service";
 import { PhotosService } from "../photos/photos.service";
@@ -337,16 +337,15 @@ export class ProposalsService {
 		});
 		const photos = await this.photos.pdfPhotosForEstimate(proposal.estimateId);
 		const workspaceName = await this.workspaceName();
-		const [brand, chromeText] = await Promise.all([
+		const [brand, chrome] = await Promise.all([
 			resolveEmailBrand(this.db),
-			readDocumentChromeText(this.db),
+			readDocumentChrome(this.db),
 		]);
 
 		const buffer = await renderProposalPdf(
 			{
 				accentColor: brand.color,
-				headerText: chromeText.headerText,
-				footerText: chromeText.footerText,
+				chrome,
 				number: proposal.number,
 				title: proposal.title,
 				coverTitle: proposal.coverTitle,
