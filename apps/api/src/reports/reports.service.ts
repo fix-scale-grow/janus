@@ -45,7 +45,10 @@ import type {
 	ReportRangeInput,
 	ReportSeriesPoint,
 } from "./reports.contracts";
-import { parseStageChangeMeta } from "./reports.contracts";
+import {
+	parseProductionStageChangeMeta,
+	parseStageChangeMeta,
+} from "./reports.contracts";
 import {
 	AGING_BUCKETS,
 	agingBucket,
@@ -1285,16 +1288,46 @@ export class ReportsService {
 		const { from, to } = this.defaultRange(input);
 		const base = await this.conversion.reportingCurrency();
 
-		const contacts = await this.db.contact.findMany({
+		const contactsInRange = await this.db.contact.findMany({
 			where: { createdAt: { gte: from, lte: to } },
 			select: { id: true, source: true },
 		});
-		const contactById = new Map(
-			contacts.map((contact) => [contact.id, contact]),
-		);
-		const contactIds = contacts.map((contact) => contact.id);
 
-		const trackingIds = contacts
+		const dealsInRange = await this.db.deal.findMany({
+			where: { createdAt: { gte: from, lte: to } },
+			select: {
+				id: true,
+				closedAt: true,
+				baseAmount: true,
+				baseCurrency: true,
+				stage: { select: { outcome: true } },
+			},
+		});
+		const dealIds = dealsInRange.map((deal) => deal.id);
+		const primaryContacts = await this.primaryContactsFor(dealIds);
+
+		const contactById = new Map(
+			contactsInRange.map((contact) => [contact.id, contact]),
+		);
+		const missingContactIds = [
+			...new Set(
+				[...primaryContacts.values()]
+					.filter((contact) => contact !== null)
+					.map((contact) => contact.id),
+			),
+		].filter((id) => !contactById.has(id));
+		const missingContacts = missingContactIds.length
+			? await this.db.contact.findMany({
+					where: { id: { in: missingContactIds } },
+					select: { id: true, source: true },
+				})
+			: [];
+		for (const contact of missingContacts) {
+			contactById.set(contact.id, contact);
+		}
+		const allContacts = [...contactById.values()];
+
+		const trackingIds = allContacts
 			.filter((contact) => contact.source === RecordSource.TRACKING)
 			.map((contact) => contact.id);
 		const visitors = trackingIds.length
@@ -1314,7 +1347,7 @@ export class ReportsService {
 			}
 		}
 
-		const formIds = contacts
+		const formIds = allContacts
 			.filter((contact) => contact.source === RecordSource.FORM)
 			.map((contact) => contact.id);
 		const submissions = formIds.length
@@ -1346,43 +1379,19 @@ export class ReportsService {
 		};
 
 		const contactBuckets = new Map<string, Set<string>>();
-		for (const contact of contacts) {
+		for (const contact of contactsInRange) {
 			const label = labelFor(contact);
 			const set = contactBuckets.get(label) ?? new Set<string>();
 			set.add(contact.id);
 			contactBuckets.set(label, set);
 		}
 
-		const dealContacts = contactIds.length
-			? await this.db.dealContact.findMany({
-					where: { contactId: { in: contactIds } },
-					select: { dealId: true },
-				})
-			: [];
-		const dealIds = [...new Set(dealContacts.map((row) => row.dealId))];
-
-		const [deals, primaryContacts] = await Promise.all([
-			dealIds.length
-				? this.db.deal.findMany({
-						where: { id: { in: dealIds }, createdAt: { gte: from, lte: to } },
-						select: {
-							id: true,
-							closedAt: true,
-							baseAmount: true,
-							baseCurrency: true,
-							stage: { select: { outcome: true } },
-						},
-					})
-				: Promise.resolve([]),
-			this.primaryContactsFor(dealIds),
-		]);
-
 		let excluded = 0;
 		const dealCountByLabel = new Map<string, number>();
 		const wonCountByLabel = new Map<string, number>();
 		const wonCentsByLabel = new Map<string, number>();
 
-		for (const deal of deals) {
+		for (const deal of dealsInRange) {
 			const primary = primaryContacts.get(deal.id);
 			if (!primary) continue;
 			const contact = contactById.get(primary.id);
@@ -1407,10 +1416,17 @@ export class ReportsService {
 			}
 		}
 
-		const rows: LeadSourceRow[] = [...contactBuckets.entries()]
-			.map(([source, set]) => ({
+		const allLabels = new Set<string>([
+			...contactBuckets.keys(),
+			...dealCountByLabel.keys(),
+			...wonCountByLabel.keys(),
+			...wonCentsByLabel.keys(),
+		]);
+
+		const rows: LeadSourceRow[] = [...allLabels]
+			.map((source) => ({
 				source,
-				contacts: set.size,
+				contacts: contactBuckets.get(source)?.size ?? 0,
 				deals: dealCountByLabel.get(source) ?? 0,
 				wonCount: wonCountByLabel.get(source) ?? 0,
 				wonCents: hasProfitView ? (wonCentsByLabel.get(source) ?? 0) : null,
@@ -1443,29 +1459,78 @@ export class ReportsService {
 		return { kpis, series, rows, excluded };
 	}
 
+	private async avgScheduledToCompleteDays(
+		from: Date,
+		to: Date,
+	): Promise<number | null> {
+		const activities = await this.db.activity.findMany({
+			where: { type: ActivityType.STAGE_CHANGE, occurredAt: { lte: to } },
+			orderBy: [{ dealId: "asc" }, { occurredAt: "asc" }],
+			take: REPORTS.maxVelocityActivities,
+			select: { dealId: true, occurredAt: true, meta: true },
+		});
+
+		type ProductionChange = { occurredAt: Date; to: string };
+		const changesByDeal = new Map<string, ProductionChange[]>();
+		for (const activity of activities) {
+			if (!activity.dealId || !activity.occurredAt) continue;
+			const meta = parseProductionStageChangeMeta(activity.meta);
+			if (!meta) continue;
+			const list = changesByDeal.get(activity.dealId) ?? [];
+			list.push({ occurredAt: activity.occurredAt, to: meta.to });
+			changesByDeal.set(activity.dealId, list);
+		}
+
+		const gaps: number[] = [];
+		for (const changes of changesByDeal.values()) {
+			const scheduledIndex = changes.findIndex(
+				(change) => change.to === ProductionStage.SCHEDULED,
+			);
+			if (scheduledIndex === -1) continue;
+			const scheduledAt = changes[scheduledIndex]?.occurredAt;
+			if (!scheduledAt) continue;
+			const completeChange = changes
+				.slice(scheduledIndex + 1)
+				.find((change) => change.to === ProductionStage.COMPLETE);
+			if (!completeChange) continue;
+			if (completeChange.occurredAt < from || completeChange.occurredAt > to) {
+				continue;
+			}
+			gaps.push(
+				(completeChange.occurredAt.getTime() - scheduledAt.getTime()) / DAY_MS,
+			);
+		}
+
+		return gaps.length
+			? gaps.reduce((sum, value) => sum + value, 0) / gaps.length
+			: null;
+	}
+
 	async production(_userId: string, input: ReportRangeInput) {
 		const { from, to } = this.defaultRange(input);
 
-		const [stageCounts, throughputRows, crews] = await Promise.all([
-			this.db.deal.groupBy({
-				by: ["productionStage"],
-				where: { productionStage: { not: null } },
-				_count: { _all: true },
-			}),
-			this.db.deal.findMany({
-				where: {
-					productionStage: {
-						in: [ProductionStage.COMPLETE, ProductionStage.PAID],
+		const [stageCounts, throughputRows, crews, avgScheduledToComplete] =
+			await Promise.all([
+				this.db.deal.groupBy({
+					by: ["productionStage"],
+					where: { productionStage: { not: null } },
+					_count: { _all: true },
+				}),
+				this.db.deal.findMany({
+					where: {
+						productionStage: {
+							in: [ProductionStage.COMPLETE, ProductionStage.PAID],
+						},
+						productionStageChangedAt: { gte: from, lte: to },
 					},
-					productionStageChangedAt: { gte: from, lte: to },
-				},
-				select: { productionStageChangedAt: true },
-			}),
-			this.db.crew.findMany({
-				where: { archived: false },
-				select: { id: true, name: true, color: true },
-			}),
-		]);
+					select: { productionStageChangedAt: true },
+				}),
+				this.db.crew.findMany({
+					where: { archived: false },
+					select: { id: true, name: true, color: true },
+				}),
+				this.avgScheduledToCompleteDays(from, to),
+			]);
 
 		const throughputByMonth = new Map<string, number>();
 		for (const deal of throughputRows) {
@@ -1537,7 +1602,10 @@ export class ReportsService {
 			{
 				key: "avgScheduledToComplete",
 				label: "Avg scheduled to complete days",
-				value: "—",
+				value:
+					avgScheduledToComplete === null
+						? "—"
+						: avgScheduledToComplete.toFixed(1),
 			},
 		];
 
@@ -1551,7 +1619,7 @@ export class ReportsService {
 			series,
 			stageCounts: stageCountRows,
 			throughputByMonth: throughput,
-			avgScheduledToCompleteDays: null,
+			avgScheduledToCompleteDays: avgScheduledToComplete,
 			crews: crewRows,
 		};
 	}
@@ -1563,8 +1631,9 @@ export class ReportsService {
 		);
 		const { from, to } = this.defaultRange(input);
 		const now = new Date();
-		const expiringWindowEnd = new Date(
-			now.getTime() + REPORTS.expiringWindowDays * DAY_MS,
+		const todayUtc = toDay(now);
+		const expiringScanEnd = new Date(
+			todayUtc.getTime() + (REPORTS.expiringWindowDays + 1) * DAY_MS,
 		);
 
 		const [statusGroups, cycleRows, inspections, feesRows, expiring] =
@@ -1596,7 +1665,7 @@ export class ReportsService {
 				this.db.permit.findMany({
 					where: {
 						status: { in: [PermitStatus.ISSUED, PermitStatus.INSPECTIONS] },
-						expiresAt: { lte: expiringWindowEnd },
+						expiresAt: { not: null, lte: expiringScanEnd },
 					},
 					select: {
 						id: true,
@@ -1652,13 +1721,21 @@ export class ReportsService {
 			0,
 		);
 
-		const expiringRows: PermitExpiringRow[] = expiring.map((permit) => ({
-			permitId: permit.id,
-			dealId: permit.dealId,
-			dealName: permit.deal.name,
-			permitType: permit.permitType,
-			expiresAt: permit.expiresAt ? permit.expiresAt.toISOString() : "",
-		}));
+		const expiringRows: PermitExpiringRow[] = expiring
+			.filter((permit) => {
+				if (!permit.expiresAt) return false;
+				const daysLeft = Math.floor(
+					(toDay(permit.expiresAt).getTime() - todayUtc.getTime()) / DAY_MS,
+				);
+				return daysLeft <= REPORTS.expiringWindowDays;
+			})
+			.map((permit) => ({
+				permitId: permit.id,
+				dealId: permit.dealId,
+				dealName: permit.deal.name,
+				permitType: permit.permitType,
+				expiresAt: permit.expiresAt ? permit.expiresAt.toISOString() : "",
+			}));
 
 		const kpis: ReportKpi[] = [
 			{

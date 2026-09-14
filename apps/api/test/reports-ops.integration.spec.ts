@@ -4,6 +4,7 @@ import { db } from "@crm/db";
 import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
 import { ConversionService } from "../src/currency/conversion.service";
 import { PermissionsService } from "../src/permissions/permissions.service";
+import { toDay } from "../src/projects/projects.contracts";
 import { ReportsService } from "../src/reports/reports.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "reports-ops-spec";
@@ -633,6 +634,55 @@ describe("reports.leadSources", () => {
 		expect(maskedRow.wonCents).toBeNull();
 		expect(maskedRow.wonCount).toBe(1);
 	});
+
+	it("counts a deal under its primary contact's source even when the contact predates the range (deal and contact ranges are independent)", async () => {
+		const openStage = await db.stage.findFirstOrThrow({
+			where: { key: "DEMO_BOOKED" },
+			select: { id: true },
+		});
+
+		const outsideRangeContact = await db.contact.create({
+			data: {
+				id: `reports-ops-ls-outside-range-${suffix}`,
+				firstName: "Outside",
+				lastName: "Range",
+				source: "TRACKING",
+				createdAt: new Date("2031-01-01T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+		contactIds.push(outsideRangeContact.id);
+
+		await db.trackedVisitor.create({
+			data: {
+				id: `reports-ops-visitor-outside-${suffix}`,
+				contactId: outsideRangeContact.id,
+				firstSource: "Bing Ads",
+			},
+		});
+
+		const dealId = await createDeal({
+			id: `reports-ops-ls-deal-outside-contact-${suffix}`,
+			name: "Deal After Contact Range",
+			ownerId: adminUserId,
+			stageId: openStage.id,
+			createdAt: new Date("2031-04-15T00:00:00.000Z"),
+		});
+		await db.dealContact.create({
+			data: {
+				dealId,
+				contactId: outsideRangeContact.id,
+				createdAt: new Date("2031-04-15T00:00:00.000Z"),
+			},
+		});
+
+		const result = await service.leadSources(adminUserId, { from, to });
+		const bingRow = result.rows.find((row) => row.source === "Bing Ads");
+		if (!bingRow)
+			throw new Error("expected a Bing Ads row from the deal alone");
+		expect(bingRow.contacts).toBe(0);
+		expect(bingRow.deals).toBe(1);
+	});
 });
 
 describe("reports.production", () => {
@@ -789,6 +839,103 @@ describe("reports.production", () => {
 			after.crews.find((row) => row.crewId === archivedCrew.id),
 		).toBeUndefined();
 	});
+
+	it("averages SCHEDULED-to-COMPLETE days from production STAGE_CHANGE activity history", async () => {
+		const openStage = await db.stage.findFirstOrThrow({
+			where: { key: "DEMO_BOOKED" },
+			select: { id: true },
+		});
+		const from = new Date("2034-01-01T00:00:00.000Z");
+		const to = new Date("2034-01-31T00:00:00.000Z");
+
+		const dealFast = await createDeal({
+			id: `reports-ops-prod-cycle-fast-${suffix}`,
+			name: "Prod Cycle Fast",
+			ownerId: adminUserId,
+			stageId: openStage.id,
+		});
+		const dealSlow = await createDeal({
+			id: `reports-ops-prod-cycle-slow-${suffix}`,
+			name: "Prod Cycle Slow",
+			ownerId: adminUserId,
+			stageId: openStage.id,
+		});
+		const dealNoComplete = await createDeal({
+			id: `reports-ops-prod-cycle-nocomplete-${suffix}`,
+			name: "Prod Cycle No Complete",
+			ownerId: adminUserId,
+			stageId: openStage.id,
+		});
+
+		await db.activity.create({
+			data: {
+				type: "STAGE_CHANGE",
+				subject: "Production stage changed",
+				occurredAt: new Date("2034-01-01T00:00:00.000Z"),
+				createdById: adminUserId,
+				dealId: dealFast,
+				meta: { kind: "production", from: null, to: "SCHEDULED" },
+			},
+		});
+		await db.activity.create({
+			data: {
+				type: "STAGE_CHANGE",
+				subject: "Production stage changed",
+				occurredAt: new Date("2034-01-04T00:00:00.000Z"),
+				createdById: adminUserId,
+				dealId: dealFast,
+				meta: {
+					kind: "production",
+					from: "SCHEDULED",
+					to: "COMPLETE",
+					auto: true,
+				},
+			},
+		});
+		await db.activity.create({
+			data: {
+				type: "STAGE_CHANGE",
+				subject: "Production stage changed",
+				occurredAt: new Date("2034-01-05T00:00:00.000Z"),
+				createdById: adminUserId,
+				dealId: dealSlow,
+				meta: { kind: "production", from: null, to: "SCHEDULED" },
+			},
+		});
+		await db.activity.create({
+			data: {
+				type: "STAGE_CHANGE",
+				subject: "Production stage changed",
+				occurredAt: new Date("2034-01-15T00:00:00.000Z"),
+				createdById: adminUserId,
+				dealId: dealSlow,
+				meta: { kind: "production", from: "SCHEDULED", to: "COMPLETE" },
+			},
+		});
+		await db.activity.create({
+			data: {
+				type: "STAGE_CHANGE",
+				subject: "Pipeline stage changed (must not interfere)",
+				occurredAt: new Date("2034-01-06T00:00:00.000Z"),
+				createdById: adminUserId,
+				dealId: dealSlow,
+				meta: { from: "DEMO_BOOKED", to: "QUALIFIED_TO_BUY" },
+			},
+		});
+		await db.activity.create({
+			data: {
+				type: "STAGE_CHANGE",
+				subject: "Production stage changed",
+				occurredAt: new Date("2034-01-02T00:00:00.000Z"),
+				createdById: adminUserId,
+				dealId: dealNoComplete,
+				meta: { kind: "production", from: null, to: "SCHEDULED" },
+			},
+		});
+
+		const result = await service.production(adminUserId, { from, to });
+		expect(result.avgScheduledToCompleteDays).toBeCloseTo((3 + 10) / 2, 5);
+	});
 });
 
 describe("reports.permits", () => {
@@ -905,31 +1052,28 @@ describe("reports.permits", () => {
 		const asForbidden = await service.permits(forbiddenUserId, { from, to });
 		expect(asForbidden.feesCents).toBeNull();
 
-		const now = new Date();
-		const inWindow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000 - 1000);
-		const outOfWindow = new Date(
-			now.getTime() + 31 * 24 * 60 * 60 * 1000 + 5000,
-		);
+		const todayUtc = toDay(new Date());
+		const dayMs = 24 * 60 * 60 * 1000;
+		const exactlyThirtyDaysOut = new Date(todayUtc.getTime() + 30 * dayMs);
+		const thirtyOneDaysOut = new Date(todayUtc.getTime() + 31 * dayMs);
 
-		const expiringSoon = await createPermit({
-			id: `reports-ops-permit-expiring-${suffix}`,
+		const exactlyAtWindowEdge = await createPermit({
+			id: `reports-ops-permit-expiring-edge-${suffix}`,
 			status: "ISSUED",
-			expiresAt: inWindow,
+			expiresAt: exactlyThirtyDaysOut,
 		});
-		await createPermit({
+		const justPastWindow = await createPermit({
 			id: `reports-ops-permit-not-expiring-${suffix}`,
 			status: "ISSUED",
-			expiresAt: outOfWindow,
+			expiresAt: thirtyOneDaysOut,
 		});
 
 		const withExpiring = await service.permits(adminUserId, { from, to });
 		expect(
-			withExpiring.expiring.some((row) => row.permitId === expiringSoon),
+			withExpiring.expiring.some((row) => row.permitId === exactlyAtWindowEdge),
 		).toBe(true);
 		expect(
-			withExpiring.expiring.some(
-				(row) => row.permitId === `reports-ops-permit-not-expiring-${suffix}`,
-			),
+			withExpiring.expiring.some((row) => row.permitId === justPastWindow),
 		).toBe(false);
 	});
 });

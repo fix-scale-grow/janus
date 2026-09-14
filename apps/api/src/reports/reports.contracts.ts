@@ -121,6 +121,22 @@ export function parseStageChangeMeta(value: unknown): StageChangeMeta | null {
 	return result.success ? result.data : null;
 }
 
+export const productionStageChangeMeta = z.object({
+	kind: z.literal("production"),
+	to: z.string(),
+	from: z.string().nullable().optional(),
+});
+export type ProductionStageChangeMeta = z.infer<
+	typeof productionStageChangeMeta
+>;
+
+export function parseProductionStageChangeMeta(
+	value: unknown,
+): ProductionStageChangeMeta | null {
+	const result = productionStageChangeMeta.safeParse(value);
+	return result.success ? result.data : null;
+}
+
 export const leaderboardRow = z.object({
 	userId: z.string(),
 	name: z.string(),
