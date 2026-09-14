@@ -61,7 +61,7 @@ export const REPORT_REGISTRY: ReportMeta[] = [
 	{
 		id: "ar-aging",
 		title: "AR aging",
-		description: "Outstanding invoices, bucketed by how overdue they are.",
+		description: "All outstanding invoices, bucketed by how overdue they are.",
 		money: true,
 		component: ArAgingReport,
 	},

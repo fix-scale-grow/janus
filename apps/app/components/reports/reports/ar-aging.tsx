@@ -145,6 +145,10 @@ export function ArAgingReport() {
 
 			{hasData ? (
 				<>
+					<p className="text-muted-foreground text-sm">
+						Outstanding invoices are a snapshot of every open invoice. The
+						selected range only scopes average days to pay.
+					</p>
 					<KpiRow kpis={data?.kpis ?? []} />
 					<div className="rounded-lg border">
 						<BarTrend

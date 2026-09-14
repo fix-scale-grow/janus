@@ -5,8 +5,8 @@ export function ExcludedDisclosure({ excluded }: { excluded: number }) {
 
 	return (
 		<p className="text-muted-foreground text-sm">
-			{excluded} {excluded === 1 ? "entry" : "entries"} in other currencies are
-			not included.
+			{excluded} {excluded === 1 ? "entry" : "entries"} in other currencies{" "}
+			{excluded === 1 ? "is" : "are"} not included.
 		</p>
 	);
 }
