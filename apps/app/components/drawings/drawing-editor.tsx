@@ -214,6 +214,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		pixelLength: number;
 	} | null>(null);
 	const [askJanusOpen, setAskJanusOpen] = useState(false);
+	const [activeScopeId, setActiveScopeId] = useState<string | null>(null);
+	const activeScopeIdRef = useRef<string | null>(null);
 
 	const setMode = useCallback((next: ToolMode) => {
 		modeRef.current = next;
@@ -498,6 +500,28 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					setModeState(mapped);
 				}
 			}
+
+			let selectedScopeId: string | null = null;
+			for (const id of Object.keys(appState.selectedElementIds)) {
+				if (!appState.selectedElementIds[id]) continue;
+				const element = elements.find(
+					(candidate) => candidate.id === id && !candidate.isDeleted,
+				);
+				if (!element) continue;
+				const parsed = scopeCustomData.safeParse(element.customData);
+				if (parsed.success) {
+					selectedScopeId = parsed.data.scopeId;
+					break;
+				}
+				if (symbolPinCustomData.safeParse(element.customData).success) {
+					selectedScopeId = element.id;
+					break;
+				}
+			}
+			if (selectedScopeId !== activeScopeIdRef.current) {
+				activeScopeIdRef.current = selectedScopeId;
+				setActiveScopeId(selectedScopeId);
+			}
 		},
 		[queueSave, completeDraft],
 	);
@@ -608,6 +632,43 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			if (action === "clear") setClearOpen(true);
 		},
 		[openFilePicker, stampSelection, exportImage],
+	);
+
+	const handleSelectShape = useCallback(
+		(scopeId: string) => {
+			const inSatellite = sceneRef.current.satellite?.features.some(
+				(feature) => feature.scope?.scopeId === scopeId,
+			);
+			activeScopeIdRef.current = scopeId;
+			setActiveScopeId(scopeId);
+			if (inSatellite) {
+				setSurface("satellite");
+				return;
+			}
+			const api = apiRef.current;
+			if (!api) return;
+			setSurface("sketch");
+			setMode("select");
+			const matched = api.getSceneElements().filter((element) => {
+				if (element.isDeleted) return false;
+				const parsed = scopeCustomData.safeParse(element.customData);
+				if (parsed.success) return parsed.data.scopeId === scopeId;
+				return (
+					element.id === scopeId &&
+					symbolPinCustomData.safeParse(element.customData).success
+				);
+			});
+			if (matched.length === 0) return;
+			api.updateScene({
+				appState: {
+					selectedElementIds: Object.fromEntries(
+						matched.map((element) => [element.id, true]),
+					),
+				},
+			});
+			api.scrollToContent(matched, { animate: true, duration: 300 });
+		},
+		[setMode],
 	);
 
 	const updateShape = useCallback(
@@ -841,6 +902,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					await flushPending();
 					router.push(workspaceUrl(`/estimates/${newestEstimateId}`));
 				}}
+				activeScopeId={activeScopeId}
+				onSelectShape={handleSelectShape}
 				onUpdateShape={updateShape}
 				services={services.data?.rows ?? []}
 				shapes={shapes}

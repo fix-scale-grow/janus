@@ -69,6 +69,8 @@ export type ScopePanelProps = {
 	shapes: MeasuredShape[];
 	services: ServiceRow[];
 	symbols: SymbolRow[];
+	activeScopeId: string | null;
+	onSelectShape: (scopeId: string) => void;
 	onUpdateShape: (scopeId: string, update: ScopeShapeUpdate) => void;
 	onGenerate: () => void;
 	onOpenEstimate: () => void;
@@ -450,10 +452,16 @@ export function ScopePanel(props: ScopePanelProps) {
 							? parseServiceModifier(service.modifier)
 							: null;
 
+						const active = props.activeScopeId === shape.scopeId;
+
 						return (
+							// biome-ignore lint/a11y/noStaticElementInteractions: the card holds form fields, so it cannot be a button; clicking anywhere in it focuses the shape on canvas
 							<div
-								className="flex flex-col gap-2 rounded-lg border border-border p-2"
+								className={`flex cursor-pointer flex-col gap-2 rounded-lg border p-2 ${
+									active ? "border-ring ring-1 ring-ring/40" : "border-border"
+								}`}
 								key={shape.scopeId}
+								onClick={() => props.onSelectShape(shape.scopeId)}
 							>
 								<div className="flex items-center justify-between gap-2">
 									<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
