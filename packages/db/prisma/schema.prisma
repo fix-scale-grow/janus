@@ -50,6 +50,7 @@ model User {
   estimates Estimate[] @relation("EstimateCreator")
   invoices  Invoice[]  @relation("InvoiceCreator")
   contracts Contract[] @relation("ContractCreator")
+  proposals Proposal[] @relation("ProposalCreator")
 
   createdProjects Project[]     @relation("ProjectCreator")
   projectTasks    ProjectTask[] @relation("ProjectTaskAssignee")
@@ -1118,6 +1119,7 @@ model Estimate {
   invoices        Invoice[]
   contracts       Contract[]
   photoLinks      EstimatePhoto[]
+  proposal        Proposal?
   projects        Project[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -1892,6 +1894,8 @@ enum TemplatePurpose {
   CONTRACT_SEND
   CONTRACT_BODY
   FORM_NOTIFY
+  PROPOSAL_BODY
+  PROPOSAL_SEND
 }
 
 model Template {
@@ -1913,6 +1917,39 @@ enum ContractStatus {
   SENT
   SIGNED
   VOID
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  VOID
+}
+
+model Proposal {
+  id             String         @id @default(cuid())
+  number         Int            @unique @default(autoincrement())
+  title          String
+  status         ProposalStatus @default(DRAFT)
+  coverTitle     String?
+  coverSubtitle  String?
+  body           Json
+  estimateId     String         @unique
+  estimate       Estimate       @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User           @relation("ProposalCreator", fields: [createdById], references: [id])
+  sentAt         DateTime?
+  sentTo         String?
+  viewToken      String?        @unique
+  tokenExpiresAt DateTime?
+  acceptedAt     DateTime?
+  acceptedTier   EstimateTier?
+  acceptedName   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([status])
+  @@map("proposal")
 }
 
 model Contract {
