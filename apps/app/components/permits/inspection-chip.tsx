@@ -17,6 +17,7 @@ export type InspectionChipData = {
 	name: string;
 	result: InspectionChipResult;
 	criticalNote: string | null;
+	overdue?: boolean;
 };
 
 export const INSPECTION_CHIP_CLASSES =
@@ -28,6 +29,8 @@ const RESULT_CLASSES: Record<InspectionChipResult, string> = {
 	FAILED: "border-transparent bg-destructive/10 text-destructive",
 };
 
+const OVERDUE_CLASSES = "border-transparent bg-warning/10 text-warning";
+
 export function InspectionChip({
 	inspection,
 	dealId,
@@ -37,6 +40,8 @@ export function InspectionChip({
 }) {
 	const openRecord = useOpenRecord();
 	const critical = inspection.criticalNote;
+	const overdue = Boolean(inspection.overdue);
+	const flagged = critical ?? (overdue ? "Overdue" : null);
 
 	const chip = (
 		<button
@@ -47,23 +52,23 @@ export function InspectionChip({
 			}}
 			className={cn(
 				INSPECTION_CHIP_CLASSES,
-				RESULT_CLASSES[inspection.result],
-				critical && "ring-1 ring-warning/60",
+				overdue ? OVERDUE_CLASSES : RESULT_CLASSES[inspection.result],
+				flagged && "ring-1 ring-warning/60",
 			)}
 		>
-			{critical ? (
+			{flagged ? (
 				<Icon icon={WarningAlt} className="size-3 shrink-0 text-warning" />
 			) : null}
 			<span className="truncate">{inspection.name}</span>
 		</button>
 	);
 
-	if (!critical) return chip;
+	if (!flagged) return chip;
 
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>{chip}</TooltipTrigger>
-			<TooltipContent>{critical}</TooltipContent>
+			<TooltipContent>{flagged}</TooltipContent>
 		</Tooltip>
 	);
 }

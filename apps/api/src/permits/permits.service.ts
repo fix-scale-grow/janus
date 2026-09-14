@@ -136,6 +136,16 @@ export class PermitsService {
 				include: {
 					jurisdiction: true,
 					deal: { select: { id: true, name: true, number: true } },
+					documents: {
+						select: {
+							filePath: true,
+							lockerDocumentId: true,
+							sourceVerified: true,
+						},
+					},
+					inspections: {
+						select: { scheduledFor: true, result: true, sourceVerified: true },
+					},
 				},
 			}),
 			this.db.permit.count({ where }),

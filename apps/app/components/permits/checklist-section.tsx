@@ -12,6 +12,11 @@ import {
 } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { Spinner } from "@crm/ui/components/spinner";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@crm/ui/components/tooltip";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -20,6 +25,9 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 
 type PermitDocument = RouterOutputs["permits"]["byId"]["documents"][number];
+
+const UNVERIFIED_TOOLTIP =
+	"Janus drafted this requirement. Confirm it in Settings > Permits.";
 
 export function ChecklistSection({
 	permitId,
@@ -103,6 +111,15 @@ function ChecklistRow({
 			<Badge variant={attached ? "secondary" : "outline"}>
 				{attached ? "Attached" : "Missing"}
 			</Badge>
+
+			{doc.sourceVerified === false ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Badge variant="warning">Unverified</Badge>
+					</TooltipTrigger>
+					<TooltipContent>{UNVERIFIED_TOOLTIP}</TooltipContent>
+				</Tooltip>
+			) : null}
 
 			{viewHref ? (
 				<Button asChild variant="ghost" size="sm">
