@@ -21,19 +21,32 @@ function startOfDay(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function endOfDay(date: Date): Date {
+	return new Date(
+		date.getFullYear(),
+		date.getMonth(),
+		date.getDate(),
+		23,
+		59,
+		59,
+		999,
+	);
+}
+
 export function presetRange(
 	preset: Exclude<ReportRangePreset, "custom">,
 	now: Date,
 ): { from: Date; to: Date } {
-	const to = startOfDay(now);
+	const dayStart = startOfDay(now);
+	const to = endOfDay(now);
 	if (preset === "30d") {
-		return { from: new Date(to.getTime() - 29 * DAY_MS), to };
+		return { from: new Date(dayStart.getTime() - 29 * DAY_MS), to };
 	}
 	if (preset === "90d") {
-		return { from: new Date(to.getTime() - 89 * DAY_MS), to };
+		return { from: new Date(dayStart.getTime() - 89 * DAY_MS), to };
 	}
 	return {
-		from: new Date(to.getFullYear(), to.getMonth() - 11, to.getDate()),
+		from: new Date(dayStart.getFullYear(), dayStart.getMonth() - 11, dayStart.getDate()),
 		to,
 	};
 }

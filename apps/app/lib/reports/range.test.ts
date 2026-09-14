@@ -66,21 +66,21 @@ describe("bucketMonths", () => {
 describe("presetRange", () => {
 	const now = new Date(2026, 8, 14);
 
-	it("30d spans 30 days inclusive of today", () => {
+	it("30d spans 30 days inclusive of today, through the end of today", () => {
 		const { from, to } = presetRange("30d", now);
-		expect(to).toEqual(new Date(2026, 8, 14));
+		expect(to).toEqual(new Date(2026, 8, 14, 23, 59, 59, 999));
 		expect(from).toEqual(new Date(2026, 7, 16));
 	});
 
-	it("90d spans 90 days inclusive of today", () => {
+	it("90d spans 90 days inclusive of today, through the end of today", () => {
 		const { from, to } = presetRange("90d", now);
-		expect(to).toEqual(new Date(2026, 8, 14));
+		expect(to).toEqual(new Date(2026, 8, 14, 23, 59, 59, 999));
 		expect(from).toEqual(new Date(2026, 5, 17));
 	});
 
-	it("12m spans the trailing twelve months", () => {
+	it("12m spans the trailing twelve months, through the end of today", () => {
 		const { from, to } = presetRange("12m", now);
-		expect(to).toEqual(new Date(2026, 8, 14));
+		expect(to).toEqual(new Date(2026, 8, 14, 23, 59, 59, 999));
 		expect(from).toEqual(new Date(2025, 9, 14));
 	});
 });
