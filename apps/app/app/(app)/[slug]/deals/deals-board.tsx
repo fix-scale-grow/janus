@@ -48,6 +48,7 @@ import { LocalDay } from "@/components/local-date-time";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import { boardListInput } from "./board-list-input";
 import { dealsSearchParams } from "./deals-search-params";
 
 type DealsList = RouterOutputs["deals"]["list"];
@@ -136,7 +137,7 @@ export function DealsBoard({
 
 	const deals = useQuery({
 		...trpc.deals.list.queryOptions({
-			...input,
+			...boardListInput(input),
 			pipelineId: activePipeline?.id,
 		}),
 		enabled: Boolean(activePipeline),
