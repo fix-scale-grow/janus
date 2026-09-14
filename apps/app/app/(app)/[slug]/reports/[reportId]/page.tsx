@@ -27,16 +27,28 @@ export async function generateMetadata({
 	return { title: meta?.title ?? "Report" };
 }
 
-export default async function ReportDetailPage({
+export default function ReportDetailPage({
 	params,
 }: {
 	params: Promise<{ reportId: string }>;
 }) {
-	const { reportId } = await params;
+	return (
+		<PageShell>
+			<Suspense fallback={<PageShellLoading />}>
+				<ReportDetail params={params} />
+			</Suspense>
+		</PageShell>
+	);
+}
+
+async function ReportDetail({
+	params,
+}: {
+	params: Promise<{ reportId: string }>;
+}) {
+	const [{ reportId }] = await Promise.all([params, requireSession()]);
 	const meta = reportMeta(reportId);
 	if (!meta) notFound();
-
-	await requireSession();
 
 	if (meta.money) {
 		const client = getServerTrpcClient();
@@ -45,7 +57,7 @@ export default async function ReportDetailPage({
 	}
 
 	return (
-		<PageShell>
+		<>
 			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle>{meta.title}</PageShellTitle>
@@ -54,10 +66,8 @@ export default async function ReportDetailPage({
 			</PageShellHeader>
 
 			<PageShellContent>
-				<Suspense fallback={<PageShellLoading />}>
-					<ReportPage meta={meta} />
-				</Suspense>
+				<ReportPage meta={meta} />
 			</PageShellContent>
-		</PageShell>
+		</>
 	);
 }
