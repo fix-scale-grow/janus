@@ -117,6 +117,7 @@ export const AGENT_TOOLS = [
 	"archive_field",
 	"attach_drawing",
 	"identify_contact",
+	"fill_worksheet",
 	"list_deals",
 	"list_drawings",
 	"list_fields",
@@ -128,6 +129,8 @@ export const AGENT_TOOLS = [
 	"read_deal_history",
 	"read_drawing",
 	"read_estimate",
+	"read_permit",
+	"read_playbook",
 	"read_price_book",
 	"record_fact",
 	"record_job_change",
@@ -139,6 +142,7 @@ export const AGENT_TOOLS = [
 	"set_field_value",
 	"update_service",
 	"write_brief",
+	"write_playbook_draft",
 	"write_workspace_profile",
 ] as const;
 
