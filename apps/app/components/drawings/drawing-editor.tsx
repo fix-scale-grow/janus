@@ -32,6 +32,7 @@ import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentPanel } from "@/components/crm/agent-panel";
+import { InlineTextCell } from "@/components/crm/inline-field";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -88,6 +89,7 @@ function isCalibrationCandidate(element: ExcalidrawElement): boolean {
 
 export function DrawingEditor(props: DrawingEditorProps) {
 	useRecentTouch("drawing", props.drawingId);
+	const [title, setTitle] = useState(props.title);
 	const [scale, setScale] = useState(props.initialScale);
 	const sceneRef = useRef(props.initialScene);
 	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
@@ -132,6 +134,15 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}),
 	);
 	const newestEstimateId = drawingEstimates.data?.rows[0]?.id ?? null;
+	const rename = useMutation(
+		trpc.drawings.rename.mutationOptions({
+			onSuccess: (result) => {
+				setTitle(result.title);
+				void cache.drawing(props.drawingId, { settle: "record" });
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const generateEstimate = useMutation(
 		trpc.estimates.generateFromDrawing.mutationOptions({
 			onSuccess: (result) => {
@@ -428,6 +439,18 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				value={surface}
 			>
 				<div className="flex items-center gap-2 border-border border-b p-2">
+					<div className="w-48 shrink-0">
+						<InlineTextCell
+							label="Drawing title"
+							value={title}
+							saving={rename.isPending}
+							onSave={(next) => {
+								if (!next) return;
+								rename.mutate({ id: props.drawingId, title: next });
+							}}
+						/>
+					</div>
+
 					<TabsList>
 						<TabsTrigger value="sketch">Sketch</TabsTrigger>
 						{props.maptilerApiKey && (
