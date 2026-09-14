@@ -116,6 +116,16 @@ export const WORKSHEET_ANSWER_ORIGIN_LABEL: Record<
 export const PERMIT_DISCLAIMER =
 	"Janus assists with preparation. You are responsible for verifying all information and requirements with the issuing authority.";
 
+export const PERMIT_DISCLAIMER_VERSION = 1;
+
+export function isPermitDisclaimerAccepted(
+	disclaimer: { version: number } | null,
+): boolean {
+	return (
+		disclaimer !== null && disclaimer.version === PERMIT_DISCLAIMER_VERSION
+	);
+}
+
 export const LOCKER_KINDS = [
 	"LICENSE",
 	"COI",

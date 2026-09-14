@@ -57,6 +57,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	await db.agentTask.deleteMany({ where: { kind: "permit-research" } });
+	await db.drawing.deleteMany({ where: { createdById: userId } });
 	await db.permit.deleteMany({ where: { deal: { ownerId: userId } } });
 	await db.deal.deleteMany({ where: { ownerId: userId } });
 	await db.user.deleteMany({ where: { id: userId } });
@@ -94,6 +95,45 @@ describe("PermitTriggerService.onStageChanged", () => {
 		} finally {
 			await writePermitSettings(db, { permitsEnabled: true });
 		}
+	});
+
+	it("queues nothing when the jurisdiction guess resolves a state outside the configured list", async () => {
+		const deal = await makeDeal(`Outside state ${suffix}`, triggerStageId);
+		await db.drawing.create({
+			data: {
+				title: "Outside state drawing",
+				scene: {},
+				address: `123 Elm St, Austin, TX 78701`,
+				dealId: deal.id,
+				createdById: userId,
+			},
+		});
+
+		await writePermitSettings(db, { permitStates: ["CO"] });
+		try {
+			await permitTrigger.onStageChanged(deal.id, triggerStageId);
+			expect(await taskCount(deal.id)).toBe(0);
+		} finally {
+			await writePermitSettings(db, { permitStates: [] });
+		}
+	});
+
+	it("queues normally when the states list is empty", async () => {
+		const deal = await makeDeal(`Any state ${suffix}`, triggerStageId);
+		await db.drawing.create({
+			data: {
+				title: "Any state drawing",
+				scene: {},
+				address: `123 Elm St, Austin, TX 78701`,
+				dealId: deal.id,
+				createdById: userId,
+			},
+		});
+
+		await writePermitSettings(db, { permitStates: [] });
+		await permitTrigger.onStageChanged(deal.id, triggerStageId);
+
+		expect(await taskCount(deal.id)).toBe(1);
 	});
 
 	it("queues nothing when the deal already has a permit", async () => {

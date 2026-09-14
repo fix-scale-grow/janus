@@ -271,7 +271,7 @@ export async function permitResearchPreamble(
 			? `The job address on file, as typed:\n\n${fenceUntrusted("job address", address)}`
 			: "No job address is on file for this deal yet.",
 		guess
-			? `A guess at the jurisdiction from that address: **${guess.name}, ${guess.state}**. Confirm it with an official source before relying on it — an address does not always name the permitting authority.`
+			? `A guess at the jurisdiction from that address:\n\n${fenceUntrusted("jurisdiction guess", `${guess.name}, ${guess.state}`)}\n\nConfirm it with an official source before relying on it — an address does not always name the permitting authority.`
 			: "No jurisdiction can be guessed from the address on file. Work out the correct issuing authority from an official source before drafting anything.",
 		"",
 		opening(opened, "what permits this job needs and how to get them"),

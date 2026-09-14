@@ -3,7 +3,7 @@ import {
 	guessJurisdictionFromAddress,
 	parsePlaybookFacts,
 } from "@crm/db/permits";
-import { readPermitSettings } from "@crm/db/settings";
+import { readPermitSettings, type UsState } from "@crm/db/settings";
 import { Injectable, Logger } from "@nestjs/common";
 import { AgentTriggerService } from "../agent/agent-trigger.service";
 import { InjectDatabase } from "../database/database.constants";
@@ -46,6 +46,14 @@ export class PermitTriggerService {
 			const guess = guessJurisdictionFromAddress(
 				deal.drawings[0]?.address ?? null,
 			);
+			if (
+				guess &&
+				settings.permitStates.length > 0 &&
+				!settings.permitStates.includes(guess.state as UsState)
+			) {
+				return;
+			}
+
 			const usable = guess ? await this.hasUsablePlaybook(guess) : false;
 			if (usable) return;
 

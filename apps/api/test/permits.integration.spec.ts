@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { db } from "@crm/db";
 import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
 import { acceptPermitDisclaimerSetting } from "@crm/db/settings";
@@ -368,6 +371,76 @@ describe("PermitsService worksheet approvals", () => {
 		const withReview = await permits.byId(permit.id);
 		expect(withReview.worksheetStatus.allApproved).toBe(false);
 	});
+
+	it("neither blocks nor counts a NEEDS_REVIEW answer whose key was removed from the template", async () => {
+		const permit = await createPermit();
+		await permits.applyPrefills({ permitId: permit.id });
+		await permits.setAnswer(
+			{ permitId: permit.id, key: "job_name", value: "Filled job" },
+			userId,
+		);
+
+		const withReview = await permits.byId(permit.id);
+		expect(withReview.worksheetStatus.needsReviewCount).toBeGreaterThan(0);
+
+		await playbooks.setWorksheetTemplate({
+			playbookId,
+			fields: [
+				{
+					key: "job_name",
+					label: "Job name",
+					type: "TEXT",
+					prefill: "job_name",
+					required: true,
+				},
+			],
+		});
+
+		try {
+			const afterRemoval = await permits.byId(permit.id);
+			expect(afterRemoval.worksheetStatus.needsReviewCount).toBe(0);
+			expect(afterRemoval.worksheetStatus.allApproved).toBe(true);
+			expect(afterRemoval.worksheetAnswers.owner_email?.state).toBe(
+				"NEEDS_REVIEW",
+			);
+
+			await acceptPermitDisclaimerSetting(
+				db,
+				userId,
+				PERMIT_DISCLAIMER_VERSION,
+			);
+			const result = await permits.worksheetPdf({ permitId: permit.id });
+			expect(result.base64.length).toBeGreaterThan(0);
+		} finally {
+			await resetDisclaimer();
+			await playbooks.setWorksheetTemplate({
+				playbookId,
+				fields: [
+					{
+						key: "job_name",
+						label: "Job name",
+						type: "TEXT",
+						prefill: "job_name",
+						required: true,
+					},
+					{
+						key: "owner_email",
+						label: "Owner email",
+						type: "TEXT",
+						prefill: "owner_email",
+						required: false,
+					},
+					{
+						key: "scope_of_work",
+						label: "Scope of work",
+						type: "TEXT",
+						prefill: "scope_of_work",
+						required: false,
+					},
+				],
+			});
+		}
+	});
 });
 
 describe("PermitsService checklist", () => {
@@ -468,6 +541,48 @@ describe("PermitsService.promptState", () => {
 	it("is deterministic: no permit, no dismissal, wrong trigger stage means show is false by default", async () => {
 		const state = await permits.promptState({ dealId });
 		expect(state.show).toBe(false);
+		expect(state.neededWhenVerified).toBeNull();
+	});
+
+	it("flags an unverified neededWhen fact, and clears the flag once verified", async () => {
+		const promptDeal = await db.deal.create({
+			data: { name: `Prompt deal ${suffix}`, ownerId: userId, stageId },
+			select: { id: true },
+		});
+		const drawing = await db.drawing.create({
+			data: {
+				title: "Prompt drawing",
+				scene: {},
+				address: `123 Main St, Permit City ${suffix}, CO`,
+				dealId: promptDeal.id,
+				createdById: userId,
+			},
+			select: { id: true },
+		});
+
+		try {
+			await playbooks.setFact({
+				playbookId,
+				factPath: "neededWhen",
+				value: "Before framing begins.",
+			});
+
+			const unverified = await permits.promptState({ dealId: promptDeal.id });
+			expect(unverified.neededWhen).toBe("Before framing begins.");
+			expect(unverified.neededWhenVerified).toBe(false);
+
+			await playbooks.verifyFact(
+				{ playbookId, factPath: "neededWhen" },
+				userId,
+			);
+
+			const verified = await permits.promptState({ dealId: promptDeal.id });
+			expect(verified.neededWhenVerified).toBe(true);
+		} finally {
+			await playbooks.clearFact({ playbookId, factPath: "neededWhen" });
+			await db.drawing.deleteMany({ where: { id: drawing.id } });
+			await db.deal.deleteMany({ where: { id: promptDeal.id } });
+		}
 	});
 });
 
@@ -538,6 +653,69 @@ describe("PermitsService.worksheetPdf", () => {
 		expect((caught as BadRequestException).message).toBe(
 			"Accept the preparation disclaimer first.",
 		);
+	});
+
+	it("blocks on an old-version disclaimer acceptance", async () => {
+		await resetDisclaimer();
+		const permit = await createPermit();
+		await permits.setAnswer(
+			{ permitId: permit.id, key: "job_name", value: "Filled job" },
+			userId,
+		);
+		await db.appSetting.updateMany({
+			data: {
+				permitDisclaimerVersion: 0,
+				permitDisclaimerAcceptedById: userId,
+				permitDisclaimerAcceptedAt: new Date(),
+			},
+		});
+
+		let caught: unknown;
+		try {
+			await permits.worksheetPdf({ permitId: permit.id });
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+		expect((caught as BadRequestException).message).toBe(
+			"Accept the preparation disclaimer first.",
+		);
+	});
+
+	it("does not stamp attachedAt when the disk save fails, so the checklist reads Missing", async () => {
+		await resetDisclaimer();
+		const permit = await createPermit();
+		await permits.setAnswer(
+			{ permitId: permit.id, key: "job_name", value: "Filled job" },
+			userId,
+		);
+		await acceptPermitDisclaimerSetting(db, userId, PERMIT_DISCLAIMER_VERSION);
+
+		const blockedPath = join(tmpdir(), `permits-blocked-${suffix}`);
+		await writeFile(blockedPath, "not a directory");
+		const previousDataDir = process.env.PERMITS_DATA_DIR;
+		process.env.PERMITS_DATA_DIR = blockedPath;
+
+		try {
+			const result = await permits.worksheetPdf({ permitId: permit.id });
+			expect(result.base64.length).toBeGreaterThan(0);
+		} finally {
+			if (previousDataDir === undefined) {
+				delete process.env.PERMITS_DATA_DIR;
+			} else {
+				process.env.PERMITS_DATA_DIR = previousDataDir;
+			}
+			await rm(blockedPath, { force: true });
+		}
+
+		const slot = await db.permitDocument.findUnique({
+			where: {
+				permitId_slotKey: { permitId: permit.id, slotKey: "worksheet" },
+			},
+		});
+		expect(slot?.filePath).toBeNull();
+		expect(slot?.attachedAt).toBeNull();
 	});
 
 	it("renders the PDF and upserts the worksheet document row once every gate passes", async () => {

@@ -47,6 +47,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRecordSheetView } from "@/components/crm/record-sheet/record-stack";
 import {
+	isPermitDisclaimerAccepted,
 	PERMIT_DISCLAIMER,
 	PERMIT_TYPE_LABEL,
 	WORKSHEET_FIELD_TYPE_LABEL,
@@ -89,7 +90,7 @@ export function WorksheetPanel({
 
 	const disclaimerSettings = useQuery(trpc.settings.permits.queryOptions());
 	const disclaimerAccepted = disclaimerSettings.data
-		? disclaimerSettings.data.disclaimer !== null
+		? isPermitDisclaimerAccepted(disclaimerSettings.data.disclaimer)
 		: false;
 
 	const invalidatePermit = () => cache.permit(permit.id, { settle: "record" });
@@ -168,11 +169,15 @@ export function WorksheetPanel({
 
 	const answers = permit.worksheetAnswers;
 	const fields = permit.worksheetTemplate;
+	const templateKeys = new Set(fields.map((field) => field.key));
+	const liveAnswers = Object.entries(answers)
+		.filter(([key]) => templateKeys.has(key))
+		.map(([, answer]) => answer);
 
-	const approvedCount = Object.values(answers).filter(
+	const approvedCount = liveAnswers.filter(
 		(answer) => answer.value !== "" && answer.state === "APPROVED",
 	).length;
-	const needsReviewCount = Object.values(answers).filter(
+	const needsReviewCount = liveAnswers.filter(
 		(answer) => answer.value !== "" && answer.state === "NEEDS_REVIEW",
 	).length;
 

@@ -4,6 +4,7 @@ import {
 	isCurrencyCode,
 	normalizeCurrency,
 } from "./currency";
+import { PERMIT_DISCLAIMER_VERSION } from "./permits";
 
 export const SETTINGS_ID = "app";
 
@@ -342,6 +343,14 @@ export async function acceptPermitDisclaimerSetting(
 	});
 
 	return { acceptedById: userId, acceptedAt, version };
+}
+
+export function isPermitDisclaimerAccepted(
+	disclaimer: PermitDisclaimerSetting | null,
+): boolean {
+	return (
+		disclaimer !== null && disclaimer.version === PERMIT_DISCLAIMER_VERSION
+	);
 }
 
 export function maskKey(key: string): string {

@@ -44,6 +44,7 @@ export function DealPermits({ dealId }: { dealId: string }) {
 				<PermitPromptBanner
 					jurisdictionGuess={prompt.data.jurisdictionGuess}
 					neededWhen={prompt.data.neededWhen}
+					neededWhenVerified={prompt.data.neededWhenVerified}
 					onOpenPermit={() => setDialogOpen(true)}
 					onDismiss={() => dismissGuard.guard(() => dismiss.mutate({ dealId }))}
 					dismissing={dismiss.isPending}

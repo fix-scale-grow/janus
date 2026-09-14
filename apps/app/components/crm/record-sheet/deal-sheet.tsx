@@ -149,6 +149,8 @@ export function DealSheet({ dealId }: { dealId: string }) {
 
 	const query = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
 	const deal = query.data;
+	const permitSettings = useQuery(trpc.settings.permits.queryOptions());
+	const permitsEnabled = permitSettings.data?.permitsEnabled ?? false;
 
 	const tabs: DetailSheetTab[] = deal
 		? [
@@ -210,11 +212,15 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					label: "Contracts",
 					content: <DealContracts deal={deal} />,
 				},
-				{
-					value: "permits",
-					label: "Permits",
-					content: <DealPermits dealId={deal.id} />,
-				},
+				...(permitsEnabled
+					? [
+							{
+								value: "permits",
+								label: "Permits",
+								content: <DealPermits dealId={deal.id} />,
+							} satisfies DetailSheetTab,
+						]
+					: []),
 				{
 					value: "agent",
 					label: "Agent",

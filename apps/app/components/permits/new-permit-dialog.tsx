@@ -78,7 +78,7 @@ export function NewPermitDialog({
 	const create = useMutation(
 		trpc.permits.create.mutationOptions({
 			onSuccess: async () => {
-				await cache.permit();
+				await Promise.all([cache.permit(), cache.permitPrompt(dealId)]);
 				toast.success("Permit opened.");
 				onOpenChange(false);
 			},

@@ -34,6 +34,16 @@ export type WorksheetGateField = {
 	required: boolean;
 };
 
+function liveAnswers(
+	fields: WorksheetGateField[],
+	answers: Record<string, WorksheetGateAnswer>,
+): WorksheetGateAnswer[] {
+	const templateKeys = new Set(fields.map((field) => field.key));
+	return Object.entries(answers)
+		.filter(([key]) => templateKeys.has(key))
+		.map(([, answer]) => answer);
+}
+
 export function worksheetBlockingReason(params: {
 	fields: WorksheetGateField[];
 	answers: Record<string, WorksheetGateAnswer>;
@@ -41,7 +51,7 @@ export function worksheetBlockingReason(params: {
 }): string | null {
 	const { fields, answers, disclaimerAccepted } = params;
 
-	const needsReview = Object.values(answers).filter(
+	const needsReview = liveAnswers(fields, answers).filter(
 		(answer) => answer.value !== "" && answer.state === "NEEDS_REVIEW",
 	).length;
 	if (needsReview > 0) {
@@ -65,7 +75,7 @@ export function isWorksheetHardBlocked(params: {
 }): boolean {
 	const { fields, answers } = params;
 
-	const needsReview = Object.values(answers).some(
+	const needsReview = liveAnswers(fields, answers).some(
 		(answer) => answer.value !== "" && answer.state === "NEEDS_REVIEW",
 	);
 	if (needsReview) return true;

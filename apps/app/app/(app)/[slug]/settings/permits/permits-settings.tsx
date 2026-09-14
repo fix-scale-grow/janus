@@ -18,6 +18,7 @@ import {
 import { Switch } from "@crm/ui/components/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { isPermitDisclaimerAccepted } from "@/lib/permits/permit-status";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -152,6 +153,9 @@ export function PermitsSettings({ states }: { states: UsState[] }) {
 	);
 
 	const data = settings.data;
+	const disclaimerIsAccepted = isPermitDisclaimerAccepted(
+		data?.disclaimer ?? null,
+	);
 	const selectedStates = new Set(data?.permitStates ?? []);
 	const selectedStages = new Set(data?.permitTriggerStageIds ?? []);
 	const acceptedByName =
@@ -227,7 +231,7 @@ export function PermitsSettings({ states }: { states: UsState[] }) {
 				<CardHeader>
 					<CardTitle>{DISCLAIMER_TITLE}</CardTitle>
 					<CardDescription>
-						{data?.disclaimer
+						{data?.disclaimer && disclaimerIsAccepted
 							? disclaimerAccepted(
 									acceptedByName,
 									new Date(data.disclaimer.acceptedAt).toLocaleDateString(),
@@ -235,7 +239,7 @@ export function PermitsSettings({ states }: { states: UsState[] }) {
 							: DISCLAIMER_NOT_ACCEPTED}
 					</CardDescription>
 				</CardHeader>
-				{data && !data.disclaimer ? (
+				{data && !disclaimerIsAccepted ? (
 					<CardContent>
 						<Button
 							type="button"

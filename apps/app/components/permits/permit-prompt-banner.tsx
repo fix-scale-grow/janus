@@ -2,6 +2,7 @@
 
 import Add from "@carbon/icons-react/es/Add";
 import WarningAlt from "@carbon/icons-react/es/WarningAlt";
+import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
 import { Spinner } from "@crm/ui/components/spinner";
@@ -11,12 +12,14 @@ type JurisdictionGuess = { name: string; state: string } | null;
 export function PermitPromptBanner({
 	jurisdictionGuess,
 	neededWhen,
+	neededWhenVerified,
 	onOpenPermit,
 	onDismiss,
 	dismissing,
 }: {
 	jurisdictionGuess: JurisdictionGuess;
 	neededWhen: string | null;
+	neededWhenVerified: boolean | null;
 	onOpenPermit: () => void;
 	onDismiss: () => void;
 	dismissing: boolean;
@@ -37,6 +40,9 @@ export function PermitPromptBanner({
 					{neededWhen ? (
 						<p className="text-muted-foreground text-sm">
 							{neededWhen}{" "}
+							{neededWhenVerified === false ? (
+								<Badge variant="outline">Unverified</Badge>
+							) : null}{" "}
 							<span className="text-muted-foreground/80">
 								Verify in Settings › Permits.
 							</span>

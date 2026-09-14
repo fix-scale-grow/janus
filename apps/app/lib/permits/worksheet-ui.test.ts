@@ -113,6 +113,18 @@ describe("worksheetBlockingReason", () => {
 		});
 		expect(reason).toBeNull();
 	});
+
+	it("ignores a NEEDS_REVIEW answer whose key is not on the live template", () => {
+		const reason = worksheetBlockingReason({
+			fields,
+			answers: {
+				job_valuation: { value: "24000", state: "APPROVED" },
+				removed_field: { value: "old answer", state: "NEEDS_REVIEW" },
+			},
+			disclaimerAccepted: true,
+		});
+		expect(reason).toBeNull();
+	});
 });
 
 describe("isWorksheetHardBlocked", () => {
@@ -138,6 +150,18 @@ describe("isWorksheetHardBlocked", () => {
 			isWorksheetHardBlocked({
 				fields,
 				answers: { job_valuation: { value: "24000", state: "APPROVED" } },
+			}),
+		).toBe(false);
+	});
+
+	it("does not block on a NEEDS_REVIEW answer whose key is not on the live template", () => {
+		expect(
+			isWorksheetHardBlocked({
+				fields,
+				answers: {
+					job_valuation: { value: "24000", state: "APPROVED" },
+					removed_field: { value: "old answer", state: "NEEDS_REVIEW" },
+				},
 			}),
 		).toBe(false);
 	});

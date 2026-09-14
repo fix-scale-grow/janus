@@ -10,7 +10,8 @@ export const ENABLE_HELP =
 	"Turns on the permits module for every deal in this workspace.";
 
 export const STATES_LABEL = "States you pull permits in";
-export const STATES_HELP = "A deal in one of these states can open a permit.";
+export const STATES_HELP =
+	"Janus researches permit rules for jobs in these states. Leave empty to research everywhere.";
 
 export const TRIGGER_STAGES_LABEL = "Stages that open a permit prompt";
 export const TRIGGER_STAGES_HELP =

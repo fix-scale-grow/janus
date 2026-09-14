@@ -10,7 +10,10 @@ import {
 	type WorksheetAnswers,
 	type WorksheetField,
 } from "@crm/db/permits";
-import { readPermitSettings } from "@crm/db/settings";
+import {
+	isPermitDisclaimerAccepted,
+	readPermitSettings,
+} from "@crm/db/settings";
 import {
 	BadRequestException,
 	Injectable,
@@ -168,7 +171,7 @@ export class PermitsService {
 			worksheetStatus: this.worksheetStatus(
 				template,
 				answers,
-				settings.disclaimer !== null,
+				isPermitDisclaimerAccepted(settings.disclaimer),
 			),
 		};
 	}
@@ -563,7 +566,12 @@ export class PermitsService {
 		});
 
 		if (!deal)
-			return { show: false, jurisdictionGuess: null, neededWhen: null };
+			return {
+				show: false,
+				jurisdictionGuess: null,
+				neededWhen: null,
+				neededWhenVerified: null,
+			};
 
 		const [permitCount, dismissal] = await Promise.all([
 			this.db.permit.count({ where: { dealId: input.dealId } }),
@@ -582,17 +590,19 @@ export class PermitsService {
 			deal.drawings[0]?.address ?? null,
 		);
 
-		const neededWhen = jurisdictionGuess
-			? await this.neededWhenFor(jurisdictionGuess)
+		const neededWhenFact = jurisdictionGuess
+			? await this.neededWhenFactFor(jurisdictionGuess)
 			: null;
+		const neededWhen = neededWhenFact?.value ?? null;
+		const neededWhenVerified = neededWhenFact ? neededWhenFact.verified : null;
 
-		return { show, jurisdictionGuess, neededWhen };
+		return { show, jurisdictionGuess, neededWhen, neededWhenVerified };
 	}
 
-	private async neededWhenFor(guess: {
+	private async neededWhenFactFor(guess: {
 		name: string;
 		state: string;
-	}): Promise<string | null> {
+	}): Promise<{ value: string; verified: boolean } | null> {
 		const jurisdiction = await this.db.jurisdiction.findFirst({
 			where: {
 				state: guess.state,
@@ -610,7 +620,10 @@ export class PermitsService {
 			}));
 		if (!playbook) return null;
 
-		return parsePlaybookFacts(playbook.facts).neededWhen?.value ?? null;
+		const fact = parsePlaybookFacts(playbook.facts).neededWhen;
+		if (!fact) return null;
+
+		return { value: fact.value, verified: fact.verifiedById !== null };
 	}
 
 	private worksheetStatus(
@@ -618,9 +631,11 @@ export class PermitsService {
 		answers: WorksheetAnswers,
 		disclaimerAccepted: boolean,
 	) {
-		const nonEmpty = Object.values(answers).filter(
-			(answer) => answer.value !== "",
-		);
+		const templateKeys = new Set(template.map((field) => field.key));
+		const liveAnswers = Object.entries(answers)
+			.filter(([key]) => templateKeys.has(key))
+			.map(([, answer]) => answer);
+		const nonEmpty = liveAnswers.filter((answer) => answer.value !== "");
 		const allApproved = nonEmpty.every((answer) => answer.state === "APPROVED");
 		const needsReviewCount = nonEmpty.filter(
 			(answer) => answer.state === "NEEDS_REVIEW",
@@ -688,7 +703,7 @@ export class PermitsService {
 			: [];
 		const answers = parseWorksheetAnswers(permit.worksheetAnswers);
 		const settings = await readPermitSettings(this.db);
-		const disclaimerAccepted = settings.disclaimer !== null;
+		const disclaimerAccepted = isPermitDisclaimerAccepted(settings.disclaimer);
 
 		const failure = this.worksheetGateFailure(
 			template,
@@ -758,13 +773,12 @@ export class PermitsService {
 
 		const savedFileName = await savePermitDocumentFile(slot.id, "pdf", buffer);
 
-		await this.db.permitDocument.update({
-			where: { id: slot.id },
-			data: {
-				...(savedFileName ? { filePath: savedFileName } : {}),
-				attachedAt: new Date(),
-			},
-		});
+		if (savedFileName) {
+			await this.db.permitDocument.update({
+				where: { id: slot.id },
+				data: { filePath: savedFileName, attachedAt: new Date() },
+			});
+		}
 
 		const filenameStem = this.filenameStem(
 			`${permit.deal.number}-permit-worksheet`,
