@@ -107,3 +107,19 @@ fields exactly like contract sends.
 
 Decline flow, per-proposal photo selection (uses the estimate's PDF-flagged
 photos), proposal list view, multi-proposal per estimate, payment collection.
+
+## Round 2 additions (approved 2026-09-13)
+
+- **Decline flow**: the public page offers Decline beside Accept (name required,
+  note optional). Atomic like accept (SENT only). Proposal → DECLINED with
+  `declinedAt`/`declinedName`/`declineNote`; estimate → DECLINED; NOTE activity
+  on the deal. Declined is terminal; Revise starts the next round.
+- **Viewed tracking**: `byToken` stamps `firstViewedAt`, `lastViewedAt` and
+  increments `viewCount`. The owner page shows opens.
+- **Revisions**: `estimateId` unique constraint replaced by an index +
+  `revision Int`. `proposals.revise` clones title/cover/body into a new DRAFT
+  at revision+1 and voids the old row (its link dies). `forEstimate` returns
+  the highest revision. One active (non-VOID) proposal per estimate is enforced
+  in the service.
+- **Item prices**: the public page and PDF show each line item's price at the
+  selected tier (public page updates as the client clicks tiers).
