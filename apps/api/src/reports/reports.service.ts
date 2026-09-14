@@ -53,14 +53,14 @@ import {
 	AGING_BUCKETS,
 	agingBucket,
 	agingDays,
+	dateInRange,
 	fallbackDueAt,
+	monthKey,
+	monthsBetween,
+	resolveRange,
 } from "./reports-logic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function monthKey(date: Date): string {
-	return date.toISOString().slice(0, 7);
-}
 
 function monthStart(from: Date, monthsBack: number): Date {
 	return toDay(
@@ -85,6 +85,7 @@ export class ReportsService {
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
 		const to = input.to ?? now;
+		const range = resolveRange(from, to);
 
 		const [invoices, costs] = await Promise.all([
 			this.db.invoice.findMany({
@@ -92,19 +93,23 @@ export class ReportsService {
 					status: { in: [...INVOICES.revenueStatuses] },
 					dealId: { not: null },
 					OR: [
-						{ issuedAt: { gte: from, lte: to } },
-						{ issuedAt: null, createdAt: { gte: from, lte: to } },
+						{ issuedAt: range },
+						{ issuedAt: null, createdAt: range },
+						{ status: "PAID", paidAt: range },
 					],
 				},
 				select: {
 					dealId: true,
 					currency: true,
 					status: true,
+					issuedAt: true,
+					createdAt: true,
+					paidAt: true,
 					lineItems: { select: { quantity: true, priceCents: true } },
 				},
 			}),
 			this.db.jobCost.findMany({
-				where: { date: { gte: from, lte: to } },
+				where: { date: range },
 				select: { dealId: true, currency: true, amountCents: true },
 			}),
 		]);
@@ -133,8 +138,17 @@ export class ReportsService {
 			}
 			const total = lineItemsTotalCents(invoice.lineItems);
 			const value = bucket(invoice.dealId);
-			value.invoicedCents += total;
-			if (invoice.status === "PAID") value.collectedCents += total;
+			const issued = invoice.issuedAt ?? invoice.createdAt;
+			if (dateInRange(issued, range)) {
+				value.invoicedCents += total;
+			}
+			if (
+				invoice.status === "PAID" &&
+				invoice.paidAt &&
+				dateInRange(invoice.paidAt, range)
+			) {
+				value.collectedCents += total;
+			}
 		}
 		for (const cost of costs) {
 			if (cost.currency !== "USD") {
@@ -239,6 +253,7 @@ export class ReportsService {
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
 		const to = input.to ?? now;
+		const range = resolveRange(from, to);
 
 		const [invoices, costs] = await Promise.all([
 			this.db.invoice.findMany({
@@ -246,14 +261,14 @@ export class ReportsService {
 					OR: [
 						{
 							status: { in: [...INVOICES.revenueStatuses] },
-							issuedAt: { gte: from, lte: to },
+							issuedAt: range,
 						},
 						{
 							status: { in: [...INVOICES.revenueStatuses] },
 							issuedAt: null,
-							createdAt: { gte: from, lte: to },
+							createdAt: range,
 						},
-						{ status: "PAID", paidAt: { gte: from, lte: to } },
+						{ status: "PAID", paidAt: range },
 					],
 				},
 				select: {
@@ -266,7 +281,7 @@ export class ReportsService {
 				},
 			}),
 			this.db.jobCost.findMany({
-				where: { date: { gte: from, lte: to } },
+				where: { date: range },
 				select: { date: true, currency: true, amountCents: true },
 			}),
 		]);
@@ -285,7 +300,7 @@ export class ReportsService {
 			const total = lineItemsTotalCents(invoice.lineItems);
 			if (revenueStatuses.includes(invoice.status)) {
 				const issued = invoice.issuedAt ?? invoice.createdAt;
-				if (issued >= from && issued <= to) {
+				if (dateInRange(issued, range)) {
 					const key = monthKey(issued);
 					invoicedByMonth.set(key, (invoicedByMonth.get(key) ?? 0) + total);
 				}
@@ -293,8 +308,7 @@ export class ReportsService {
 			if (
 				invoice.status === "PAID" &&
 				invoice.paidAt &&
-				invoice.paidAt >= from &&
-				invoice.paidAt <= to
+				dateInRange(invoice.paidAt, range)
 			) {
 				const key = monthKey(invoice.paidAt);
 				collectedByMonth.set(key, (collectedByMonth.get(key) ?? 0) + total);
@@ -366,9 +380,10 @@ export class ReportsService {
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
 		const to = input.to ?? now;
+		const range = resolveRange(from, to);
 
 		const costs = await this.db.jobCost.findMany({
-			where: { date: { gte: from, lte: to } },
+			where: { date: range },
 			select: {
 				currency: true,
 				amountCents: true,
@@ -478,16 +493,11 @@ export class ReportsService {
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
 		const to = input.to ?? now;
+		const range = resolveRange(from, to);
 
 		const [sentInvoices, paidInvoices] = await Promise.all([
 			this.db.invoice.findMany({
-				where: {
-					status: "SENT",
-					OR: [
-						{ issuedAt: { gte: from, lte: to } },
-						{ issuedAt: null, createdAt: { gte: from, lte: to } },
-					],
-				},
+				where: { status: "SENT" },
 				select: {
 					id: true,
 					number: true,
@@ -504,10 +514,7 @@ export class ReportsService {
 				where: {
 					status: "PAID",
 					paidAt: { not: null },
-					OR: [
-						{ issuedAt: { gte: from, lte: to } },
-						{ issuedAt: null, createdAt: { gte: from, lte: to } },
-					],
+					OR: [{ issuedAt: range }, { issuedAt: null, createdAt: range }],
 				},
 				select: {
 					currency: true,
@@ -565,7 +572,7 @@ export class ReportsService {
 		const kpis: ReportKpi[] = [
 			{
 				key: "outstanding",
-				label: "Outstanding",
+				label: "All outstanding invoices",
 				value: formatCents(totalOutstandingCents, "USD"),
 			},
 			{
@@ -641,6 +648,7 @@ export class ReportsService {
 			PERMISSION_KEYS.profitView,
 		);
 		const { from, to } = this.defaultRange(input);
+		const range = resolveRange(from, to);
 		const base = await this.conversion.reportingCurrency();
 
 		const [members, stages] = await Promise.all([
@@ -668,7 +676,7 @@ export class ReportsService {
 					where: {
 						ownerId: { in: ownerIds },
 						stageId: { in: wonStageIds },
-						closedAt: { gte: from, lte: to },
+						closedAt: range,
 					},
 					select: { ownerId: true, baseAmount: true, baseCurrency: true },
 				}),
@@ -677,7 +685,7 @@ export class ReportsService {
 					where: {
 						ownerId: { in: ownerIds },
 						stageId: { in: lostStageIds },
-						closedAt: { gte: from, lte: to },
+						closedAt: range,
 					},
 					_count: { _all: true },
 				}),
@@ -690,7 +698,7 @@ export class ReportsService {
 					by: ["createdById"],
 					where: {
 						createdById: { in: ownerIds },
-						occurredAt: { gte: from, lte: to },
+						occurredAt: range,
 					},
 					_count: { _all: true },
 				}),
@@ -777,14 +785,13 @@ export class ReportsService {
 	}
 
 	private async estimatesFunnelSection(
-		from: Date,
-		to: Date,
+		range: ReturnType<typeof resolveRange>,
 		hasProfitView: boolean,
 	): Promise<{ estimatesFunnel: EstimatesFunnel; excluded: number }> {
 		const estimates = await this.db.estimate.findMany({
 			where: {
 				status: { not: "DRAFT" },
-				createdAt: { gte: from, lte: to },
+				createdAt: range,
 			},
 			select: {
 				status: true,
@@ -870,6 +877,7 @@ export class ReportsService {
 			PERMISSION_KEYS.profitView,
 		);
 		const { from, to } = this.defaultRange(input);
+		const range = resolveRange(from, to);
 
 		const pipelines = await this.db.pipeline.findMany({
 			where: { archivedAt: null },
@@ -897,7 +905,7 @@ export class ReportsService {
 		const activities = await this.db.activity.findMany({
 			where: {
 				type: ActivityType.STAGE_CHANGE,
-				occurredAt: { gte: from, lte: to },
+				occurredAt: range,
 			},
 			orderBy: [{ dealId: "asc" }, { occurredAt: "asc" }],
 			take: REPORTS.maxVelocityActivities,
@@ -970,7 +978,7 @@ export class ReportsService {
 					by: ["stageId", "closedReason"],
 					where: {
 						stageId: { in: lossStageIds },
-						closedAt: { gte: from, lte: to },
+						closedAt: range,
 					},
 					_count: { _all: true },
 				})
@@ -1030,8 +1038,7 @@ export class ReportsService {
 		});
 
 		const { estimatesFunnel, excluded } = await this.estimatesFunnelSection(
-			from,
-			to,
+			range,
 			hasProfitView,
 		);
 
@@ -1081,24 +1088,29 @@ export class ReportsService {
 			PERMISSION_KEYS.profitView,
 		);
 		const { from, to } = this.defaultRange(input);
+		const range = resolveRange(from, to);
 		const base = await this.conversion.reportingCurrency();
 
-		const contactsInRange = await this.db.contact.findMany({
-			where: { createdAt: { gte: from, lte: to } },
-			select: { id: true, source: true },
-		});
-
-		const dealsInRange = await this.db.deal.findMany({
-			where: { createdAt: { gte: from, lte: to } },
-			select: {
-				id: true,
-				closedAt: true,
-				baseAmount: true,
-				baseCurrency: true,
-				stage: { select: { outcome: true } },
-			},
-		});
-		const dealIds = dealsInRange.map((deal) => deal.id);
+		const [contactsInRange, dealsInRange, wonDeals] = await Promise.all([
+			this.db.contact.findMany({
+				where: { createdAt: range },
+				select: { id: true, source: true },
+			}),
+			this.db.deal.findMany({
+				where: { createdAt: range },
+				select: { id: true },
+			}),
+			this.db.deal.findMany({
+				where: { stage: { outcome: StageOutcome.WON }, closedAt: range },
+				select: { id: true, baseAmount: true, baseCurrency: true },
+			}),
+		]);
+		const dealIds = [
+			...new Set([
+				...dealsInRange.map((deal) => deal.id),
+				...wonDeals.map((deal) => deal.id),
+			]),
+		];
 		const primaryContacts = await this.primaryContactsFor(dealIds);
 
 		const contactById = new Map(
@@ -1193,13 +1205,14 @@ export class ReportsService {
 			if (!contact) continue;
 			const label = labelFor(contact);
 			dealCountByLabel.set(label, (dealCountByLabel.get(label) ?? 0) + 1);
+		}
 
-			const won =
-				deal.stage.outcome === StageOutcome.WON &&
-				deal.closedAt !== null &&
-				deal.closedAt >= from &&
-				deal.closedAt <= to;
-			if (!won) continue;
+		for (const deal of wonDeals) {
+			const primary = primaryContacts.get(deal.id);
+			if (!primary) continue;
+			const contact = contactById.get(primary.id);
+			if (!contact) continue;
+			const label = labelFor(contact);
 			wonCountByLabel.set(label, (wonCountByLabel.get(label) ?? 0) + 1);
 			if (deal.baseCurrency === base) {
 				wonCentsByLabel.set(
@@ -1255,11 +1268,10 @@ export class ReportsService {
 	}
 
 	private async avgScheduledToCompleteDays(
-		from: Date,
-		to: Date,
+		range: ReturnType<typeof resolveRange>,
 	): Promise<number | null> {
 		const activities = await this.db.activity.findMany({
-			where: { type: ActivityType.STAGE_CHANGE, occurredAt: { lte: to } },
+			where: { type: ActivityType.STAGE_CHANGE, occurredAt: { lt: range.lt } },
 			orderBy: [{ dealId: "asc" }, { occurredAt: "asc" }],
 			take: REPORTS.maxVelocityActivities,
 			select: { dealId: true, occurredAt: true, meta: true },
@@ -1288,7 +1300,7 @@ export class ReportsService {
 				.slice(scheduledIndex + 1)
 				.find((change) => change.to === ProductionStage.COMPLETE);
 			if (!completeChange) continue;
-			if (completeChange.occurredAt < from || completeChange.occurredAt > to) {
+			if (!dateInRange(completeChange.occurredAt, range)) {
 				continue;
 			}
 			gaps.push(
@@ -1303,6 +1315,7 @@ export class ReportsService {
 
 	async production(_userId: string, input: ReportRangeInput) {
 		const { from, to } = this.defaultRange(input);
+		const range = resolveRange(from, to);
 
 		const [stageCounts, throughputRows, crews, avgScheduledToComplete] =
 			await Promise.all([
@@ -1316,7 +1329,7 @@ export class ReportsService {
 						productionStage: {
 							in: [ProductionStage.COMPLETE, ProductionStage.PAID],
 						},
-						productionStageChangedAt: { gte: from, lte: to },
+						productionStageChangedAt: range,
 					},
 					select: { productionStageChangedAt: true },
 				}),
@@ -1324,7 +1337,7 @@ export class ReportsService {
 					where: { archived: false },
 					select: { id: true, name: true, color: true },
 				}),
-				this.avgScheduledToCompleteDays(from, to),
+				this.avgScheduledToCompleteDays(range),
 			]);
 
 		const throughputByMonth = new Map<string, number>();
@@ -1425,6 +1438,7 @@ export class ReportsService {
 			PERMISSION_KEYS.profitView,
 		);
 		const { from, to } = this.defaultRange(input);
+		const range = resolveRange(from, to);
 		const now = new Date();
 		const todayUtc = toDay(now);
 		const expiringScanEnd = new Date(
@@ -1437,7 +1451,7 @@ export class ReportsService {
 				this.db.permit.findMany({
 					where: {
 						submittedAt: { not: null },
-						issuedAt: { gte: from, lte: to },
+						issuedAt: range,
 					},
 					select: {
 						submittedAt: true,
@@ -1447,12 +1461,12 @@ export class ReportsService {
 					},
 				}),
 				this.db.permitInspection.findMany({
-					where: { scheduledFor: { gte: from, lte: to } },
+					where: { scheduledFor: range },
 					select: { result: true },
 				}),
 				this.db.permit.findMany({
 					where: {
-						submittedAt: { gte: from, lte: to },
+						submittedAt: range,
 						feeCents: { not: null },
 					},
 					select: { feeCents: true },
@@ -1460,7 +1474,7 @@ export class ReportsService {
 				this.db.permit.findMany({
 					where: {
 						status: { in: [PermitStatus.ISSUED, PermitStatus.INSPECTIONS] },
-						expiresAt: { not: null, lte: expiringScanEnd },
+						expiresAt: { gte: todayUtc, lte: expiringScanEnd },
 					},
 					select: {
 						id: true,
@@ -1573,17 +1587,4 @@ export class ReportsService {
 			expiring: expiringRows,
 		};
 	}
-}
-
-function monthsBetween(from: Date, to: Date): string[] {
-	const months: string[] = [];
-	let cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
-	const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
-	while (cursor.getTime() <= end.getTime()) {
-		months.push(monthKey(cursor));
-		cursor = new Date(
-			Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1),
-		);
-	}
-	return months;
 }

@@ -507,6 +507,72 @@ describe("money report procs", () => {
 			).toBeUndefined();
 			expect(result.excluded - before.excluded).toBe(2);
 		});
+
+		it("counts collected only when paidAt falls in range, invoiced only when issued does", async () => {
+			const issuedInPaidOutDealId = await createDeal(
+				`reports-money-deal-issued-in-paid-out-${suffix}`,
+				"Issued In Paid Out Deal",
+			);
+			await createInvoice({
+				id: `reports-money-invoice-issued-in-paid-out-${suffix}`,
+				dealId: issuedInPaidOutDealId,
+				status: "PAID",
+				currency: "USD",
+				issuedAt: new Date("2020-01-10T00:00:00.000Z"),
+				paidAt: new Date("2020-02-05T00:00:00.000Z"),
+				lineTotalCents: 4400,
+			});
+
+			const paidInIssuedOutDealId = await createDeal(
+				`reports-money-deal-paid-in-issued-out-${suffix}`,
+				"Paid In Issued Out Deal",
+			);
+			await createInvoice({
+				id: `reports-money-invoice-paid-in-issued-out-${suffix}`,
+				dealId: paidInIssuedOutDealId,
+				status: "PAID",
+				currency: "USD",
+				issuedAt: new Date("2019-12-01T00:00:00.000Z"),
+				paidAt: new Date("2020-01-20T00:00:00.000Z"),
+				lineTotalCents: 5500,
+			});
+
+			const result = await service.jobProfitability(memberUserId, range);
+
+			const issuedInPaidOutRow = result.rows.find(
+				(row) => row.dealId === issuedInPaidOutDealId,
+			);
+			if (!issuedInPaidOutRow) throw new Error("expected a row");
+			expect(issuedInPaidOutRow.invoicedCents).toBe(4400);
+			expect(issuedInPaidOutRow.collectedCents).toBe(0);
+
+			const paidInIssuedOutRow = result.rows.find(
+				(row) => row.dealId === paidInIssuedOutDealId,
+			);
+			if (!paidInIssuedOutRow) throw new Error("expected a row");
+			expect(paidInIssuedOutRow.invoicedCents).toBe(0);
+			expect(paidInIssuedOutRow.collectedCents).toBe(5500);
+		});
+
+		it("includes an invoice timestamped 23:00 UTC on the to day", async () => {
+			const dealId = await createDeal(
+				`reports-money-deal-late-on-to-day-${suffix}`,
+				"Late On To Day Deal",
+			);
+			await createInvoice({
+				id: `reports-money-invoice-late-on-to-day-${suffix}`,
+				dealId,
+				status: "SENT",
+				currency: "USD",
+				issuedAt: new Date("2020-01-31T23:00:00.000Z"),
+				lineTotalCents: 1234,
+			});
+
+			const result = await service.jobProfitability(memberUserId, range);
+			const row = result.rows.find((row) => row.dealId === dealId);
+			if (!row) throw new Error("expected the late-on-the-to-day row");
+			expect(row.invoicedCents).toBe(1234);
+		});
 	});
 
 	describe("costBreakdown", () => {
@@ -730,6 +796,30 @@ describe("money report procs", () => {
 				(row) => row.key === "avgDaysToPay",
 			);
 			expect(avgDaysToPayKpi?.value).toBe("7.0");
+		});
+
+		it("is a snapshot: an invoice issued 400 days ago, well outside the range, still appears in the 90+ bucket", async () => {
+			const dealId = await createDeal(
+				`reports-money-deal-ar-snapshot-${suffix}`,
+				"AR Snapshot Deal",
+			);
+			const longAgoIssuedAt = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+			await createInvoice({
+				id: `reports-money-invoice-ar-snapshot-${suffix}`,
+				dealId,
+				status: "SENT",
+				currency: "USD",
+				issuedAt: longAgoIssuedAt,
+				lineTotalCents: 6000,
+			});
+
+			const result = await service.arAging(memberUserId, range);
+			const row = result.rows.find(
+				(row) =>
+					row.invoiceId === `reports-money-invoice-ar-snapshot-${suffix}`,
+			);
+			if (!row) throw new Error("expected the snapshot row despite the range");
+			expect(row.bucket).toBe("90+");
 		});
 	});
 

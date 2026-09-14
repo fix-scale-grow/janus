@@ -683,6 +683,61 @@ describe("reports.leadSources", () => {
 		expect(bingRow.contacts).toBe(0);
 		expect(bingRow.deals).toBe(1);
 	});
+
+	it("attributes wonCount/wonCents by closedAt alone, independent of the deal's createdAt cohort", async () => {
+		const wonStage = await db.stage.findFirstOrThrow({
+			where: { key: "CLOSED_WON" },
+			select: { id: true },
+		});
+
+		const wonSourceContact = await db.contact.create({
+			data: {
+				id: `reports-ops-ls-won-outside-created-${suffix}`,
+				firstName: "Won",
+				lastName: "OutsideCreated",
+				source: "TRACKING",
+				createdAt: new Date("2031-02-01T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+		contactIds.push(wonSourceContact.id);
+
+		await db.trackedVisitor.create({
+			data: {
+				id: `reports-ops-visitor-won-outside-created-${suffix}`,
+				contactId: wonSourceContact.id,
+				firstSource: "Direct Mail",
+			},
+		});
+
+		const dealId = await createDeal({
+			id: `reports-ops-ls-deal-won-outside-created-${suffix}`,
+			name: "Deal Created Before Range, Closed Inside",
+			ownerId: adminUserId,
+			stageId: wonStage.id,
+			createdAt: new Date("2031-03-01T00:00:00.000Z"),
+			closedAt: new Date("2031-04-20T00:00:00.000Z"),
+			amount: 2000,
+			baseAmount: 2000,
+			baseCurrency: "USD",
+		});
+		await db.dealContact.create({
+			data: {
+				dealId,
+				contactId: wonSourceContact.id,
+				createdAt: new Date("2031-03-01T00:00:00.000Z"),
+			},
+		});
+
+		const result = await service.leadSources(adminUserId, { from, to });
+		const directMailRow = result.rows.find(
+			(row) => row.source === "Direct Mail",
+		);
+		if (!directMailRow) throw new Error("expected a Direct Mail row");
+		expect(directMailRow.wonCount).toBe(1);
+		expect(directMailRow.wonCents).toBe(200000);
+		expect(directMailRow.deals).toBe(0);
+	});
 });
 
 describe("reports.production", () => {
@@ -1068,12 +1123,21 @@ describe("reports.permits", () => {
 			expiresAt: thirtyOneDaysOut,
 		});
 
+		const alreadyExpired = await createPermit({
+			id: `reports-ops-permit-already-expired-${suffix}`,
+			status: "ISSUED",
+			expiresAt: new Date(todayUtc.getTime() - 5 * dayMs),
+		});
+
 		const withExpiring = await service.permits(adminUserId, { from, to });
 		expect(
 			withExpiring.expiring.some((row) => row.permitId === exactlyAtWindowEdge),
 		).toBe(true);
 		expect(
 			withExpiring.expiring.some((row) => row.permitId === justPastWindow),
+		).toBe(false);
+		expect(
+			withExpiring.expiring.some((row) => row.permitId === alreadyExpired),
 		).toBe(false);
 	});
 });

@@ -33,3 +33,34 @@ export function fallbackDueAt(invoice: {
 	const base = invoice.issuedAt ?? invoice.createdAt;
 	return new Date(base.getTime() + 30 * DAY_MS);
 }
+
+export function addDays(date: Date, days: number): Date {
+	return new Date(date.getTime() + days * DAY_MS);
+}
+
+export type ResolvedRange = { gte: Date; lt: Date };
+
+export function resolveRange(from: Date, to: Date): ResolvedRange {
+	return { gte: from, lt: addDays(toDay(to), 1) };
+}
+
+export function dateInRange(date: Date, range: ResolvedRange): boolean {
+	return date >= range.gte && date < range.lt;
+}
+
+export function monthKey(date: Date): string {
+	return date.toISOString().slice(0, 7);
+}
+
+export function monthsBetween(from: Date, to: Date): string[] {
+	const months: string[] = [];
+	let cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+	const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+	while (cursor.getTime() <= end.getTime()) {
+		months.push(monthKey(cursor));
+		cursor = new Date(
+			Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1),
+		);
+	}
+	return months;
+}
