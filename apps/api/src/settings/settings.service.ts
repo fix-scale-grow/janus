@@ -1,17 +1,23 @@
 import { isWorkspaceAdmin, workspaceRoleOf } from "@crm/auth";
 import type { Db } from "@crm/db";
+import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
 import {
+	acceptPermitDisclaimerSetting,
 	DEFAULT_AGENT_MODEL,
 	maskKey,
 	type NavLayout,
+	type PermitSettings,
 	readAgentModel,
 	readContextDevKey,
 	readDealNumberStart,
 	readNavLayout,
+	readPermitSettings,
+	type UsState,
 	writeAgentModel,
 	writeContextDevKey,
 	writeDealNumberStart,
 	writeNavLayout,
+	writePermitSettings,
 } from "@crm/db/settings";
 import {
 	BadRequestException,
@@ -193,6 +199,56 @@ export class SettingsService {
 		const fromExisting = (maxRow._max.number ?? 0) + 1;
 
 		return { nextNumber: start ? Math.max(fromExisting, start) : fromExisting };
+	}
+
+	async permits(): Promise<PermitSettings> {
+		return readPermitSettings(this.db);
+	}
+
+	async setPermits(
+		userId: string,
+		patch: {
+			enabled?: boolean;
+			states?: UsState[];
+			triggerStageIds?: string[];
+		},
+	): Promise<PermitSettings> {
+		await this.requireAdmin(
+			userId,
+			"Only an owner or an admin can change permit settings.",
+		);
+
+		if (patch.triggerStageIds && patch.triggerStageIds.length > 0) {
+			const count = await this.db.stage.count({
+				where: { id: { in: patch.triggerStageIds } },
+			});
+
+			if (count !== patch.triggerStageIds.length) {
+				throw new BadRequestException("Unknown stage");
+			}
+		}
+
+		await writePermitSettings(this.db, {
+			permitsEnabled: patch.enabled,
+			permitStates: patch.states,
+			permitTriggerStageIds: patch.triggerStageIds,
+		});
+
+		this.logger.log({ message: "Permit settings changed" });
+
+		return this.permits();
+	}
+
+	async acceptPermitDisclaimer(userId: string): Promise<PermitSettings> {
+		await acceptPermitDisclaimerSetting(
+			this.db,
+			userId,
+			PERMIT_DISCLAIMER_VERSION,
+		);
+
+		this.logger.log({ message: "Permit disclaimer accepted", userId });
+
+		return this.permits();
 	}
 
 	async setDealNumberStart(

@@ -7,6 +7,7 @@ import { QuickSwitcher } from "@/components/crm/quick-switcher";
 import { RecordSheetHost } from "@/components/crm/record-sheet/record-sheet-host";
 import { MobileNavProvider } from "@/components/mobile-nav";
 import { readInstallNavLayout } from "@/lib/nav-layout";
+import { readInstallPermitSettings } from "@/lib/permit-settings";
 import { requireMailboxAccess } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
@@ -17,18 +18,26 @@ export default async function AppLayout({
 	children,
 	params,
 }: LayoutProps<"/[slug]">) {
-	const navLayout = await readInstallNavLayout();
+	const [navLayout, permitSettings] = await Promise.all([
+		readInstallNavLayout(),
+		readInstallPermitSettings(),
+	]);
+	const permitsEnabled = permitSettings.permitsEnabled;
 
 	return (
 		<MobileNavProvider>
 			<div className="isolate flex h-svh flex-col">
 				<Suspense fallback={<AppHeaderFallback />}>
-					<WorkspaceHeader params={params} navLayout={navLayout} />
+					<WorkspaceHeader
+						params={params}
+						navLayout={navLayout}
+						permitsEnabled={permitsEnabled}
+					/>
 				</Suspense>
 
 				<div className="flex min-h-0 flex-1">
 					<Suspense fallback={<AppIconRailFallback navLayout={navLayout} />}>
-						<AppRail navLayout={navLayout} />
+						<AppRail navLayout={navLayout} permitsEnabled={permitsEnabled} />
 					</Suspense>
 					{children}
 				</div>
@@ -45,7 +54,13 @@ export default async function AppLayout({
 	);
 }
 
-async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
+async function AppRail({
+	navLayout,
+	permitsEnabled,
+}: {
+	navLayout: "RAIL" | "TOP_BAR";
+	permitsEnabled: boolean;
+}) {
 	await connection();
 	const queryClient = getServerQueryClient();
 	const trpc = getServerTrpc();
@@ -72,6 +87,7 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 				initialNavOrder={navView?.navOrder}
 				initialNavHidden={navView?.navHidden}
 				initialPipelines={pipelines}
+				initialPermitsEnabled={permitsEnabled}
 			/>
 		</HydrateClient>
 	);
@@ -80,8 +96,10 @@ async function AppRail({ navLayout }: { navLayout: "RAIL" | "TOP_BAR" }) {
 async function WorkspaceHeader({
 	params,
 	navLayout,
+	permitsEnabled,
 }: Pick<LayoutProps<"/[slug]">, "params"> & {
 	navLayout: "RAIL" | "TOP_BAR";
+	permitsEnabled: boolean;
 }) {
 	await connection();
 	const queryClient = getServerQueryClient();
@@ -126,6 +144,7 @@ async function WorkspaceHeader({
 				initialNavOrder={navView?.navOrder}
 				initialNavHidden={navView?.navHidden}
 				initialPipelines={pipelines}
+				initialPermitsEnabled={permitsEnabled}
 			/>
 		</HydrateClient>
 	);

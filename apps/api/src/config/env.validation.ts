@@ -166,6 +166,10 @@ export class EnvironmentVariables {
 	@IsOptional()
 	@IsString()
 	MAIL_OUTBOX_DIR?: string;
+
+	@IsOptional()
+	@IsString()
+	PERMITS_DATA_DIR?: string;
 }
 
 export function validateEnv(

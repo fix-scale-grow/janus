@@ -5,6 +5,7 @@ import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
+import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
 
 const suffix = crypto.randomUUID();
 const dealId = `event-deal-${suffix}`;
@@ -13,7 +14,17 @@ const service = new AgentTriggerService(db);
 const stamp = new ActivityStampService(db);
 const conversion = new ConversionService(db);
 const fields = new FieldsService(db, service);
-const deals = new DealsService(db, service, stamp, conversion, fields);
+const permitTrigger = {
+	onStageChanged: async () => undefined,
+} as unknown as PermitTriggerService;
+const deals = new DealsService(
+	db,
+	service,
+	stamp,
+	conversion,
+	fields,
+	permitTrigger,
+);
 const channelId = `event-channel-${suffix}`;
 const ownerId = `event-owner-${suffix}`;
 let persistedDealId = "";

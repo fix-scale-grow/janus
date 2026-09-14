@@ -22,6 +22,7 @@
 		"./images": "./src/images.ts",
 		"./photo-files": "./src/photo-files.ts",
 		"./idempotency": "./src/idempotency.ts",
+		"./permits": "./src/permits.ts",
 		"./production-semantics": "./src/production-semantics.ts",
 		"./safe-fetch": "./src/safe-fetch.ts",
 		"./settings": "./src/settings.ts",

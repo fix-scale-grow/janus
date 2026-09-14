@@ -272,6 +272,54 @@ describe("approval outcome lines", () => {
 	});
 });
 
+describe("fill_worksheet approval copy", () => {
+	it("renders the field count from the structured input", () => {
+		const copy = approvalCopyFor("fill_worksheet");
+		const sections = copy.render({
+			permitId: "permit1",
+			answers: { job_address: "123 Main St", job_name: "Re-roof" },
+		});
+
+		expect(copy.title).toBe("Approve worksheet AI fill");
+		expect(sections).toEqual([
+			{ rows: [{ label: "Fields", value: "2 fields" }] },
+		]);
+	});
+
+	it("phrases a fill_worksheet success from the execute result", () => {
+		const copy = approvalCopyFor("fill_worksheet");
+		expect(
+			copy.outcome?.({
+				applied: true,
+				filled: ["job_address", "job_name"],
+				skipped: [],
+				permitId: "permit1",
+				dealId: "deal1",
+			}),
+		).toBe("Applied — 2 fields await your review");
+	});
+
+	it("uses singular agreement for a single field", () => {
+		const copy = approvalCopyFor("fill_worksheet");
+		expect(
+			copy.outcome?.({
+				applied: true,
+				filled: ["job_address"],
+				skipped: [],
+				permitId: "permit1",
+				dealId: "deal1",
+			}),
+		).toBe("Applied — 1 field awaits your review");
+	});
+
+	it("phrases a fill_worksheet failure with the reason", () => {
+		const copy = approvalCopyFor("fill_worksheet");
+		expect(copy.outcome?.({ applied: false, reason: "No such permit." })).toBe(
+			"Not applied — No such permit.",
+		);
+	});
+});
+
 describe("cache invalidation map", () => {
 	it("invalidates the drawing by input.drawingId when present", () => {
 		expect(
@@ -319,6 +367,16 @@ describe("cache invalidation map", () => {
 		expect(
 			invalidationFor("attach_drawing", { drawingId: "d1" }, "r1"),
 		).toEqual([]);
+	});
+
+	it("invalidates the permit by input.permitId", () => {
+		expect(invalidationFor("fill_worksheet", { permitId: "x" }, null)).toEqual([
+			{ kind: "permit", id: "x" },
+		]);
+	});
+
+	it("invalidates nothing for fill_worksheet with no permitId", () => {
+		expect(invalidationFor("fill_worksheet", null, null)).toEqual([]);
 	});
 });
 

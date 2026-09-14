@@ -207,6 +207,52 @@ export class AgentTriggerService {
 		});
 	}
 
+	async permitResearchRequested(dealId: string, reason: string): Promise<void> {
+		try {
+			const created = await this.db.$transaction(async (tx) => {
+				await lockIdempotencyKey(tx, `permit-research:${dealId}`);
+
+				const pending = await tx.agentTask.findFirst({
+					where: { kind: "permit-research", dealId, finishedAt: null },
+					select: { id: true },
+				});
+				if (pending) return false;
+
+				await tx.agentTask.create({
+					data: {
+						dealId,
+						kind: "permit-research",
+						reason,
+						priority: PRIORITY.permitResearch,
+						budget: 6,
+						dueAt: new Date(),
+						payload: { dealId, reason },
+					},
+				});
+				return true;
+			});
+
+			if (!created) return;
+
+			this.logger.log({
+				message: "Agent task queued",
+				kind: "permit-research",
+				dealId,
+			});
+
+			this.poke();
+		} catch (error) {
+			this.logger.error(
+				{
+					message: "Could not queue agent task",
+					kind: "permit-research",
+					dealId,
+				},
+				error instanceof Error ? error.stack : String(error),
+			);
+		}
+	}
+
 	async estimateGenerated(
 		drawingId: string,
 		estimateId: string,

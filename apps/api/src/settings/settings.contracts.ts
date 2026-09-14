@@ -1,3 +1,4 @@
+import { US_STATES } from "@crm/db/settings";
 import { z } from "zod";
 
 export const setAgentModelInput = z.object({
@@ -31,3 +32,11 @@ export const setDealNumberStartInput = z.object({
 });
 
 export type SetDealNumberStartInput = z.infer<typeof setDealNumberStartInput>;
+
+export const setPermitsInput = z.object({
+	enabled: z.boolean().optional(),
+	states: z.array(z.enum(US_STATES)).max(56).optional(),
+	triggerStageIds: z.array(z.string()).max(20).optional(),
+});
+
+export type SetPermitsInput = z.infer<typeof setPermitsInput>;

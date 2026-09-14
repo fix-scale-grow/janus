@@ -1,7 +1,9 @@
 import { db } from "@crm/db";
+import { guessJurisdictionFromAddress } from "@crm/db/permits";
 import { websiteUrl } from "@crm/db/workspace";
-import { capabilitiesMarkdown } from "./capabilities";
+import { capabilitiesMarkdown, enabled } from "./capabilities";
 import { JANUS_ROLE } from "./janus-role";
+import { RESEARCH_RULES } from "./permit-research";
 import { fenceUntrusted } from "./untrusted";
 import { identity, usMarkdown, type WorkspaceIdentity } from "./workspace";
 
@@ -26,6 +28,9 @@ export async function sessionPreamble(
 	opened: Opened,
 ): Promise<Preamble> {
 	if (opened.kind === "workspace-profile") return workspacePreamble();
+	if (opened.kind === "permit-research" && record.dealId) {
+		return permitResearchPreamble(record.dealId, opened);
+	}
 	if (record.contactId) return contactPreamble(record.contactId, opened);
 	if (record.dealId) return dealPreamble(record.dealId, opened);
 	if (record.drawingId) return drawingPreamble(record.drawingId, opened);
@@ -226,6 +231,60 @@ export async function dealPreamble(
 		"Start with `read_deal_history` on this deal id. It returns the stage clock, every stage this deal has moved through, the last reply from their side and the next meeting — which is how you answer *where does this stand* rather than reciting the stage field back.",
 		"",
 		"You can research the people behind it with the usual tools — a deal itself has no fields to enrich, so anything you learn is recorded against them.",
+		"",
+		await closing(),
+	].join("\n");
+
+	return { markdown, focus: {} };
+}
+
+export async function permitResearchPreamble(
+	dealId: string,
+	opened: Opened,
+): Promise<Preamble> {
+	const deal = await db.deal.findUnique({
+		where: { id: dealId },
+		select: {
+			name: true,
+			drawings: {
+				select: { address: true },
+				orderBy: { updatedAt: "desc" },
+				take: 1,
+			},
+		},
+	});
+
+	if (!deal) return { markdown: await closing(), focus: {} };
+
+	const address = deal.drawings[0]?.address ?? null;
+	const guess = guessJurisdictionFromAddress(address);
+	const canWebSearch = await enabled("anthropic");
+
+	const markdown = [
+		"## This session",
+		"",
+		`You are researching permit requirements for a deal — deal id \`${dealId}\`. Its name, as typed by whoever created it:`,
+		"",
+		fenceUntrusted("deal name", deal.name),
+		"",
+		address
+			? `The job address on file, as typed:\n\n${fenceUntrusted("job address", address)}`
+			: "No job address is on file for this deal yet.",
+		guess
+			? `A guess at the jurisdiction from that address:\n\n${fenceUntrusted("jurisdiction guess", `${guess.name}, ${guess.state}`)}\n\nConfirm it with an official source before relying on it — an address does not always name the permitting authority.`
+			: "No jurisdiction can be guessed from the address on file. Work out the correct issuing authority from an official source before drafting anything.",
+		"",
+		opening(opened, "what permits this job needs and how to get them"),
+		"",
+		"Start with `read_permit` if you were given a permit id, or `read_playbook` to see what is already drafted for this jurisdiction and permit type before researching anything again.",
+		"",
+		RESEARCH_RULES,
+		"",
+		canWebSearch
+			? "This install can fetch a page directly with `web_fetch`, and `web_search` is also available for finding the right official page in the first place."
+			: "This install can fetch a page directly with `web_fetch`. `web_search` is not available here, so find the official page yourself — from the jurisdiction guess above, a known city or county domain pattern, or a page already linked in an existing playbook.",
+		"",
+		"A fetch can still fail, or land on a page that says nothing useful — that is normal, not a reason to stop. Write up what you found and say plainly what you could not confirm. No source, no fact: never draft one without a page to point at.",
 		"",
 		await closing(),
 	].join("\n");

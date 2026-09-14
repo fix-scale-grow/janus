@@ -20,6 +20,7 @@ import {
 } from "@crm/ui/components/tooltip";
 import { formatMoney } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { ContractsTable } from "@/app/(app)/[slug]/contracts/contracts-table";
 import { NewContractButton } from "@/app/(app)/[slug]/contracts/new-contract-button";
@@ -60,6 +61,7 @@ import {
 	LocalDay,
 	LocalRelativeTime,
 } from "@/components/local-date-time";
+import { DealPermits } from "@/components/permits/deal-permits";
 import { PhotoGrid } from "@/components/photos/photo-grid";
 import { DealProjects } from "@/components/projects/deal-projects";
 import { dialHref, reachableContact } from "@/lib/dial";
@@ -137,10 +139,18 @@ export function DealSheet({ dealId }: { dealId: string }) {
 		setTab,
 		form: adding,
 		setForm: setAdding,
+		ask,
+		clearAsk,
 	} = useRecordSheetView("overview");
+
+	useEffect(() => {
+		if (ask) clearAsk();
+	}, [ask, clearAsk]);
 
 	const query = useQuery(trpc.deals.byId.queryOptions({ id: dealId }));
 	const deal = query.data;
+	const permitSettings = useQuery(trpc.settings.permits.queryOptions());
+	const permitsEnabled = permitSettings.data?.permitsEnabled ?? false;
 
 	const tabs: DetailSheetTab[] = deal
 		? [
@@ -202,10 +212,24 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					label: "Contracts",
 					content: <DealContracts deal={deal} />,
 				},
+				...(permitsEnabled
+					? [
+							{
+								value: "permits",
+								label: "Permits",
+								content: <DealPermits dealId={deal.id} />,
+							} satisfies DetailSheetTab,
+						]
+					: []),
 				{
 					value: "agent",
 					label: "Agent",
-					content: <AgentPanel record={{ kind: "deal", id: deal.id }} />,
+					content: (
+						<AgentPanel
+							record={{ kind: "deal", id: deal.id }}
+							initialMessage={ask ?? undefined}
+						/>
+					),
 					keepMounted: true,
 				},
 			]

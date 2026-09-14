@@ -1,4 +1,5 @@
 import type { CarbonIconType } from "@carbon/icons-react/es/CarbonIcon";
+import Certificate from "@carbon/icons-react/es/Certificate";
 import ChartColumn from "@carbon/icons-react/es/ChartColumn";
 import Chat from "@carbon/icons-react/es/Chat";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
@@ -119,6 +120,11 @@ export const JANUS_NAV: JanusModule[] = [
 			},
 			{ id: "/settings:forms", title: "Forms", href: "/settings/forms" },
 			{
+				id: "/settings:permits",
+				title: "Permits",
+				href: "/settings/permits",
+			},
+			{
 				id: "/settings:tracking",
 				title: "Tracking & Analytics",
 				href: "/settings/tracking",
@@ -194,6 +200,14 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: DocumentSigned,
 		source: "app/(app)/contracts",
+	},
+	{
+		title: "Permits",
+		href: "/permits",
+		match: "prefix",
+		status: "live",
+		icon: Certificate,
+		source: "app/(app)/permits",
 	},
 	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{

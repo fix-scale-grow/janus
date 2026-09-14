@@ -6,6 +6,7 @@ import { ConversionService } from "../src/currency/conversion.service";
 import { DealsService } from "../src/deals/deals.service";
 import { DrawingsService } from "../src/drawings/drawings.service";
 import { FieldsService } from "../src/fields/fields.service";
+import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
 
 const suffix = process.env.TEST_RUN_ID ?? "drawings-contact-link-spec";
@@ -15,12 +16,16 @@ const agent = {
 	withCrmEvents: withDiscardedCrmEvents,
 } as unknown as AgentTriggerService;
 
+const permitTrigger = {
+	onStageChanged: async () => undefined,
+} as unknown as PermitTriggerService;
 const deals = new DealsService(
 	db,
 	agent,
 	new ActivityStampService(db),
 	new ConversionService(db),
 	new FieldsService(db, { fieldBackfill: async () => undefined } as never),
+	permitTrigger,
 );
 
 const drawings = new DrawingsService(db);

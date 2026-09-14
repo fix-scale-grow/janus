@@ -8,6 +8,7 @@ import { ConversionService } from "../src/currency/conversion.service";
 import { DashboardService } from "../src/dashboard/dashboard.service";
 import { DealsService } from "../src/deals/deals.service";
 import { FieldsService } from "../src/fields/fields.service";
+import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
 import { withDiscardedCrmEvents } from "./agent-trigger.stub";
 
 const suffix = process.env.TEST_RUN_ID ?? "currency-totals-spec";
@@ -19,12 +20,16 @@ const agent = {
 } as unknown as AgentTriggerService;
 
 const conversion = new ConversionService(db);
+const permitTrigger = {
+	onStageChanged: async () => undefined,
+} as unknown as PermitTriggerService;
 const deals = new DealsService(
 	db,
 	agent,
 	new ActivityStampService(db),
 	conversion,
 	new FieldsService(db, { fieldBackfill: async () => undefined } as never),
+	permitTrigger,
 );
 const dashboard = new DashboardService(db, conversion);
 

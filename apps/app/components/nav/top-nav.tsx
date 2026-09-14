@@ -31,11 +31,13 @@ export function TopNav({
 	initialNavOrder,
 	initialNavHidden,
 	initialPipelines,
+	initialPermitsEnabled,
 }: {
 	initialPermissions?: NavPermissions;
 	initialNavOrder?: string[];
 	initialNavHidden?: string[];
 	initialPipelines?: NavPipelines;
+	initialPermitsEnabled?: boolean;
 } = {}) {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -45,6 +47,7 @@ export function TopNav({
 		navOrder: initialNavOrder,
 		navHidden: initialNavHidden,
 		pipelines: initialPipelines,
+		permitsEnabled: initialPermitsEnabled,
 	});
 
 	return (

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { applyNavHidden, HIDE_PROOF, isChildHidden } from "./nav-children";
+import {
+	applyNavHidden,
+	applyPermitsGate,
+	HIDE_PROOF,
+	isChildHidden,
+} from "./nav-children";
 
 const items = [
 	{ href: "/", title: "Dashboard" },
@@ -56,5 +61,30 @@ describe("isChildHidden", () => {
 describe("HIDE_PROOF", () => {
 	it("contains only settings", () => {
 		expect(HIDE_PROOF).toEqual(["/settings"]);
+	});
+});
+
+const withPermits = [
+	{ href: "/", title: "Dashboard" },
+	{ href: "/permits", title: "Permits" },
+	{ href: "/contracts", title: "Contracts" },
+];
+
+describe("applyPermitsGate", () => {
+	it("keeps every item when permits is enabled", () => {
+		expect(
+			applyPermitsGate(withPermits, true).map((item) => item.href),
+		).toEqual(["/", "/permits", "/contracts"]);
+	});
+
+	it("hides the permits module when permits is disabled", () => {
+		expect(
+			applyPermitsGate(withPermits, false).map((item) => item.href),
+		).toEqual(["/", "/contracts"]);
+	});
+
+	it("leaves non-permits items untouched when disabled", () => {
+		const items = [{ href: "/", title: "Dashboard" }];
+		expect(applyPermitsGate(items, false)).toEqual(items);
 	});
 });
