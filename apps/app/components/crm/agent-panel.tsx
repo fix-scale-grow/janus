@@ -94,7 +94,7 @@ export function AgentPanel({
 }) {
 	const conversations = useConversations(recordFilter(record));
 	const { thread, setThread } = useRecordSheetView("overview");
-	const initialMessageSent = useRef(false);
+	const initialMessageSent = useRef<string | null>(null);
 
 	const history = conversations.data ?? [];
 
@@ -125,7 +125,7 @@ function LoadedAgentPanel({
 	thread: string | null;
 	setThread: (thread: string) => void;
 	initialMessage?: string;
-	initialMessageSent: React.RefObject<boolean>;
+	initialMessageSent: React.RefObject<string | null>;
 }) {
 	const [landedOn] = useState(() =>
 		initialMessage ? NEW_THREAD : (history[0]?.id ?? NEW_THREAD),
@@ -172,7 +172,7 @@ function ThreadWithHistory({
 	conversation: Conversation | null;
 	onNewThread: () => void;
 	initialMessage?: string;
-	initialMessageSent: React.RefObject<boolean>;
+	initialMessageSent: React.RefObject<string | null>;
 }) {
 	const trpc = useTRPC();
 
@@ -234,7 +234,7 @@ function Thread({
 	thread: ThreadState | undefined;
 	onNewThread: () => void;
 	initialMessage?: string;
-	initialMessageSent: React.RefObject<boolean>;
+	initialMessageSent: React.RefObject<string | null>;
 }) {
 	const copy = recordCopy(record.kind);
 	const cache = useCrmCache();
@@ -271,12 +271,17 @@ function Thread({
 	};
 
 	const sendInitialMessage = useEffectEvent(() => {
-		if (!initialMessage || initialMessageSent.current || locked) return;
-		initialMessageSent.current = true;
+		if (
+			!initialMessage ||
+			initialMessageSent.current === initialMessage ||
+			locked
+		)
+			return;
+		initialMessageSent.current = initialMessage;
 		ask(initialMessage);
 	});
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: initialMessage must re-fire this effect when a second question arrives on an already-mounted panel, locked must re-fire it once the panel unlocks
+	// biome-ignore lint/correctness/useExhaustiveDependencies: initialMessage must re-fire this effect when a distinct ask arrives on an already-mounted panel, locked must re-fire it once the panel unlocks
 	useEffect(() => {
 		sendInitialMessage();
 	}, [initialMessage, locked]);
