@@ -462,6 +462,14 @@ export function ScopePanel(props: ScopePanelProps) {
 								}`}
 								key={shape.scopeId}
 								onClick={() => props.onSelectShape(shape.scopeId)}
+								onKeyDown={(event) => {
+									if (
+										event.key === "Enter" &&
+										event.target === event.currentTarget
+									) {
+										props.onSelectShape(shape.scopeId);
+									}
+								}}
 							>
 								<div className="flex items-center justify-between gap-2">
 									<Badge variant="outline">{kindLabel(shape.kind)}</Badge>
