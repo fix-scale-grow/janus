@@ -18,6 +18,7 @@ import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import {
 	type DrawingAttachment,
 	drawingsSearchParams,
+	folderIdFromFilter,
 } from "./drawings-search-params";
 
 export const metadata: Metadata = {
@@ -62,13 +63,17 @@ async function Drawings({
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
-	const input = drawingsSearchParams.toInput(values);
-	await queryClient.prefetchQuery(
-		trpc.drawings.list.queryOptions({
-			...input,
-			attachment: input.attachment as DrawingAttachment,
-		}),
-	);
+	const { folder, ...input } = drawingsSearchParams.toInput(values);
+	await Promise.all([
+		queryClient.prefetchQuery(
+			trpc.drawings.list.queryOptions({
+				...input,
+				attachment: input.attachment as DrawingAttachment,
+				folderId: folderIdFromFilter(folder),
+			}),
+		),
+		queryClient.prefetchQuery(trpc.drawings.folders.queryOptions()),
+	]);
 
 	return (
 		<HydrateClient>

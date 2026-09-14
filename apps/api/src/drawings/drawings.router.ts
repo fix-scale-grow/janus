@@ -15,10 +15,13 @@ import {
 	drawingCreateInput,
 	drawingIdInput,
 	drawingListInput,
+	drawingMoveInput,
 	drawingRenameInput,
 	drawingRestoreVersionInput,
 	drawingSaveSceneInput,
 	drawingSetThumbnailInput,
+	folderCreateInput,
+	folderRenameInput,
 } from "./drawings.contracts";
 import { DrawingsService } from "./drawings.service";
 
@@ -65,6 +68,31 @@ export class DrawingsRouter {
 	@Mutation({ input: drawingIdInput })
 	async delete(@Input("id") id: string) {
 		return this.drawings.delete(id);
+	}
+
+	@Query()
+	async folders() {
+		return this.drawings.folders();
+	}
+
+	@Mutation({ input: folderCreateInput })
+	async createFolder(@Input() input: z.infer<typeof folderCreateInput>) {
+		return this.drawings.createFolder(input);
+	}
+
+	@Mutation({ input: folderRenameInput })
+	async renameFolder(@Input() input: z.infer<typeof folderRenameInput>) {
+		return this.drawings.renameFolder(input);
+	}
+
+	@Mutation({ input: drawingIdInput })
+	async deleteFolder(@Input("id") id: string) {
+		return this.drawings.deleteFolder(id);
+	}
+
+	@Mutation({ input: drawingMoveInput })
+	async move(@Input() input: z.infer<typeof drawingMoveInput>) {
+		return this.drawings.move(input);
 	}
 
 	@Query({ input: drawingIdInput })

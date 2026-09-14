@@ -7,6 +7,7 @@ import {
 	parseDrawingScene,
 } from "@crm/drawings";
 import {
+	ConflictException,
 	Injectable,
 	NotFoundException,
 	PayloadTooLargeException,
@@ -17,10 +18,13 @@ import type {
 	DrawingAttachInput,
 	DrawingCreateInput,
 	DrawingListInput,
+	DrawingMoveInput,
 	DrawingRenameInput,
 	DrawingRestoreVersionInput,
 	DrawingSaveSceneInput,
 	DrawingSetThumbnailInput,
+	FolderCreateInput,
+	FolderRenameInput,
 } from "./drawings.contracts";
 
 const LIST_SELECT = {
@@ -28,6 +32,7 @@ const LIST_SELECT = {
 	title: true,
 	background: true,
 	thumbnailUrl: true,
+	folderId: true,
 	dealId: true,
 	contactId: true,
 	updatedAt: true,
@@ -201,6 +206,72 @@ export class DrawingsService {
 		}
 	}
 
+	async folders() {
+		const rows = await this.db.drawingFolder.findMany({
+			orderBy: { name: "asc" },
+			select: {
+				id: true,
+				name: true,
+				_count: { select: { drawings: true } },
+			},
+		});
+		return rows.map(({ _count, ...row }) => ({
+			...row,
+			drawingCount: _count.drawings,
+		}));
+	}
+
+	async createFolder(input: FolderCreateInput) {
+		try {
+			return await this.db.drawingFolder.create({
+				data: { name: input.name },
+				select: { id: true, name: true },
+			});
+		} catch (error) {
+			throw this.translateFolder(error, null);
+		}
+	}
+
+	async renameFolder(input: FolderRenameInput) {
+		try {
+			return await this.db.drawingFolder.update({
+				where: { id: input.id },
+				data: { name: input.name },
+				select: { id: true, name: true },
+			});
+		} catch (error) {
+			throw this.translateFolder(error, input.id);
+		}
+	}
+
+	async deleteFolder(id: string) {
+		try {
+			return await this.db.drawingFolder.delete({
+				where: { id },
+				select: { id: true, name: true },
+			});
+		} catch (error) {
+			throw this.translateFolder(error, id);
+		}
+	}
+
+	async move(input: DrawingMoveInput) {
+		try {
+			return await this.db.drawing.update({
+				where: { id: input.id },
+				data: {
+					folder:
+						input.folderId === null
+							? { disconnect: true }
+							: { connect: { id: input.folderId } },
+				},
+				select: { id: true, folderId: true },
+			});
+		} catch (error) {
+			throw this.translate(error, input.id);
+		}
+	}
+
 	async versions(id: string) {
 		return this.db.drawingVersion.findMany({
 			where: { drawingId: id },
@@ -290,6 +361,7 @@ export class DrawingsService {
 			...(input.attachment === "unattached"
 				? { dealId: null, contactId: null }
 				: {}),
+			...(input.folderId ? { folderId: input.folderId } : {}),
 			...(input.dealId ? { dealId: input.dealId } : {}),
 			...(input.contactId
 				? {
@@ -307,6 +379,22 @@ export class DrawingsService {
 		}
 
 		return where;
+	}
+
+	private translateFolder(error: unknown, id: string | null): unknown {
+		if (
+			error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
+			error.code === "P2002"
+		) {
+			return new ConflictException("A folder with that name already exists.");
+		}
+		if (
+			error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
+			error.code === "P2025"
+		) {
+			return new NotFoundException(`No folder with id ${id}.`);
+		}
+		return error;
 	}
 
 	private translate(error: unknown, id: string): unknown {

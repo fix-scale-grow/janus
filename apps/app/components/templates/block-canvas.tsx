@@ -7,7 +7,6 @@ import ChevronDown from "@carbon/icons-react/es/ChevronDown";
 import ChevronUp from "@carbon/icons-react/es/ChevronUp";
 import Close from "@carbon/icons-react/es/Close";
 import ColorPalette from "@carbon/icons-react/es/ColorPalette";
-import Image from "@carbon/icons-react/es/Image";
 import LineThin from "@carbon/icons-react/es/LineThin";
 import PageBreak from "@carbon/icons-react/es/PageBreak";
 import Pen from "@carbon/icons-react/es/Pen";
@@ -629,7 +628,6 @@ function ColumnsBody({
 							// biome-ignore lint/suspicious/noArrayIndexKey: children are positional
 							key={childIndex}
 							child={child}
-							labels={labels}
 							onChild={(next) =>
 								setColumn(
 									columnIndex,
@@ -683,13 +681,11 @@ function ColumnsBody({
 
 function ColumnChildRow({
 	child,
-	labels,
 	onChild,
 	onMove,
 	onRemove,
 }: {
 	child: ColumnChild;
-	labels: MergeFieldLabels;
 	onChild: (next: ColumnChild) => void;
 	onMove: (direction: -1 | 1) => void;
 	onRemove: () => void;
