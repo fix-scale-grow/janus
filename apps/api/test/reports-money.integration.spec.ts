@@ -348,6 +348,58 @@ describe("money report procs", () => {
 			expect(row.primaryContactName).toBe("Older Contact");
 		});
 
+		it("breaks a tied createdAt on the lower contactId, stable across calls", async () => {
+			const dealId = await createDeal(
+				`reports-money-deal-tied-contacts-${suffix}`,
+				"Tied Contact Deal",
+			);
+
+			const tiedCreatedAt = new Date("2019-03-01T00:00:00.000Z");
+			const contactA = await db.contact.create({
+				data: {
+					id: `reports-money-contact-${suffix}-tied-a`,
+					firstName: "Tied",
+					lastName: "A",
+				},
+				select: { id: true },
+			});
+			const contactB = await db.contact.create({
+				data: {
+					id: `reports-money-contact-${suffix}-tied-b`,
+					firstName: "Tied",
+					lastName: "B",
+				},
+				select: { id: true },
+			});
+			const [lower, higher] =
+				contactA.id < contactB.id ? [contactA, contactB] : [contactB, contactA];
+
+			await db.dealContact.create({
+				data: { dealId, contactId: higher.id, createdAt: tiedCreatedAt },
+			});
+			await db.dealContact.create({
+				data: { dealId, contactId: lower.id, createdAt: tiedCreatedAt },
+			});
+
+			await createInvoice({
+				id: `reports-money-invoice-tied-${suffix}`,
+				dealId,
+				status: "SENT",
+				currency: "USD",
+				issuedAt: new Date("2020-01-05T00:00:00.000Z"),
+				lineTotalCents: 1000,
+			});
+
+			const first = await service.jobProfitability(memberUserId, range);
+			const second = await service.jobProfitability(memberUserId, range);
+			const firstRow = first.rows.find((row) => row.dealId === dealId);
+			const secondRow = second.rows.find((row) => row.dealId === dealId);
+			if (!firstRow || !secondRow) throw new Error("expected a row");
+
+			expect(firstRow.primaryContactId).toBe(lower.id);
+			expect(secondRow.primaryContactId).toBe(lower.id);
+		});
+
 		it("SENT invoice lands in invoiced only, PAID lands in invoiced and collected", async () => {
 			const sentDealId = await createDeal(
 				`reports-money-deal-sent-${suffix}`,

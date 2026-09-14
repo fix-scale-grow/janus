@@ -327,7 +327,7 @@ export class ReportsService {
 						name: true,
 						number: true,
 						contacts: {
-							orderBy: { createdAt: "asc" },
+							orderBy: [{ createdAt: "asc" }, { contactId: "asc" }],
 							take: 1,
 							select: {
 								contact: {
