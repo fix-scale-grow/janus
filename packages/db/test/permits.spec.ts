@@ -59,10 +59,19 @@ describe("parsePlaybookFacts", () => {
 					label: "Site plan",
 					reusable: true,
 					sourceUrl: null,
+					lockerKind: null,
+					verifiedById: null,
+					verifiedAt: null,
 				},
 			],
 			inspections: [
-				{ name: "Framing", when: "After framing", criticalNote: null },
+				{
+					name: "Framing",
+					when: "After framing",
+					criticalNote: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
 			],
 		};
 
@@ -80,6 +89,27 @@ describe("parsePlaybookFacts", () => {
 			requiredDocuments: [],
 			inspections: [],
 		});
+	});
+
+	it("parses an old-shape stored entry, defaulting the new verification fields to null", () => {
+		const old = {
+			requiredDocuments: [
+				{
+					key: "site_plan",
+					label: "Site plan",
+					reusable: true,
+					sourceUrl: null,
+				},
+			],
+			inspections: [{ name: "Framing", when: null, criticalNote: null }],
+		};
+
+		const parsed = parsePlaybookFacts(old);
+		expect(parsed.requiredDocuments[0]?.lockerKind).toBeNull();
+		expect(parsed.requiredDocuments[0]?.verifiedById).toBeNull();
+		expect(parsed.requiredDocuments[0]?.verifiedAt).toBeNull();
+		expect(parsed.inspections[0]?.verifiedById).toBeNull();
+		expect(parsed.inspections[0]?.verifiedAt).toBeNull();
 	});
 
 	it("throws an Error naming the first bad path", () => {

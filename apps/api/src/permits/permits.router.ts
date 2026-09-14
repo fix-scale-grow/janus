@@ -32,6 +32,8 @@ import {
 	setPlaybookInspectionsInput,
 	setWorksheetTemplateInput,
 	updatePermitInput,
+	verifyPlaybookDocumentInput,
+	verifyPlaybookInspectionInput,
 } from "./permits.contracts";
 import { PermitsService } from "./permits.service";
 import { PlaybooksService } from "./playbooks.service";
@@ -98,6 +100,22 @@ export class PermitsRouter {
 		@Input() input: z.infer<typeof setPlaybookInspectionsInput>,
 	) {
 		return this.playbooks.setInspections(input);
+	}
+
+	@Mutation({ input: verifyPlaybookDocumentInput })
+	async verifyPlaybookDocument(
+		@Input() input: z.infer<typeof verifyPlaybookDocumentInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.playbooks.verifyDocument(input, ctx.user.id);
+	}
+
+	@Mutation({ input: verifyPlaybookInspectionInput })
+	async verifyPlaybookInspection(
+		@Input() input: z.infer<typeof verifyPlaybookInspectionInput>,
+		@Ctx() ctx: AuthedTrpcContext,
+	) {
+		return this.playbooks.verifyInspection(input, ctx.user.id);
 	}
 
 	@Mutation({ input: setWorksheetTemplateInput })

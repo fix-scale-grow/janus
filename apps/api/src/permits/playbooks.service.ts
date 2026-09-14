@@ -24,6 +24,8 @@ import {
 	type SetPlaybookFactInput,
 	type SetPlaybookInspectionsInput,
 	type SetWorksheetTemplateInput,
+	type VerifyPlaybookDocumentInput,
+	type VerifyPlaybookInspectionInput,
 } from "./permits.contracts";
 
 type PermitPlaybookRow = {
@@ -39,6 +41,62 @@ type PermitPlaybookRow = {
 
 function isSingletonPath(path: string): path is FactSingletonPath {
 	return (FACT_SINGLETON_PATHS as readonly string[]).includes(path);
+}
+
+function documentsUnchanged(
+	prior: PlaybookFacts["requiredDocuments"][number] | undefined,
+	next: PlaybookFacts["requiredDocuments"][number],
+): prior is PlaybookFacts["requiredDocuments"][number] {
+	return (
+		prior !== undefined &&
+		prior.label === next.label &&
+		prior.reusable === next.reusable &&
+		prior.sourceUrl === next.sourceUrl &&
+		prior.lockerKind === next.lockerKind
+	);
+}
+
+function mergeDocumentVerification(
+	existing: PlaybookFacts["requiredDocuments"],
+	incoming: PlaybookFacts["requiredDocuments"],
+): PlaybookFacts["requiredDocuments"] {
+	const byKey = new Map(existing.map((doc) => [doc.key, doc]));
+	return incoming.map((doc) => {
+		const prior = byKey.get(doc.key);
+		const unchanged = documentsUnchanged(prior, doc);
+		return {
+			...doc,
+			verifiedById: unchanged ? prior.verifiedById : null,
+			verifiedAt: unchanged ? prior.verifiedAt : null,
+		};
+	});
+}
+
+function inspectionsUnchanged(
+	prior: PlaybookFacts["inspections"][number] | undefined,
+	next: PlaybookFacts["inspections"][number],
+): prior is PlaybookFacts["inspections"][number] {
+	return (
+		prior !== undefined &&
+		prior.name === next.name &&
+		prior.when === next.when &&
+		prior.criticalNote === next.criticalNote
+	);
+}
+
+function mergeInspectionVerification(
+	existing: PlaybookFacts["inspections"],
+	incoming: PlaybookFacts["inspections"],
+): PlaybookFacts["inspections"] {
+	return incoming.map((inspection, index) => {
+		const prior = existing[index];
+		const unchanged = inspectionsUnchanged(prior, inspection);
+		return {
+			...inspection,
+			verifiedById: unchanged ? prior.verifiedById : null,
+			verifiedAt: unchanged ? prior.verifiedAt : null,
+		};
+	});
 }
 
 function prerequisiteIndex(path: string): number {
@@ -115,7 +173,7 @@ export class PlaybooksService {
 
 	async setFact(input: SetPlaybookFactInput) {
 		return this.db.$transaction(async (tx) => {
-			const playbook = await this.load(tx, input.playbookId);
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
 			const facts = parsePlaybookFacts(playbook.facts);
 			const fact: ProvenanceFact = {
 				value: input.value,
@@ -134,7 +192,7 @@ export class PlaybooksService {
 
 	async verifyFact(input: PlaybookFactPathInput, userId: string) {
 		return this.db.$transaction(async (tx) => {
-			const playbook = await this.load(tx, input.playbookId);
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
 			const facts = parsePlaybookFacts(playbook.facts);
 			const current = this.readAtPath(facts, input.factPath);
 			if (!current) {
@@ -158,7 +216,7 @@ export class PlaybooksService {
 
 	async clearFact(input: PlaybookFactPathInput) {
 		return this.db.$transaction(async (tx) => {
-			const playbook = await this.load(tx, input.playbookId);
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
 			const facts = parsePlaybookFacts(playbook.facts);
 			const updated = this.clearAtPath(facts, input.factPath);
 			const saved = await tx.permitPlaybook.update({
@@ -171,11 +229,14 @@ export class PlaybooksService {
 
 	async setDocuments(input: SetPlaybookDocumentsInput) {
 		return this.db.$transaction(async (tx) => {
-			const playbook = await this.load(tx, input.playbookId);
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
 			const facts = parsePlaybookFacts(playbook.facts);
 			const updated: PlaybookFacts = {
 				...facts,
-				requiredDocuments: input.documents,
+				requiredDocuments: mergeDocumentVerification(
+					facts.requiredDocuments,
+					input.documents,
+				),
 			};
 			const saved = await tx.permitPlaybook.update({
 				where: { id: input.playbookId },
@@ -187,12 +248,73 @@ export class PlaybooksService {
 
 	async setInspections(input: SetPlaybookInspectionsInput) {
 		return this.db.$transaction(async (tx) => {
-			const playbook = await this.load(tx, input.playbookId);
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
 			const facts = parsePlaybookFacts(playbook.facts);
 			const updated: PlaybookFacts = {
 				...facts,
-				inspections: input.inspections,
+				inspections: mergeInspectionVerification(
+					facts.inspections,
+					input.inspections,
+				),
 			};
+			const saved = await tx.permitPlaybook.update({
+				where: { id: input.playbookId },
+				data: { facts: factsToJson(updated) },
+			});
+			return this.serialize(saved);
+		});
+	}
+
+	async verifyDocument(input: VerifyPlaybookDocumentInput, userId: string) {
+		return this.db.$transaction(async (tx) => {
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
+			const facts = parsePlaybookFacts(playbook.facts);
+			const index = facts.requiredDocuments.findIndex(
+				(doc) => doc.key === input.key,
+			);
+			if (index === -1) {
+				throw new NotFoundException(
+					`No required document "${input.key}" on playbook ${input.playbookId}.`,
+				);
+			}
+			const requiredDocuments = [...facts.requiredDocuments];
+			const current = requiredDocuments[index];
+			if (!current) {
+				throw new NotFoundException(
+					`No required document "${input.key}" on playbook ${input.playbookId}.`,
+				);
+			}
+			requiredDocuments[index] = {
+				...current,
+				verifiedById: userId,
+				verifiedAt: new Date(),
+			};
+			const updated: PlaybookFacts = { ...facts, requiredDocuments };
+			const saved = await tx.permitPlaybook.update({
+				where: { id: input.playbookId },
+				data: { facts: factsToJson(updated) },
+			});
+			return this.serialize(saved);
+		});
+	}
+
+	async verifyInspection(input: VerifyPlaybookInspectionInput, userId: string) {
+		return this.db.$transaction(async (tx) => {
+			const playbook = await this.load(tx, input.playbookId, { lock: true });
+			const facts = parsePlaybookFacts(playbook.facts);
+			const current = facts.inspections[input.index];
+			if (!current) {
+				throw new NotFoundException(
+					`No inspection at index ${input.index} on playbook ${input.playbookId}.`,
+				);
+			}
+			const inspections = [...facts.inspections];
+			inspections[input.index] = {
+				...current,
+				verifiedById: userId,
+				verifiedAt: new Date(),
+			};
+			const updated: PlaybookFacts = { ...facts, inspections };
 			const saved = await tx.permitPlaybook.update({
 				where: { id: input.playbookId },
 				data: { facts: factsToJson(updated) },
@@ -218,7 +340,7 @@ export class PlaybooksService {
 
 	async upsertDraftFacts(playbookId: string, draft: PlaybookFacts) {
 		return this.db.$transaction(async (tx) => {
-			const playbook = await this.load(tx, playbookId);
+			const playbook = await this.load(tx, playbookId, { lock: true });
 			const existing = parsePlaybookFacts(playbook.facts);
 			const merged = mergeDraftFacts(existing, draft);
 			const saved = await tx.permitPlaybook.update({
@@ -232,7 +354,13 @@ export class PlaybooksService {
 	private async load(
 		client: Db | Prisma.TransactionClient,
 		playbookId: string,
+		options?: { lock?: boolean },
 	): Promise<PermitPlaybookRow> {
+		if (options?.lock) {
+			await client.$queryRaw`
+				SELECT id FROM "permit_playbook" WHERE id = ${playbookId} FOR UPDATE
+			`;
+		}
 		const playbook = await client.permitPlaybook.findUnique({
 			where: { id: playbookId },
 		});

@@ -108,6 +108,24 @@ export type SetPlaybookInspectionsInput = z.infer<
 	typeof setPlaybookInspectionsInput
 >;
 
+export const verifyPlaybookDocumentInput = z.object({
+	playbookId: z.string().min(1),
+	key: z.string().regex(/^[a-z0-9_]{1,60}$/),
+});
+
+export type VerifyPlaybookDocumentInput = z.infer<
+	typeof verifyPlaybookDocumentInput
+>;
+
+export const verifyPlaybookInspectionInput = z.object({
+	playbookId: z.string().min(1),
+	index: z.number().int().min(0),
+});
+
+export type VerifyPlaybookInspectionInput = z.infer<
+	typeof verifyPlaybookInspectionInput
+>;
+
 export const setWorksheetTemplateInput = z.object({
 	playbookId: z.string().min(1),
 	fields: worksheetTemplate,
@@ -210,6 +228,7 @@ export const setInspectionInput = z.object({
 export type SetInspectionInput = z.infer<typeof setInspectionInput>;
 
 export const inspectionIdInput = z.object({
+	permitId: z.string().min(1),
 	inspectionId: z.string().min(1),
 });
 

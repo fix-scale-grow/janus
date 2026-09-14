@@ -31,7 +31,7 @@ import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInpu
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
 import { permissionGrantInput } from "../permissions/permissions.contracts";
-import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, setWorksheetTemplateInput, permitDealIdInput, permitListInput, permitIdInput, createPermitInput, setPermitStatusInput, updatePermitInput, setPermitAnswerInput, approvePermitAnswerInput, clearPermitAnswerInput, attachChecklistDocumentInput, lockerRenameInput, setInspectionInput, inspectionIdInput } from "../permits/permits.contracts";
+import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, verifyPlaybookDocumentInput, verifyPlaybookInspectionInput, setWorksheetTemplateInput, permitDealIdInput, permitListInput, permitIdInput, createPermitInput, setPermitStatusInput, updatePermitInput, setPermitAnswerInput, approvePermitAnswerInput, clearPermitAnswerInput, attachChecklistDocumentInput, lockerRenameInput, setInspectionInput, inspectionIdInput } from "../permits/permits.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
@@ -638,6 +638,12 @@ const appRouter = t.router({
     setPlaybookInspections: publicProcedure
       .input(setPlaybookInspectionsInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setPlaybookInspections"]>>),
+    verifyPlaybookDocument: publicProcedure
+      .input(verifyPlaybookDocumentInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["verifyPlaybookDocument"]>>),
+    verifyPlaybookInspection: publicProcedure
+      .input(verifyPlaybookInspectionInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["verifyPlaybookInspection"]>>),
     setWorksheetTemplate: publicProcedure
       .input(setWorksheetTemplateInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["setWorksheetTemplate"]>>),

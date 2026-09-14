@@ -98,12 +98,23 @@ beforeAll(async () => {
 	await playbooks.setDocuments({
 		playbookId,
 		documents: [
-			{ key: "site_plan", label: "Site plan", reusable: true, sourceUrl: null },
+			{
+				key: "site_plan",
+				label: "Site plan",
+				reusable: true,
+				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
+			},
 			{
 				key: "elevations",
 				label: "Elevations",
 				reusable: false,
 				sourceUrl: null,
+				lockerKind: null,
+				verifiedById: null,
+				verifiedAt: null,
 			},
 		],
 	});
@@ -111,7 +122,13 @@ beforeAll(async () => {
 	await playbooks.setInspections({
 		playbookId,
 		inspections: [
-			{ name: "Final inspection", when: null, criticalNote: "Bring ladder" },
+			{
+				name: "Final inspection",
+				when: null,
+				criticalNote: "Bring ladder",
+				verifiedById: null,
+				verifiedAt: null,
+			},
 		],
 	});
 
@@ -180,6 +197,127 @@ describe("PermitsService.create", () => {
 		expect(found.inspections[0]?.criticalNote).toBe("Bring ladder");
 
 		expect(found.worksheetTemplate).toHaveLength(3);
+	});
+
+	it("stamps sourceVerified from the playbook entry's verification at scaffold time", async () => {
+		const jurisdiction = await permits.resolveJurisdiction({
+			name: `Provenance ${suffix}`,
+			kind: "CITY",
+			state: "CO",
+		});
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "MECHANICAL",
+		});
+		await playbooks.setDocuments({
+			playbookId: playbook.id,
+			documents: [
+				{
+					key: "site_plan",
+					label: "Site plan",
+					reusable: true,
+					sourceUrl: null,
+					lockerKind: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+		await playbooks.setInspections({
+			playbookId: playbook.id,
+			inspections: [
+				{
+					name: "Rough-in",
+					when: null,
+					criticalNote: null,
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+		await playbooks.verifyDocument(
+			{ playbookId: playbook.id, key: "site_plan" },
+			userId,
+		);
+		await playbooks.verifyInspection(
+			{ playbookId: playbook.id, index: 0 },
+			userId,
+		);
+
+		const permit = await permits.create(
+			{ dealId, jurisdictionId: jurisdiction.id, permitType: "MECHANICAL" },
+			userId,
+		);
+		const found = await permits.byId(permit.id);
+		expect(found.documents[0]?.sourceVerified).toBe(true);
+		expect(found.inspections[0]?.sourceVerified).toBe(true);
+
+		await db.permit.deleteMany({ where: { id: permit.id } });
+		await db.permitPlaybook.deleteMany({ where: { id: playbook.id } });
+		await db.jurisdiction.deleteMany({ where: { id: jurisdiction.id } });
+	});
+
+	it("auto-attaches the newest matching locker document for a reusable slot with a locker kind", async () => {
+		const jurisdiction = await permits.resolveJurisdiction({
+			name: `Auto Attach ${suffix}`,
+			kind: "CITY",
+			state: "CO",
+		});
+		const playbook = await playbooks.findOrCreate({
+			jurisdictionId: jurisdiction.id,
+			permitType: "PLUMBING",
+		});
+		await playbooks.setDocuments({
+			playbookId: playbook.id,
+			documents: [
+				{
+					key: "coi",
+					label: "Certificate of insurance",
+					reusable: true,
+					sourceUrl: null,
+					lockerKind: "COI",
+					verifiedById: null,
+					verifiedAt: null,
+				},
+			],
+		});
+
+		const older = await db.lockerDocument.create({
+			data: {
+				id: `auto-attach-old-${suffix}`,
+				label: "Old COI",
+				kind: "COI",
+				fileName: "old.pdf",
+				contentType: "application/pdf",
+				createdById: userId,
+			},
+		});
+		const newer = await db.lockerDocument.create({
+			data: {
+				id: `auto-attach-new-${suffix}`,
+				label: "New COI",
+				kind: "COI",
+				fileName: "new.pdf",
+				contentType: "application/pdf",
+				createdById: userId,
+				createdAt: new Date(older.createdAt.getTime() + 1000),
+			},
+		});
+
+		const permit = await permits.create(
+			{ dealId, jurisdictionId: jurisdiction.id, permitType: "PLUMBING" },
+			userId,
+		);
+		const found = await permits.byId(permit.id);
+		expect(found.documents[0]?.lockerDocumentId).toBe(newer.id);
+		expect(found.documents[0]?.attachedAt).toBeInstanceOf(Date);
+
+		await db.permit.deleteMany({ where: { id: permit.id } });
+		await db.lockerDocument.deleteMany({
+			where: { id: { in: [older.id, newer.id] } },
+		});
+		await db.permitPlaybook.deleteMany({ where: { id: playbook.id } });
+		await db.jurisdiction.deleteMany({ where: { id: jurisdiction.id } });
 	});
 });
 
@@ -302,6 +440,17 @@ describe("PermitsService worksheet approvals", () => {
 		expect(filled.worksheetAnswers.owner_email?.origin).toBe("CRM");
 
 		expect(filled.worksheetAnswers.scope_of_work).toBeUndefined();
+	});
+
+	it("400s setAnswer for a key that is not on the live worksheet template", async () => {
+		const permit = await createPermit();
+		await expectRejects(
+			permits.setAnswer(
+				{ permitId: permit.id, key: "not_a_real_field", value: "sneaky" },
+				userId,
+			),
+			BadRequestException,
+		);
 	});
 
 	it("approveAllReviewed stamps the caller on every NEEDS_REVIEW row", async () => {
@@ -479,6 +628,22 @@ describe("PermitsService checklist", () => {
 		await db.lockerDocument.deleteMany({ where: { id: locker.id } });
 	});
 
+	it("404s an unknown lockerDocumentId, not a P2003", async () => {
+		const permit = await createPermit();
+		const found = await permits.byId(permit.id);
+		const slot = found.documents[0];
+		if (!slot) throw new Error("expected a scaffolded checklist slot");
+
+		await expectRejects(
+			permits.attachChecklistDocument({
+				permitId: permit.id,
+				slotKey: slot.slotKey,
+				lockerDocumentId: "not-a-real-locker-id",
+			}),
+			NotFoundException,
+		);
+	});
+
 	it("404s an unknown checklist slot", async () => {
 		const permit = await createPermit();
 		await expectRejects(
@@ -522,6 +687,39 @@ describe("PermitsService checklist", () => {
 			(doc) => doc.slotKey === slot.slotKey,
 		);
 		expect(afterSlot?.lockerDocumentId).toBeNull();
+	});
+
+	it("404s setInspection when the inspection does not belong to the given permit", async () => {
+		const permitA = await createPermit();
+		const permitB = await createPermit();
+		const foundA = await permits.byId(permitA.id);
+		const inspection = foundA.inspections[0];
+		if (!inspection) throw new Error("expected a scaffolded inspection");
+
+		await expectRejects(
+			permits.setInspection({
+				permitId: permitB.id,
+				inspectionId: inspection.id,
+				name: "Hijacked",
+			}),
+			NotFoundException,
+		);
+	});
+
+	it("404s deleteInspection when the inspection does not belong to the given permit", async () => {
+		const permitA = await createPermit();
+		const permitB = await createPermit();
+		const foundA = await permits.byId(permitA.id);
+		const inspection = foundA.inspections[0];
+		if (!inspection) throw new Error("expected a scaffolded inspection");
+
+		await expectRejects(
+			permits.deleteInspection({
+				permitId: permitB.id,
+				inspectionId: inspection.id,
+			}),
+			NotFoundException,
+		);
 	});
 
 	it("rejects lockerRename with an unknown kind", () => {

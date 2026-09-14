@@ -4,6 +4,7 @@ import {
 	buildJurisdictionMatchKey,
 	canTransition,
 	guessJurisdictionFromAddress,
+	type LockerKind,
 	parsePlaybookFacts,
 	parseWorksheetAnswers,
 	parseWorksheetTemplate,
@@ -183,6 +184,24 @@ export class PermitsService {
 			typeLabel: input.typeLabel,
 		});
 
+		const autoAttachKinds = playbook.facts.requiredDocuments
+			.filter((doc) => doc.reusable && doc.lockerKind !== null)
+			.map((doc) => doc.lockerKind as LockerKind);
+		const newestLockerByKind = new Map<LockerKind, { id: string }>();
+		if (autoAttachKinds.length > 0) {
+			const lockerDocs = await this.db.lockerDocument.findMany({
+				where: { kind: { in: autoAttachKinds } },
+				orderBy: { createdAt: "desc" },
+				select: { id: true, kind: true },
+			});
+			for (const doc of lockerDocs) {
+				const kind = doc.kind as LockerKind;
+				if (!newestLockerByKind.has(kind)) {
+					newestLockerByKind.set(kind, { id: doc.id });
+				}
+			}
+		}
+
 		return this.db.$transaction(async (tx) => {
 			const permit = await tx.permit.create({
 				data: {
@@ -196,14 +215,23 @@ export class PermitsService {
 			});
 
 			if (playbook.facts.requiredDocuments.length > 0) {
-				await tx.permitDocument.createMany({
-					data: playbook.facts.requiredDocuments.map((doc, index) => ({
-						permitId: permit.id,
-						slotKey: doc.key,
-						label: doc.label,
-						sortOrder: index,
-					})),
-				});
+				for (const [index, doc] of playbook.facts.requiredDocuments.entries()) {
+					const locker =
+						doc.reusable && doc.lockerKind !== null
+							? newestLockerByKind.get(doc.lockerKind)
+							: undefined;
+					await tx.permitDocument.create({
+						data: {
+							permitId: permit.id,
+							slotKey: doc.key,
+							label: doc.label,
+							sortOrder: index,
+							sourceVerified: doc.verifiedById !== null,
+							lockerDocumentId: locker?.id ?? null,
+							attachedAt: locker ? new Date() : null,
+						},
+					});
+				}
 			}
 
 			if (playbook.facts.inspections.length > 0) {
@@ -213,6 +241,7 @@ export class PermitsService {
 						name: inspection.name,
 						criticalNote: inspection.criticalNote,
 						sortOrder: index,
+						sourceVerified: inspection.verifiedById !== null,
 					})),
 				});
 			}
@@ -284,6 +313,7 @@ export class PermitsService {
 	}
 
 	async setAnswer(input: SetPermitAnswerInput, userId: string) {
+		await this.assertTemplateKey(input.permitId, input.key);
 		await this.mutateAnswers(input.permitId, (answers) => ({
 			...answers,
 			[input.key]: {
@@ -438,6 +468,16 @@ export class PermitsService {
 				});
 			}
 
+			const locker = await tx.lockerDocument.findUnique({
+				where: { id: input.lockerDocumentId },
+				select: { id: true },
+			});
+			if (!locker) {
+				throw new NotFoundException(
+					`No locker document with id ${input.lockerDocumentId}.`,
+				);
+			}
+
 			return tx.permitDocument.update({
 				where: { id: existing.id },
 				data: {
@@ -489,6 +529,16 @@ export class PermitsService {
 
 	async setInspection(input: SetInspectionInput) {
 		if (input.inspectionId) {
+			const existing = await this.db.permitInspection.findUnique({
+				where: { id: input.inspectionId },
+				select: { permitId: true },
+			});
+			if (!existing || existing.permitId !== input.permitId) {
+				throw new NotFoundException(
+					`No inspection with id ${input.inspectionId} on permit ${input.permitId}.`,
+				);
+			}
+
 			const data: Prisma.PermitInspectionUpdateInput = { name: input.name };
 			if (input.scheduledFor !== undefined) {
 				data.scheduledFor = input.scheduledFor;
@@ -496,19 +546,10 @@ export class PermitsService {
 			if (input.result !== undefined) data.result = input.result;
 			if (input.note !== undefined) data.note = input.note;
 
-			try {
-				return await this.db.permitInspection.update({
-					where: { id: input.inspectionId },
-					data,
-				});
-			} catch (error) {
-				if (isNotFound(error)) {
-					throw new NotFoundException(
-						`No inspection with id ${input.inspectionId}.`,
-					);
-				}
-				throw error;
-			}
+			return this.db.permitInspection.update({
+				where: { id: input.inspectionId },
+				data,
+			});
 		}
 
 		const count = await this.db.permitInspection.count({
@@ -527,18 +568,19 @@ export class PermitsService {
 	}
 
 	async deleteInspection(input: InspectionIdInput) {
-		try {
-			await this.db.permitInspection.delete({
-				where: { id: input.inspectionId },
-			});
-		} catch (error) {
-			if (isNotFound(error)) {
-				throw new NotFoundException(
-					`No inspection with id ${input.inspectionId}.`,
-				);
-			}
-			throw error;
+		const existing = await this.db.permitInspection.findUnique({
+			where: { id: input.inspectionId },
+			select: { permitId: true },
+		});
+		if (!existing || existing.permitId !== input.permitId) {
+			throw new NotFoundException(
+				`No inspection with id ${input.inspectionId} on permit ${input.permitId}.`,
+			);
 		}
+
+		await this.db.permitInspection.delete({
+			where: { id: input.inspectionId },
+		});
 		return { id: input.inspectionId };
 	}
 
@@ -735,14 +777,17 @@ export class PermitsService {
 			feeCents: permit.feeCents,
 			currency: permit.deal.currency,
 			fields: template.map((field) => ({
+				key: field.key,
 				label: field.label,
 				value: answers[field.key]?.value ?? "",
 			})),
 			checklist: checklistDocuments.map((document) => ({
+				slotKey: document.slotKey,
 				label: document.label,
 				attached: document.attachedAt !== null,
 			})),
 			inspections: permit.inspections.map((inspection) => ({
+				id: inspection.id,
 				name: inspection.name,
 				scheduledFor: inspection.scheduledFor,
 				result: inspection.result,
@@ -800,11 +845,36 @@ export class PermitsService {
 		return stem || "permit-worksheet";
 	}
 
+	private async assertTemplateKey(
+		permitId: string,
+		key: string,
+	): Promise<void> {
+		const permit = await this.db.permit.findUnique({
+			where: { id: permitId },
+			select: { playbookId: true },
+		});
+		if (!permit) {
+			throw new NotFoundException(`No permit with id ${permitId}.`);
+		}
+		const template = permit.playbookId
+			? (await this.playbooks.byId(permit.playbookId)).worksheetTemplate
+			: [];
+		const exists = template.some((field) => field.key === key);
+		if (!exists) {
+			throw new BadRequestException(
+				`"${key}" is not a field on this permit's worksheet.`,
+			);
+		}
+	}
+
 	private async mutateAnswers(
 		permitId: string,
 		mutate: (answers: WorksheetAnswers) => WorksheetAnswers,
 	): Promise<WorksheetAnswers> {
 		return this.db.$transaction(async (tx) => {
+			await tx.$queryRaw`
+				SELECT id FROM "permit" WHERE id = ${permitId} FOR UPDATE
+			`;
 			const permit = await tx.permit.findUnique({
 				where: { id: permitId },
 				select: { worksheetAnswers: true },
