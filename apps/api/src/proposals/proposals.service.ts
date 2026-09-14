@@ -31,6 +31,7 @@ import { renderProposalPdf } from "./proposal-pdf";
 import { PROPOSALS } from "./proposals.config";
 import type {
 	ProposalAcceptInput,
+	ProposalDeclineInput,
 	ProposalSendInput,
 	ProposalUpdateInput,
 } from "./proposals.contracts";
@@ -55,6 +56,13 @@ const DETAIL_SELECT = {
 	acceptedAt: true,
 	acceptedTier: true,
 	acceptedName: true,
+	declinedAt: true,
+	declinedName: true,
+	declineNote: true,
+	revision: true,
+	firstViewedAt: true,
+	lastViewedAt: true,
+	viewCount: true,
 	estimate: {
 		select: {
 			id: true,
@@ -101,8 +109,9 @@ export class ProposalsService {
 	) {}
 
 	async forEstimate(estimateId: string) {
-		const row = await this.db.proposal.findUnique({
+		const row = await this.db.proposal.findFirst({
 			where: { estimateId },
+			orderBy: { revision: "desc" },
 			select: DETAIL_SELECT,
 		});
 		if (!row) return null;
@@ -118,11 +127,13 @@ export class ProposalsService {
 			throw new NotFoundException(`No estimate with id ${estimateId}.`);
 		}
 
-		const existing = await this.db.proposal.findUnique({
+		const existing = await this.db.proposal.findFirst({
 			where: { estimateId },
+			orderBy: { revision: "desc" },
 			select: DETAIL_SELECT,
 		});
-		if (existing) return this.detail(existing);
+		if (existing && existing.status !== "VOID") return this.detail(existing);
+		const revision = existing ? existing.revision + 1 : 1;
 
 		const template = await this.templates.byPurpose({
 			purpose: "PROPOSAL_BODY",
@@ -133,11 +144,56 @@ export class ProposalsService {
 			data: {
 				title: estimate.title,
 				estimateId,
+				revision,
 				body,
 				createdById: userId,
 			},
 			select: DETAIL_SELECT,
 		});
+		return this.detail(row);
+	}
+
+	async revise(id: string, userId: string) {
+		const existing = await this.db.proposal.findUnique({
+			where: { id },
+			select: DETAIL_SELECT,
+		});
+		if (!existing) {
+			throw new NotFoundException(`No proposal with id ${id}.`);
+		}
+		if (existing.status === "DRAFT") {
+			throw new ConflictException(
+				"This proposal is still a draft. Edit it directly.",
+			);
+		}
+
+		const latest = await this.db.proposal.findFirst({
+			where: { estimateId: existing.estimateId },
+			orderBy: { revision: "desc" },
+			select: { id: true, revision: true, status: true },
+		});
+		if (latest && latest.id !== existing.id && latest.status === "DRAFT") {
+			throw new ConflictException("A newer draft revision already exists.");
+		}
+
+		const [row] = await this.db.$transaction([
+			this.db.proposal.create({
+				data: {
+					title: existing.title,
+					coverTitle: existing.coverTitle,
+					coverSubtitle: existing.coverSubtitle,
+					body: existing.body as Prisma.InputJsonValue,
+					estimateId: existing.estimateId,
+					revision: (latest?.revision ?? existing.revision) + 1,
+					createdById: userId,
+				},
+				select: DETAIL_SELECT,
+			}),
+			this.db.proposal.updateMany({
+				where: { id: existing.id, status: "SENT" },
+				data: { status: "VOID", viewToken: null, tokenExpiresAt: null },
+			}),
+		]);
 		return this.detail(row);
 	}
 
@@ -317,6 +373,24 @@ export class ProposalsService {
 			throw new NotFoundException("This proposal link is not valid.");
 		}
 
+		try {
+			const viewedAt = new Date();
+			await this.db.proposal.update({
+				where: { id: proposal.id },
+				data: {
+					viewCount: { increment: 1 },
+					lastViewedAt: viewedAt,
+					firstViewedAt: proposal.firstViewedAt ?? viewedAt,
+				},
+				select: { id: true },
+			});
+		} catch (error) {
+			this.logger.error(
+				{ message: "Proposal view stamp failed", proposalId: proposal.id },
+				error instanceof Error ? error.stack : undefined,
+			);
+		}
+
 		const context = await this.mergeContext.resolve({
 			contactId: proposal.estimate.contactId ?? undefined,
 			dealId: proposal.estimate.dealId ?? undefined,
@@ -362,11 +436,16 @@ export class ProposalsService {
 				name: item.name,
 				quantity: item.quantity,
 				areaLabel: item.areaLabel,
+				priceGoodCents: item.priceGoodCents,
+				priceBetterCents: item.priceBetterCents,
+				priceBestCents: item.priceBestCents,
 			})),
 			photoIds: photoLinks.map((link) => link.photoId),
 			acceptedAt: proposal.acceptedAt,
 			acceptedTier: proposal.acceptedTier,
 			acceptedName: proposal.acceptedName,
+			declinedAt: proposal.declinedAt,
+			declinedName: proposal.declinedName,
 			expired:
 				proposal.tokenExpiresAt !== null &&
 				proposal.tokenExpiresAt < new Date(),
@@ -390,6 +469,9 @@ export class ProposalsService {
 		}
 		if (proposal.status === "ACCEPTED") {
 			throw new ConflictException("This proposal has already been accepted.");
+		}
+		if (proposal.status === "DECLINED") {
+			throw new ConflictException("This proposal was declined.");
 		}
 		if (proposal.status === "VOID") {
 			throw new ConflictException("This proposal is no longer available.");
@@ -487,6 +569,100 @@ export class ProposalsService {
 				);
 			}
 		}
+	}
+
+	async decline(input: ProposalDeclineInput) {
+		const proposal = await this.db.proposal.findUnique({
+			where: { viewToken: input.token },
+			select: {
+				id: true,
+				status: true,
+				tokenExpiresAt: true,
+				estimateId: true,
+				createdById: true,
+				estimate: { select: { dealId: true } },
+			},
+		});
+		if (!proposal || proposal.status === "DRAFT") {
+			throw new NotFoundException("This proposal link is not valid.");
+		}
+		if (proposal.status === "ACCEPTED") {
+			throw new ConflictException("This proposal has already been accepted.");
+		}
+		if (proposal.status === "DECLINED") {
+			throw new ConflictException("This proposal has already been declined.");
+		}
+		if (proposal.status === "VOID") {
+			throw new ConflictException("This proposal is no longer available.");
+		}
+		if (!proposal.tokenExpiresAt || proposal.tokenExpiresAt < new Date()) {
+			throw new ConflictException("This proposal link has expired.");
+		}
+
+		const declinedAt = new Date();
+
+		let result: { count: number };
+		try {
+			result = await this.db.proposal.updateMany({
+				where: { id: proposal.id, status: "SENT" },
+				data: {
+					status: "DECLINED",
+					declinedAt,
+					declinedName: input.name,
+					declineNote: input.note ?? null,
+				},
+			});
+		} catch (error) {
+			throw this.translate(error, proposal.id);
+		}
+		if (result.count === 0) {
+			throw new ConflictException("This proposal has already been answered.");
+		}
+
+		try {
+			await this.db.estimate.update({
+				where: { id: proposal.estimateId },
+				data: { status: "DECLINED" },
+				select: { id: true },
+			});
+		} catch (error) {
+			this.logger.error(
+				{
+					message: "Declined proposal could not update the estimate",
+					proposalId: proposal.id,
+				},
+				error instanceof Error ? error.stack : undefined,
+			);
+		}
+
+		if (proposal.estimate.dealId) {
+			try {
+				await this.db.activity.create({
+					data: {
+						type: ActivityType.NOTE,
+						subject: "Proposal declined",
+						occurredAt: declinedAt,
+						dealId: proposal.estimate.dealId,
+						createdById: proposal.createdById,
+						meta: {
+							kind: "proposal",
+							declinedName: input.name,
+							declineNote: input.note ?? null,
+						},
+					},
+				});
+			} catch (error) {
+				this.logger.error(
+					{
+						message: "Declined proposal could not log an activity",
+						proposalId: proposal.id,
+					},
+					error instanceof Error ? error.stack : undefined,
+				);
+			}
+		}
+
+		return { status: "DECLINED" as const, declinedAt };
 	}
 
 	async photoForToken(token: string, photoId: string) {

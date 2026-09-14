@@ -5,6 +5,7 @@ import { Card, CardContent } from "@crm/ui/components/card";
 import { Field, FieldLabel } from "@crm/ui/components/field";
 import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
+import { Textarea } from "@crm/ui/components/textarea";
 import { formatMoney } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
@@ -22,6 +23,14 @@ const TIER_LABEL: Record<Tier, string> = {
 	BETTER: "Better",
 	BEST: "Best",
 };
+const TIER_PRICE_FIELD: Record<
+	Tier,
+	"priceGoodCents" | "priceBetterCents" | "priceBestCents"
+> = {
+	GOOD: "priceGoodCents",
+	BETTER: "priceBetterCents",
+	BEST: "priceBestCents",
+};
 
 export function ProposalView({
 	token,
@@ -32,9 +41,13 @@ export function ProposalView({
 }) {
 	const trpc = useTRPC();
 	const nameId = useId();
+	const noteId = useId();
 	const [tier, setTier] = useState<Tier>(proposal.defaultTier);
 	const [name, setName] = useState("");
 	const [accepted, setAccepted] = useState(false);
+	const [declining, setDeclining] = useState(false);
+	const [declineNote, setDeclineNote] = useState("");
+	const [declined, setDeclined] = useState(false);
 
 	const accept = useMutation(
 		trpc.proposalView.accept.mutationOptions({
@@ -42,6 +55,27 @@ export function ProposalView({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+
+	const decline = useMutation(
+		trpc.proposalView.decline.mutationOptions({
+			onSuccess: () => setDeclined(true),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	if (declined) {
+		return (
+			<Card>
+				<CardContent className="flex flex-col gap-2 py-10 text-center">
+					<p className="font-medium text-lg">Thanks for letting us know.</p>
+					<p className="text-muted-foreground text-sm/5">
+						{proposal.businessName} has been notified. If anything changes, just
+						reply to the email you received.
+					</p>
+				</CardContent>
+			</Card>
+		);
+	}
 
 	if (accepted) {
 		return (
@@ -154,8 +188,16 @@ export function ProposalView({
 								className="flex items-baseline justify-between gap-4 border-b py-1.5 text-sm last:border-b-0"
 							>
 								<span>{item.name}</span>
-								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-									{item.quantity}
+								<span className="flex shrink-0 items-baseline gap-3">
+									<span className="text-muted-foreground text-xs tabular-nums">
+										{item.quantity}
+									</span>
+									<span className="w-24 text-right text-sm tabular-nums">
+										{formatMoney(
+											Math.round(item.quantity * item[TIER_PRICE_FIELD[tier]]),
+											proposal.currency,
+										)}
+									</span>
 								</span>
 							</div>
 						))}
@@ -184,6 +226,56 @@ export function ProposalView({
 							Accepting locks in your choice and lets {proposal.businessName}{" "}
 							prepare the agreement. Nothing is charged today.
 						</p>
+
+						{declining ? (
+							<div className="flex flex-col gap-3 border-t pt-4">
+								<Field>
+									<FieldLabel htmlFor={noteId}>
+										Anything you want to tell us? (optional)
+									</FieldLabel>
+									<Textarea
+										id={noteId}
+										rows={3}
+										value={declineNote}
+										onChange={(event) => setDeclineNote(event.target.value)}
+									/>
+								</Field>
+								<div className="flex items-center justify-end gap-2">
+									<Button variant="ghost" onClick={() => setDeclining(false)}>
+										Back
+									</Button>
+									<Button
+										variant="outline"
+										disabled={decline.isPending || name.trim().length === 0}
+										onClick={() =>
+											decline.mutate({
+												token,
+												name: name.trim(),
+												note: declineNote.trim() || undefined,
+											})
+										}
+									>
+										{decline.isPending ? (
+											<Spinner data-icon="inline-start" />
+										) : null}
+										Decline this proposal
+									</Button>
+								</div>
+								{name.trim().length === 0 ? (
+									<p className="text-right text-muted-foreground text-xs">
+										Enter your name above first.
+									</p>
+								) : null}
+							</div>
+						) : (
+							<button
+								type="button"
+								onClick={() => setDeclining(true)}
+								className="self-center text-muted-foreground text-xs underline-offset-2 hover:underline"
+							>
+								Not the right fit? Decline this proposal
+							</button>
+						)}
 					</div>
 				</CardContent>
 			</Card>

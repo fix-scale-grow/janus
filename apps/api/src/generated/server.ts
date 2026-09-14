@@ -35,7 +35,7 @@ import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFa
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
-import { proposalTokenInput, proposalAcceptInput, proposalForEstimateInput, proposalCreateInput, proposalUpdateInput, proposalSendInput, proposalIdInput } from "../proposals/proposals.contracts";
+import { proposalTokenInput, proposalAcceptInput, proposalDeclineInput, proposalForEstimateInput, proposalCreateInput, proposalUpdateInput, proposalSendInput, proposalIdInput } from "../proposals/proposals.contracts";
 import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
@@ -828,7 +828,10 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["byToken"]>>),
     accept: publicProcedure
       .input(proposalAcceptInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["accept"]>>)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["accept"]>>),
+    decline: publicProcedure
+      .input(proposalDeclineInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["decline"]>>)
     }),
   proposals: t.router({
     forEstimate: publicProcedure
@@ -848,6 +851,9 @@ const appRouter = t.router({
     void: publicProcedure
       .input(proposalIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["void"]>>),
+    revise: publicProcedure
+      .input(proposalIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["revise"]>>),
     document: publicProcedure
       .input(proposalIdInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["document"]>>)

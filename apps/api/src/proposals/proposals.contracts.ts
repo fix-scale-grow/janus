@@ -54,6 +54,14 @@ export const proposalAcceptInput = z.object({
 	name: z.string().trim().min(1).max(PROPOSALS.acceptName.max),
 });
 
+export const proposalDeclineInput = z.object({
+	token: z.string().min(1).max(PROPOSALS.viewToken.maxLength),
+	name: z.string().trim().min(1).max(PROPOSALS.acceptName.max),
+	note: z.string().trim().max(2000).optional(),
+});
+
+export type ProposalDeclineInput = z.infer<typeof proposalDeclineInput>;
+
 export type ProposalForEstimateInput = z.infer<typeof proposalForEstimateInput>;
 export type ProposalCreateInput = z.infer<typeof proposalCreateInput>;
 export type ProposalUpdateInput = z.infer<typeof proposalUpdateInput>;

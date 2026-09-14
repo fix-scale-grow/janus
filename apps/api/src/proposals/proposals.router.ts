@@ -62,6 +62,11 @@ export class ProposalsRouter {
 		return this.proposals.void(id);
 	}
 
+	@Mutation({ input: proposalIdInput })
+	async revise(@Input("id") id: string, @Ctx() ctx: AuthedTrpcContext) {
+		return this.proposals.revise(id, ctx.user.id);
+	}
+
 	@Query({ input: proposalIdInput })
 	async document(@Input("id") id: string) {
 		return this.proposals.document(id);

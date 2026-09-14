@@ -211,6 +211,85 @@ describe("ProposalsService", () => {
 		);
 	});
 
+	it("stamps views on byToken", async () => {
+		const created = await service.createFromEstimate(estimateId, userId);
+		const sent = await service.send({ id: created.id }, "Kyle");
+		const token = sent.viewToken;
+		if (!token) throw new Error("no token");
+
+		await service.byToken(token);
+		await service.byToken(token);
+
+		const row = await db.proposal.findUniqueOrThrow({
+			where: { id: created.id },
+			select: { viewCount: true, firstViewedAt: true, lastViewedAt: true },
+		});
+		expect(row.viewCount).toBe(2);
+		expect(row.firstViewedAt).not.toBeNull();
+		expect(row.lastViewedAt).not.toBeNull();
+	});
+
+	it("declines atomically and marks the estimate", async () => {
+		const created = await service.createFromEstimate(estimateId, userId);
+		const sent = await service.send({ id: created.id }, "Kyle");
+		const token = sent.viewToken;
+		if (!token) throw new Error("no token");
+
+		const declined = await service.decline({
+			token,
+			name: "Paula Proposal",
+			note: "Going another way this season.",
+		});
+		expect(declined.status).toBe("DECLINED");
+
+		const estimate = await db.estimate.findUniqueOrThrow({
+			where: { id: estimateId },
+			select: { status: true },
+		});
+		expect(estimate.status).toBe("DECLINED");
+
+		await expectRejects(
+			() => service.decline({ token, name: "Again" }),
+			ConflictException,
+		);
+		await expectRejects(
+			() => service.accept({ token, tier: "GOOD", name: "Too late" }),
+			ConflictException,
+		);
+	});
+
+	it("revises into a new draft and kills the old link", async () => {
+		const created = await service.createFromEstimate(estimateId, userId);
+		await service.update({
+			id: created.id,
+			data: { coverTitle: "Original cover" },
+		});
+		const sent = await service.send({ id: created.id }, "Kyle");
+		const token = sent.viewToken;
+		if (!token) throw new Error("no token");
+
+		const revised = await service.revise(created.id, userId);
+		expect(revised.status).toBe("DRAFT");
+		expect(revised.revision).toBe(2);
+		expect(revised.coverTitle).toBe("Original cover");
+
+		const latest = await service.forEstimate(estimateId);
+		expect(latest?.id).toBe(revised.id);
+
+		const old = await db.proposal.findUniqueOrThrow({
+			where: { id: created.id },
+			select: { status: true, viewToken: true },
+		});
+		expect(old.status).toBe("VOID");
+		expect(old.viewToken).toBeNull();
+
+		await expectRejects(() => service.byToken(token), NotFoundException);
+		await expectRejects(
+			() => service.revise(revised.id, userId),
+			ConflictException,
+		);
+	});
+
 	it("locks the body after sending and voids cleanly", async () => {
 		const created = await service.createFromEstimate(estimateId, userId);
 		await service.send({ id: created.id }, "Kyle");

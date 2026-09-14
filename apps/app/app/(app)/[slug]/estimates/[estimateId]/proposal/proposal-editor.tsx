@@ -3,6 +3,7 @@
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import Checkmark from "@carbon/icons-react/es/Checkmark";
 import Link_ from "@carbon/icons-react/es/Link";
+import Renew from "@carbon/icons-react/es/Renew";
 import Send from "@carbon/icons-react/es/Send";
 import StopSign from "@carbon/icons-react/es/StopSign";
 import View from "@carbon/icons-react/es/View";
@@ -65,6 +66,7 @@ const STATUS_LABEL: Record<ProposalStatusValue, string> = {
 	DRAFT: "Draft",
 	SENT: "Sent",
 	ACCEPTED: "Accepted",
+	DECLINED: "Declined",
 	VOID: "Void",
 };
 
@@ -72,6 +74,7 @@ const STATUS_VARIANT: Record<ProposalStatusValue, "secondary" | "outline"> = {
 	DRAFT: "secondary",
 	SENT: "outline",
 	ACCEPTED: "outline",
+	DECLINED: "outline",
 	VOID: "secondary",
 };
 
@@ -241,6 +244,16 @@ function ProposalBody({
 		}),
 	);
 
+	const revise = useMutation(
+		trpc.proposals.revise.mutationOptions({
+			onSuccess: async () => {
+				await settle();
+				toast.success("New draft revision created.");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
 	const voidProposal = useMutation(
 		trpc.proposals.void.mutationOptions({
 			onSuccess: async () => {
@@ -280,6 +293,9 @@ function ProposalBody({
 						<Badge variant={STATUS_VARIANT[proposal.status]}>
 							{STATUS_LABEL[proposal.status]}
 						</Badge>
+						{proposal.revision > 1 ? (
+							<Badge variant="outline">Revision {proposal.revision}</Badge>
+						) : null}
 					</div>
 				</PageShellHeading>
 				<PageShellActions>
@@ -313,6 +329,21 @@ function ProposalBody({
 							{proposal.status === "SENT" ? "Resend" : "Send"}
 						</Button>
 					) : null}
+					{proposal.status !== "DRAFT" ? (
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={revise.isPending}
+							onClick={() => revise.mutate({ id: proposal.id })}
+						>
+							{revise.isPending ? (
+								<Spinner data-icon="inline-start" />
+							) : (
+								<Icon icon={Renew} data-icon="inline-start" />
+							)}
+							Revise
+						</Button>
+					) : null}
 					{proposal.status === "DRAFT" || proposal.status === "SENT" ? (
 						<Button variant="ghost" size="sm" onClick={() => setVoidOpen(true)}>
 							<Icon icon={StopSign} data-icon="inline-start" />
@@ -324,6 +355,34 @@ function ProposalBody({
 
 			<PageShellContent>
 				<div className="flex max-w-3xl flex-col gap-6">
+					{proposal.status !== "DRAFT" ? (
+						<p className="text-muted-foreground text-sm">
+							{proposal.viewCount === 0
+								? "The client has not opened this proposal yet."
+								: `Opened ${proposal.viewCount === 1 ? "once" : `${proposal.viewCount} times`}${
+										proposal.lastViewedAt
+											? `, last on ${new Date(proposal.lastViewedAt).toLocaleDateString()}`
+											: ""
+									}.`}
+						</p>
+					) : null}
+
+					{proposal.status === "DECLINED" ? (
+						<Alert variant="warning">
+							<Icon icon={StopSign} />
+							<AlertTitle>
+								Declined
+								{proposal.declinedName ? ` by ${proposal.declinedName}` : ""}.
+							</AlertTitle>
+							<AlertDescription>
+								{proposal.declineNote
+									? `"${proposal.declineNote}"`
+									: "No reason was given."}{" "}
+								Use Revise to start a new draft when you are ready to try again.
+							</AlertDescription>
+						</Alert>
+					) : null}
+
 					{proposal.status === "ACCEPTED" ? (
 						<Alert>
 							<Icon icon={Checkmark} />

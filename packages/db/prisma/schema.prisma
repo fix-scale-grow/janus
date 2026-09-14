@@ -1124,7 +1124,7 @@ model Estimate {
   invoices        Invoice[]
   contracts       Contract[]
   photoLinks      EstimatePhoto[]
-  proposal        Proposal?
+  proposals       Proposal[]
   projects        Project[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -1935,6 +1935,7 @@ enum ProposalStatus {
   DRAFT
   SENT
   ACCEPTED
+  DECLINED
   VOID
 }
 
@@ -1943,10 +1944,11 @@ model Proposal {
   number         Int            @unique @default(autoincrement())
   title          String
   status         ProposalStatus @default(DRAFT)
+  revision       Int            @default(1)
   coverTitle     String?
   coverSubtitle  String?
   body           Json
-  estimateId     String         @unique
+  estimateId     String
   estimate       Estimate       @relation(fields: [estimateId], references: [id], onDelete: Cascade)
   createdById    String
   createdBy      User           @relation("ProposalCreator", fields: [createdById], references: [id])
@@ -1954,12 +1956,19 @@ model Proposal {
   sentTo         String?
   viewToken      String?        @unique
   tokenExpiresAt DateTime?
+  firstViewedAt  DateTime?
+  lastViewedAt   DateTime?
+  viewCount      Int            @default(0)
   acceptedAt     DateTime?
   acceptedTier   EstimateTier?
   acceptedName   String?
+  declinedAt     DateTime?
+  declinedName   String?
+  declineNote    String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  @@index([estimateId, revision])
   @@index([status])
   @@map("proposal")
 }

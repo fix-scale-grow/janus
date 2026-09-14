@@ -45,6 +45,15 @@ export type ProposalPdfInput = {
 
 const TIER_ORDER: EstimateTier[] = ["GOOD", "BETTER", "BEST"];
 
+const TIER_PRICE_FIELD: Record<
+	EstimateTier,
+	"priceGoodCents" | "priceBetterCents" | "priceBestCents"
+> = {
+	GOOD: "priceGoodCents",
+	BETTER: "priceBetterCents",
+	BEST: "priceBestCents",
+};
+
 const DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 const styles = StyleSheet.create({
@@ -117,7 +126,8 @@ const styles = StyleSheet.create({
 		borderBottomColor: "#eeeeee",
 	},
 	itemName: { flex: 1 },
-	itemQty: { width: 90, textAlign: "right", color: "#666666" },
+	itemQty: { width: 60, textAlign: "right", color: "#666666" },
+	itemPrice: { width: 90, textAlign: "right" },
 	photosHeading: {
 		fontSize: 12,
 		fontFamily: "Helvetica-Bold",
@@ -207,6 +217,14 @@ export async function renderProposalPdf(
 				{ key: `${item.name}-${index}`, style: styles.itemRow },
 				createElement(Text, { style: styles.itemName }, item.name),
 				createElement(Text, { style: styles.itemQty }, String(item.quantity)),
+				createElement(
+					Text,
+					{ style: styles.itemPrice },
+					formatCents(
+						Math.round(item.quantity * item[TIER_PRICE_FIELD[highlighted]]),
+						proposal.currency,
+					),
+				),
 			),
 		),
 	);

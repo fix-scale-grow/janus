@@ -60,6 +60,22 @@ export default async function ProposalPage({
 		);
 	}
 
+	if (proposal.status === "DECLINED") {
+		return (
+			<ProposalShell businessName={proposal.businessName}>
+				<MessageCard title="This proposal was declined.">
+					{proposal.declinedName && proposal.declinedAt ? (
+						<p className="text-muted-foreground text-sm/5">
+							Declined by {proposal.declinedName} on{" "}
+							<LocalDay date={proposal.declinedAt} />. Changed your mind? Ask{" "}
+							{proposal.businessName} for a fresh proposal.
+						</p>
+					) : null}
+				</MessageCard>
+			</ProposalShell>
+		);
+	}
+
 	if (proposal.expired) {
 		return (
 			<ProposalShell businessName={proposal.businessName}>
