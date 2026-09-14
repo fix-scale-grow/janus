@@ -304,15 +304,30 @@ export function ProjectHeader({ id }: { id: string }) {
 						/>
 					</button>
 				)}
-				<DatePicker
-					value={project.goalDate ? toDay(new Date(project.goalDate)) : null}
-					onChange={(day) =>
-						update.mutate({
-							id,
-							goalDate: day ? (fromDay(day) ?? null) : null,
-						})
-					}
-				/>
+				<span className="flex items-center gap-1.5">
+					<span className="text-muted-foreground text-xs">Starts</span>
+					<DatePicker
+						value={
+							project.startDate ? toDay(new Date(project.startDate)) : null
+						}
+						onChange={(day) => {
+							const startDate = day ? fromDay(day) : undefined;
+							if (startDate) update.mutate({ id, startDate });
+						}}
+					/>
+				</span>
+				<span className="flex items-center gap-1.5">
+					<span className="text-muted-foreground text-xs">Finish by</span>
+					<DatePicker
+						value={project.goalDate ? toDay(new Date(project.goalDate)) : null}
+						onChange={(day) =>
+							update.mutate({
+								id,
+								goalDate: day ? (fromDay(day) ?? null) : null,
+							})
+						}
+					/>
+				</span>
 				{goalCountdown ? (
 					<span className="font-medium text-foreground">{goalCountdown}</span>
 				) : null}
