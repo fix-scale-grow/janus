@@ -1,3 +1,9 @@
+import type { ComponentType } from "react";
+import { ArAgingReport } from "@/components/reports/reports/ar-aging";
+import { CostBreakdownReport } from "@/components/reports/reports/cost-breakdown";
+import { JobProfitabilityReport } from "@/components/reports/reports/job-profitability";
+import { ProfitOverTimeReport } from "@/components/reports/reports/profit-over-time";
+
 export const REPORT_IDS = [
 	"job-profitability",
 	"profit-over-time",
@@ -21,6 +27,7 @@ export type ReportMeta = {
 	title: string;
 	description: string;
 	money: boolean;
+	component?: ComponentType;
 };
 
 export const REPORT_REGISTRY: ReportMeta[] = [
@@ -30,24 +37,28 @@ export const REPORT_REGISTRY: ReportMeta[] = [
 		description:
 			"Invoiced, collected, costs and margin per deal, rolled up by client.",
 		money: true,
+		component: JobProfitabilityReport,
 	},
 	{
 		id: "profit-over-time",
 		title: "Profit over time",
 		description: "Invoiced vs. collected vs. costs, by month.",
 		money: true,
+		component: ProfitOverTimeReport,
 	},
 	{
 		id: "cost-breakdown",
 		title: "Cost breakdown",
 		description: "Spend by category, deal and creator, over a date range.",
 		money: true,
+		component: CostBreakdownReport,
 	},
 	{
 		id: "ar-aging",
 		title: "AR aging",
 		description: "Outstanding invoices, bucketed by how overdue they are.",
 		money: true,
+		component: ArAgingReport,
 	},
 	{
 		id: "leaderboard",

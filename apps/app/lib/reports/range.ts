@@ -53,6 +53,16 @@ export function bucketMonths(from: Date, to: Date): string[] {
 	return months;
 }
 
+export function effectiveRange(
+	range: { preset: ReportRangePreset; from: Date | null; to: Date | null },
+	now: Date,
+): { from: Date | undefined; to: Date | undefined } {
+	if (range.preset === "custom") {
+		return { from: range.from ?? undefined, to: range.to ?? undefined };
+	}
+	return presetRange(range.preset, now);
+}
+
 export const AGING_BUCKETS = [
 	"current",
 	"1-30",

@@ -16,6 +16,11 @@ import { RangeControl } from "@/components/reports/range-control";
 import type { ReportMeta } from "@/lib/reports/report-registry";
 
 export function ReportPage({ meta }: { meta: ReportMeta }) {
+	if (meta.component) {
+		const Component = meta.component;
+		return <Component />;
+	}
+
 	return (
 		<div className="flex flex-col gap-6">
 			<div className="flex flex-wrap items-center justify-between gap-3">
