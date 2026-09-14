@@ -35,6 +35,7 @@ import { PermitsModule } from "./permits/permits.module";
 import { PhotosModule } from "./photos/photos.module";
 import { PipelinesModule } from "./pipelines/pipelines.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { ProposalsModule } from "./proposals/proposals.module";
 import { RecentsModule } from "./recents/recents.module";
 import { ReportsModule } from "./reports/reports.module";
 import { SearchModule } from "./search/search.module";
@@ -74,6 +75,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		UsersModule,
 		ContactsModule,
 		ContractsModule,
+		ProposalsModule,
 		ConversationsModule,
 		CurrencyModule,
 		DealsModule,

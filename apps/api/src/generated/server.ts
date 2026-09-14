@@ -35,6 +35,7 @@ import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFa
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
 import { projectListInput, projectCalendarInput, projectIdInput, projectCreateInput, projectUpdateInput, projectMoveScheduleInput, taskCreateInput, taskUpdateInput, taskMoveInput } from "../projects/projects.contracts";
+import { proposalTokenInput, proposalAcceptInput, proposalForEstimateInput, proposalCreateInput, proposalUpdateInput, proposalSendInput, proposalIdInput } from "../proposals/proposals.contracts";
 import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
@@ -69,6 +70,8 @@ import type { PermitsRouter } from "../permits/permits.router";
 import type { PhotosRouter } from "../photos/photos.router";
 import type { PipelinesRouter } from "../pipelines/pipelines.router";
 import type { ProjectsRouter } from "../projects/projects.router";
+import type { ProposalViewRouter } from "../proposals/proposal-view.router";
+import type { ProposalsRouter } from "../proposals/proposals.router";
 import type { RecentsRouter } from "../recents/recents.router";
 import type { ReportsRouter } from "../reports/reports.router";
 import type { SearchRouter } from "../search/search.router";
@@ -818,6 +821,36 @@ const appRouter = t.router({
     taskRemove: publicProcedure
       .input(projectIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProjectsRouter["taskRemove"]>>)
+    }),
+  proposalView: t.router({
+    byToken: publicProcedure
+      .input(proposalTokenInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["byToken"]>>),
+    accept: publicProcedure
+      .input(proposalAcceptInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["accept"]>>)
+    }),
+  proposals: t.router({
+    forEstimate: publicProcedure
+      .input(proposalForEstimateInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["forEstimate"]>>),
+    mailerConfigured: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["mailerConfigured"]>>),
+    createFromEstimate: publicProcedure
+      .input(proposalCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["createFromEstimate"]>>),
+    update: publicProcedure
+      .input(proposalUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["update"]>>),
+    send: publicProcedure
+      .input(proposalSendInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["send"]>>),
+    void: publicProcedure
+      .input(proposalIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["void"]>>),
+    document: publicProcedure
+      .input(proposalIdInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalsRouter["document"]>>)
     }),
   recents: t.router({
     list: publicProcedure

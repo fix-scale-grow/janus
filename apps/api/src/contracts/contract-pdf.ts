@@ -125,6 +125,15 @@ function stripTags(html: string): string {
 		.trim();
 }
 
+export function renderBodyBlocks(
+	blocks: TemplateBlocks,
+	context: Record<string, string>,
+): ReactElement[] {
+	return blocks
+		.map((block, index) => renderBodyBlock(block, context, index))
+		.filter((element): element is ReactElement => element !== null);
+}
+
 function renderBodyBlock(
 	block: TemplateBlocks[number],
 	context: Record<string, string>,
