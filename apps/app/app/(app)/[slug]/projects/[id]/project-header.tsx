@@ -1,6 +1,7 @@
 "use client";
 
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
+import Edit from "@carbon/icons-react/es/Edit";
 import ImageIcon from "@carbon/icons-react/es/Image";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
@@ -14,6 +15,7 @@ import {
 	AlertDialogTitle,
 } from "@crm/ui/components/alert-dialog";
 import { Button } from "@crm/ui/components/button";
+import { DatePicker } from "@crm/ui/components/date-picker";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import {
@@ -23,6 +25,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
+import { fromDay, toDay } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -76,6 +79,8 @@ export function ProjectHeader({ id }: { id: string }) {
 	const openRecord = useOpenRecord();
 	const [editingName, setEditingName] = useState(false);
 	const [name, setName] = useState("");
+	const [editingGoal, setEditingGoal] = useState(false);
+	const [goal, setGoal] = useState("");
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [photosOpen, setPhotosOpen] = useState(false);
 
@@ -116,6 +121,19 @@ export function ProjectHeader({ id }: { id: string }) {
 		setEditingName(false);
 		if (trimmed && trimmed !== project.name) {
 			update.mutate({ id, name: trimmed });
+		}
+	};
+
+	const startEditingGoal = () => {
+		setGoal(project.goal ?? "");
+		setEditingGoal(true);
+	};
+
+	const commitGoal = () => {
+		const trimmed = goal.trim();
+		setEditingGoal(false);
+		if (trimmed !== (project.goal ?? "")) {
+			update.mutate({ id, goal: trimmed || null });
 		}
 	};
 
@@ -258,7 +276,43 @@ export function ProjectHeader({ id }: { id: string }) {
 			</div>
 
 			<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-sm">
-				<span className="truncate">{project.goal || "No goal set."}</span>
+				{editingGoal ? (
+					<Input
+						autoFocus
+						value={goal}
+						placeholder="What does done look like?"
+						className="h-7 max-w-md text-sm"
+						onChange={(event) => setGoal(event.target.value)}
+						onBlur={commitGoal}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") commitGoal();
+							if (event.key === "Escape") setEditingGoal(false);
+						}}
+					/>
+				) : (
+					<button
+						type="button"
+						onClick={startEditingGoal}
+						className="group/goal flex min-w-0 items-center gap-1.5 text-left"
+					>
+						<span className="truncate underline-offset-2 group-hover/goal:underline">
+							{project.goal || "No goal set. Add one."}
+						</span>
+						<Icon
+							icon={Edit}
+							className="shrink-0 opacity-0 transition-opacity group-hover/goal:opacity-100"
+						/>
+					</button>
+				)}
+				<DatePicker
+					value={project.goalDate ? toDay(new Date(project.goalDate)) : null}
+					onChange={(day) =>
+						update.mutate({
+							id,
+							goalDate: day ? (fromDay(day) ?? null) : null,
+						})
+					}
+				/>
 				{goalCountdown ? (
 					<span className="font-medium text-foreground">{goalCountdown}</span>
 				) : null}

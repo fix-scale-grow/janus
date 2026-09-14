@@ -252,13 +252,17 @@ Prereq: claude setup-token → CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY) in
    Decision needed: PWA-first (install-to-homescreen, offline queue, camera/photo upload,
    push) per the original Crew-tier plan vs native wrapper later. Crew persona first:
    today's jobs, photos, task check-off, hold-to-talk Janus. Spec+brainstorm session.
-2. Planned nav stubs to build or hide: /schedule, /inbox (unified), /automations
+2. Integrations panel (post-launch, Kyle-pinned 9/14): Settings > Connections evolves
+   into a card-catalog Integrations page; QuickBooks first (v0 CSV/IIF export, v1 OAuth
+   invoice push + payment webhook into markPaid, v2 expense pull-back into job costs);
+   Twilio/Mailchimp as coming-soon cards. Kyle gate: free Intuit dev account before v1.
+3. Planned nav stubs to build or hide: /schedule, /inbox (unified), /automations
    (told-not-built), /phone-agent (Phase 4 A2P dependency — Twilio/ISV is a Kyle gate).
-3. Permits v1.2: notification/waiting-on-you strip (nags graduate from card-only),
+4. Permits v1.2: notification/waiting-on-you strip (nags graduate from card-only),
    official-PDF overlay fill, portal automation research, re-research diff flow,
    per-entry provenance on the deal tab beyond badges.
-4. Estimate SEND e-sign parity + smart estimating (dossier in db-backups, unassigned).
-5. Real-SMTP verification on first install (standing), workspace phone field
+5. Estimate SEND e-sign parity + smart estimating (dossier in db-backups, unassigned).
+6. Real-SMTP verification on first install (standing), workspace phone field
    (business.phone token resolves empty), contracts list amounts column.
 6. Post-merge polish batch: AgentPanel ask param lifecycle, pagination on /permits,
    pre-existing em dashes in projects-table/EmptyCellValue, cost-receipts twin patterns.
