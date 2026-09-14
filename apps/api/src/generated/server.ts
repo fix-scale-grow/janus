@@ -875,13 +875,6 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<RecentsRouter["touch"]>>)
     }),
   reports: t.router({
-    byClient: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byClient"]>>),
-    byMonth: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byMonth"]>>),
-    byCategory: publicProcedure
-      .input(reportRangeInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byCategory"]>>),
     jobProfitability: publicProcedure
       .input(reportRangeInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["jobProfitability"]>>),
