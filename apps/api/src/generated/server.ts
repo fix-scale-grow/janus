@@ -881,7 +881,19 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byMonth"]>>),
     byCategory: publicProcedure
       .input(reportRangeInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byCategory"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["byCategory"]>>),
+    jobProfitability: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["jobProfitability"]>>),
+    profitOverTime: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["profitOverTime"]>>),
+    costBreakdown: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["costBreakdown"]>>),
+    arAging: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["arAging"]>>)
     }),
   search: t.router({
     quick: publicProcedure

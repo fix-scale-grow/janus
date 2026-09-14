@@ -1014,10 +1014,11 @@ model ExchangeRate {
 
 model DealContact {
   dealId    String
-  deal      Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
   contactId String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   role      String?
+  createdAt DateTime @default(now())
 
   @@id([dealId, contactId])
   @@index([contactId])

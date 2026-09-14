@@ -30,4 +30,36 @@ export class ReportsRouter {
 	) {
 		return this.reports.byCategory(ctx.user.id, input);
 	}
+
+	@Query({ input: reportRangeInput })
+	async jobProfitability(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof reportRangeInput>,
+	) {
+		return this.reports.jobProfitability(ctx.user.id, input);
+	}
+
+	@Query({ input: reportRangeInput })
+	async profitOverTime(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof reportRangeInput>,
+	) {
+		return this.reports.profitOverTime(ctx.user.id, input);
+	}
+
+	@Query({ input: reportRangeInput })
+	async costBreakdown(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof reportRangeInput>,
+	) {
+		return this.reports.costBreakdown(ctx.user.id, input);
+	}
+
+	@Query({ input: reportRangeInput })
+	async arAging(
+		@Ctx() ctx: AuthedTrpcContext,
+		@Input() input: z.infer<typeof reportRangeInput>,
+	) {
+		return this.reports.arAging(ctx.user.id, input);
+	}
 }
