@@ -829,6 +829,9 @@ const appRouter = t.router({
     accept: publicProcedure
       .input(proposalAcceptInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["accept"]>>),
+    recordView: publicProcedure
+      .input(proposalTokenInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["recordView"]>>),
     decline: publicProcedure
       .input(proposalDeclineInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ProposalViewRouter["decline"]>>)

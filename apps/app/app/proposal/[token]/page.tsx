@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { LocalDay } from "@/components/local-date-time";
+import { getSession } from "@/lib/session";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { ProposalView } from "./proposal-view";
@@ -24,6 +25,10 @@ export default async function ProposalPage({
 	let proposal: PublicProposal;
 	try {
 		proposal = await client.proposalView.byToken.query({ token });
+		const session = await getSession();
+		if (!session) {
+			await client.proposalView.recordView.mutate({ token }).catch(() => {});
+		}
 	} catch (error) {
 		if (error instanceof TRPCClientError && error.data?.code === "NOT_FOUND") {
 			notFound();

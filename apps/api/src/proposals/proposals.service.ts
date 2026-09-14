@@ -373,24 +373,6 @@ export class ProposalsService {
 			throw new NotFoundException("This proposal link is not valid.");
 		}
 
-		try {
-			const viewedAt = new Date();
-			await this.db.proposal.update({
-				where: { id: proposal.id },
-				data: {
-					viewCount: { increment: 1 },
-					lastViewedAt: viewedAt,
-					firstViewedAt: proposal.firstViewedAt ?? viewedAt,
-				},
-				select: { id: true },
-			});
-		} catch (error) {
-			this.logger.error(
-				{ message: "Proposal view stamp failed", proposalId: proposal.id },
-				error instanceof Error ? error.stack : undefined,
-			);
-		}
-
 		const context = await this.mergeContext.resolve({
 			contactId: proposal.estimate.contactId ?? undefined,
 			dealId: proposal.estimate.dealId ?? undefined,
@@ -568,6 +550,29 @@ export class ProposalsService {
 					error instanceof Error ? error.stack : undefined,
 				);
 			}
+		}
+	}
+
+	async recordView(token: string): Promise<void> {
+		try {
+			const viewedAt = new Date();
+			await this.db.proposal.updateMany({
+				where: {
+					viewToken: token,
+					status: { not: "DRAFT" },
+					firstViewedAt: null,
+				},
+				data: { firstViewedAt: viewedAt },
+			});
+			await this.db.proposal.updateMany({
+				where: { viewToken: token, status: { not: "DRAFT" } },
+				data: { viewCount: { increment: 1 }, lastViewedAt: viewedAt },
+			});
+		} catch (error) {
+			this.logger.error(
+				{ message: "Proposal view stamp failed" },
+				error instanceof Error ? error.stack : undefined,
+			);
 		}
 	}
 

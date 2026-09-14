@@ -24,6 +24,12 @@ export class ProposalViewRouter {
 		return this.proposals.accept(input);
 	}
 
+	@Mutation({ input: proposalTokenInput })
+	async recordView(@Input("token") token: string) {
+		await this.proposals.recordView(token);
+		return { ok: true };
+	}
+
 	@Mutation({ input: proposalDeclineInput })
 	async decline(@Input() input: z.infer<typeof proposalDeclineInput>) {
 		return this.proposals.decline(input);

@@ -211,14 +211,21 @@ describe("ProposalsService", () => {
 		);
 	});
 
-	it("stamps views on byToken", async () => {
+	it("stamps views through recordView but never on byToken", async () => {
 		const created = await service.createFromEstimate(estimateId, userId);
 		const sent = await service.send({ id: created.id }, "Kyle");
 		const token = sent.viewToken;
 		if (!token) throw new Error("no token");
 
 		await service.byToken(token);
-		await service.byToken(token);
+		const untouched = await db.proposal.findUniqueOrThrow({
+			where: { id: created.id },
+			select: { viewCount: true },
+		});
+		expect(untouched.viewCount).toBe(0);
+
+		await service.recordView(token);
+		await service.recordView(token);
 
 		const row = await db.proposal.findUniqueOrThrow({
 			where: { id: created.id },
