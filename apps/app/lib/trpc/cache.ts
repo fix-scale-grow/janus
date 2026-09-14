@@ -228,7 +228,7 @@ export function useCrmCache(): CrmCache {
 						? trpc.drawings.byId.queryKey({ id })
 						: trpc.drawings.byId.queryKey(),
 				],
-				[trpc.drawings.list.queryKey()],
+				[trpc.drawings.list.queryKey(), trpc.drawings.folders.queryKey()],
 				options,
 			),
 

@@ -14,9 +14,30 @@ export const drawingListInput = listInput.extend({
 	attachment: z.enum(["all", "deal", "contact", "unattached"]).default("all"),
 	dealId: z.string().optional(),
 	contactId: z.string().optional(),
+	folderId: z.string().optional(),
 });
 
 export type DrawingListInput = z.infer<typeof drawingListInput>;
+
+const folderName = z.string().trim().min(1, "A folder needs a name.").max(100);
+
+export const folderCreateInput = z.object({ name: folderName });
+
+export type FolderCreateInput = z.infer<typeof folderCreateInput>;
+
+export const folderRenameInput = z.object({
+	id: z.string().min(1),
+	name: folderName,
+});
+
+export type FolderRenameInput = z.infer<typeof folderRenameInput>;
+
+export const drawingMoveInput = z.object({
+	id: z.string().min(1),
+	folderId: z.string().min(1).nullable(),
+});
+
+export type DrawingMoveInput = z.infer<typeof drawingMoveInput>;
 
 export const drawingIdInput = z.object({ id: z.string().min(1) });
 

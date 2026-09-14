@@ -23,7 +23,7 @@ import { crewCreateInput, crewUpdateInput, crewIdInput } from "../crews/crews.co
 import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } from "../currency/currency.contracts";
 import { dashboardSummaryInput, dashboardPipelineBoardInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
-import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
+import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, folderCreateInput, folderRenameInput, drawingMoveInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
 import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateUpdateTextInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput, estimateAssignContactInput, estimateSendInput } from "../estimates/estimates.contracts";
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
 import { formListInput, formIdInput, formCreateInput, formUpdateArgs, formUpdateFieldsInput, formSetActiveInput, formSubmissionsInput } from "../forms/forms.contracts";
@@ -403,6 +403,20 @@ const appRouter = t.router({
     delete: publicProcedure
       .input(drawingIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["delete"]>>),
+    folders: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["folders"]>>),
+    createFolder: publicProcedure
+      .input(folderCreateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["createFolder"]>>),
+    renameFolder: publicProcedure
+      .input(folderRenameInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["renameFolder"]>>),
+    deleteFolder: publicProcedure
+      .input(drawingIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["deleteFolder"]>>),
+    move: publicProcedure
+      .input(drawingMoveInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["move"]>>),
     versions: publicProcedure
       .input(drawingIdInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<DrawingsRouter["versions"]>>),

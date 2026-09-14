@@ -1033,6 +1033,8 @@ model Drawing {
   scale          Json?
   address        String?
   thumbnailUrl   String?
+  folderId       String?
+  folder         DrawingFolder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
   dealId         String?
   deal           Deal?               @relation(fields: [dealId], references: [id], onDelete: SetNull)
   contactId      String?
@@ -1048,8 +1050,20 @@ model Drawing {
   @@index([dealId])
   @@index([contactId])
   @@index([updatedAt])
+  @@index([folderId])
   @@map("drawing")
   @@index([address(ops: raw("gin_trgm_ops"))], type: Gin, map: "drawing_address_trgm_idx")
+}
+
+model DrawingFolder {
+  id        String    @id @default(cuid())
+  name      String
+  drawings  Drawing[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([name])
+  @@map("drawing_folder")
 }
 
 model DrawingVersion {

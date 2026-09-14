@@ -2,6 +2,8 @@
 
 import Draw from "@carbon/icons-react/es/Draw";
 import Edit from "@carbon/icons-react/es/Edit";
+import Folder from "@carbon/icons-react/es/Folder";
+import FolderMoveTo from "@carbon/icons-react/es/FolderMoveTo";
 import ImageIcon from "@carbon/icons-react/es/Image";
 import LinkIcon from "@carbon/icons-react/es/Link";
 import OverflowMenuVertical from "@carbon/icons-react/es/OverflowMenuVertical";
@@ -31,6 +33,10 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@crm/ui/components/dropdown-menu";
 import {
@@ -52,6 +58,7 @@ import { toast } from "sonner";
 import {
 	type DrawingAttachment,
 	drawingsSearchParams,
+	folderIdFromFilter,
 } from "@/app/(app)/[slug]/drawings/drawings-search-params";
 import { ListSearch } from "@/components/data-table/list-search";
 import { useTableQuery } from "@/components/data-table/use-table-query";
@@ -61,6 +68,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AttachDrawingDialog } from "./attach-drawing-dialog";
+import { DrawingFolderBar } from "./drawing-folder-bar";
 
 type DrawingRow = RouterOutputs["drawings"]["list"]["rows"][number];
 
@@ -97,11 +105,14 @@ export function DrawingGrid({
 function PageDrawingGrid() {
 	const trpc = useTRPC();
 	const { query, input } = useTableQuery(drawingsSearchParams);
+	const { folder, ...listInput } = input;
+	const activeFolder = folder || "all";
 
 	const drawings = useQuery({
 		...trpc.drawings.list.queryOptions({
-			...input,
-			attachment: input.attachment as DrawingAttachment,
+			...listInput,
+			attachment: listInput.attachment as DrawingAttachment,
+			folderId: folderIdFromFilter(folder),
 		}),
 		placeholderData: (previous) => previous,
 	});
@@ -120,6 +131,11 @@ function PageDrawingGrid() {
 				</Tabs>
 				<ListSearch placeholder="Search drawings…" />
 			</div>
+
+			<DrawingFolderBar
+				activeFolder={activeFolder}
+				onSelect={(folderId) => query.setFilter("folder", folderId)}
+			/>
 
 			<DrawingGridBody
 				rows={drawings.data?.rows ?? []}
@@ -269,6 +285,7 @@ function DrawingCard({ row }: { row: DrawingRow }) {
 							<Icon icon={row.dealId ? Unlink : LinkIcon} />
 							{row.dealId ? "Detach" : "Attach to job…"}
 						</DropdownMenuItem>
+						<MoveToFolderMenu row={row} />
 						<DropdownMenuItem
 							variant="destructive"
 							onSelect={() => setDeleting(true)}
@@ -300,6 +317,57 @@ function DrawingCard({ row }: { row: DrawingRow }) {
 				onOpenChange={setDeleting}
 			/>
 		</div>
+	);
+}
+
+function MoveToFolderMenu({ row }: { row: DrawingRow }) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const folders = useQuery(trpc.drawings.folders.queryOptions());
+
+	const move = useMutation(
+		trpc.drawings.move.mutationOptions({
+			onSuccess: () => {
+				void cache.drawing(row.id);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const rows = folders.data ?? [];
+
+	return (
+		<DropdownMenuSub>
+			<DropdownMenuSubTrigger>
+				<Icon icon={FolderMoveTo} />
+				Move to folder
+			</DropdownMenuSubTrigger>
+			<DropdownMenuSubContent>
+				{rows.length === 0 && (
+					<DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
+				)}
+				{rows.map((folder) => (
+					<DropdownMenuItem
+						disabled={folder.id === row.folderId}
+						key={folder.id}
+						onSelect={() => move.mutate({ id: row.id, folderId: folder.id })}
+					>
+						<Icon icon={Folder} />
+						{folder.name}
+					</DropdownMenuItem>
+				))}
+				{row.folderId && (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							onSelect={() => move.mutate({ id: row.id, folderId: null })}
+						>
+							Remove from folder
+						</DropdownMenuItem>
+					</>
+				)}
+			</DropdownMenuSubContent>
+		</DropdownMenuSub>
 	);
 }
 
