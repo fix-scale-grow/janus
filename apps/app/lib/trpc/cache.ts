@@ -244,6 +244,8 @@ export function useCrmCache(): CrmCache {
 					id
 						? trpc.estimates.document.queryKey({ id })
 						: trpc.estimates.document.queryKey(),
+					trpc.proposals.forEstimate.queryKey(),
+					trpc.proposals.document.queryKey(),
 				],
 				options,
 			),

@@ -24,7 +24,7 @@ import { useEffect, useState } from "react";
 import type { SendDocumentRefs } from "@/components/documents/send-document-dialog";
 import { useTRPC } from "@/lib/trpc/client";
 
-export type PreviewKind = "estimate" | "invoice" | "contract";
+export type PreviewKind = "estimate" | "invoice" | "contract" | "proposal";
 
 function pdfBlobUrl(base64: string): string {
 	const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
@@ -56,7 +56,9 @@ export function DocumentPreviewDialog({
 			? trpc.estimates.document.queryOptions({ id: documentId })
 			: kind === "invoice"
 				? trpc.invoices.document.queryOptions({ id: documentId })
-				: trpc.contracts.document.queryOptions({ id: documentId });
+				: kind === "proposal"
+					? trpc.proposals.document.queryOptions({ id: documentId })
+					: trpc.contracts.document.queryOptions({ id: documentId });
 
 	const pdf = useQuery({
 		...documentOptions,

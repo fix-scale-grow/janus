@@ -204,7 +204,7 @@ const proposalBodyBlocks: TemplateBlocks = [
 	{ kind: "heading", text: "Prepared for {{contact.full_name}}" },
 	{
 		kind: "text",
-		html: "Thank you for the opportunity to work on {{deal.title}}. This proposal covers everything we discussed, with three options priced below. Pick the one that fits and accept online.",
+		html: "Thank you for the opportunity to earn your business. This proposal covers everything we discussed, with three options priced below. Pick the one that fits and accept online.",
 	},
 	{ kind: "heading", text: "Why {{business.name}}" },
 	{

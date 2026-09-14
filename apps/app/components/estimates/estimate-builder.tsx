@@ -417,6 +417,12 @@ export function EstimateBuilder({
 						open={assignContactOpen}
 						onOpenChange={setAssignContactOpen}
 					/>
+					<Button asChild variant="outline" size="sm">
+						<Link href={workspaceUrl(`/estimates/${estimateId}/proposal`)}>
+							<Icon icon={Document} data-icon="inline-start" />
+							Proposal
+						</Link>
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
