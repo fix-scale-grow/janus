@@ -69,7 +69,9 @@ export async function POST(request: Request): Promise<Response> {
 			data: { receiptPath: fileName },
 		});
 	} catch {
-		await removeReceipt(fileName);
+		try {
+			await removeReceipt(fileName);
+		} catch {}
 		return NextResponse.json(
 			{ error: "The receipt could not be saved." },
 			{ status: 500 },
@@ -77,7 +79,9 @@ export async function POST(request: Request): Promise<Response> {
 	}
 
 	if (cost.receiptPath && cost.receiptPath !== fileName) {
-		await removeReceipt(cost.receiptPath);
+		try {
+			await removeReceipt(cost.receiptPath);
+		} catch {}
 	}
 
 	return NextResponse.json({

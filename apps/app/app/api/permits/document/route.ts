@@ -93,7 +93,9 @@ export async function POST(request: Request): Promise<Response> {
 	}
 
 	if (slot.filePath && slot.filePath !== fileName) {
-		await removePermitFile(slot.filePath);
+		try {
+			await removePermitFile(slot.filePath);
+		} catch {}
 	}
 
 	return NextResponse.json({

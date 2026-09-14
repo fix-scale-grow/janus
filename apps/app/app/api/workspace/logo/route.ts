@@ -96,7 +96,9 @@ export async function POST(request: Request): Promise<Response> {
 			data: { logo: url },
 		});
 	} catch {
-		await removeLogo();
+		try {
+			await removeLogo();
+		} catch {}
 		return NextResponse.json(
 			{ error: "The logo could not be saved." },
 			{ status: 500 },
