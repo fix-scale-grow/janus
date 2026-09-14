@@ -693,6 +693,8 @@ export function ContractDetail({
 				refs={{
 					dealId: data.dealId ?? undefined,
 					contactId: data.contactId ?? undefined,
+					estimateId: data.estimateId ?? undefined,
+					invoiceId: data.invoice?.id,
 				}}
 			/>
 
