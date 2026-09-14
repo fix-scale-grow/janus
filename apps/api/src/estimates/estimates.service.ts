@@ -43,6 +43,7 @@ import type {
 	EstimateSetStatusInput,
 	EstimateSetTierInput,
 	EstimateUpdateLineItemInput,
+	EstimateUpdateTextInput,
 } from "./estimates.contracts";
 import { buildLineItems } from "./generate";
 
@@ -182,6 +183,29 @@ export class EstimatesService {
 			});
 		} catch (error) {
 			throw this.translate(error, input.id);
+		}
+	}
+
+	async updateText(input: EstimateUpdateTextInput) {
+		const { id, ...fields } = input;
+		const data = Object.fromEntries(
+			Object.entries(fields)
+				.filter(([, value]) => value !== undefined)
+				.map(([key, value]) => [key, value === "" ? null : value]),
+		);
+		try {
+			return await this.db.estimate.update({
+				where: { id },
+				data,
+				select: {
+					id: true,
+					introNote: true,
+					scopeOfWork: true,
+					terms: true,
+				},
+			});
+		} catch (error) {
+			throw this.translate(error, id);
 		}
 	}
 

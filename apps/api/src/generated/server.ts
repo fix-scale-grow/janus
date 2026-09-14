@@ -24,7 +24,7 @@ import { setReportingCurrencyInput, setManualRateInput, removeManualRateInput } 
 import { dashboardSummaryInput, dashboardPipelineBoardInput } from "../dashboard/dashboard.contracts";
 import { dealListInput, dealIdInput, dealCreateInput, dealUpdateArgs, setStageInput, setProductionStageInput, dealContactsInput, dealAttachContactInput, dealDetachContactInput, dealContactRoleInput, dealBulkOwnerInput, dealBulkStageInput, dealBulkInput } from "../deals/deals.contracts";
 import { drawingListInput, drawingIdInput, drawingCreateInput, drawingSaveSceneInput, drawingRenameInput, drawingAttachInput, drawingRestoreVersionInput, drawingSetThumbnailInput } from "../drawings/drawings.contracts";
-import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput, estimateAssignContactInput, estimateSendInput } from "../estimates/estimates.contracts";
+import { estimateListInput, estimateIdInput, estimateCreateInput, estimateRenameInput, estimateUpdateTextInput, estimateSetStatusInput, estimateSetTierInput, estimateAddLineItemInput, estimateUpdateLineItemInput, estimateLineItemIdInput, estimateGenerateFromDrawingInput, estimateAssignContactInput, estimateSendInput } from "../estimates/estimates.contracts";
 import { fieldListInput, fieldByKeyInput, fieldIdInput, fieldCreateInput, fieldUpdateArgs, fieldReorderInput } from "../fields/fields.contracts";
 import { formListInput, formIdInput, formCreateInput, formUpdateArgs, formUpdateFieldsInput, formSetActiveInput, formSubmissionsInput } from "../forms/forms.contracts";
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
@@ -423,6 +423,9 @@ const appRouter = t.router({
     rename: publicProcedure
       .input(estimateRenameInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["rename"]>>),
+    updateText: publicProcedure
+      .input(estimateUpdateTextInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["updateText"]>>),
     setStatus: publicProcedure
       .input(estimateSetStatusInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<EstimatesRouter["setStatus"]>>),

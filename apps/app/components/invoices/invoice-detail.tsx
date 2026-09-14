@@ -3,8 +3,8 @@
 import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Download from "@carbon/icons-react/es/Download";
-import View from "@carbon/icons-react/es/View";
 import Send from "@carbon/icons-react/es/Send";
+import View from "@carbon/icons-react/es/View";
 import { TemplatePurpose } from "@crm/db/enums";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
@@ -37,6 +37,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
+import { DocumentTextFields } from "@/components/documents/document-text-fields";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
@@ -388,6 +389,17 @@ export function InvoiceDetail({
 							rows={3}
 						/>
 					</Field>
+
+					<DocumentTextFields
+						values={{
+							introNote: data.introNote,
+							scopeOfWork: data.scopeOfWork,
+							terms: data.terms,
+						}}
+						onCommit={(field, next) =>
+							update.mutate({ id: invoiceId, data: { [field]: next } })
+						}
+					/>
 
 					{data.lineItems.length === 0 ? (
 						<Empty>

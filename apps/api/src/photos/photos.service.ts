@@ -348,7 +348,10 @@ export class PhotosService {
 		invoiceId: string,
 		anchor: { dealId?: string | null; contactId?: string | null },
 	): Promise<void> {
-		await this.reanchorLinked({ invoiceLinks: { some: { invoiceId } } }, anchor);
+		await this.reanchorLinked(
+			{ invoiceLinks: { some: { invoiceId } } },
+			anchor,
+		);
 	}
 
 	private async reanchorLinked(

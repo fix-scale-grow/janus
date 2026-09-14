@@ -58,6 +58,9 @@ export const invoiceUpdateInput = z.object({
 		dueAt: z.coerce.date().nullable().optional(),
 		issuedAt: z.coerce.date().nullable().optional(),
 		contactId: z.string().nullable().optional(),
+		introNote: z.string().trim().max(5000).nullable().optional(),
+		scopeOfWork: z.string().trim().max(5000).nullable().optional(),
+		terms: z.string().trim().max(5000).nullable().optional(),
 	}),
 });
 

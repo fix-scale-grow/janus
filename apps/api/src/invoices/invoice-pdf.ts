@@ -10,6 +10,7 @@ import {
 import type { ReactElement } from "react";
 import { createElement } from "react";
 import { formatCents } from "../documents/pdf-money";
+import { textBlockSections } from "../documents/pdf-text-blocks";
 
 const renderToBuffer = (
 	ReactPdf as unknown as {
@@ -46,6 +47,9 @@ export type InvoicePdfInvoice = {
 	lineItems: InvoicePdfLineItem[];
 	contact: InvoicePdfContact | null;
 	photos: InvoicePdfPhoto[];
+	introNote: string | null;
+	scopeOfWork: string | null;
+	terms: string | null;
 };
 
 const GENERAL_GROUP = "General";
@@ -225,6 +229,7 @@ export async function renderInvoicePdf(
 ): Promise<Buffer> {
 	const total = invoiceTotalCents(invoice.lineItems);
 	const groups = groupByArea(invoice.lineItems);
+	const textBlocks = textBlockSections(invoice);
 
 	const rows = groups.map(([areaLabel, items]) =>
 		createElement(
@@ -385,10 +390,13 @@ export async function renderInvoicePdf(
 				? createElement(Text, { style: styles.dates }, dateParts.join("  •  "))
 				: null,
 			contactBlock,
+			textBlocks.intro,
 			...rows,
+			textBlocks.scope,
 			photosSection,
 			totalDueRow,
 			notesBlock,
+			textBlocks.terms,
 		),
 	);
 

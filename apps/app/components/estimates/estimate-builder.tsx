@@ -4,9 +4,9 @@ import ArrowLeft from "@carbon/icons-react/es/ArrowLeft";
 import CurrencyDollar from "@carbon/icons-react/es/CurrencyDollar";
 import Document from "@carbon/icons-react/es/Document";
 import Download from "@carbon/icons-react/es/Download";
-import View from "@carbon/icons-react/es/View";
 import Money from "@carbon/icons-react/es/Money";
 import Send from "@carbon/icons-react/es/Send";
+import View from "@carbon/icons-react/es/View";
 import { TemplatePurpose } from "@crm/db/enums";
 import { Badge } from "@crm/ui/components/badge";
 import { Button } from "@crm/ui/components/button";
@@ -48,6 +48,7 @@ import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DocumentPreviewDialog } from "@/components/documents/document-preview-dialog";
+import { DocumentTextFields } from "@/components/documents/document-text-fields";
 import { SendDocumentDialog } from "@/components/documents/send-document-dialog";
 import { useRecentTouch } from "@/components/nav/use-recent-touch";
 import {
@@ -226,6 +227,13 @@ export function EstimateBuilder({
 					selectedTier: input.tier,
 				}));
 			},
+			onSuccess: () => void cache.estimate(estimateId, { settle: "record" }),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	const updateText = useMutation(
+		trpc.estimates.updateText.mutationOptions({
 			onSuccess: () => void cache.estimate(estimateId, { settle: "record" }),
 			onError: (error) => toast.error(error.message),
 		}),
@@ -532,6 +540,17 @@ export function EstimateBuilder({
 					<div>
 						<AddLineItem estimateId={estimateId} currency={data.currency} />
 					</div>
+
+					<DocumentTextFields
+						values={{
+							introNote: data.introNote,
+							scopeOfWork: data.scopeOfWork,
+							terms: data.terms,
+						}}
+						onCommit={(field, next) =>
+							updateText.mutate({ id: estimateId, [field]: next })
+						}
+					/>
 
 					<LinkedPhotosSection
 						surface="estimate"

@@ -85,7 +85,9 @@ afterAll(async () => {
 	await db.invoicePhoto.deleteMany({
 		where: { photoId: { startsWith: `reanchor-photo-` } },
 	});
-	await db.photo.deleteMany({ where: { id: { startsWith: "reanchor-photo-" } } });
+	await db.photo.deleteMany({
+		where: { id: { startsWith: "reanchor-photo-" } },
+	});
 	await db.estimate.deleteMany({
 		where: { id: { startsWith: "reanchor-estimate-" } },
 	});
