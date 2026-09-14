@@ -2,6 +2,7 @@
 
 import ArrowsVertical from "@carbon/icons-react/es/ArrowsVertical";
 import ButtonCentered from "@carbon/icons-react/es/ButtonCentered";
+import Column from "@carbon/icons-react/es/Column";
 import Image from "@carbon/icons-react/es/Image";
 import LineThin from "@carbon/icons-react/es/LineThin";
 import PageBreak from "@carbon/icons-react/es/PageBreak";
@@ -26,6 +27,7 @@ const BLOCK_KIND_ICONS: Record<TemplateBlockKind, CarbonIcon> = {
 	spacer: ArrowsVertical,
 	signature: Pen,
 	pageBreak: PageBreak,
+	columns: Column,
 };
 
 export function BlockPalette({

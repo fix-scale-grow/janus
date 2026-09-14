@@ -66,6 +66,27 @@ describe("renderEmailHtml", () => {
 		expect(html).toContain("#00ff00");
 	});
 
+	it("renders columns side by side as table cells", () => {
+		const { html, text } = renderEmailHtml(
+			[
+				{
+					kind: "columns",
+					columns: [
+						[{ kind: "heading", text: "Left side" }],
+						[{ kind: "text", html: "Right side" }],
+					],
+				},
+			],
+			CONTEXT,
+		);
+
+		expect(html).toContain('width="50%"');
+		expect(html).toContain("Left side");
+		expect(html).toContain("Right side");
+		expect(text).toContain("Left side");
+		expect(text).toContain("Right side");
+	});
+
 	it("renders a text block, passing sanitized html through as-is", () => {
 		const blocks: TemplateBlocks = [
 			{ kind: "text", html: "<b>Hi</b> {{contact.first_name}}" },

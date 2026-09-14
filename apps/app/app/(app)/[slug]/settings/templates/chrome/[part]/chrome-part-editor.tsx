@@ -6,7 +6,7 @@ import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
 import { Spinner } from "@crm/ui/components/spinner";
 import { cn } from "@crm/ui/lib/utils";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ const CHROME_KINDS: TemplateBlockKind[] = [
 	"logo",
 	"heading",
 	"text",
+	"columns",
 	"divider",
 	"spacer",
 ];
@@ -93,16 +94,57 @@ function PreviewBlock({
 		return <span style={{ height: Math.min(block.height, 24) }} />;
 	}
 	if (block.kind === "logo") {
+		return <PreviewLogo />;
+	}
+	if (block.kind === "columns") {
 		return (
-			// biome-ignore lint/performance/noImgElement: small live preview of the uploaded logo
-			<img
-				src="/api/workspace/logo/file"
-				alt="Logo"
-				className="max-h-8 w-auto self-start object-contain"
-			/>
+			<span
+				className="grid w-full gap-3"
+				style={{
+					gridTemplateColumns: `repeat(${block.columns.length}, minmax(0, 1fr))`,
+				}}
+			>
+				{block.columns.map((column, columnIndex) => (
+					<span
+						// biome-ignore lint/suspicious/noArrayIndexKey: preview only
+						key={columnIndex}
+						className="flex min-w-0 flex-col gap-0.5"
+					>
+						{column.map((child, childIndex) => (
+							<PreviewBlock
+								// biome-ignore lint/suspicious/noArrayIndexKey: preview only
+								key={childIndex}
+								block={child}
+								labels={labels}
+							/>
+						))}
+					</span>
+				))}
+			</span>
 		);
 	}
 	return null;
+}
+
+function PreviewLogo() {
+	const trpc = useTRPC();
+	const workspace = useQuery(trpc.workspace.get.queryOptions());
+	const logoUrl = workspace.data?.logoUrl ?? null;
+	if (!logoUrl) {
+		return (
+			<span className="text-muted-foreground text-xs">
+				No logo uploaded yet (Settings, General page, Brand)
+			</span>
+		);
+	}
+	return (
+		// biome-ignore lint/performance/noImgElement: small live preview of the uploaded logo
+		<img
+			src={logoUrl}
+			alt="Workspace logo"
+			className="max-h-8 w-auto self-start object-contain"
+		/>
+	);
 }
 
 export function ChromePartEditor({
@@ -202,7 +244,8 @@ export function ChromePartEditor({
 					<p className="text-muted-foreground text-sm">
 						{PART_COPY[part].hint} Drag blocks to reorder; merge fields fill
 						from your workspace. The accent bar, document number and page count
-						are added automatically.
+						are added automatically. The Business name and logo come from
+						Settings, on the General page, under Workspace and Brand.
 					</p>
 
 					<div className="overflow-hidden rounded-lg border">

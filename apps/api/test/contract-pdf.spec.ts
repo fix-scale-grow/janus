@@ -53,6 +53,25 @@ describe("renderContractPdf", () => {
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
 	});
 
+	it("renders a columns block", async () => {
+		const buffer = await renderContractPdf(
+			{
+				...fixture(),
+				bodyHtmlBlocks: [
+					{
+						kind: "columns",
+						columns: [
+							[{ kind: "heading", text: "Left", size: "xl" }],
+							[{ kind: "text", html: "Right", align: "right" }],
+						],
+					},
+				],
+			},
+			"Acme Roofing",
+		);
+		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+	});
+
 	it("renders signature and page break blocks with chrome text", async () => {
 		const buffer = await renderContractPdf(
 			{

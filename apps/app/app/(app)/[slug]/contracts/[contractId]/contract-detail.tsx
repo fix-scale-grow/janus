@@ -173,6 +173,48 @@ function ContractBodyBlockRow({
 		return <hr className="border-t" />;
 	}
 
+	if (block.kind === "logo") {
+		return (
+			// biome-ignore lint/performance/noImgElement: static render of the uploaded logo
+			<img
+				src="/api/workspace/logo/file"
+				alt=""
+				className="max-h-10 w-auto self-start object-contain"
+				onError={(event) => {
+					event.currentTarget.hidden = true;
+				}}
+			/>
+		);
+	}
+
+	if (block.kind === "columns") {
+		return (
+			<div
+				className="grid gap-4"
+				style={{
+					gridTemplateColumns: `repeat(${block.columns.length}, minmax(0, 1fr))`,
+				}}
+			>
+				{block.columns.map((column, columnIndex) => (
+					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: static render
+						key={columnIndex}
+						className="flex min-w-0 flex-col gap-2"
+					>
+						{column.map((child, childIndex) => (
+							<ContractBodyBlockRow
+								// biome-ignore lint/suspicious/noArrayIndexKey: static render
+								key={childIndex}
+								block={child}
+								labels={labels}
+							/>
+						))}
+					</div>
+				))}
+			</div>
+		);
+	}
+
 	return null;
 }
 

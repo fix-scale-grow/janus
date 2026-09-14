@@ -94,49 +94,73 @@ export const blockColorSchema = z
 
 export const blockAlignSchema = z.enum(["left", "center", "right"]);
 
-export const blockSizeSchema = z.enum(["sm", "md", "lg"]);
+export const blockSizeSchema = z.enum(["sm", "md", "lg", "xl"]);
+
+const headingBlockSchema = z.object({
+	kind: z.literal("heading"),
+	text: z.string().max(TEMPLATE_BLOCKS.heading.maxTextLength),
+	align: blockAlignSchema.optional(),
+	color: blockColorSchema.optional(),
+	size: blockSizeSchema.optional(),
+});
+
+const textBlockSchema = z.object({
+	kind: z.literal("text"),
+	html: z
+		.string()
+		.max(TEMPLATE_BLOCKS.text.maxHtmlLength)
+		.transform(sanitizeHtml),
+	align: blockAlignSchema.optional(),
+	color: blockColorSchema.optional(),
+});
+
+const logoBlockSchema = z.object({
+	kind: z.literal("logo"),
+	size: blockSizeSchema.optional(),
+	align: blockAlignSchema.optional(),
+});
+
+const dividerBlockSchema = z.object({
+	kind: z.literal("divider"),
+	color: blockColorSchema.optional(),
+});
+
+const spacerBlockSchema = z.object({
+	kind: z.literal("spacer"),
+	height: z
+		.number()
+		.int()
+		.min(TEMPLATE_BLOCKS.spacer.minHeight)
+		.max(TEMPLATE_BLOCKS.spacer.maxHeight),
+});
+
+export const columnChildSchema = z.discriminatedUnion("kind", [
+	headingBlockSchema,
+	textBlockSchema,
+	logoBlockSchema,
+	dividerBlockSchema,
+	spacerBlockSchema,
+]);
+
+export type ColumnChildBlock = z.infer<typeof columnChildSchema>;
 
 export const templateBlockSchema = z.discriminatedUnion("kind", [
-	z.object({
-		kind: z.literal("heading"),
-		text: z.string().max(TEMPLATE_BLOCKS.heading.maxTextLength),
-		align: blockAlignSchema.optional(),
-		color: blockColorSchema.optional(),
-		size: blockSizeSchema.optional(),
-	}),
-	z.object({
-		kind: z.literal("text"),
-		html: z
-			.string()
-			.max(TEMPLATE_BLOCKS.text.maxHtmlLength)
-			.transform(sanitizeHtml),
-		align: blockAlignSchema.optional(),
-		color: blockColorSchema.optional(),
-	}),
+	headingBlockSchema,
+	textBlockSchema,
 	z.object({
 		kind: z.literal("button"),
 		label: z.string().max(TEMPLATE_BLOCKS.button.maxLabelLength),
 		color: blockColorSchema.optional(),
 	}),
-	z.object({
-		kind: z.literal("logo"),
-		size: blockSizeSchema.optional(),
-		align: blockAlignSchema.optional(),
-	}),
-	z.object({
-		kind: z.literal("divider"),
-		color: blockColorSchema.optional(),
-	}),
+	logoBlockSchema,
+	dividerBlockSchema,
 	z.object({ kind: z.literal("signature") }),
 	z.object({ kind: z.literal("pageBreak") }),
 	z.object({
-		kind: z.literal("spacer"),
-		height: z
-			.number()
-			.int()
-			.min(TEMPLATE_BLOCKS.spacer.minHeight)
-			.max(TEMPLATE_BLOCKS.spacer.maxHeight),
+		kind: z.literal("columns"),
+		columns: z.array(z.array(columnChildSchema).max(6)).min(2).max(3),
 	}),
+	spacerBlockSchema,
 ]);
 
 export type TemplateBlock = z.infer<typeof templateBlockSchema>;

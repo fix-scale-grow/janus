@@ -250,16 +250,18 @@ function stripTags(html: string): string {
 
 export type PdfBlockAssets = { logoDataUrl?: string | null };
 
-const HEADING_PDF_SIZE: Record<"sm" | "md" | "lg", number> = {
+const HEADING_PDF_SIZE: Record<"sm" | "md" | "lg" | "xl", number> = {
 	sm: 10,
 	md: 12,
 	lg: 16,
+	xl: 22,
 };
 
-const LOGO_PDF_SIZE: Record<"sm" | "md" | "lg", number> = {
+const LOGO_PDF_SIZE: Record<"sm" | "md" | "lg" | "xl", number> = {
 	sm: 24,
 	md: 36,
 	lg: 56,
+	xl: 84,
 };
 
 const ALIGN_SELF: Record<
@@ -359,6 +361,22 @@ function renderBodyBlock(
 			return null;
 		case "pageBreak":
 			return createElement(View, { key, break: true });
+		case "columns":
+			return createElement(
+				View,
+				{ key, style: { flexDirection: "row", gap: 16 } },
+				...block.columns.map((column, columnIndex) =>
+					createElement(
+						View,
+						{ key: columnIndex, style: { flex: 1 } },
+						...column
+							.map((child, childIndex) =>
+								renderBodyBlock(child, context, childIndex, assets),
+							)
+							.filter((element): element is ReactElement => element !== null),
+					),
+				),
+			);
 	}
 }
 

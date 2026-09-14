@@ -84,16 +84,18 @@ function renderRow(
 	return `<tr><td${alignAttr} style="padding:${CELL_PADDING};${alignStyle}">${content}</td></tr>`;
 }
 
-const HEADING_SIZE_PX: Record<"sm" | "md" | "lg", number> = {
+const HEADING_SIZE_PX: Record<"sm" | "md" | "lg" | "xl", number> = {
 	sm: 16,
 	md: 20,
 	lg: 28,
+	xl: 36,
 };
 
-const LOGO_SIZE_PX: Record<"sm" | "md" | "lg", number> = {
+const LOGO_SIZE_PX: Record<"sm" | "md" | "lg" | "xl", number> = {
 	sm: 32,
 	md: 44,
 	lg: 72,
+	xl: 104,
 };
 
 function renderBlockHtml(
@@ -145,6 +147,18 @@ function renderBlockHtml(
 		case "pageBreak":
 			if (mode !== "document") return "";
 			return `<tr><td style="padding:8px 32px;"><hr style="border:none;border-top:1px dashed #dddddd;margin:0;"></td></tr>`;
+		case "columns": {
+			const width = Math.floor(100 / block.columns.length);
+			const cells = block.columns
+				.map((column) => {
+					const inner = column
+						.map((child) => renderBlockHtml(child, context, mode, brand))
+						.join("");
+					return `<td valign="top" width="${width}%" style="vertical-align:top;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${inner}</table></td>`;
+				})
+				.join("");
+			return `<tr><td style="padding:0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>${cells}</tr></table></td></tr>`;
+		}
 		case "spacer":
 			return `<tr><td style="padding:0;height:${block.height}px;line-height:${block.height}px;font-size:1px;">&nbsp;</td></tr>`;
 		case "logo": {
@@ -201,6 +215,16 @@ function renderBlockText(
 			return "";
 		case "pageBreak":
 			return "";
+		case "columns":
+			return block.columns
+				.map((column) =>
+					column
+						.map((child) => renderBlockText(child, context))
+						.filter((line) => line.length > 0)
+						.join("\n"),
+				)
+				.filter((part) => part.length > 0)
+				.join("\n");
 	}
 }
 
