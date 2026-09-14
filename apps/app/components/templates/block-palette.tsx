@@ -4,6 +4,8 @@ import ArrowsVertical from "@carbon/icons-react/es/ArrowsVertical";
 import ButtonCentered from "@carbon/icons-react/es/ButtonCentered";
 import Image from "@carbon/icons-react/es/Image";
 import LineThin from "@carbon/icons-react/es/LineThin";
+import PageBreak from "@carbon/icons-react/es/PageBreak";
+import Pen from "@carbon/icons-react/es/Pen";
 import TextAlignLeft from "@carbon/icons-react/es/TextAlignLeft";
 import TextFont from "@carbon/icons-react/es/TextFont";
 import type { TemplatePurpose } from "@crm/db/enums";
@@ -22,6 +24,8 @@ const BLOCK_KIND_ICONS: Record<TemplateBlockKind, CarbonIcon> = {
 	logo: Image,
 	divider: LineThin,
 	spacer: ArrowsVertical,
+	signature: Pen,
+	pageBreak: PageBreak,
 };
 
 export function BlockPalette({

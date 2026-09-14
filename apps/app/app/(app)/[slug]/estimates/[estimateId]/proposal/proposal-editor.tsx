@@ -45,12 +45,14 @@ import {
 	BlockCanvas,
 	type EditorBlock,
 } from "@/components/templates/block-canvas";
+import { BlockPalette } from "@/components/templates/block-palette";
 import {
 	type MergeFieldLabels,
 	toEditorHtml,
 	toEditorText,
 } from "@/components/templates/block-serialize";
 import {
+	createTemplateBlock,
 	type TemplateBlock,
 	useMergeFields,
 } from "@/components/templates/merge-fields";
@@ -469,7 +471,20 @@ function ProposalBody({
 							) : null}
 						</div>
 						{editable ? (
-							<BlockCanvas blocks={rows} onChange={setRows} labels={labels} />
+							<div className="grid gap-4 md:grid-cols-[1fr_200px]">
+								<BlockCanvas blocks={rows} onChange={setRows} labels={labels} />
+								<BlockPalette
+									purpose={TemplatePurpose.PROPOSAL_BODY}
+									onAdd={(kind) => {
+										const id = `block-${nextId.current}`;
+										nextId.current += 1;
+										setRows([
+											...rows,
+											{ id, block: createTemplateBlock(kind) },
+										]);
+									}}
+								/>
+							</div>
 						) : (
 							<StaticBlocks
 								blocks={proposal.body as TemplateBlock[]}

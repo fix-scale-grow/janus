@@ -52,4 +52,31 @@ describe("renderContractPdf", () => {
 		const buffer = await renderContractPdf(fixture(), "Acme Roofing");
 		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
 	});
+
+	it("renders signature and page break blocks with chrome text", async () => {
+		const buffer = await renderContractPdf(
+			{
+				...fixture(),
+				bodyHtmlBlocks: [
+					{ kind: "heading", text: "Terms" },
+					{ kind: "text", html: "First page terms." },
+					{ kind: "pageBreak" },
+					{ kind: "text", html: "Second page terms." },
+					{ kind: "signature" },
+				],
+				accentColor: "#aa3311",
+				headerText: "AL Lic #12345",
+				footerText: "(555) 123-4567",
+				signature: {
+					kind: "typed",
+					data: "Jane Smith",
+					signerName: "Jane Smith",
+					signedAt: new Date("2026-02-01T00:00:00Z"),
+				},
+			},
+			"Acme Roofing",
+		);
+
+		expect(buffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+	});
 });

@@ -106,6 +106,8 @@ export const templateBlockSchema = z.discriminatedUnion("kind", [
 	}),
 	z.object({ kind: z.literal("logo") }),
 	z.object({ kind: z.literal("divider") }),
+	z.object({ kind: z.literal("signature") }),
+	z.object({ kind: z.literal("pageBreak") }),
 	z.object({
 		kind: z.literal("spacer"),
 		height: z

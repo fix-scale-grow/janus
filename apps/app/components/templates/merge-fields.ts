@@ -31,6 +31,8 @@ export const templateBlockSchema = z.discriminatedUnion("kind", [
 	}),
 	z.object({ kind: z.literal("logo") }),
 	z.object({ kind: z.literal("divider") }),
+	z.object({ kind: z.literal("signature") }),
+	z.object({ kind: z.literal("pageBreak") }),
 	z.object({
 		kind: z.literal("spacer"),
 		height: z
@@ -59,6 +61,8 @@ export const BLOCK_KIND_LABELS: Record<TemplateBlockKind, string> = {
 	logo: "Logo",
 	divider: "Divider",
 	spacer: "Spacer",
+	signature: "Signature field",
+	pageBreak: "Page break",
 };
 
 export const BLOCK_KIND_ORDER: TemplateBlockKind[] = [
@@ -67,16 +71,31 @@ export const BLOCK_KIND_ORDER: TemplateBlockKind[] = [
 	"button",
 	"logo",
 	"divider",
+	"pageBreak",
+	"signature",
 	"spacer",
 ];
 
+const DOCUMENT_ONLY_KINDS: TemplateBlockKind[] = ["signature", "pageBreak"];
 const CONTRACT_BODY_HIDDEN_KINDS: TemplateBlockKind[] = ["button", "spacer"];
+const PROPOSAL_BODY_HIDDEN_KINDS: TemplateBlockKind[] = [
+	"button",
+	"spacer",
+	"signature",
+];
 
 export function blockKindsFor(purpose: TemplatePurpose): TemplateBlockKind[] {
-	if (purpose !== TemplatePurpose.CONTRACT_BODY) return BLOCK_KIND_ORDER;
-	return BLOCK_KIND_ORDER.filter(
-		(kind) => !CONTRACT_BODY_HIDDEN_KINDS.includes(kind),
-	);
+	if (purpose === TemplatePurpose.CONTRACT_BODY) {
+		return BLOCK_KIND_ORDER.filter(
+			(kind) => !CONTRACT_BODY_HIDDEN_KINDS.includes(kind),
+		);
+	}
+	if (purpose === TemplatePurpose.PROPOSAL_BODY) {
+		return BLOCK_KIND_ORDER.filter(
+			(kind) => !PROPOSAL_BODY_HIDDEN_KINDS.includes(kind),
+		);
+	}
+	return BLOCK_KIND_ORDER.filter((kind) => !DOCUMENT_ONLY_KINDS.includes(kind));
 }
 
 export function createTemplateBlock(kind: TemplateBlockKind): TemplateBlock {

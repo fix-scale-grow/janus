@@ -23,6 +23,7 @@ import {
 	Command,
 	CommandEmpty,
 	CommandGroup,
+	CommandInput,
 	CommandItem,
 	CommandList,
 } from "@crm/ui/components/command";
@@ -66,12 +67,14 @@ import {
 	BlockCanvas,
 	type EditorBlock,
 } from "@/components/templates/block-canvas";
+import { BlockPalette } from "@/components/templates/block-palette";
 import {
 	type MergeFieldLabels,
 	toEditorHtml,
 	toEditorText,
 } from "@/components/templates/block-serialize";
 import {
+	createTemplateBlock,
 	type TemplateBlock,
 	useMergeFields,
 } from "@/components/templates/merge-fields";
@@ -195,7 +198,7 @@ function LinkInvoicePicker({
 			pageSize: 50,
 			dealId: dealId ?? undefined,
 		}),
-		enabled: open && Boolean(dealId),
+		enabled: open,
 	});
 
 	const link = useMutation(
@@ -219,7 +222,7 @@ function LinkInvoicePicker({
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button variant="outline" size="sm" disabled={!dealId}>
+				<Button variant="outline" size="sm">
 					<Icon icon={Link_} data-icon="inline-start" />
 					{invoice ? `Invoice #${invoice.number}` : "Link invoice"}
 				</Button>
@@ -228,9 +231,7 @@ function LinkInvoicePicker({
 				<Command shouldFilter={false}>
 					<CommandList>
 						<CommandEmpty>
-							{invoices.isFetching
-								? "Loading invoices…"
-								: "No invoices on this job."}
+							{invoices.isFetching ? "Loading invoices…" : "No invoices yet."}
 						</CommandEmpty>
 						<CommandGroup>
 							{invoice ? (
@@ -262,6 +263,202 @@ function LinkInvoicePicker({
 				</Command>
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+function LinkEstimatePicker({
+	contractId,
+	estimate,
+	disabled,
+}: {
+	contractId: string;
+	estimate: ContractDetailData["estimate"];
+	disabled: boolean;
+}) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const [open, setOpen] = useState(false);
+
+	const estimates = useQuery({
+		...trpc.estimates.list.queryOptions({
+			q: "",
+			sort: "updatedAt",
+			dir: "desc",
+			page: 1,
+			pageSize: 50,
+		}),
+		enabled: open,
+	});
+
+	const link = useMutation(
+		trpc.contracts.update.mutationOptions({
+			onSuccess: async () => {
+				await cache.contract(contractId, { settle: "record" });
+				setOpen(false);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	if (disabled) {
+		return estimate ? (
+			<span className="truncate text-sm">{estimate.title}</span>
+		) : (
+			<span className="text-muted-foreground text-sm">Not linked</span>
+		);
+	}
+
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<Button variant="outline" size="sm">
+					<Icon icon={Link_} data-icon="inline-start" />
+					<span className="truncate">
+						{estimate ? estimate.title : "Link estimate"}
+					</span>
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent align="start" size="fit" className="w-72">
+				<Command shouldFilter={false}>
+					<CommandList>
+						<CommandEmpty>
+							{estimates.isFetching
+								? "Loading estimates…"
+								: "No estimates yet."}
+						</CommandEmpty>
+						<CommandGroup>
+							{estimate ? (
+								<CommandItem
+									disabled={link.isPending}
+									onSelect={() =>
+										link.mutate({ id: contractId, data: { estimateId: null } })
+									}
+								>
+									Clear link
+								</CommandItem>
+							) : null}
+							{(estimates.data?.rows ?? []).map((row) => (
+								<CommandItem
+									key={row.id}
+									disabled={link.isPending}
+									onSelect={() =>
+										link.mutate({
+											id: contractId,
+											data: { estimateId: row.id },
+										})
+									}
+								>
+									{row.title}
+								</CommandItem>
+							))}
+						</CommandGroup>
+					</CommandList>
+				</Command>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+function LinkContactPicker({
+	contractId,
+	contact,
+	disabled,
+}: {
+	contractId: string;
+	contact: ContractDetailData["contact"];
+	disabled: boolean;
+}) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const [open, setOpen] = useState(false);
+	const [query, setQuery] = useState("");
+
+	const contacts = useQuery({
+		...trpc.contacts.options.queryOptions({ q: query }),
+		enabled: open,
+		placeholderData: (previous) => previous,
+	});
+
+	const link = useMutation(
+		trpc.contracts.update.mutationOptions({
+			onSuccess: async () => {
+				await cache.contract(contractId, { settle: "record" });
+				setOpen(false);
+				setQuery("");
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	if (disabled) {
+		return contact ? (
+			<RecordLink kind="contact" id={contact.id} className="truncate text-sm">
+				{contactName(contact)}
+			</RecordLink>
+		) : (
+			<span className="text-muted-foreground text-sm">No contact</span>
+		);
+	}
+
+	return (
+		<div className="flex min-w-0 items-center gap-1">
+			{contact ? (
+				<RecordLink kind="contact" id={contact.id} className="truncate text-sm">
+					{contactName(contact)}
+				</RecordLink>
+			) : null}
+			<Popover open={open} onOpenChange={setOpen}>
+				<PopoverTrigger asChild>
+					<Button variant="outline" size="sm">
+						<Icon icon={Link_} data-icon="inline-start" />
+						{contact ? "Change" : "Link contact"}
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent align="start" size="fit" className="w-72">
+					<Command shouldFilter={false}>
+						<CommandInput
+							value={query}
+							onValueChange={setQuery}
+							placeholder="Search contacts…"
+						/>
+						<CommandList>
+							<CommandEmpty>
+								{contacts.isFetching ? "Searching…" : "No contacts found."}
+							</CommandEmpty>
+							<CommandGroup>
+								{contact ? (
+									<CommandItem
+										disabled={link.isPending}
+										onSelect={() =>
+											link.mutate({
+												id: contractId,
+												data: { contactId: null },
+											})
+										}
+									>
+										Clear link
+									</CommandItem>
+								) : null}
+								{(contacts.data ?? []).map((row) => (
+									<CommandItem
+										key={row.id}
+										disabled={link.isPending}
+										onSelect={() =>
+											link.mutate({
+												id: contractId,
+												data: { contactId: row.id },
+											})
+										}
+									>
+										{contactName(row)}
+									</CommandItem>
+								))}
+							</CommandGroup>
+						</CommandList>
+					</Command>
+				</PopoverContent>
+			</Popover>
+		</div>
 	);
 }
 
@@ -599,18 +796,19 @@ export function ContractDetail({
 					<div className="grid gap-3 sm:grid-cols-3">
 						<div className="flex flex-col gap-1 rounded-lg border p-4">
 							<span className="text-muted-foreground text-xs">Estimate</span>
+							<LinkEstimatePicker
+								contractId={contractId}
+								estimate={data.estimate}
+								disabled={!canLinkInvoice}
+							/>
 							{data.estimate ? (
 								<Link
 									href={workspaceUrl(`/estimates/${data.estimate.id}`)}
-									className="truncate text-sm hover:underline"
+									className="truncate text-muted-foreground text-xs hover:underline"
 								>
-									{data.estimate.title}
+									Open estimate
 								</Link>
-							) : (
-								<span className="text-muted-foreground text-sm">
-									Not from an estimate
-								</span>
-							)}
+							) : null}
 						</div>
 
 						<div className="flex flex-col gap-1 rounded-lg border p-4">
@@ -625,19 +823,11 @@ export function ContractDetail({
 
 						<div className="flex flex-col gap-1 rounded-lg border p-4">
 							<span className="text-muted-foreground text-xs">Contact</span>
-							{data.contact ? (
-								<RecordLink
-									kind="contact"
-									id={data.contact.id}
-									className="truncate text-sm"
-								>
-									{contactName(data.contact)}
-								</RecordLink>
-							) : (
-								<span className="text-muted-foreground text-sm">
-									No contact
-								</span>
-							)}
+							<LinkContactPicker
+								contractId={contractId}
+								contact={data.contact}
+								disabled={!canLinkInvoice}
+							/>
 						</div>
 					</div>
 
@@ -665,7 +855,20 @@ export function ContractDetail({
 							) : null}
 						</div>
 						{isDraft ? (
-							<BlockCanvas blocks={rows} onChange={setRows} labels={labels} />
+							<div className="grid gap-4 md:grid-cols-[1fr_200px]">
+								<BlockCanvas blocks={rows} onChange={setRows} labels={labels} />
+								<BlockPalette
+									purpose={TemplatePurpose.CONTRACT_BODY}
+									onAdd={(kind) => {
+										const id = `block-${nextId.current}`;
+										nextId.current += 1;
+										setRows([
+											...rows,
+											{ id, block: createTemplateBlock(kind) },
+										]);
+									}}
+								/>
+							</div>
 						) : (
 							<ContractBodyStatic
 								blocks={contractBodyBlocks(data.body)}

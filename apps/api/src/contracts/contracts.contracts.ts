@@ -45,6 +45,7 @@ export const contractUpdateFields = z.object({
 		.optional(),
 	body: templateBlocksSchema.optional(),
 	invoiceId: z.string().min(1).nullable().optional(),
+	estimateId: z.string().min(1).nullable().optional(),
 	contactId: z.string().min(1).nullable().optional(),
 });
 

@@ -4,6 +4,8 @@ import ArrowsVertical from "@carbon/icons-react/es/ArrowsVertical";
 import ButtonCentered from "@carbon/icons-react/es/ButtonCentered";
 import Image from "@carbon/icons-react/es/Image";
 import LineThin from "@carbon/icons-react/es/LineThin";
+import PageBreak from "@carbon/icons-react/es/PageBreak";
+import Pen from "@carbon/icons-react/es/Pen";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import { Button } from "@crm/ui/components/button";
 import {
@@ -273,9 +275,25 @@ function BlockBody({
 		case "divider":
 			return (
 				<div className="flex flex-col gap-2">
-					<StaticBody icon={LineThin} note="A line across the email." />
+					<StaticBody icon={LineThin} note="A line across the page." />
 					<Separator />
 				</div>
+			);
+		case "signature":
+			return (
+				<div className="flex flex-col gap-2">
+					<StaticBody
+						icon={Pen}
+						note="The signature area prints here instead of at the end."
+					/>
+					<div className="rounded-md border border-dashed px-4 py-5 text-muted-foreground text-xs">
+						Signed by ____________________ on ____________
+					</div>
+				</div>
+			);
+		case "pageBreak":
+			return (
+				<StaticBody icon={PageBreak} note="The PDF starts a new page here." />
 			);
 		default:
 			return (

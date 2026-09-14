@@ -1596,7 +1596,9 @@ model AppSetting {
   trackingConfigHash       String?
   trackingPaused           Boolean @default(false)
 
-  navLayout String?
+  navLayout          String?
+  documentHeaderText String?
+  documentFooterText String?
 
   dealNumberStart Int?
 

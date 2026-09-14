@@ -39,7 +39,7 @@ import { proposalTokenInput, proposalAcceptInput, proposalDeclineInput, proposal
 import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
-import { setAgentModelInput, setResearchKeyInput, setNavLayoutInput, setDealNumberStartInput, setPermitsInput } from "../settings/settings.contracts";
+import { setAgentModelInput, setResearchKeyInput, setDocumentChromeTextInput, setNavLayoutInput, setDealNumberStartInput, setPermitsInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolBulkSetServiceInput, symbolPackInput } from "../symbols/symbols.contracts";
@@ -914,6 +914,11 @@ const appRouter = t.router({
     setResearchKey: publicProcedure
       .input(setResearchKeyInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setResearchKey"]>>),
+    documentChromeText: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["documentChromeText"]>>),
+    setDocumentChromeText: publicProcedure
+      .input(setDocumentChromeTextInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setDocumentChromeText"]>>),
     navLayout: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["navLayout"]>>),
     setNavLayout: publicProcedure

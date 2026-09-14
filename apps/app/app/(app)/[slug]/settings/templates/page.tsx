@@ -13,6 +13,7 @@ import { TEMPLATE_PURPOSE_ORDER } from "@/components/templates/template-labels";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
+import { DocumentChromeForm } from "./document-chrome-form";
 import { TemplatesTable } from "./templates-table";
 
 export const metadata: Metadata = {
@@ -52,12 +53,16 @@ async function Templates() {
 		);
 	}
 
-	await queryClient.prefetchQuery(trpc.templates.list.queryOptions());
+	await Promise.all([
+		queryClient.prefetchQuery(trpc.templates.list.queryOptions()),
+		queryClient.prefetchQuery(trpc.settings.documentChromeText.queryOptions()),
+	]);
 
 	return (
 		<HydrateClient>
 			<div className="flex max-w-4xl flex-col gap-6">
 				<TemplatesTable />
+				<DocumentChromeForm />
 			</div>
 		</HydrateClient>
 	);

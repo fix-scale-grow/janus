@@ -4,18 +4,21 @@ import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
 import {
 	acceptPermitDisclaimerSetting,
 	DEFAULT_AGENT_MODEL,
+	type DocumentChromeText,
 	maskKey,
 	type NavLayout,
 	type PermitSettings,
 	readAgentModel,
 	readContextDevKey,
 	readDealNumberStart,
+	readDocumentChromeText,
 	readNavLayout,
 	readPermitSettings,
 	type UsState,
 	writeAgentModel,
 	writeContextDevKey,
 	writeDealNumberStart,
+	writeDocumentChromeText,
 	writeNavLayout,
 	writePermitSettings,
 } from "@crm/db/settings";
@@ -188,6 +191,29 @@ export class SettingsService {
 		this.logger.log({ message: "Nav layout changed", layout });
 
 		return this.navLayout();
+	}
+
+	async documentChromeText(): Promise<DocumentChromeText> {
+		return readDocumentChromeText(this.db);
+	}
+
+	async setDocumentChromeText(
+		userId: string,
+		text: DocumentChromeText,
+	): Promise<DocumentChromeText> {
+		await this.requireAdmin(
+			userId,
+			"Only an owner or an admin can change document text.",
+		);
+
+		await writeDocumentChromeText(this.db, {
+			headerText: text.headerText?.trim() || null,
+			footerText: text.footerText?.trim() || null,
+		});
+
+		this.logger.log({ message: "Document header and footer text changed" });
+
+		return this.documentChromeText();
 	}
 
 	async dealNumbering(): Promise<DealNumberingSettings> {

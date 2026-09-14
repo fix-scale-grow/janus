@@ -31,7 +31,126 @@ export type ContractPdfInput = {
 	bodyHtmlBlocks: TemplateBlocks;
 	context: Record<string, string>;
 	signature?: ContractPdfSignature;
+	accentColor?: string;
+	headerText?: string | null;
+	footerText?: string | null;
 };
+
+export type PdfChrome = {
+	workspaceName: string;
+	label: string;
+	accentColor: string;
+	headerText: string | null;
+	footerText: string | null;
+};
+
+const DEFAULT_ACCENT = "#006b4f";
+
+export function pdfChromeElements(chrome: PdfChrome): {
+	header: ReactElement;
+	footer: ReactElement;
+} {
+	const header = createElement(
+		View,
+		{ fixed: true, style: chromeStyles.band },
+		createElement(View, {
+			style: [chromeStyles.accentBar, { backgroundColor: chrome.accentColor }],
+		}),
+		createElement(
+			View,
+			{ style: chromeStyles.bandRow },
+			createElement(
+				View,
+				{ style: chromeStyles.bandLeft },
+				createElement(
+					Text,
+					{ style: chromeStyles.bandName },
+					chrome.workspaceName,
+				),
+				chrome.headerText?.trim()
+					? createElement(
+							Text,
+							{ style: chromeStyles.bandMeta },
+							chrome.headerText.trim(),
+						)
+					: null,
+			),
+			createElement(Text, { style: chromeStyles.bandLabel }, chrome.label),
+		),
+	);
+
+	const footer = createElement(
+		View,
+		{ fixed: true, style: chromeStyles.footer },
+		createElement(
+			Text,
+			{ style: chromeStyles.footerText },
+			chrome.footerText?.trim() || chrome.workspaceName,
+		),
+		createElement(Text, {
+			style: chromeStyles.footerText,
+			render: ({
+				pageNumber,
+				totalPages,
+			}: {
+				pageNumber: number;
+				totalPages: number;
+			}) => `Page ${pageNumber} of ${totalPages}`,
+		}),
+	);
+
+	return { header, footer };
+}
+
+const chromeStyles = StyleSheet.create({
+	band: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+	},
+	accentBar: {
+		height: 6,
+	},
+	bandRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "flex-end",
+		paddingHorizontal: 40,
+		paddingTop: 16,
+		paddingBottom: 10,
+		borderBottomWidth: 0.5,
+		borderBottomColor: "#dddddd",
+	},
+	bandLeft: {
+		flexDirection: "column",
+		gap: 2,
+	},
+	bandName: {
+		fontSize: 12,
+		fontFamily: "Helvetica-Bold",
+	},
+	bandMeta: {
+		fontSize: 8,
+		color: "#666666",
+	},
+	bandLabel: {
+		fontSize: 9,
+		color: "#666666",
+	},
+	footer: {
+		position: "absolute",
+		bottom: 18,
+		left: 40,
+		right: 40,
+		flexDirection: "row",
+		justifyContent: "space-between",
+	},
+	footerText: {
+		fontSize: 8,
+		color: "#999999",
+	},
+});
 
 const NUMBER_PAD_LENGTH = 4;
 
@@ -39,7 +158,9 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 const styles = StyleSheet.create({
 	page: {
-		padding: 40,
+		paddingTop: 84,
+		paddingBottom: 56,
+		paddingHorizontal: 40,
 		fontSize: 10,
 		fontFamily: "Helvetica",
 		color: "#111111",
@@ -115,6 +236,15 @@ const styles = StyleSheet.create({
 		fontSize: 9,
 		color: "#999999",
 	},
+	signHereLine: {
+		fontSize: 12,
+		color: "#999999",
+		borderBottomWidth: 1,
+		borderBottomColor: "#999999",
+		width: 260,
+		paddingBottom: 14,
+		marginBottom: 4,
+	},
 });
 
 function stripTags(html: string): string {
@@ -164,20 +294,26 @@ function renderBodyBlock(
 			return createElement(View, { key, style: { height: block.height } });
 		case "logo":
 			return null;
+		case "signature":
+			return null;
+		case "pageBreak":
+			return createElement(View, { key, break: true });
 	}
 }
 
 function renderSignatureSection(
 	signature: ContractPdfSignature | undefined,
+	key?: number,
 ): ReactElement {
 	if (!signature) {
 		return createElement(
 			View,
-			{ style: styles.signatureBlock },
+			{ key, style: styles.signatureBlock },
+			createElement(Text, { style: styles.signHereLine }, "X"),
 			createElement(
 				Text,
-				{ style: styles.unsignedPlaceholder },
-				"Not yet signed.",
+				{ style: styles.signatureLine },
+				"Signature                                          Date",
 			),
 		);
 	}
@@ -192,7 +328,7 @@ function renderSignatureSection(
 
 	return createElement(
 		View,
-		{ style: styles.signatureBlock },
+		{ key, style: styles.signatureBlock },
 		mark,
 		createElement(
 			Text,
@@ -207,10 +343,25 @@ export async function renderContractPdf(
 	workspaceName: string,
 ): Promise<Buffer> {
 	const contractLabel = `C-${String(input.number).padStart(NUMBER_PAD_LENGTH, "0")}`;
+	const hasSignatureBlock = input.bodyHtmlBlocks.some(
+		(block) => block.kind === "signature",
+	);
 
 	const bodyElements = input.bodyHtmlBlocks
-		.map((block, index) => renderBodyBlock(block, input.context, index))
+		.map((block, index) =>
+			block.kind === "signature"
+				? renderSignatureSection(input.signature, index)
+				: renderBodyBlock(block, input.context, index),
+		)
 		.filter((element): element is ReactElement => element !== null);
+
+	const chrome = pdfChromeElements({
+		workspaceName,
+		label: contractLabel,
+		accentColor: input.accentColor ?? DEFAULT_ACCENT,
+		headerText: input.headerText ?? null,
+		footerText: input.footerText ?? null,
+	});
 
 	const document = createElement(
 		Document,
@@ -218,12 +369,8 @@ export async function renderContractPdf(
 		createElement(
 			Page,
 			{ size: "LETTER", style: styles.page },
-			createElement(
-				View,
-				{ style: styles.header },
-				createElement(Text, { style: styles.workspaceName }, workspaceName),
-				createElement(Text, { style: styles.contractLabel }, contractLabel),
-			),
+			chrome.header,
+			chrome.footer,
 			createElement(Text, { style: styles.title }, input.title),
 			createElement(
 				Text,
@@ -231,7 +378,7 @@ export async function renderContractPdf(
 				DATE_FORMAT.format(new Date()),
 			),
 			...bodyElements,
-			renderSignatureSection(input.signature),
+			hasSignatureBlock ? null : renderSignatureSection(input.signature),
 		),
 	);
 

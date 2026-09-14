@@ -112,6 +112,14 @@ function renderBlockHtml(
 		}
 		case "divider":
 			return `<tr><td style="padding:0 32px;"><hr style="border:none;border-top:1px solid #e5e5e5;margin:0;"></td></tr>`;
+		case "signature":
+			if (mode !== "document") return "";
+			return renderRow(
+				`<div style="border:1px dashed #bbbbbb;border-radius:5px;padding:20px 24px;color:#666666;font-family:Arial,sans-serif;font-size:13px;">Signature<br><span style="font-size:11px;">Signed below when the contract is accepted.</span></div>`,
+			);
+		case "pageBreak":
+			if (mode !== "document") return "";
+			return `<tr><td style="padding:8px 32px;"><hr style="border:none;border-top:1px dashed #dddddd;margin:0;"></td></tr>`;
 		case "spacer":
 			return `<tr><td style="padding:0;height:${block.height}px;line-height:${block.height}px;font-size:1px;">&nbsp;</td></tr>`;
 		case "logo": {
@@ -156,6 +164,10 @@ function renderBlockText(
 		case "spacer":
 			return "";
 		case "logo":
+			return "";
+		case "signature":
+			return "";
+		case "pageBreak":
 			return "";
 	}
 }

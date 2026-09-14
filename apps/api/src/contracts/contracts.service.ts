@@ -7,6 +7,7 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
+import { readDocumentChromeText } from "@crm/db/settings";
 import {
 	BadRequestException,
 	ConflictException,
@@ -301,10 +302,11 @@ export class ContractsService {
 
 		if (existing.status !== "DRAFT") {
 			const keys = Object.keys(input.data);
-			const onlyInvoiceLink =
-				keys.length > 0 && keys.every((key) => key === "invoiceId");
+			const linkKeys = ["invoiceId", "estimateId", "contactId"];
+			const onlyLinks =
+				keys.length > 0 && keys.every((key) => linkKeys.includes(key));
 
-			if (!(existing.status === "SENT" && onlyInvoiceLink)) {
+			if (!(existing.status === "SENT" && onlyLinks)) {
 				throw new ConflictException("This contract can no longer be edited.");
 			}
 		}
@@ -319,6 +321,9 @@ export class ContractsService {
 					...(input.data.body !== undefined ? { body: input.data.body } : {}),
 					...(input.data.invoiceId !== undefined
 						? { invoiceId: input.data.invoiceId }
+						: {}),
+					...(input.data.estimateId !== undefined
+						? { estimateId: input.data.estimateId }
 						: {}),
 					...(input.data.contactId !== undefined
 						? { contactId: input.data.contactId }
@@ -472,12 +477,16 @@ export class ContractsService {
 			contractId: contract.id,
 		});
 
+		const chrome = await this.pdfChrome();
 		const buffer = await renderContractPdf(
 			{
 				title: contract.title,
 				number: contract.number,
 				bodyHtmlBlocks: parseTemplateBlocks(contract.body),
 				context,
+				accentColor: chrome.accentColor,
+				headerText: chrome.headerText,
+				footerText: chrome.footerText,
 				signature:
 					contract.signedAt &&
 					contract.signerName &&
@@ -603,6 +612,22 @@ export class ContractsService {
 		return this.mailer.isConfigured();
 	}
 
+	private async pdfChrome(): Promise<{
+		accentColor: string;
+		headerText: string | null;
+		footerText: string | null;
+	}> {
+		const [brand, text] = await Promise.all([
+			resolveEmailBrand(this.db),
+			readDocumentChromeText(this.db),
+		]);
+		return {
+			accentColor: brand.color,
+			headerText: text.headerText,
+			footerText: text.footerText,
+		};
+	}
+
 	private async contractBodySnapshot() {
 		const template = await this.templates.byPurpose({
 			purpose: "CONTRACT_BODY",
@@ -658,12 +683,16 @@ export class ContractsService {
 				contractId: contract.id,
 			});
 
+			const chrome = await this.pdfChrome();
 			const buffer = await renderContractPdf(
 				{
 					title: contract.title,
 					number: contract.number,
 					bodyHtmlBlocks: parseTemplateBlocks(contract.body),
 					context,
+					accentColor: chrome.accentColor,
+					headerText: chrome.headerText,
+					footerText: chrome.footerText,
 					signature,
 				},
 				context["business.name"] ?? DEFAULT_WORKSPACE_NAME,

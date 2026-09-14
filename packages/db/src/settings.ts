@@ -357,3 +357,40 @@ export function maskKey(key: string): string {
 	const trimmed = key.trim();
 	return trimmed.length > 4 ? `••••${trimmed.slice(-4)}` : "••••";
 }
+
+export type DocumentChromeText = {
+	headerText: string | null;
+	footerText: string | null;
+};
+
+export async function readDocumentChromeText(
+	db: Db,
+): Promise<DocumentChromeText> {
+	const row = await db.appSetting.findUnique({
+		where: { id: SETTINGS_ID },
+		select: { documentHeaderText: true, documentFooterText: true },
+	});
+
+	return {
+		headerText: row?.documentHeaderText ?? null,
+		footerText: row?.documentFooterText ?? null,
+	};
+}
+
+export async function writeDocumentChromeText(
+	db: Db,
+	text: DocumentChromeText,
+): Promise<void> {
+	await db.appSetting.upsert({
+		where: { id: SETTINGS_ID },
+		create: {
+			id: SETTINGS_ID,
+			documentHeaderText: text.headerText,
+			documentFooterText: text.footerText,
+		},
+		update: {
+			documentHeaderText: text.headerText,
+			documentFooterText: text.footerText,
+		},
+	});
+}

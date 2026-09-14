@@ -10,7 +10,7 @@ import {
 } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { createElement } from "react";
-import { renderBodyBlocks } from "../contracts/contract-pdf";
+import { pdfChromeElements, renderBodyBlocks } from "../contracts/contract-pdf";
 import { formatCents } from "../documents/pdf-money";
 import {
 	type EstimatePdfLineItem,
@@ -41,6 +41,9 @@ export type ProposalPdfInput = {
 	context: Record<string, string>;
 	photos: ProposalPdfPhoto[];
 	createdAt: Date;
+	accentColor?: string;
+	headerText?: string | null;
+	footerText?: string | null;
 };
 
 const TIER_ORDER: EstimateTier[] = ["GOOD", "BETTER", "BEST"];
@@ -58,7 +61,9 @@ const DATE_FORMAT = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 const styles = StyleSheet.create({
 	page: {
-		padding: 40,
+		paddingTop: 84,
+		paddingBottom: 56,
+		paddingHorizontal: 40,
 		fontSize: 10,
 		fontFamily: "Helvetica",
 		color: "#111111",
@@ -252,12 +257,22 @@ export async function renderProposalPdf(
 				)
 			: null;
 
+	const chrome = pdfChromeElements({
+		workspaceName,
+		label: `Proposal #${proposal.number}`,
+		accentColor: proposal.accentColor ?? "#006b4f",
+		headerText: proposal.headerText ?? null,
+		footerText: proposal.footerText ?? null,
+	});
+
 	const document = createElement(
 		Document,
 		{},
 		createElement(
 			Page,
 			{ size: "LETTER", style: styles.page },
+			chrome.header,
+			chrome.footer,
 			cover,
 			...bodyElements,
 			pricing,

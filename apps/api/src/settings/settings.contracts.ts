@@ -27,6 +27,15 @@ export const setNavLayoutInput = z.object({
 
 export type SetNavLayoutInput = z.infer<typeof setNavLayoutInput>;
 
+export const setDocumentChromeTextInput = z.object({
+	headerText: z.string().trim().max(200).nullable(),
+	footerText: z.string().trim().max(200).nullable(),
+});
+
+export type SetDocumentChromeTextInput = z.infer<
+	typeof setDocumentChromeTextInput
+>;
+
 export const setDealNumberStartInput = z.object({
 	start: z.number().int().min(1).max(99_999_999),
 });
