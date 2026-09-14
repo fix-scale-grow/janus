@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
+import { acceptPermitDisclaimerSetting } from "@crm/db/settings";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { z } from "zod";
 import { PermitPrefillService } from "../src/permits/permit-prefill.service";
@@ -466,5 +468,108 @@ describe("PermitsService.promptState", () => {
 	it("is deterministic: no permit, no dismissal, wrong trigger stage means show is false by default", async () => {
 		const state = await permits.promptState({ dealId });
 		expect(state.show).toBe(false);
+	});
+});
+
+async function resetDisclaimer(): Promise<void> {
+	await db.appSetting.updateMany({
+		data: {
+			permitDisclaimerVersion: null,
+			permitDisclaimerAcceptedById: null,
+			permitDisclaimerAcceptedAt: null,
+		},
+	});
+}
+
+describe("PermitsService.worksheetPdf", () => {
+	afterAll(resetDisclaimer);
+
+	it("blocks with the first NEEDS_REVIEW answer, naming the count", async () => {
+		await resetDisclaimer();
+		const permit = await createPermit();
+		await permits.applyPrefills({ permitId: permit.id });
+
+		let caught: unknown;
+		try {
+			await permits.worksheetPdf({ permitId: permit.id });
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+		expect((caught as BadRequestException).message).toMatch(
+			/2 fields await review/,
+		);
+	});
+
+	it("blocks with the first required field missing when nothing has been answered", async () => {
+		await resetDisclaimer();
+		const permit = await createPermit();
+
+		let caught: unknown;
+		try {
+			await permits.worksheetPdf({ permitId: permit.id });
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+		expect((caught as BadRequestException).message).toBe(
+			"Job name is required.",
+		);
+	});
+
+	it("blocks on the disclaimer once every field is filled and approved", async () => {
+		await resetDisclaimer();
+		const permit = await createPermit();
+		await permits.setAnswer(
+			{ permitId: permit.id, key: "job_name", value: "Filled job" },
+			userId,
+		);
+
+		let caught: unknown;
+		try {
+			await permits.worksheetPdf({ permitId: permit.id });
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(BadRequestException);
+		expect((caught as BadRequestException).message).toBe(
+			"Accept the preparation disclaimer first.",
+		);
+	});
+
+	it("renders the PDF and upserts the worksheet document row once every gate passes", async () => {
+		await resetDisclaimer();
+		const permit = await createPermit();
+		await permits.setAnswer(
+			{ permitId: permit.id, key: "job_name", value: "Filled job" },
+			userId,
+		);
+		await acceptPermitDisclaimerSetting(db, userId, PERMIT_DISCLAIMER_VERSION);
+
+		const result = await permits.worksheetPdf({ permitId: permit.id });
+
+		expect(result.filename).toMatch(/^\d+-permit-worksheet\.pdf$/);
+		expect(result.base64.length).toBeGreaterThan(0);
+		const bytes = Buffer.from(result.base64, "base64");
+		expect(bytes.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+
+		const slot = await db.permitDocument.findUnique({
+			where: {
+				permitId_slotKey: { permitId: permit.id, slotKey: "worksheet" },
+			},
+		});
+		expect(slot).not.toBeNull();
+		expect(slot?.label).toBe("Application worksheet");
+		expect(slot?.attachedAt).toBeInstanceOf(Date);
+
+		const again = await permits.worksheetPdf({ permitId: permit.id });
+		expect(again.filename).toBe(result.filename);
+		const stillOneSlot = await db.permitDocument.findMany({
+			where: { permitId: permit.id, slotKey: "worksheet" },
+		});
+		expect(stillOneSlot).toHaveLength(1);
 	});
 });

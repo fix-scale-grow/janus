@@ -687,7 +687,10 @@ const appRouter = t.router({
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["dismissPrompt"]>>),
     promptState: publicProcedure
       .input(permitDealIdInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["promptState"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["promptState"]>>),
+    worksheetPdf: publicProcedure
+      .input(permitIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermitsRouter["worksheetPdf"]>>)
     }),
   photos: t.router({
     list: publicProcedure

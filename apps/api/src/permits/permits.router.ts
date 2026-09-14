@@ -213,4 +213,9 @@ export class PermitsRouter {
 	async promptState(@Input() input: z.infer<typeof permitDealIdInput>) {
 		return this.permits.promptState(input);
 	}
+
+	@Mutation({ input: permitIdInput })
+	async worksheetPdf(@Input("permitId") permitId: string) {
+		return this.permits.worksheetPdf({ permitId });
+	}
 }

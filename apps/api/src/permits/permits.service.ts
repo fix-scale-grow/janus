@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import {
 	buildJurisdictionMatchKey,
@@ -7,6 +8,7 @@ import {
 	parseWorksheetAnswers,
 	parseWorksheetTemplate,
 	type WorksheetAnswers,
+	type WorksheetField,
 } from "@crm/db/permits";
 import { readPermitSettings } from "@crm/db/settings";
 import {
@@ -15,6 +17,9 @@ import {
 	NotFoundException,
 } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
+import { resolveEmailBrand } from "../templates/render-email";
+import { savePermitDocumentFile } from "./permit-files";
+import { PERMIT_TYPE_LABEL, renderPermitWorksheetPdf } from "./permit-pdf";
 import { PermitPrefillService } from "./permit-prefill.service";
 import { PERMITS } from "./permits.config";
 import type {
@@ -617,12 +622,168 @@ export class PermitsService {
 			(answer) => answer.value !== "",
 		);
 		const allApproved = nonEmpty.every((answer) => answer.state === "APPROVED");
+		const needsReviewCount = nonEmpty.filter(
+			(answer) => answer.state === "NEEDS_REVIEW",
+		).length;
 		const requiredMissing = template
 			.filter((field) => field.required)
 			.filter((field) => (answers[field.key]?.value ?? "") === "")
 			.map((field) => field.key);
 
-		return { allApproved, requiredMissing, disclaimerAccepted };
+		return {
+			allApproved,
+			requiredMissing,
+			disclaimerAccepted,
+			needsReviewCount,
+		};
+	}
+
+	private worksheetGateFailure(
+		template: WorksheetField[],
+		answers: WorksheetAnswers,
+		disclaimerAccepted: boolean,
+	): string | null {
+		const status = this.worksheetStatus(template, answers, disclaimerAccepted);
+
+		if (status.needsReviewCount > 0) {
+			const isSingular = status.needsReviewCount === 1;
+			const noun = isSingular ? "field" : "fields";
+			const verb = isSingular ? "awaits" : "await";
+			return `${status.needsReviewCount} ${noun} ${verb} review.`;
+		}
+
+		const missingKey = status.requiredMissing[0];
+		if (missingKey) {
+			const label =
+				template.find((field) => field.key === missingKey)?.label ?? missingKey;
+			return `${label} is required.`;
+		}
+
+		if (!status.disclaimerAccepted) {
+			return "Accept the preparation disclaimer first.";
+		}
+
+		return null;
+	}
+
+	async worksheetPdf(
+		input: PermitIdInput,
+	): Promise<{ filename: string; base64: string }> {
+		const permit = await this.db.permit.findUnique({
+			where: { id: input.permitId },
+			include: {
+				jurisdiction: true,
+				deal: { select: { name: true, number: true, currency: true } },
+				documents: { orderBy: { sortOrder: "asc" } },
+				inspections: { orderBy: { sortOrder: "asc" } },
+				playbook: true,
+			},
+		});
+		if (!permit) {
+			throw new NotFoundException(`No permit with id ${input.permitId}.`);
+		}
+
+		const template = permit.playbook
+			? parseWorksheetTemplate(permit.playbook.worksheetTemplate)
+			: [];
+		const answers = parseWorksheetAnswers(permit.worksheetAnswers);
+		const settings = await readPermitSettings(this.db);
+		const disclaimerAccepted = settings.disclaimer !== null;
+
+		const failure = this.worksheetGateFailure(
+			template,
+			answers,
+			disclaimerAccepted,
+		);
+		if (failure) throw new BadRequestException(failure);
+
+		const workspace = await this.db.organization.findUnique({
+			where: { id: WORKSPACE_ID },
+			select: { name: true },
+		});
+		const workspaceName = workspace?.name ?? DEFAULT_WORKSPACE_NAME;
+		const brand = await resolveEmailBrand(this.db);
+
+		const checklistDocuments = permit.documents.filter(
+			(document) => document.slotKey !== PERMITS.pdf.worksheetSlotKey,
+		);
+
+		const buffer = await renderPermitWorksheetPdf({
+			workspaceName,
+			accentColor: brand.color,
+			permitTypeLabel: permit.typeLabel || PERMIT_TYPE_LABEL[permit.permitType],
+			jurisdictionName: permit.jurisdiction.name,
+			jurisdictionState: permit.jurisdiction.state,
+			dealName: permit.deal.name,
+			dealNumber: permit.deal.number,
+			permitNumber: permit.permitNumber,
+			feeCents: permit.feeCents,
+			currency: permit.deal.currency,
+			fields: template.map((field) => ({
+				label: field.label,
+				value: answers[field.key]?.value ?? "",
+			})),
+			checklist: checklistDocuments.map((document) => ({
+				label: document.label,
+				attached: document.attachedAt !== null,
+			})),
+			inspections: permit.inspections.map((inspection) => ({
+				name: inspection.name,
+				scheduledFor: inspection.scheduledFor,
+				result: inspection.result,
+			})),
+		});
+
+		const maxSortOrder = checklistDocuments.reduce(
+			(max, document) => Math.max(max, document.sortOrder),
+			-1,
+		);
+
+		const slot = await this.db.permitDocument.upsert({
+			where: {
+				permitId_slotKey: {
+					permitId: permit.id,
+					slotKey: PERMITS.pdf.worksheetSlotKey,
+				},
+			},
+			create: {
+				permitId: permit.id,
+				slotKey: PERMITS.pdf.worksheetSlotKey,
+				label: PERMITS.pdf.worksheetLabel,
+				sortOrder: maxSortOrder + 1,
+			},
+			update: {},
+			select: { id: true },
+		});
+
+		const savedFileName = await savePermitDocumentFile(slot.id, "pdf", buffer);
+
+		await this.db.permitDocument.update({
+			where: { id: slot.id },
+			data: {
+				...(savedFileName ? { filePath: savedFileName } : {}),
+				attachedAt: new Date(),
+			},
+		});
+
+		const filenameStem = this.filenameStem(
+			`${permit.deal.number}-permit-worksheet`,
+		);
+
+		return {
+			filename: `${filenameStem}.pdf`,
+			base64: buffer.toString("base64"),
+		};
+	}
+
+	private filenameStem(value: string): string {
+		const stem = value
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-+|-+$/g, "")
+			.slice(0, PERMITS.pdf.maxFilenameStem);
+		return stem || "permit-worksheet";
 	}
 
 	private async mutateAnswers(

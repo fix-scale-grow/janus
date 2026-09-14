@@ -144,6 +144,28 @@ export function WorksheetPanel({
 		}),
 	);
 
+	const worksheetPdf = useMutation(
+		trpc.permits.worksheetPdf.mutationOptions({
+			onSuccess: (document) => {
+				invalidatePermit();
+				const bytes = Uint8Array.from(atob(document.base64), (char) =>
+					char.charCodeAt(0),
+				);
+				const url = URL.createObjectURL(
+					new Blob([bytes], { type: "application/pdf" }),
+				);
+				const anchor = window.document.createElement("a");
+				anchor.href = url;
+				anchor.download = document.filename;
+				anchor.click();
+				URL.revokeObjectURL(url);
+				toast.success("Worksheet PDF generated.");
+			},
+			onError: (error: { message: string }) => toast.error(error.message),
+			onSettled: () => generateGuard.release(),
+		}),
+	);
+
 	const answers = permit.worksheetAnswers;
 	const fields = permit.worksheetTemplate;
 
@@ -209,13 +231,8 @@ export function WorksheetPanel({
 		saveTemplate(fields.filter((entry) => entry.key !== field.key));
 	};
 
-	const generateWorksheetPdfPlaceholder = () => {
-		toast("PDF generation lands with the next update.");
-		generateGuard.release();
-	};
-
 	const runGenerate = () =>
-		generateGuard.guard(generateWorksheetPdfPlaceholder);
+		generateGuard.guard(() => worksheetPdf.mutate({ permitId: permit.id }));
 
 	const onGenerateClick = () => {
 		if (hardBlocked) return;
@@ -319,9 +336,12 @@ export function WorksheetPanel({
 							) : null}
 							<Button
 								type="button"
-								disabled={hardBlocked}
+								disabled={hardBlocked || worksheetPdf.isPending}
 								onClick={onGenerateClick}
 							>
+								{worksheetPdf.isPending ? (
+									<Spinner data-icon="inline-start" />
+								) : null}
 								Generate
 							</Button>
 						</div>
