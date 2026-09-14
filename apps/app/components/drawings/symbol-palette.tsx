@@ -57,6 +57,8 @@ export type SymbolPaletteProps = {
 	scale: DrawingScale | null;
 	queueSave: () => void;
 	services: { id: string; unit: string }[];
+	trigger?: React.ReactNode;
+	side?: "top" | "right" | "bottom" | "left";
 };
 
 const RECENT_SYMBOLS_KEY = "janus.drawings.recentSymbols";
@@ -428,9 +430,14 @@ export function SymbolPalette(props: SymbolPaletteProps) {
 	return (
 		<Popover onOpenChange={setOpen} open={open}>
 			<PopoverTrigger asChild>
-				<Button variant="outline">Symbols</Button>
+				{props.trigger ?? <Button variant="outline">Symbols</Button>}
 			</PopoverTrigger>
-			<PopoverContent align="start" className="w-80" size="fit">
+			<PopoverContent
+				align="start"
+				className="w-80"
+				side={props.side}
+				size="fit"
+			>
 				<Command>
 					<CommandInput
 						onValueChange={setSearch}

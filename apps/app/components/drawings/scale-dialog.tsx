@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert, AlertDescription } from "@crm/ui/components/alert";
 import { Button } from "@crm/ui/components/button";
 import {
 	Dialog,
@@ -33,17 +34,22 @@ export type ScaleDialogProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onConfirm: (feet: number, gridFt: number | null) => void;
+	replacing: boolean;
+	defaultGridFt: number | null;
 };
 
 export function ScaleDialog(props: ScaleDialogProps) {
+	const defaultGrid = props.defaultGridFt
+		? String(props.defaultGridFt)
+		: GRID_OFF;
 	const [feet, setFeet] = useState("");
-	const [grid, setGrid] = useState<string>(GRID_OFF);
+	const [grid, setGrid] = useState<string>(defaultGrid);
 	const parsed = Number.parseFloat(feet);
 	const valid = Number.isFinite(parsed) && parsed > 0;
 
 	const reset = () => {
 		setFeet("");
-		setGrid(GRID_OFF);
+		setGrid(defaultGrid);
 	};
 
 	return (
@@ -56,9 +62,20 @@ export function ScaleDialog(props: ScaleDialogProps) {
 		>
 			<DialogContent className="sm:max-w-(--container-narrow)">
 				<DialogHeader>
-					<DialogTitle>Set scale</DialogTitle>
+					<DialogTitle>
+						{props.replacing ? "Replace scale" : "Set scale"}
+					</DialogTitle>
 					<DialogDescription>How long is this line in feet?</DialogDescription>
 				</DialogHeader>
+
+				{props.replacing && (
+					<Alert variant="warning">
+						<AlertDescription>
+							This drawing already has a scale. Confirming replaces it and
+							updates every measurement on the drawing.
+						</AlertDescription>
+					</Alert>
+				)}
 
 				<div className="flex flex-col gap-1.5">
 					<Label htmlFor="scale-feet">Length in feet</Label>
@@ -103,7 +120,7 @@ export function ScaleDialog(props: ScaleDialogProps) {
 							reset();
 						}}
 					>
-						Set scale
+						{props.replacing ? "Replace scale" : "Set scale"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

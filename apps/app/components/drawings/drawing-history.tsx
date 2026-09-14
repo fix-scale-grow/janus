@@ -1,6 +1,5 @@
 "use client";
 
-import HistoryIcon from "@carbon/icons-react/es/History";
 import Restart from "@carbon/icons-react/es/Restart";
 import {
 	AlertDialog,
@@ -35,12 +34,15 @@ type Version = RouterOutputs["drawings"]["versions"][number];
 export function DrawingHistory({
 	drawingId,
 	onRestored,
+	open,
+	onOpenChange,
 }: {
 	drawingId: string;
 	onRestored: () => void;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }) {
 	const trpc = useTRPC();
-	const [open, setOpen] = useState(false);
 	const [restoring, setRestoring] = useState<Version | null>(null);
 
 	const versions = useQuery({
@@ -50,12 +52,7 @@ export function DrawingHistory({
 
 	return (
 		<>
-			<Button onClick={() => setOpen(true)} variant="outline">
-				<Icon icon={HistoryIcon} data-icon="inline-start" />
-				History
-			</Button>
-
-			<Dialog open={open} onOpenChange={setOpen}>
+			<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Version history</DialogTitle>
@@ -123,7 +120,7 @@ export function DrawingHistory({
 				}}
 				onRestored={() => {
 					setRestoring(null);
-					setOpen(false);
+					onOpenChange(false);
 					onRestored();
 				}}
 				version={restoring}

@@ -21,6 +21,7 @@ export const DRAWINGS = {
 	unattachedNudgeDays: 3,
 	scopePanel: { recomputeMs: 500, labelCommitDebounceMs: 400 },
 	pin: { sizePx: 24 },
+	marks: { fillWhiteMix: 0.85 },
 	symbol: { maxElements: 50 },
 	library: {
 		storageKey: "janus.drawings.library",

@@ -1,5 +1,6 @@
 "use client";
 
+import Stamp from "@carbon/icons-react/es/Stamp";
 import {
 	DRAWINGS,
 	type DrawingScale,
@@ -12,6 +13,7 @@ import {
 	symbolPinCustomData,
 } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
+import { Icon } from "@crm/ui/components/icon";
 import {
 	Sheet,
 	SheetContent,
@@ -19,6 +21,7 @@ import {
 	SheetTitle,
 } from "@crm/ui/components/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
+import { Toggle } from "@crm/ui/components/toggle";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type {
 	ExcalidrawImperativeAPI,
@@ -38,12 +41,25 @@ import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { DrawingHistory } from "./drawing-history";
+import { DrawingToolbar, type OverflowAction } from "./drawing-toolbar";
 import { JanusExcalidraw } from "./janus-excalidraw";
 import { SatelliteCanvas } from "./satellite-canvas";
 import { ScaleDialog } from "./scale-dialog";
 import { initialSceneChangeState, nextSceneChange } from "./scene-change";
 import { ScopePanel, type ScopeShapeUpdate } from "./scope-panel";
 import { SymbolPalette } from "./symbol-palette";
+import {
+	excalidrawToolFor,
+	hintFor,
+	initialDraftState,
+	isMarkingMode,
+	mixTowardWhite,
+	modeForExcalidrawTool,
+	nextDraft,
+	parseHexColor,
+	parseRgbString,
+	type ToolMode,
+} from "./toolbar-modes";
 import { useBackgroundImage } from "./use-background-image";
 import { useDrawingAutosave } from "./use-drawing-autosave";
 import { useDrawingThumbnail } from "./use-drawing-thumbnail";
@@ -52,6 +68,7 @@ import { useScopedShapes } from "./use-scoped-shapes";
 const toolParser = parseAsStringLiteral(["freedraw"] as const);
 
 type OnChange = NonNullable<ExcalidrawProps["onChange"]>;
+type OnPointerDown = NonNullable<ExcalidrawProps["onPointerDown"]>;
 
 export type DrawingBackground = "WHITEBOARD" | "IMAGE" | "SATELLITE";
 
@@ -67,6 +84,26 @@ export type DrawingEditorProps = {
 };
 
 type Surface = "sketch" | "satellite";
+
+const FALLBACK_ACCENT: [number, number, number] = [0, 107, 79];
+
+function accentColors(): { stroke: string; fill: string } {
+	let rgb: [number, number, number] | null = null;
+	const raw = getComputedStyle(document.documentElement)
+		.getPropertyValue("--primary")
+		.trim();
+	const context = document.createElement("canvas").getContext("2d");
+	if (raw && context) {
+		context.fillStyle = raw;
+		const normalized = context.fillStyle;
+		rgb = parseHexColor(normalized) ?? parseRgbString(normalized);
+	}
+	const channels = rgb ?? FALLBACK_ACCENT;
+	return {
+		stroke: `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`,
+		fill: mixTowardWhite(channels, DRAWINGS.marks.fillWhiteMix),
+	};
+}
 
 function elementPoints(element: ExcalidrawElement): [number, number][] {
 	if ("points" in element && element.points.length > 1) {
@@ -105,6 +142,14 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		useState<ExcalidrawImperativeAPI | null>(null);
 	const [tool, setTool] = useQueryState("tool", toolParser);
 	const initialToolRef = useRef(tool);
+	const [mode, setModeState] = useState<ToolMode>(
+		initialToolRef.current === "freedraw" ? "freedraw" : "select",
+	);
+	const modeRef = useRef(mode);
+	const draftRef = useRef(initialDraftState());
+	const markingArmedRef = useRef(false);
+	const calibrationOpenRef = useRef(false);
+	const [historyOpen, setHistoryOpen] = useState(false);
 	const captureThumbnail = useDrawingThumbnail(props.drawingId);
 	const { queueSave, cancelPending, flushPending } = useDrawingAutosave(
 		props.drawingId,
@@ -153,12 +198,67 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}),
 	);
 
-	const [calibrating, setCalibrating] = useState(false);
 	const [calibrationTarget, setCalibrationTarget] = useState<{
 		elementId: string;
 		pixelLength: number;
 	} | null>(null);
 	const [askJanusOpen, setAskJanusOpen] = useState(false);
+
+	const setMode = useCallback((next: ToolMode) => {
+		modeRef.current = next;
+		markingArmedRef.current = false;
+		setModeState(next);
+		const api = apiRef.current;
+		if (!api) return;
+		if (next === "pin") {
+			api.setActiveTool({ type: "custom", customType: "janus-pin" });
+			return;
+		}
+		if (next === "scale") {
+			api.updateScene({ appState: { selectedElementIds: {} } });
+		}
+		api.setActiveTool({ type: excalidrawToolFor(next) });
+	}, []);
+
+	const cancelDraft = useCallback(() => {
+		const pendingId = draftRef.current.pendingId;
+		draftRef.current = initialDraftState();
+		if (!pendingId) return;
+		setTimeout(() => {
+			const api = apiRef.current;
+			if (!api) return;
+			void import("@excalidraw/excalidraw").then(
+				({ CaptureUpdateAction, newElementWith }) => {
+					const elements = api
+						.getSceneElements()
+						.map((element) =>
+							element.id === pendingId
+								? newElementWith(element, { isDeleted: true })
+								: element,
+						);
+					api.updateScene({
+						elements,
+						captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+					});
+				},
+			);
+		}, 0);
+	}, []);
+
+	const exitMode = useCallback(() => {
+		cancelDraft();
+		setMode("select");
+	}, [cancelDraft, setMode]);
+
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== "Escape") return;
+			if (modeRef.current === "select") return;
+			exitMode();
+		};
+		window.addEventListener("keydown", onKey, true);
+		return () => window.removeEventListener("keydown", onKey, true);
+	}, [exitMode]);
 
 	const excalidrawApiRef = useCallback(
 		(api: ExcalidrawImperativeAPI) => {
@@ -239,6 +339,86 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		};
 	}, [excalidrawApi]);
 
+	const stampElements = useCallback(
+		async (elementIds: string[], kind: "area" | "line") => {
+			const api = apiRef.current;
+			if (!api || elementIds.length === 0) return;
+			const { CaptureUpdateAction, newElementWith } = await import(
+				"@excalidraw/excalidraw"
+			);
+			const accent = accentColors();
+			const elements = api.getSceneElements().map((element) => {
+				if (!elementIds.includes(element.id)) return element;
+				const existingScope = scopeCustomData.safeParse(element.customData);
+				const customData: ScopeCustomData = {
+					...(existingScope.success ? existingScope.data : null),
+					scopeId: existingScope.success
+						? existingScope.data.scopeId
+						: crypto.randomUUID(),
+					kind,
+				};
+				return newElementWith(element, {
+					customData: { ...element.customData, ...customData },
+					strokeColor: accent.stroke,
+					roundness: null,
+					...(kind === "area"
+						? { backgroundColor: accent.fill, fillStyle: "solid" as const }
+						: {}),
+				});
+			});
+
+			api.updateScene({
+				elements,
+				captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+			});
+			queueSave();
+		},
+		[queueSave],
+	);
+
+	const stampSelection = useCallback(
+		async (kind: "area" | "line") => {
+			const api = apiRef.current;
+			if (!api) return;
+			const appState = api.getAppState();
+			const selectedIds = Object.keys(appState.selectedElementIds).filter(
+				(id) => appState.selectedElementIds[id],
+			);
+			if (selectedIds.length === 0) {
+				toast.info("Select one or more shapes first.");
+				return;
+			}
+			await stampElements(selectedIds, kind);
+		},
+		[stampElements],
+	);
+
+	const completeDraft = useCallback(
+		(elementId: string, kind: "area" | "line") => {
+			const api = apiRef.current;
+			if (!api) return;
+			const element = api
+				.getSceneElements()
+				.find((candidate) => candidate.id === elementId);
+			if (!element || element.isDeleted) return;
+			const points = "points" in element ? element.points : [];
+			if (kind === "area" && points.length < 3) {
+				toast.info("An area needs at least three points.");
+				setMode("select");
+				return;
+			}
+			void stampElements([elementId], kind).then(() => {
+				toast.success(
+					kind === "area"
+						? "Area marked and added to scope."
+						: "Line marked and added to scope.",
+				);
+			});
+			setMode("select");
+		},
+		[stampElements, setMode],
+	);
+
 	const onChange = useCallback<OnChange>(
 		(elements, appState, files) => {
 			sceneRef.current = {
@@ -256,57 +436,90 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			sceneChangeRef.current = decision.state;
 			if (decision.save) queueSave();
 
-			if (calibrating) {
+			const currentMode = modeRef.current;
+			const activeType = appState.activeTool.type;
+
+			if (isMarkingMode(currentMode)) {
+				if (activeType === "line") markingArmedRef.current = true;
+				const inProgress = appState.multiElement ?? appState.newElement;
+				const inProgressId =
+					inProgress && inProgress.type === "line" ? inProgress.id : null;
+				const step = nextDraft(draftRef.current, inProgressId);
+				draftRef.current = step.state;
+				if (step.completedId) {
+					const completedId = step.completedId;
+					const kind = currentMode === "area" ? "area" : "line";
+					setTimeout(() => completeDraft(completedId, kind), 0);
+				} else if (
+					markingArmedRef.current &&
+					activeType !== "line" &&
+					!inProgressId
+				) {
+					modeRef.current = "select";
+					setModeState("select");
+				}
+			} else if (currentMode === "pin") {
+				if (activeType !== "custom") {
+					const mapped = modeForExcalidrawTool(activeType);
+					modeRef.current = mapped ?? "select";
+					setModeState(mapped ?? "select");
+				}
+			} else if (currentMode === "scale") {
 				const selectedIds = Object.keys(appState.selectedElementIds).filter(
 					(id) => appState.selectedElementIds[id],
 				);
-				if (selectedIds.length === 1) {
+				if (!calibrationOpenRef.current && selectedIds.length === 1) {
 					const target = elements.find(
 						(element) => element.id === selectedIds[0],
 					);
 					if (target && isCalibrationCandidate(target) && !target.isDeleted) {
+						calibrationOpenRef.current = true;
 						setCalibrationTarget({
 							elementId: target.id,
 							pixelLength: polylineLengthFt(elementPoints(target), 1),
 						});
-						setCalibrating(false);
 					}
+				}
+			} else {
+				const mapped = modeForExcalidrawTool(activeType);
+				if (mapped && mapped !== currentMode) {
+					modeRef.current = mapped;
+					setModeState(mapped);
 				}
 			}
 		},
-		[queueSave, calibrating],
+		[queueSave, completeDraft],
 	);
 
-	const stampSelection = useCallback(
-		async (kind: ScopeCustomData["kind"]) => {
+	const placePin = useCallback(
+		async (scenePoint: { x: number; y: number }) => {
 			const api = apiRef.current;
 			if (!api) return;
-			const appState = api.getAppState();
-			const selectedIds = Object.keys(appState.selectedElementIds).filter(
-				(id) => appState.selectedElementIds[id],
-			);
-			if (selectedIds.length === 0) return;
-
-			const { CaptureUpdateAction, newElementWith } = await import(
+			const { CaptureUpdateAction, convertToExcalidrawElements } = await import(
 				"@excalidraw/excalidraw"
 			);
-			const elements = api.getSceneElements().map((element) => {
-				if (!selectedIds.includes(element.id)) return element;
-				const existingScope = scopeCustomData.safeParse(element.customData);
-				const customData: ScopeCustomData = {
-					...(existingScope.success ? existingScope.data : null),
-					scopeId: existingScope.success
-						? existingScope.data.scopeId
-						: crypto.randomUUID(),
-					kind,
-				};
-				return newElementWith(element, {
-					customData: { ...element.customData, ...customData },
-				});
-			});
+			const size = DRAWINGS.pin.sizePx;
+			const customData: ScopeCustomData = {
+				scopeId: crypto.randomUUID(),
+				kind: "pin",
+				serviceId: null,
+				label: null,
+				pitch: null,
+			};
+			const [pin] = convertToExcalidrawElements([
+				{
+					type: "ellipse",
+					x: scenePoint.x - size / 2,
+					y: scenePoint.y - size / 2,
+					width: size,
+					height: size,
+					customData,
+				},
+			]);
+			if (!pin) return;
 
 			api.updateScene({
-				elements,
+				elements: [...api.getSceneElements(), pin],
 				captureUpdate: CaptureUpdateAction.IMMEDIATELY,
 			});
 			queueSave();
@@ -314,48 +527,25 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		[queueSave],
 	);
 
-	const addPin = useCallback(async () => {
-		const api = apiRef.current;
-		if (!api) return;
-		const {
-			CaptureUpdateAction,
-			convertToExcalidrawElements,
-			viewportCoordsToSceneCoords,
-		} = await import("@excalidraw/excalidraw");
-		const appState = api.getAppState();
-		const center = viewportCoordsToSceneCoords(
-			{
-				clientX: appState.offsetLeft + appState.width / 2,
-				clientY: appState.offsetTop + appState.height / 2,
-			},
-			appState,
-		);
-		const size = DRAWINGS.pin.sizePx;
-		const customData: ScopeCustomData = {
-			scopeId: crypto.randomUUID(),
-			kind: "pin",
-			serviceId: null,
-			label: null,
-			pitch: null,
-		};
-		const [pin] = convertToExcalidrawElements([
-			{
-				type: "ellipse",
-				x: center.x - size / 2,
-				y: center.y - size / 2,
-				width: size,
-				height: size,
-				customData,
-			},
-		]);
-		if (!pin) return;
+	const onPointerDown = useCallback<OnPointerDown>(
+		(activeTool, pointerDownState) => {
+			if (modeRef.current !== "pin") return;
+			if (activeTool.type !== "custom") return;
+			void placePin(pointerDownState.origin);
+			setMode("select");
+		},
+		[placePin, setMode],
+	);
 
-		api.updateScene({
-			elements: [...api.getSceneElements(), pin],
-			captureUpdate: CaptureUpdateAction.IMMEDIATELY,
-		});
-		queueSave();
-	}, [queueSave]);
+	const handleOverflowAction = useCallback(
+		(action: OverflowAction) => {
+			if (action === "background") openFilePicker();
+			if (action === "history") setHistoryOpen(true);
+			if (action === "mark-area") void stampSelection("area");
+			if (action === "mark-line") void stampSelection("line");
+		},
+		[openFilePicker, stampSelection],
+	);
 
 	const updateShape = useCallback(
 		async (scopeId: string, update: ScopeShapeUpdate) => {
@@ -410,10 +600,12 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				referenceElementId: calibrationTarget.elementId,
 				gridFt,
 			});
+			calibrationOpenRef.current = false;
 			setCalibrationTarget(null);
+			setMode("select");
 			queueSave();
 		},
-		[calibrationTarget, queueSave],
+		[calibrationTarget, queueSave, setMode],
 	);
 
 	useEffect(() => {
@@ -432,96 +624,26 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}
 	}, [scale, excalidrawApi]);
 
+	const hint = surface === "sketch" ? hintFor(mode) : null;
+	const scaleLabel = scale
+		? `${Math.round(scale.pixelsPerFoot * 10) / 10} px/ft`
+		: null;
+
 	return (
-		<div className="flex h-full w-full min-w-0 flex-col">
-			<Tabs
-				onValueChange={(value) => setSurface(value as Surface)}
-				value={surface}
-			>
-				<div className="flex items-center gap-2 border-border border-b p-2">
-					<div className="w-48 shrink-0">
-						<InlineTextCell
-							label="Drawing title"
-							value={title}
-							saving={rename.isPending}
-							onSave={(next) => {
-								if (!next) return;
-								rename.mutate({ id: props.drawingId, title: next });
-							}}
-						/>
-					</div>
-
-					<TabsList>
-						<TabsTrigger value="sketch">Sketch</TabsTrigger>
-						{props.maptilerApiKey && (
-							<TabsTrigger value="satellite">Satellite</TabsTrigger>
-						)}
-					</TabsList>
-
-					<DrawingHistory
-						drawingId={props.drawingId}
-						onRestored={handleRestored}
-					/>
-
-					{surface === "sketch" && (
-						<>
-							<Button onClick={() => setCalibrating(true)} variant="outline">
-								Set scale
-							</Button>
-							<Button onClick={() => stampSelection("area")} variant="outline">
-								Mark area
-							</Button>
-							<Button onClick={() => stampSelection("line")} variant="outline">
-								Mark line
-							</Button>
-							<Button onClick={addPin} variant="outline">
-								Pin
-							</Button>
-							<SymbolPalette
-								apiRef={apiRef}
-								queueSave={queueSave}
-								scale={scale}
-								services={services.data?.rows ?? []}
-							/>
-							<Button onClick={openFilePicker} variant="outline">
-								Set background photo
-							</Button>
-							<input
-								accept="image/*"
-								className="hidden"
-								onChange={handleFileChange}
-								ref={inputRef}
-								type="file"
-							/>
-							{calibrating && (
-								<span className="text-muted-foreground text-xs">
-									Select a line to calibrate.
-								</span>
-							)}
-						</>
-					)}
-
-					<Button
-						className="ml-auto"
-						onClick={() => setAskJanusOpen(true)}
-						variant="outline"
-					>
-						Ask Janus
-					</Button>
-				</div>
-			</Tabs>
-
-			<div className="flex min-h-0 flex-1">
+		<div className="flex h-full w-full min-w-0">
+			<div className="relative h-full min-h-0 min-w-0 flex-1">
 				<div
 					className={
 						surface === "sketch"
-							? "janus-drawing-canvas h-full min-h-0 flex-1"
+							? "janus-drawing-canvas h-full min-h-0 w-full"
 							: "hidden"
 					}
 				>
 					<style>{`
 						.janus-drawing-canvas .default-sidebar-trigger { display: none; }
 						.janus-drawing-canvas .App-toolbar__extra-tools-trigger { display: none; }
+						.janus-drawing-canvas .App-toolbar-container { display: none; }
+						.janus-drawing-canvas .App-menu__left { margin-left: 56px; }
 						.excalidraw-modal-container .HelpDialog__header { display: none; }
 					`}</style>
 					<JanusExcalidraw
@@ -539,6 +661,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							} as unknown as ExcalidrawProps["initialData"]
 						}
 						onChange={onChange}
+						onPointerDown={onPointerDown}
 					/>
 				</div>
 
@@ -552,34 +675,135 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					/>
 				)}
 
-				<ScopePanel
-					generating={generateEstimate.isPending}
-					hasEstimate={newestEstimateId !== null}
-					onGenerate={async () => {
-						await flushPending();
-						generateEstimate.mutate({ drawingId: props.drawingId });
-					}}
-					onOpenEstimate={async () => {
-						if (!newestEstimateId) return;
-						await flushPending();
-						router.push(workspaceUrl(`/estimates/${newestEstimateId}`));
-					}}
-					onUpdateShape={updateShape}
-					services={services.data?.rows ?? []}
-					shapes={shapes}
-					symbols={symbols.data?.rows ?? []}
+				<div className="absolute top-3 left-14 z-10 flex items-center gap-2">
+					<div className="w-48 rounded-md border border-border bg-background">
+						<InlineTextCell
+							label="Drawing title"
+							value={title}
+							saving={rename.isPending}
+							onSave={(next) => {
+								if (!next) return;
+								rename.mutate({ id: props.drawingId, title: next });
+							}}
+						/>
+					</div>
+					{props.maptilerApiKey && (
+						<Tabs
+							onValueChange={(value) => {
+								exitMode();
+								setSurface(value as Surface);
+							}}
+							value={surface}
+						>
+							<TabsList>
+								<TabsTrigger value="sketch">Sketch</TabsTrigger>
+								<TabsTrigger value="satellite">Satellite</TabsTrigger>
+							</TabsList>
+						</Tabs>
+					)}
+				</div>
+
+				<Button
+					className="absolute top-3 right-3 z-10"
+					onClick={() => setAskJanusOpen(true)}
+					variant="outline"
+				>
+					Ask Janus
+				</Button>
+
+				{surface === "sketch" && (
+					<DrawingToolbar
+						mode={mode}
+						onModeChange={(next) => {
+							if (next === modeRef.current) {
+								exitMode();
+								return;
+							}
+							cancelDraft();
+							setMode(next);
+						}}
+						onOverflowAction={handleOverflowAction}
+						scaleLabel={scaleLabel}
+						symbolPalette={
+							<SymbolPalette
+								apiRef={apiRef}
+								queueSave={queueSave}
+								scale={scale}
+								services={services.data?.rows ?? []}
+								side="right"
+								trigger={
+									<Toggle aria-label="Symbols" pressed={false}>
+										<Icon icon={Stamp} />
+									</Toggle>
+								}
+							/>
+						}
+					/>
+				)}
+
+				{hint && (
+					<div className="-translate-x-1/2 absolute top-3 left-1/2 z-10 flex items-center gap-2 rounded-lg bg-foreground py-1.5 pr-1.5 pl-3 text-background text-sm shadow-md">
+						<span>{hint}</span>
+						<Button onClick={exitMode} size="sm" variant="secondary">
+							Cancel
+						</Button>
+					</div>
+				)}
+
+				{surface === "sketch" && scaleLabel && (
+					<div className="-translate-x-1/2 absolute bottom-3 left-1/2 z-10 rounded-lg border border-border bg-background px-3 py-1.5 text-muted-foreground text-xs shadow-md">
+						Scale{" "}
+						<span className="font-medium text-foreground">{scaleLabel}</span>
+						{scale?.gridFt ? ` · grid ${scale.gridFt} ft` : ""}
+					</div>
+				)}
+
+				<input
+					accept="image/*"
+					className="hidden"
+					onChange={handleFileChange}
+					ref={inputRef}
+					type="file"
 				/>
 			</div>
 
+			<ScopePanel
+				generating={generateEstimate.isPending}
+				hasEstimate={newestEstimateId !== null}
+				onGenerate={async () => {
+					await flushPending();
+					generateEstimate.mutate({ drawingId: props.drawingId });
+				}}
+				onOpenEstimate={async () => {
+					if (!newestEstimateId) return;
+					await flushPending();
+					router.push(workspaceUrl(`/estimates/${newestEstimateId}`));
+				}}
+				onUpdateShape={updateShape}
+				services={services.data?.rows ?? []}
+				shapes={shapes}
+				symbols={symbols.data?.rows ?? []}
+			/>
+
 			<ScaleDialog
+				defaultGridFt={scale?.gridFt ?? null}
 				onConfirm={confirmScale}
 				onOpenChange={(open) => {
 					if (!open) {
-						setCalibrating(false);
+						calibrationOpenRef.current = false;
 						setCalibrationTarget(null);
+						setMode("select");
 					}
 				}}
 				open={calibrationTarget !== null}
+				replacing={scale !== null}
+			/>
+
+			<DrawingHistory
+				drawingId={props.drawingId}
+				onOpenChange={setHistoryOpen}
+				onRestored={handleRestored}
+				open={historyOpen}
 			/>
 
 			<Sheet onOpenChange={setAskJanusOpen} open={askJanusOpen}>
