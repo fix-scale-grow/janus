@@ -29,6 +29,29 @@ describe("templateBlocksSchema", () => {
 		}
 	});
 
+	it("round-trips styled blocks and rejects a bad hex colour", () => {
+		const styled: TemplateBlocks = [
+			{
+				kind: "heading",
+				text: "Big red",
+				align: "center",
+				color: "#aa0011",
+				size: "lg",
+			},
+			{ kind: "text", html: "Body", align: "right", color: "#123456" },
+			{ kind: "logo", size: "sm", align: "center" },
+			{ kind: "divider", color: "#cccccc" },
+		];
+		expect(parseTemplateBlocks(styled)).toEqual(styled);
+
+		expect(() =>
+			parseTemplateBlocks([{ kind: "heading", text: "x", color: "red" }]),
+		).toThrow();
+		expect(() =>
+			parseTemplateBlocks([{ kind: "text", html: "x", align: "justify" }]),
+		).toThrow();
+	});
+
 	it("rejects an unknown block kind", () => {
 		const result = templateBlocksSchema.safeParse([
 			{ kind: "video", url: "x" },

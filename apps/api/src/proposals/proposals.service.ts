@@ -12,6 +12,7 @@ import {
 import { ContractsService } from "../contracts/contracts.service";
 import { InjectDatabase } from "../database/database.constants";
 import { readDocumentChrome } from "../documents/document-chrome";
+import { readLogoDataUrl } from "../documents/workspace-logo";
 import { tierTotals } from "../estimates/estimate-pdf";
 import { MailerService } from "../mailer/mailer.service";
 import { PhotosService } from "../photos/photos.service";
@@ -337,15 +338,17 @@ export class ProposalsService {
 		});
 		const photos = await this.photos.pdfPhotosForEstimate(proposal.estimateId);
 		const workspaceName = await this.workspaceName();
-		const [brand, chrome] = await Promise.all([
+		const [brand, chrome, logoDataUrl] = await Promise.all([
 			resolveEmailBrand(this.db),
 			readDocumentChrome(this.db),
+			readLogoDataUrl(),
 		]);
 
 		const buffer = await renderProposalPdf(
 			{
 				accentColor: brand.color,
 				chrome,
+				logoDataUrl,
 				number: proposal.number,
 				title: proposal.title,
 				coverTitle: proposal.coverTitle,

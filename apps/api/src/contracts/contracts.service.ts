@@ -19,6 +19,7 @@ import {
 	type DocumentChrome,
 	readDocumentChrome,
 } from "../documents/document-chrome";
+import { readLogoDataUrl } from "../documents/workspace-logo";
 import { tierTotals } from "../estimates/estimate-pdf";
 import { invoiceTotalCents } from "../invoices/invoice-pdf";
 import { MailerService } from "../mailer/mailer.service";
@@ -489,6 +490,7 @@ export class ContractsService {
 				context,
 				accentColor: chrome.accentColor,
 				chrome: chrome.chrome,
+				logoDataUrl: chrome.logoDataUrl,
 				signature:
 					contract.signedAt &&
 					contract.signerName &&
@@ -617,12 +619,14 @@ export class ContractsService {
 	private async pdfChrome(): Promise<{
 		accentColor: string;
 		chrome: DocumentChrome;
+		logoDataUrl: string | null;
 	}> {
-		const [brand, chrome] = await Promise.all([
+		const [brand, chrome, logoDataUrl] = await Promise.all([
 			resolveEmailBrand(this.db),
 			readDocumentChrome(this.db),
+			readLogoDataUrl(),
 		]);
-		return { accentColor: brand.color, chrome };
+		return { accentColor: brand.color, chrome, logoDataUrl };
 	}
 
 	private async contractBodySnapshot() {
@@ -689,6 +693,7 @@ export class ContractsService {
 					context,
 					accentColor: chrome.accentColor,
 					chrome: chrome.chrome,
+					logoDataUrl: chrome.logoDataUrl,
 					signature,
 				},
 				context["business.name"] ?? DEFAULT_WORKSPACE_NAME,

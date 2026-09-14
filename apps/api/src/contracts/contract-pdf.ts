@@ -37,6 +37,7 @@ export type ContractPdfInput = {
 	signature?: ContractPdfSignature;
 	accentColor?: string;
 	chrome?: DocumentChrome;
+	logoDataUrl?: string | null;
 };
 
 export type PdfChrome = {
@@ -44,6 +45,7 @@ export type PdfChrome = {
 	accentColor: string;
 	chrome: DocumentChrome;
 	context: Record<string, string>;
+	assets?: PdfBlockAssets;
 };
 
 const DEFAULT_ACCENT = "#006b4f";
@@ -55,10 +57,12 @@ export function pdfChromeElements(input: PdfChrome): {
 	const headerElements = renderBodyBlocks(
 		input.chrome.headerBlocks,
 		input.context,
+		input.assets,
 	);
 	const footerElements = renderBodyBlocks(
 		input.chrome.footerBlocks,
 		input.context,
+		input.assets,
 	);
 
 	const header = createElement(
@@ -244,12 +248,36 @@ function stripTags(html: string): string {
 		.trim();
 }
 
+export type PdfBlockAssets = { logoDataUrl?: string | null };
+
+const HEADING_PDF_SIZE: Record<"sm" | "md" | "lg", number> = {
+	sm: 10,
+	md: 12,
+	lg: 16,
+};
+
+const LOGO_PDF_SIZE: Record<"sm" | "md" | "lg", number> = {
+	sm: 24,
+	md: 36,
+	lg: 56,
+};
+
+const ALIGN_SELF: Record<
+	"left" | "center" | "right",
+	"flex-start" | "center" | "flex-end"
+> = {
+	left: "flex-start",
+	center: "center",
+	right: "flex-end",
+};
+
 export function renderBodyBlocks(
 	blocks: TemplateBlocks,
 	context: Record<string, string>,
+	assets: PdfBlockAssets = {},
 ): ReactElement[] {
 	return blocks
-		.map((block, index) => renderBodyBlock(block, context, index))
+		.map((block, index) => renderBodyBlock(block, context, index, assets))
 		.filter((element): element is ReactElement => element !== null);
 }
 
@@ -257,32 +285,76 @@ function renderBodyBlock(
 	block: TemplateBlocks[number],
 	context: Record<string, string>,
 	key: number,
+	assets: PdfBlockAssets = {},
 ): ReactElement | null {
 	switch (block.kind) {
 		case "heading":
 			return createElement(
 				Text,
-				{ key, style: styles.heading },
+				{
+					key,
+					style: [
+						styles.heading,
+						{ fontSize: HEADING_PDF_SIZE[block.size ?? "md"] },
+						block.align ? { textAlign: block.align } : {},
+						block.color ? { color: block.color } : {},
+					],
+				},
 				applyMergeFields(block.text, context),
 			);
 		case "text":
 			return createElement(
 				Text,
-				{ key, style: styles.text },
+				{
+					key,
+					style: [
+						styles.text,
+						block.align ? { textAlign: block.align } : {},
+						block.color ? { color: block.color } : {},
+					],
+				},
 				applyMergeFields(stripTags(block.html), context),
 			);
 		case "button":
 			return createElement(
 				Text,
-				{ key, style: styles.buttonLabel },
+				{
+					key,
+					style: [
+						styles.buttonLabel,
+						block.color ? { color: block.color } : {},
+					],
+				},
 				applyMergeFields(block.label, context),
 			);
 		case "divider":
-			return createElement(View, { key, style: styles.divider });
+			return createElement(View, {
+				key,
+				style: [
+					styles.divider,
+					block.color ? { borderBottomColor: block.color } : {},
+				],
+			});
 		case "spacer":
 			return createElement(View, { key, style: { height: block.height } });
-		case "logo":
-			return null;
+		case "logo": {
+			if (!assets.logoDataUrl) return null;
+			const size = LOGO_PDF_SIZE[block.size ?? "md"];
+			return createElement(
+				View,
+				{
+					key,
+					style: {
+						alignSelf: ALIGN_SELF[block.align ?? "left"],
+						marginVertical: 4,
+					},
+				},
+				createElement(Image, {
+					style: { height: size, objectFit: "contain" },
+					src: assets.logoDataUrl,
+				}),
+			);
+		}
 		case "signature":
 			return null;
 		case "pageBreak":
@@ -336,11 +408,12 @@ export async function renderContractPdf(
 		(block) => block.kind === "signature",
 	);
 
+	const assets: PdfBlockAssets = { logoDataUrl: input.logoDataUrl };
 	const bodyElements = input.bodyHtmlBlocks
 		.map((block, index) =>
 			block.kind === "signature"
 				? renderSignatureSection(input.signature, index)
-				: renderBodyBlock(block, input.context, index),
+				: renderBodyBlock(block, input.context, index, assets),
 		)
 		.filter((element): element is ReactElement => element !== null);
 
@@ -349,6 +422,7 @@ export async function renderContractPdf(
 		accentColor: input.accentColor ?? DEFAULT_ACCENT,
 		chrome: input.chrome ?? DEFAULT_DOCUMENT_CHROME,
 		context: input.context,
+		assets,
 	});
 
 	const document = createElement(

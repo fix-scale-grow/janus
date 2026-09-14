@@ -2,10 +2,15 @@
 
 import ArrowsVertical from "@carbon/icons-react/es/ArrowsVertical";
 import ButtonCentered from "@carbon/icons-react/es/ButtonCentered";
+import Close from "@carbon/icons-react/es/Close";
+import ColorPalette from "@carbon/icons-react/es/ColorPalette";
 import Image from "@carbon/icons-react/es/Image";
 import LineThin from "@carbon/icons-react/es/LineThin";
 import PageBreak from "@carbon/icons-react/es/PageBreak";
 import Pen from "@carbon/icons-react/es/Pen";
+import TextAlignCenterIcon from "@carbon/icons-react/es/TextAlignCenter";
+import TextAlignLeftIcon from "@carbon/icons-react/es/TextAlignLeft";
+import TextAlignRightIcon from "@carbon/icons-react/es/TextAlignRight";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import { Button } from "@crm/ui/components/button";
 import {
@@ -38,6 +43,8 @@ import {
 } from "./block-serialize";
 import {
 	BLOCK_KIND_LABELS,
+	type BlockAlign,
+	type BlockSize,
 	isEditableBlock,
 	TEMPLATE_BLOCKS,
 	type TemplateBlock,
@@ -182,6 +189,11 @@ export function BlockCanvas({
 								<span className="flex-1 font-medium text-muted-foreground text-xs">
 									{BLOCK_KIND_LABELS[row.block.kind]}
 								</span>
+								<BlockStyleControls
+									block={row.block}
+									className={ACTION}
+									onBlock={(next) => replaceBlock(row.id, next)}
+								/>
 								<Button
 									variant="ghost"
 									size="icon-xs"
@@ -210,6 +222,174 @@ export function BlockCanvas({
 				))}
 			</div>
 		</SortableList>
+	);
+}
+
+const ALIGN_OPTIONS: { value: BlockAlign; icon: CarbonIcon; label: string }[] =
+	[
+		{ value: "left", icon: TextAlignLeftIcon, label: "Align left" },
+		{ value: "center", icon: TextAlignCenterIcon, label: "Align centre" },
+		{ value: "right", icon: TextAlignRightIcon, label: "Align right" },
+	];
+
+const SIZE_LABELS: Record<BlockSize, string> = {
+	sm: "S",
+	md: "M",
+	lg: "L",
+};
+
+function alignable(block: TemplateBlock): boolean {
+	return (
+		block.kind === "heading" || block.kind === "text" || block.kind === "logo"
+	);
+}
+
+function colorable(block: TemplateBlock): boolean {
+	return (
+		block.kind === "heading" ||
+		block.kind === "text" ||
+		block.kind === "button" ||
+		block.kind === "divider"
+	);
+}
+
+function sizable(block: TemplateBlock): boolean {
+	return block.kind === "heading" || block.kind === "logo";
+}
+
+function withSize(block: TemplateBlock, size: BlockSize): TemplateBlock | null {
+	if (block.kind === "heading" || block.kind === "logo") {
+		return { ...block, size };
+	}
+	return null;
+}
+
+function withAlign(
+	block: TemplateBlock,
+	align: BlockAlign,
+): TemplateBlock | null {
+	if (
+		block.kind === "heading" ||
+		block.kind === "text" ||
+		block.kind === "logo"
+	) {
+		return { ...block, align };
+	}
+	return null;
+}
+
+function withColor(
+	block: TemplateBlock,
+	color: string | undefined,
+): TemplateBlock | null {
+	if (
+		block.kind === "heading" ||
+		block.kind === "text" ||
+		block.kind === "button" ||
+		block.kind === "divider"
+	) {
+		if (color === undefined) {
+			const { color: _dropped, ...rest } = block;
+			return rest;
+		}
+		return { ...block, color };
+	}
+	return null;
+}
+
+function BlockStyleControls({
+	block,
+	className,
+	onBlock,
+}: {
+	block: TemplateBlock;
+	className: string;
+	onBlock: (next: TemplateBlock) => void;
+}) {
+	if (!alignable(block) && !colorable(block) && !sizable(block)) return null;
+
+	const align = "align" in block ? block.align : undefined;
+	const color = "color" in block ? block.color : undefined;
+	const size = "size" in block ? block.size : undefined;
+
+	return (
+		<div className={cn("flex items-center gap-0.5", className)}>
+			{sizable(block) ? (
+				<div className="mr-1 flex items-center">
+					{(["sm", "md", "lg"] as const).map((option) => (
+						<Button
+							key={option}
+							variant="ghost"
+							size="icon-xs"
+							aria-label={`Size ${SIZE_LABELS[option]}`}
+							className={cn(
+								"font-semibold text-[10px]",
+								(size ?? "md") === option && "bg-muted text-foreground",
+							)}
+							onClick={() => {
+								const next = withSize(block, option);
+								if (next) onBlock(next);
+							}}
+						>
+							{SIZE_LABELS[option]}
+						</Button>
+					))}
+				</div>
+			) : null}
+			{alignable(block)
+				? ALIGN_OPTIONS.map((option) => (
+						<Button
+							key={option.value}
+							variant="ghost"
+							size="icon-xs"
+							aria-label={option.label}
+							className={cn(
+								(align ?? "left") === option.value &&
+									"bg-muted text-foreground",
+							)}
+							onClick={() => {
+								const next = withAlign(block, option.value);
+								if (next) onBlock(next);
+							}}
+						>
+							<Icon icon={option.icon} />
+						</Button>
+					))
+				: null}
+			{colorable(block) ? (
+				<label
+					className="relative ml-1 flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border"
+					aria-label="Block colour"
+					style={color ? { backgroundColor: color } : undefined}
+				>
+					{color ? null : (
+						<Icon icon={ColorPalette} className="text-muted-foreground" />
+					)}
+					<input
+						type="color"
+						value={color ?? "#111111"}
+						onChange={(event) => {
+							const next = withColor(block, event.target.value);
+							if (next) onBlock(next);
+						}}
+						className="absolute inset-0 cursor-pointer opacity-0"
+					/>
+				</label>
+			) : null}
+			{color ? (
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					aria-label="Clear colour"
+					onClick={() => {
+						const next = withColor(block, undefined);
+						if (next) onBlock(next);
+					}}
+				>
+					<Icon icon={Close} />
+				</Button>
+			) : null}
+		</div>
 	);
 }
 

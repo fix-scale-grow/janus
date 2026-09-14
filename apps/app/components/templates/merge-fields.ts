@@ -16,21 +16,43 @@ export const TEMPLATE_BLOCKS = {
 	spacer: { minHeight: 4, maxHeight: 96, defaultHeight: 24 },
 } as const;
 
+export const blockColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const blockAlignSchema = z.enum(["left", "center", "right"]);
+
+export const blockSizeSchema = z.enum(["sm", "md", "lg"]);
+
+export type BlockAlign = z.infer<typeof blockAlignSchema>;
+export type BlockSize = z.infer<typeof blockSizeSchema>;
+
 export const templateBlockSchema = z.discriminatedUnion("kind", [
 	z.object({
 		kind: z.literal("heading"),
 		text: z.string().max(TEMPLATE_BLOCKS.heading.maxTextLength),
+		align: blockAlignSchema.optional(),
+		color: blockColorSchema.optional(),
+		size: blockSizeSchema.optional(),
 	}),
 	z.object({
 		kind: z.literal("text"),
 		html: z.string().max(TEMPLATE_BLOCKS.text.maxHtmlLength),
+		align: blockAlignSchema.optional(),
+		color: blockColorSchema.optional(),
 	}),
 	z.object({
 		kind: z.literal("button"),
 		label: z.string().max(TEMPLATE_BLOCKS.button.maxLabelLength),
+		color: blockColorSchema.optional(),
 	}),
-	z.object({ kind: z.literal("logo") }),
-	z.object({ kind: z.literal("divider") }),
+	z.object({
+		kind: z.literal("logo"),
+		size: blockSizeSchema.optional(),
+		align: blockAlignSchema.optional(),
+	}),
+	z.object({
+		kind: z.literal("divider"),
+		color: blockColorSchema.optional(),
+	}),
 	z.object({ kind: z.literal("signature") }),
 	z.object({ kind: z.literal("pageBreak") }),
 	z.object({

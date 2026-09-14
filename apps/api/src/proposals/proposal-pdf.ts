@@ -10,7 +10,11 @@ import {
 } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { createElement } from "react";
-import { pdfChromeElements, renderBodyBlocks } from "../contracts/contract-pdf";
+import {
+	type PdfBlockAssets,
+	pdfChromeElements,
+	renderBodyBlocks,
+} from "../contracts/contract-pdf";
 import {
 	DEFAULT_DOCUMENT_CHROME,
 	type DocumentChrome,
@@ -47,6 +51,7 @@ export type ProposalPdfInput = {
 	createdAt: Date;
 	accentColor?: string;
 	chrome?: DocumentChrome;
+	logoDataUrl?: string | null;
 };
 
 const TIER_ORDER: EstimateTier[] = ["GOOD", "BETTER", "BEST"];
@@ -192,7 +197,12 @@ export async function renderProposalPdf(
 		),
 	);
 
-	const bodyElements = renderBodyBlocks(proposal.body, proposal.context);
+	const assets: PdfBlockAssets = { logoDataUrl: proposal.logoDataUrl };
+	const bodyElements = renderBodyBlocks(
+		proposal.body,
+		proposal.context,
+		assets,
+	);
 
 	const pricing = createElement(
 		View,
@@ -264,6 +274,7 @@ export async function renderProposalPdf(
 		accentColor: proposal.accentColor ?? "#006b4f",
 		chrome: proposal.chrome ?? DEFAULT_DOCUMENT_CHROME,
 		context: proposal.context,
+		assets,
 	});
 
 	const document = createElement(

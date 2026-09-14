@@ -75,9 +75,26 @@ function initialsFromBusinessName(context: Record<string, string>): string {
 		.join("");
 }
 
-function renderRow(content: string): string {
-	return `<tr><td style="padding:${CELL_PADDING};">${content}</td></tr>`;
+function renderRow(
+	content: string,
+	align?: "left" | "center" | "right",
+): string {
+	const alignStyle = align ? `text-align:${align};` : "";
+	const alignAttr = align ? ` align="${align}"` : "";
+	return `<tr><td${alignAttr} style="padding:${CELL_PADDING};${alignStyle}">${content}</td></tr>`;
 }
+
+const HEADING_SIZE_PX: Record<"sm" | "md" | "lg", number> = {
+	sm: 16,
+	md: 20,
+	lg: 28,
+};
+
+const LOGO_SIZE_PX: Record<"sm" | "md" | "lg", number> = {
+	sm: 32,
+	md: 44,
+	lg: 72,
+};
 
 function renderBlockHtml(
 	block: TemplateBlocks[number],
@@ -88,30 +105,38 @@ function renderBlockHtml(
 	switch (block.kind) {
 		case "heading": {
 			const text = escapeHtml(applyMergeFields(block.text, context));
+			const size = HEADING_SIZE_PX[block.size ?? "md"];
+			const color = block.color ?? "#111111";
 			return renderRow(
-				`<h2 style="margin:0;font-size:20px;line-height:1.3;color:#111111;font-family:Arial,sans-serif;">${text}</h2>`,
+				`<h2 style="margin:0;font-size:${size}px;line-height:1.3;color:${color};font-family:Arial,sans-serif;">${text}</h2>`,
+				block.align,
 			);
 		}
 		case "text": {
 			const html = applyMergeFieldsHtml(block.html, context);
+			const color = block.color ?? "#333333";
 			return renderRow(
-				`<div style="font-size:14px;line-height:1.5;color:#333333;font-family:Arial,sans-serif;">${html}</div>`,
+				`<div style="font-size:14px;line-height:1.5;color:${color};font-family:Arial,sans-serif;">${html}</div>`,
+				block.align,
 			);
 		}
 		case "button": {
 			const label = escapeHtml(applyMergeFields(block.label, context));
 			const href = escapeAttribute(context.signing_link ?? "#");
+			const background = block.color ?? brand.color;
 			if (mode === "document") {
 				return renderRow(
-					`<a href="${href}" style="display:inline-block;padding:12px 24px;background:${brand.color};border-radius:5px;color:${brand.foreground};text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a>`,
+					`<a href="${href}" style="display:inline-block;padding:12px 24px;background:${background};border-radius:5px;color:${brand.foreground};text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a>`,
 				);
 			}
 			return renderRow(
-				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:${brand.color};border-radius:5px;" bgcolor="${brand.color}"><a href="${href}" style="display:inline-block;padding:12px 24px;color:${brand.foreground};text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a></td></tr></table>`,
+				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:${background};border-radius:5px;" bgcolor="${background}"><a href="${href}" style="display:inline-block;padding:12px 24px;color:${brand.foreground};text-decoration:none;font-family:Arial,sans-serif;font-size:14px;">${label}</a></td></tr></table>`,
 			);
 		}
-		case "divider":
-			return `<tr><td style="padding:0 32px;"><hr style="border:none;border-top:1px solid #e5e5e5;margin:0;"></td></tr>`;
+		case "divider": {
+			const color = block.color ?? "#e5e5e5";
+			return `<tr><td style="padding:0 32px;"><hr style="border:none;border-top:1px solid ${color};margin:0;"></td></tr>`;
+		}
 		case "signature":
 			if (mode !== "document") return "";
 			return renderRow(
@@ -123,15 +148,22 @@ function renderBlockHtml(
 		case "spacer":
 			return `<tr><td style="padding:0;height:${block.height}px;line-height:${block.height}px;font-size:1px;">&nbsp;</td></tr>`;
 		case "logo": {
+			const logoSize = block.size ? LOGO_SIZE_PX[block.size] : LOGO_SIZE;
+			const inlineWrap =
+				block.align === "center" || block.align === "right"
+					? "display:inline-block;"
+					: "display:block;";
 			if (brand.logoUrl) {
 				const src = escapeAttribute(brand.logoUrl);
 				return renderRow(
-					`<img src="${src}" alt="" width="${LOGO_SIZE}" height="${LOGO_SIZE}" style="max-height:${LOGO_SIZE}px;width:auto;display:block;">`,
+					`<img src="${src}" alt="" width="${logoSize}" height="${logoSize}" style="max-height:${logoSize}px;width:auto;${inlineWrap}">`,
+					block.align,
 				);
 			}
 			const initials = initialsFromBusinessName(context);
 			return renderRow(
-				`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="${LOGO_SIZE}" height="${LOGO_SIZE}" style="width:${LOGO_SIZE}px;height:${LOGO_SIZE}px;border-radius:${LOGO_SIZE / 2}px;background:${brand.color};color:${brand.foreground};text-align:center;vertical-align:middle;font-family:Arial,sans-serif;font-size:16px;" bgcolor="${brand.color}">${initials}</td></tr></table>`,
+				`<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${block.align === "center" ? "margin:0 auto;" : block.align === "right" ? "margin-left:auto;" : ""}"><tr><td width="${logoSize}" height="${logoSize}" style="width:${logoSize}px;height:${logoSize}px;border-radius:${logoSize / 2}px;background:${brand.color};color:${brand.foreground};text-align:center;vertical-align:middle;font-family:Arial,sans-serif;font-size:16px;" bgcolor="${brand.color}">${initials}</td></tr></table>`,
+				block.align,
 			);
 		}
 	}

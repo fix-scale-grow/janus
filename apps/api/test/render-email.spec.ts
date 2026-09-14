@@ -45,6 +45,27 @@ describe("renderEmailHtml", () => {
 		expect(html).toContain("Hello there");
 	});
 
+	it("applies block colour, alignment and heading size", () => {
+		const { html } = renderEmailHtml(
+			[
+				{
+					kind: "heading",
+					text: "Styled",
+					align: "center",
+					color: "#aa0011",
+					size: "lg",
+				},
+				{ kind: "divider", color: "#00ff00" },
+			],
+			CONTEXT,
+		);
+
+		expect(html).toContain("font-size:28px");
+		expect(html).toContain("color:#aa0011");
+		expect(html).toContain("text-align:center");
+		expect(html).toContain("#00ff00");
+	});
+
 	it("renders a text block, passing sanitized html through as-is", () => {
 		const blocks: TemplateBlocks = [
 			{ kind: "text", html: "<b>Hi</b> {{contact.first_name}}" },

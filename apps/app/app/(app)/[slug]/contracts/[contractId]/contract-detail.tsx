@@ -151,6 +151,7 @@ function ContractBodyBlockRow({
 		return (
 			<h2
 				className="font-semibold text-base"
+				style={{ textAlign: block.align, color: block.color }}
 				// biome-ignore lint/security/noDangerouslySetInnerHtml: block html is sanitized before storage
 				dangerouslySetInnerHTML={{ __html: toEditorText(block.text, labels) }}
 			/>
@@ -161,6 +162,7 @@ function ContractBodyBlockRow({
 		return (
 			<div
 				className="whitespace-pre-wrap text-sm"
+				style={{ textAlign: block.align, color: block.color }}
 				// biome-ignore lint/security/noDangerouslySetInnerHtml: block html is sanitized before storage
 				dangerouslySetInnerHTML={{ __html: toEditorHtml(block.html, labels) }}
 			/>

@@ -43,6 +43,7 @@ type DocumentChrome = RouterOutputs["settings"]["documentChrome"];
 export type ChromePart = "header" | "footer";
 
 const CHROME_KINDS: TemplateBlockKind[] = [
+	"logo",
 	"heading",
 	"text",
 	"divider",
@@ -90,6 +91,16 @@ function PreviewBlock({
 	}
 	if (block.kind === "spacer") {
 		return <span style={{ height: Math.min(block.height, 24) }} />;
+	}
+	if (block.kind === "logo") {
+		return (
+			// biome-ignore lint/performance/noImgElement: small live preview of the uploaded logo
+			<img
+				src="/api/workspace/logo/file"
+				alt="Logo"
+				className="max-h-8 w-auto self-start object-contain"
+			/>
+		);
 	}
 	return null;
 }
