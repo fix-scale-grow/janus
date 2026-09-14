@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
 import { ForbiddenException } from "@nestjs/common";
+import { ConversionService } from "../src/currency/conversion.service";
 import { PermissionsService } from "../src/permissions/permissions.service";
 import { ReportsService } from "../src/reports/reports.service";
 import { agingBucket, fallbackDueAt } from "../src/reports/reports-logic";
@@ -9,7 +10,8 @@ import { agingBucket, fallbackDueAt } from "../src/reports/reports-logic";
 const suffix = process.env.TEST_RUN_ID ?? "reports-money-spec";
 
 const permissions = new PermissionsService(db);
-const service = new ReportsService(db, permissions);
+const conversion = new ConversionService(db);
+const service = new ReportsService(db, permissions, conversion);
 
 let adminUserId: string;
 let memberUserId: string;

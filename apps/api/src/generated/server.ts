@@ -893,7 +893,22 @@ const appRouter = t.router({
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["costBreakdown"]>>),
     arAging: publicProcedure
       .input(reportRangeInput)
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["arAging"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["arAging"]>>),
+    leaderboard: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["leaderboard"]>>),
+    pipeline: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["pipeline"]>>),
+    leadSources: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["leadSources"]>>),
+    production: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["production"]>>),
+    permits: publicProcedure
+      .input(reportRangeInput)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ReportsRouter["permits"]>>)
     }),
   search: t.router({
     quick: publicProcedure
