@@ -410,6 +410,10 @@ function BrandCard({ workspace }: { workspace: Workspace }) {
 								</Button>
 							) : null}
 						</div>
+						<p className="text-muted-foreground text-xs">
+							PNG or JPG prints everywhere, including PDF documents. SVG and
+							WebP show in the app and in emails only.
+						</p>
 						<FieldDescription>
 							PNG, SVG, JPEG or WebP, up to 2 MB. Shown in the app shell, the
 							sign-in page and emails.
