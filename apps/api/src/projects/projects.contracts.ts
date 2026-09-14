@@ -1,4 +1,5 @@
 import { ProjectStatus, ProjectTaskStatus } from "@crm/db";
+import type { InspectionResult } from "@crm/db/enums";
 import { z } from "zod";
 import { listInput } from "../trpc/list-input";
 import { DAY_MS, PROJECTS } from "./projects.config";
@@ -83,6 +84,15 @@ export const projectCalendarInput = z
 	});
 
 export type ProjectCalendarInput = z.infer<typeof projectCalendarInput>;
+
+export type ProjectCalendarInspection = {
+	id: string;
+	name: string;
+	date: Date;
+	criticalNote: string | null;
+	result: InspectionResult;
+	permitId: string;
+};
 
 export const projectIdInput = z.object({ id: z.string().min(1) });
 

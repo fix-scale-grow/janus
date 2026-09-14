@@ -34,7 +34,7 @@ import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { AddTaskPanel } from "./add-task-panel";
-import { CalendarGrid } from "./calendar-grid";
+import { CalendarGrid, type CalendarInspection } from "./calendar-grid";
 import { barClasses, taskBarClasses } from "./task-bar";
 import { TimelineView } from "./timeline-view";
 import { UnscheduledStrip } from "./unscheduled-strip";
@@ -184,6 +184,23 @@ export function CalendarView({
 		[tab, view, anchor],
 	);
 
+	const calendarFrom = weeks[0]?.[0] ?? anchor;
+	const calendarTo = addDays(weeks[weeks.length - 1]?.[0] ?? anchor, 6);
+	const calendarRange = useQuery({
+		...trpc.projects.calendarRange.queryOptions({
+			from: calendarFrom,
+			to: calendarTo,
+		}),
+		enabled: tab === "calendar",
+	});
+	const inspections = useMemo<CalendarInspection[]>(() => {
+		const row = calendarRange.data?.find((entry) => entry.id === id);
+		return (row?.inspections ?? []).map((inspection) => ({
+			...inspection,
+			date: new Date(inspection.date),
+		}));
+	}, [calendarRange.data, id]);
+
 	const activeTask =
 		activeId != null
 			? (tasks.find((task) => task.id === activeId) ?? null)
@@ -320,6 +337,8 @@ export function CalendarView({
 					<CalendarGrid
 						weeks={weeks}
 						scheduled={scheduled}
+						inspections={inspections}
+						dealId={project.data.deal?.id ?? null}
 						view={view}
 						today={todayKey}
 						goalKey={goalKey}

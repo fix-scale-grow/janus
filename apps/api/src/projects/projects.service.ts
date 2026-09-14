@@ -1,5 +1,6 @@
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import { ProductionStage, ProjectTaskStatus } from "@crm/db/enums";
+import { readPermitSettings } from "@crm/db/settings";
 import {
 	BadRequestException,
 	Injectable,
@@ -9,15 +10,17 @@ import { InjectDatabase } from "../database/database.constants";
 import { ProductionAdvanceService } from "../production/production-advance.service";
 import { paginate, resolveOrderBy } from "../trpc/list-input";
 import { DAY_MS, PROJECTS } from "./projects.config";
-import type {
-	ProjectCalendarInput,
-	ProjectCreateInput,
-	ProjectListInput,
-	ProjectMoveScheduleInput,
-	ProjectUpdateInput,
-	TaskCreateInput,
-	TaskMoveInput,
-	TaskUpdateInput,
+import {
+	type ProjectCalendarInput,
+	type ProjectCalendarInspection,
+	type ProjectCreateInput,
+	type ProjectListInput,
+	type ProjectMoveScheduleInput,
+	type ProjectUpdateInput,
+	type TaskCreateInput,
+	type TaskMoveInput,
+	type TaskUpdateInput,
+	toDay,
 } from "./projects.contracts";
 
 const SORTABLE: Record<
@@ -118,6 +121,71 @@ export class ProjectsService {
 	}
 
 	async calendarRange(input: ProjectCalendarInput) {
+		const rows = await this.loadCalendarRows(input);
+		const dealIds = [
+			...new Set(
+				rows
+					.map((row) => row.deal?.id)
+					.filter((value): value is string => value !== undefined),
+			),
+		];
+		const inspectionsByDeal = await this.loadInspections(
+			dealIds,
+			input.from,
+			input.to,
+		);
+
+		return rows.map((row) => ({
+			...row,
+			inspections: row.deal ? (inspectionsByDeal.get(row.deal.id) ?? []) : [],
+		}));
+	}
+
+	private async loadInspections(
+		dealIds: string[],
+		from: Date,
+		to: Date,
+	): Promise<Map<string, ProjectCalendarInspection[]>> {
+		const byDeal = new Map<string, ProjectCalendarInspection[]>();
+		if (dealIds.length === 0) return byDeal;
+
+		const settings = await readPermitSettings(this.db);
+		if (!settings.permitsEnabled) return byDeal;
+
+		const rangeEnd = new Date(to.getTime() + DAY_MS);
+		const inspections = await this.db.permitInspection.findMany({
+			where: {
+				scheduledFor: { gte: from, lt: rangeEnd },
+				permit: { dealId: { in: dealIds } },
+			},
+			select: {
+				id: true,
+				name: true,
+				scheduledFor: true,
+				criticalNote: true,
+				result: true,
+				permitId: true,
+				permit: { select: { dealId: true } },
+			},
+		});
+
+		for (const inspection of inspections) {
+			if (!inspection.scheduledFor) continue;
+			const list = byDeal.get(inspection.permit.dealId) ?? [];
+			list.push({
+				id: inspection.id,
+				name: inspection.name,
+				date: toDay(inspection.scheduledFor),
+				criticalNote: inspection.criticalNote,
+				result: inspection.result,
+				permitId: inspection.permitId,
+			});
+			byDeal.set(inspection.permit.dealId, list);
+		}
+		return byDeal;
+	}
+
+	private async loadCalendarRows(input: ProjectCalendarInput) {
 		const rows = await this.db.project.findMany({
 			where: {
 				...(input.status ? { status: input.status } : {}),

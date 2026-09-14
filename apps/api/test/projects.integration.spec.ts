@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { writePermitSettings } from "@crm/db/settings";
 import { NotFoundException } from "@nestjs/common";
 import { ProductionAdvanceService } from "../src/production/production-advance.service";
 import { ProjectsService } from "../src/projects/projects.service";
@@ -751,6 +752,164 @@ describe("ProjectsService", () => {
 		expect(survivor.tasks).toHaveLength(1);
 
 		await db.projectTask.deleteMany({ where: { projectId: project.id } });
+		await db.project.delete({ where: { id: project.id } });
+	});
+});
+
+describe("ProjectsService calendarRange inspections", () => {
+	let jurisdictionId: string;
+	let permitId: string;
+
+	beforeAll(async () => {
+		const jurisdiction = await db.jurisdiction.create({
+			data: {
+				name: `Inspection City ${suffix}`,
+				kind: "CITY",
+				state: "CO",
+				matchKey: `inspection-city-${suffix}`,
+			},
+			select: { id: true },
+		});
+		jurisdictionId = jurisdiction.id;
+
+		const permit = await db.permit.create({
+			data: {
+				dealId,
+				jurisdictionId,
+				permitType: "BUILDING",
+				createdById: userId,
+			},
+			select: { id: true },
+		});
+		permitId = permit.id;
+
+		await writePermitSettings(db, { permitsEnabled: true });
+	});
+
+	afterAll(async () => {
+		await db.permitInspection.deleteMany({ where: { permitId } });
+		await db.permit.deleteMany({ where: { id: permitId } });
+		await db.jurisdiction.deleteMany({ where: { id: jurisdictionId } });
+		await writePermitSettings(db, { permitsEnabled: false });
+	});
+
+	it("includes an inspection scheduled inside the range", async () => {
+		const from = new Date("2029-01-01T00:00:00.000Z");
+		const to = new Date("2029-01-31T00:00:00.000Z");
+		const project = await service.create(
+			{
+				dealId,
+				name: `Inspection in range ${suffix}`,
+				startDate: new Date("2029-01-05T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const inspection = await db.permitInspection.create({
+			data: {
+				permitId,
+				name: "Framing",
+				scheduledFor: new Date("2029-01-15T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+		const entry = found?.inspections.find((row) => row.id === inspection.id);
+
+		expect(entry?.date).toEqual(new Date("2029-01-15T00:00:00.000Z"));
+		expect(entry?.result).toBe("PENDING");
+		expect(entry?.permitId).toBe(permitId);
+
+		await db.permitInspection.delete({ where: { id: inspection.id } });
+	});
+
+	it("excludes an inspection scheduled outside the range", async () => {
+		const from = new Date("2029-02-01T00:00:00.000Z");
+		const to = new Date("2029-02-28T00:00:00.000Z");
+		const project = await service.create(
+			{
+				dealId,
+				name: `Inspection out of range ${suffix}`,
+				startDate: new Date("2029-02-05T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const inspection = await db.permitInspection.create({
+			data: {
+				permitId,
+				name: "Final",
+				scheduledFor: new Date("2029-03-15T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.inspections).toEqual([]);
+
+		await db.permitInspection.delete({ where: { id: inspection.id } });
+	});
+
+	it("returns no inspections while the permits feature is off", async () => {
+		const from = new Date("2029-04-01T00:00:00.000Z");
+		const to = new Date("2029-04-30T00:00:00.000Z");
+		const project = await service.create(
+			{
+				dealId,
+				name: `Inspection feature off ${suffix}`,
+				startDate: new Date("2029-04-05T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const inspection = await db.permitInspection.create({
+			data: {
+				permitId,
+				name: "Rough-in",
+				scheduledFor: new Date("2029-04-15T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+
+		await writePermitSettings(db, { permitsEnabled: false });
+		try {
+			const rows = await service.calendarRange({ from, to });
+			const found = rows.find((row) => row.id === project.id);
+			expect(found?.inspections).toEqual([]);
+		} finally {
+			await writePermitSettings(db, { permitsEnabled: true });
+		}
+
+		await db.permitInspection.delete({ where: { id: inspection.id } });
+	});
+
+	it("returns no inspections for a project without a deal", async () => {
+		const from = new Date("2029-05-01T00:00:00.000Z");
+		const to = new Date("2029-05-31T00:00:00.000Z");
+		const project = await service.create(
+			{
+				name: `Inspection no deal ${suffix}`,
+				startDate: new Date("2029-05-05T00:00:00.000Z"),
+			},
+			userId,
+		);
+		const inspection = await db.permitInspection.create({
+			data: {
+				permitId,
+				name: "No deal",
+				scheduledFor: new Date("2029-05-15T00:00:00.000Z"),
+			},
+			select: { id: true },
+		});
+
+		const rows = await service.calendarRange({ from, to });
+		const found = rows.find((row) => row.id === project.id);
+
+		expect(found?.deal).toBeNull();
+		expect(found?.inspections).toEqual([]);
+
+		await db.permitInspection.delete({ where: { id: inspection.id } });
 		await db.project.delete({ where: { id: project.id } });
 	});
 });

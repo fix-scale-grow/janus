@@ -8,17 +8,25 @@ import {
 import { cn } from "@crm/ui/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import type { BoardDensity } from "@/components/board/use-board-density";
+import {
+	InspectionChip,
+	type InspectionChipData,
+} from "@/components/permits/inspection-chip";
 import { CALENDAR } from "@/lib/calendar/calendar-config";
 import { dayKey, layoutWeek } from "@/lib/calendar/span-layout";
 import type { CalendarTask } from "./calendar-view";
 import { TaskBar } from "./task-bar";
 import { TaskPopover } from "./task-card";
 
+export type CalendarInspection = InspectionChipData & { date: Date };
+
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function CalendarGrid({
 	weeks,
 	scheduled,
+	inspections,
+	dealId,
 	view,
 	today,
 	goalKey,
@@ -29,6 +37,8 @@ export function CalendarGrid({
 }: {
 	weeks: Date[][];
 	scheduled: CalendarTask[];
+	inspections: CalendarInspection[];
+	dealId: string | null;
 	view: "month" | "week";
 	today: string;
 	goalKey: string | null;
@@ -40,6 +50,8 @@ export function CalendarGrid({
 	const maxLanes =
 		view === "month" ? CALENDAR.monthMaxLanes : CALENDAR.weekMaxLanes;
 	const compact = density === "compact";
+	const inspectionRowRem = compact ? 1.25 : 1.5;
+	const basePaddingRem = compact ? 1.5 : 1.75;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-lg border border-border">
@@ -54,14 +66,23 @@ export function CalendarGrid({
 				const weekStart = week[0];
 				if (!weekStart) return null;
 				const { bars, overflow } = layoutWeek(scheduled, weekStart, maxLanes);
+				const dayInspections = week.map((day) =>
+					inspections.filter(
+						(inspection) => dayKey(inspection.date) === dayKey(day),
+					),
+				);
+				const maxInspectionRows = Math.max(
+					0,
+					...dayInspections.map((rows) => rows.length),
+				);
+				const barsTopRem =
+					basePaddingRem + maxInspectionRows * inspectionRowRem;
 				const minHeight =
 					view === "week"
 						? compact
 							? "16rem"
 							: "20rem"
-						: compact
-							? "6rem"
-							: "7.5rem";
+						: `${(compact ? 6 : 7.5) + maxInspectionRows * inspectionRowRem}rem`;
 				return (
 					<div
 						key={dayKey(weekStart)}
@@ -79,6 +100,8 @@ export function CalendarGrid({
 								}
 								isToday={dayKey(day) === today}
 								isGoal={goalKey !== null && dayKey(day) === goalKey}
+								inspections={dayInspections[index] ?? []}
+								dealId={dealId}
 								overflowCount={overflow[index] ?? 0}
 								overflowTasks={scheduled.filter(
 									(task) =>
@@ -91,10 +114,8 @@ export function CalendarGrid({
 							/>
 						))}
 						<div
-							className={cn(
-								"pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7",
-								compact ? "pt-6" : "pt-7",
-							)}
+							className="pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7"
+							style={{ paddingTop: `${barsTopRem}rem` }}
 						>
 							{bars.map((bar) => (
 								<TaskBar
@@ -119,6 +140,8 @@ function DayCell({
 	inAnchorMonth,
 	isToday,
 	isGoal,
+	inspections,
+	dealId,
 	overflowCount,
 	overflowTasks,
 	projectId,
@@ -130,6 +153,8 @@ function DayCell({
 	inAnchorMonth: boolean;
 	isToday: boolean;
 	isGoal: boolean;
+	inspections: CalendarInspection[];
+	dealId: string | null;
 	overflowCount: number;
 	overflowTasks: CalendarTask[];
 	projectId: string;
@@ -171,6 +196,17 @@ function DayCell({
 					<span className="text-primary text-xs font-medium">Goal</span>
 				) : null}
 			</div>
+			{inspections.length > 0 && dealId ? (
+				<div className={cn("flex flex-col", compact ? "gap-0.5" : "gap-1")}>
+					{inspections.map((inspection) => (
+						<InspectionChip
+							key={inspection.id}
+							inspection={inspection}
+							dealId={dealId}
+						/>
+					))}
+				</div>
+			) : null}
 			{overflowCount > 0 ? (
 				<Popover>
 					<PopoverTrigger asChild>
