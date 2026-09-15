@@ -391,10 +391,15 @@ export class InvoicesService {
 	private async serviceLine(serviceId: string) {
 		const service = await this.db.service.findUnique({
 			where: { id: serviceId },
-			select: { name: true, unit: true, unitPriceCents: true },
+			select: { name: true, unit: true, unitPriceCents: true, active: true },
 		});
 		if (!service) {
 			throw new NotFoundException(`No service with id ${serviceId}.`);
+		}
+		if (!service.active) {
+			throw new BadRequestException(
+				"That service is archived. Pick an active one.",
+			);
 		}
 		return {
 			name: service.name,

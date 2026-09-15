@@ -302,6 +302,11 @@ export class EstimatesService {
 			if (!service) {
 				throw new NotFoundException(`No service with id ${input.serviceId}.`);
 			}
+			if (!service.active) {
+				throw new BadRequestException(
+					"That service is archived. Pick an active one.",
+				);
+			}
 
 			const count = await this.db.estimateLineItem.count({
 				where: { estimateId: input.estimateId },
