@@ -7,6 +7,12 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import {
 	BadRequestException,
 	ConflictException,
@@ -211,8 +217,10 @@ export class ContractsService {
 		private readonly mailer: MailerService,
 	) {}
 
-	async list(input: ContractListInput) {
-		const where = this.buildWhere(input);
+	async list(input: ContractListInput, p: AccessPrincipal) {
+		const where: Prisma.ContractWhereInput = {
+			AND: [this.buildWhere(input), dealChildWhere(p)],
+		};
 		const { skip, take } = paginate(input);
 
 		const [rows, total] = await Promise.all([
@@ -241,9 +249,9 @@ export class ContractsService {
 		};
 	}
 
-	async byId(id: string) {
-		const row = await this.db.contract.findUnique({
-			where: { id },
+	async byId(id: string, p: AccessPrincipal) {
+		const row = await this.db.contract.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
 			select: DETAIL_SELECT,
 		});
 
@@ -257,9 +265,10 @@ export class ContractsService {
 	async createFromEstimate(
 		input: ContractCreateFromEstimateInput,
 		userId: string,
+		p: AccessPrincipal,
 	) {
-		const estimate = await this.db.estimate.findUnique({
-			where: { id: input.estimateId },
+		const estimate = await this.db.estimate.findFirst({
+			where: { AND: [{ id: input.estimateId }, dealChildWhere(p)] },
 			select: { title: true, dealId: true, contactId: true },
 		});
 
@@ -284,7 +293,13 @@ export class ContractsService {
 		return { ...row, body: parseTemplateBlocks(row.body) };
 	}
 
-	async create(input: ContractCreateInput, userId: string) {
+	async create(input: ContractCreateInput, p: AccessPrincipal) {
+		if (input.dealId) {
+			await this.assertDealInScope(input.dealId, p);
+		}
+		if (input.contactId) {
+			await this.assertContactInScope(input.contactId, p);
+		}
 		const body = await this.contractBodySnapshot();
 
 		const row = await this.db.contract.create({
@@ -293,7 +308,7 @@ export class ContractsService {
 				dealId: input.dealId,
 				contactId: input.contactId,
 				body,
-				createdById: userId,
+				createdById: p.userId,
 			},
 			select: DETAIL_SELECT,
 		});
@@ -301,7 +316,11 @@ export class ContractsService {
 		return { ...row, body: parseTemplateBlocks(row.body) };
 	}
 
-	async update(input: ContractUpdateInput) {
+	async update(input: ContractUpdateInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
+		if (input.data.contactId) {
+			await this.assertContactInScope(input.data.contactId, p);
+		}
 		const existing = await this.loadOrThrow(input.id);
 
 		if (existing.status !== "DRAFT") {
@@ -342,7 +361,13 @@ export class ContractsService {
 		}
 	}
 
-	async send(input: ContractSendInput, senderName?: string) {
+	async send(
+		input: ContractSendInput,
+		senderName: string | undefined,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
+
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -432,7 +457,8 @@ export class ContractsService {
 		}
 	}
 
-	async void(id: string) {
+	async void(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		const existing = await this.loadOrThrow(id);
 
 		if (existing.status !== "DRAFT" && existing.status !== "SENT") {
@@ -452,7 +478,8 @@ export class ContractsService {
 		}
 	}
 
-	async delete(id: string) {
+	async delete(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		const existing = await this.loadOrThrow(id);
 
 		if (existing.status !== "DRAFT") {
@@ -469,7 +496,11 @@ export class ContractsService {
 		}
 	}
 
-	async document(id: string): Promise<{ filename: string; base64: string }> {
+	async document(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ filename: string; base64: string }> {
+		await this.assertInScope(id, p);
 		const contract = await this.loadOrThrow(id);
 		const workspaceName = await this.workspaceName();
 
@@ -614,6 +645,38 @@ export class ContractsService {
 
 	mailerConfigured(): boolean {
 		return this.mailer.isConfigured();
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.contract.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No contract with id ${id}.`);
+	}
+
+	private async assertDealInScope(
+		dealId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No deal with id ${dealId}.`);
+	}
+
+	private async assertContactInScope(
+		contactId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.contact.findFirst({
+			where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No contact with id ${contactId}.`);
+		}
 	}
 
 	private async pdfChrome(): Promise<{

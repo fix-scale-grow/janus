@@ -1,5 +1,11 @@
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import {
 	BadRequestException,
 	Injectable,
@@ -92,8 +98,10 @@ export class InvoicesService {
 		private readonly production: ProductionAdvanceService,
 	) {}
 
-	async list(input: InvoiceListInput) {
-		const where = this.buildWhere(input);
+	async list(input: InvoiceListInput, p: AccessPrincipal) {
+		const where: Prisma.InvoiceWhereInput = {
+			AND: [this.buildWhere(input), dealChildWhere(p)],
+		};
 		const { skip, take } = paginate(input);
 		const now = new Date();
 
@@ -125,9 +133,9 @@ export class InvoicesService {
 		};
 	}
 
-	async byId(id: string) {
-		const row = await this.db.invoice.findUnique({
-			where: { id },
+	async byId(id: string, p: AccessPrincipal) {
+		const row = await this.db.invoice.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
 			include: {
 				lineItems: { orderBy: { sortOrder: "asc" } },
 			},
@@ -149,7 +157,13 @@ export class InvoicesService {
 		};
 	}
 
-	async create(input: InvoiceCreateInput, userId: string) {
+	async create(input: InvoiceCreateInput, p: AccessPrincipal) {
+		if (input.dealId) {
+			await this.assertDealInScope(input.dealId, p);
+		}
+		if (input.contactId) {
+			await this.assertContactInScope(input.contactId, p);
+		}
 		const currency = await this.currencyFor(input.dealId);
 
 		try {
@@ -158,7 +172,7 @@ export class InvoicesService {
 					dealId: input.dealId,
 					contactId: input.contactId,
 					currency,
-					createdById: userId,
+					createdById: p.userId,
 				},
 			});
 		} catch (error) {
@@ -168,10 +182,10 @@ export class InvoicesService {
 
 	async createFromEstimate(
 		input: InvoiceCreateFromEstimateInput,
-		userId: string,
+		p: AccessPrincipal,
 	) {
-		const estimate = await this.db.estimate.findUnique({
-			where: { id: input.estimateId },
+		const estimate = await this.db.estimate.findFirst({
+			where: { AND: [{ id: input.estimateId }, dealChildWhere(p)] },
 			include: { lineItems: { orderBy: { sortOrder: "asc" } } },
 		});
 
@@ -196,7 +210,7 @@ export class InvoicesService {
 					contactId: estimate.contactId,
 					estimateId: estimate.id,
 					dueAt,
-					createdById: userId,
+					createdById: p.userId,
 				},
 			});
 
@@ -211,7 +225,12 @@ export class InvoicesService {
 		});
 	}
 
-	async setStatus(input: InvoiceSetStatusInput, actingUserId: string) {
+	async setStatus(
+		input: InvoiceSetStatusInput,
+		actingUserId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
 		const invoice = await this.db.invoice.findUnique({
 			where: { id: input.id },
 			select: { issuedAt: true },
@@ -245,7 +264,8 @@ export class InvoicesService {
 		return result;
 	}
 
-	async markPaid(id: string, actingUserId: string) {
+	async markPaid(id: string, actingUserId: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		let updated: {
 			id: string;
 			status: string;
@@ -268,7 +288,11 @@ export class InvoicesService {
 		return result;
 	}
 
-	async update(input: InvoiceUpdateInput) {
+	async update(input: InvoiceUpdateInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
+		if (typeof input.data.contactId === "string") {
+			await this.assertContactInScope(input.data.contactId, p);
+		}
 		let updated: {
 			id: string;
 			notes: string | null;
@@ -299,7 +323,8 @@ export class InvoicesService {
 		return updated;
 	}
 
-	async delete(id: string) {
+	async delete(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		try {
 			return await this.db.invoice.delete({
 				where: { id },
@@ -310,14 +335,8 @@ export class InvoicesService {
 		}
 	}
 
-	async addLineItem(input: InvoiceAddLineItemInput) {
-		const invoice = await this.db.invoice.findUnique({
-			where: { id: input.invoiceId },
-			select: { id: true },
-		});
-		if (!invoice) {
-			throw new NotFoundException(`No invoice with id ${input.invoiceId}.`);
-		}
+	async addLineItem(input: InvoiceAddLineItemInput, p: AccessPrincipal) {
+		await this.assertInScope(input.invoiceId, p);
 
 		const count = await this.db.invoiceLineItem.count({
 			where: { invoiceId: input.invoiceId },
@@ -336,7 +355,8 @@ export class InvoicesService {
 		});
 	}
 
-	async updateLineItem(input: InvoiceUpdateLineItemInput) {
+	async updateLineItem(input: InvoiceUpdateLineItemInput, p: AccessPrincipal) {
+		await this.assertLineItemInScope(input.id, p);
 		try {
 			return await this.db.invoiceLineItem.update({
 				where: { id: input.id },
@@ -347,7 +367,8 @@ export class InvoicesService {
 		}
 	}
 
-	async removeLineItem(id: string) {
+	async removeLineItem(id: string, p: AccessPrincipal) {
+		await this.assertLineItemInScope(id, p);
 		try {
 			return await this.db.invoiceLineItem.delete({
 				where: { id },
@@ -358,7 +379,11 @@ export class InvoicesService {
 		}
 	}
 
-	async document(id: string): Promise<{ filename: string; base64: string }> {
+	async document(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ filename: string; base64: string }> {
+		await this.assertInScope(id, p);
 		const invoice = await this.loadForPdf(id);
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderInvoicePdf(invoice, workspaceName);
@@ -369,7 +394,13 @@ export class InvoicesService {
 		};
 	}
 
-	async send(input: InvoiceSendInput, senderName?: string) {
+	async send(
+		input: InvoiceSendInput,
+		senderName: string | undefined,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
+
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -443,6 +474,49 @@ export class InvoicesService {
 			});
 		} catch (error) {
 			throw this.translate(error, input.id);
+		}
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.invoice.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No invoice with id ${id}.`);
+	}
+
+	private async assertLineItemInScope(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.invoiceLineItem.findFirst({
+			where: { AND: [{ id }, { invoice: dealChildWhere(p) }] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No line item with id ${id}.`);
+	}
+
+	private async assertDealInScope(
+		dealId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No deal with id ${dealId}.`);
+	}
+
+	private async assertContactInScope(
+		contactId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.contact.findFirst({
+			where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No contact with id ${contactId}.`);
 		}
 	}
 

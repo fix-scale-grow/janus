@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { BadRequestException } from "@nestjs/common";
 import { InvoicesService } from "../src/invoices/invoices.service";
 import type { MailerService } from "../src/mailer/mailer.service";
@@ -54,6 +55,7 @@ function fakeDb(issuedAt: Date | null) {
 	const db = {
 		invoice: {
 			findUnique: async () => invoiceRow(issuedAt),
+			findFirst: async () => invoiceRow(issuedAt),
 			update: async (args: { data: { status: string; issuedAt?: Date } }) => {
 				updateData = args.data;
 				return {
@@ -140,9 +142,9 @@ describe("InvoicesService.send", () => {
 			noProduction,
 		);
 
-		await expect(service.send({ id: "inv1" })).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
+		await expect(
+			service.send({ id: "inv1" }, undefined, adminPrincipal("test")),
+		).rejects.toBeInstanceOf(BadRequestException);
 
 		expect(updateData()).toBeNull();
 	});
@@ -159,7 +161,11 @@ describe("InvoicesService.send", () => {
 			noProduction,
 		);
 
-		const result = await service.send({ id: "inv1" });
+		const result = await service.send(
+			{ id: "inv1" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(result.status).toBe("SENT");
 		expect(result.issuedAt).toBeInstanceOf(Date);
@@ -178,7 +184,11 @@ describe("InvoicesService.send", () => {
 			noProduction,
 		);
 
-		const result = await service.send({ id: "inv1" });
+		const result = await service.send(
+			{ id: "inv1" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(result.issuedAt).toEqual(existingIssuedAt);
 		expect(updateData()?.issuedAt).toEqual(existingIssuedAt);
@@ -196,7 +206,7 @@ describe("InvoicesService.send", () => {
 			noProduction,
 		);
 
-		await service.send({ id: "inv1" });
+		await service.send({ id: "inv1" }, undefined, adminPrincipal("test"));
 
 		expect(lastSend()?.subject).toBe("Your invoice from Acme Roofing");
 	});
@@ -213,7 +223,11 @@ describe("InvoicesService.send", () => {
 			noProduction,
 		);
 
-		await service.send({ id: "inv1", personalNote: "Thanks again!" });
+		await service.send(
+			{ id: "inv1", personalNote: "Thanks again!" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(lastSend()?.html).toContain("Thanks again!");
 	});
@@ -230,7 +244,11 @@ describe("InvoicesService.send", () => {
 			noProduction,
 		);
 
-		await service.send({ id: "inv1", subject: "Custom subject" });
+		await service.send(
+			{ id: "inv1", subject: "Custom subject" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(lastSend()?.subject).toBe("Custom subject");
 	});

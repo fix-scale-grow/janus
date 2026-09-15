@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { ContractsService } from "../src/contracts/contracts.service";
 import { FieldsService } from "../src/fields/fields.service";
@@ -139,18 +140,34 @@ beforeEach(async () => {
 
 describe("ProposalsService", () => {
 	it("creates from the estimate with a seeded body and is idempotent", async () => {
-		const first = await service.createFromEstimate(estimateId, userId);
+		const first = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
 		expect(first.title).toBe("Walkthrough roof");
 		expect(first.status).toBe("DRAFT");
 		expect(first.body.length).toBeGreaterThan(0);
 
-		const second = await service.createFromEstimate(estimateId, userId);
+		const second = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
 		expect(second.id).toBe(first.id);
 	});
 
 	it("sends, exposes byToken, and accepts atomically", async () => {
-		const created = await service.createFromEstimate(estimateId, userId);
-		const sent = await service.send({ id: created.id }, "Kyle");
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		const sent = await service.send(
+			{ id: created.id },
+			"Kyle",
+			adminPrincipal("test"),
+		);
 		expect(sent.status).toBe("SENT");
 		expect(sent.sentTo).toBe(`paula-${suffix}@example.test`);
 		const token = sent.viewToken;
@@ -189,7 +206,11 @@ describe("ProposalsService", () => {
 	});
 
 	it("hides drafts from the public view", async () => {
-		await service.createFromEstimate(estimateId, userId);
+		await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
 		await expectRejects(
 			() => service.byToken("not-a-real-token"),
 			NotFoundException,
@@ -197,8 +218,16 @@ describe("ProposalsService", () => {
 	});
 
 	it("refuses an expired accept", async () => {
-		const created = await service.createFromEstimate(estimateId, userId);
-		const sent = await service.send({ id: created.id }, "Kyle");
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		const sent = await service.send(
+			{ id: created.id },
+			"Kyle",
+			adminPrincipal("test"),
+		);
 		const token = sent.viewToken;
 		if (!token) throw new Error("no token");
 		await db.proposal.update({
@@ -212,8 +241,16 @@ describe("ProposalsService", () => {
 	});
 
 	it("stamps views through recordView but never on byToken", async () => {
-		const created = await service.createFromEstimate(estimateId, userId);
-		const sent = await service.send({ id: created.id }, "Kyle");
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		const sent = await service.send(
+			{ id: created.id },
+			"Kyle",
+			adminPrincipal("test"),
+		);
 		const token = sent.viewToken;
 		if (!token) throw new Error("no token");
 
@@ -237,8 +274,16 @@ describe("ProposalsService", () => {
 	});
 
 	it("declines atomically and marks the estimate", async () => {
-		const created = await service.createFromEstimate(estimateId, userId);
-		const sent = await service.send({ id: created.id }, "Kyle");
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		const sent = await service.send(
+			{ id: created.id },
+			"Kyle",
+			adminPrincipal("test"),
+		);
 		const token = sent.viewToken;
 		if (!token) throw new Error("no token");
 
@@ -266,21 +311,39 @@ describe("ProposalsService", () => {
 	});
 
 	it("revises into a new draft and kills the old link", async () => {
-		const created = await service.createFromEstimate(estimateId, userId);
-		await service.update({
-			id: created.id,
-			data: { coverTitle: "Original cover" },
-		});
-		const sent = await service.send({ id: created.id }, "Kyle");
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		await service.update(
+			{
+				id: created.id,
+				data: { coverTitle: "Original cover" },
+			},
+			adminPrincipal("test"),
+		);
+		const sent = await service.send(
+			{ id: created.id },
+			"Kyle",
+			adminPrincipal("test"),
+		);
 		const token = sent.viewToken;
 		if (!token) throw new Error("no token");
 
-		const revised = await service.revise(created.id, userId);
+		const revised = await service.revise(
+			created.id,
+			userId,
+			adminPrincipal("test"),
+		);
 		expect(revised.status).toBe("DRAFT");
 		expect(revised.revision).toBe(2);
 		expect(revised.coverTitle).toBe("Original cover");
 
-		const latest = await service.forEstimate(estimateId);
+		const latest = await service.forEstimate(
+			estimateId,
+			adminPrincipal("test"),
+		);
 		expect(latest?.id).toBe(revised.id);
 
 		const old = await db.proposal.findUniqueOrThrow({
@@ -292,24 +355,31 @@ describe("ProposalsService", () => {
 
 		await expectRejects(() => service.byToken(token), NotFoundException);
 		await expectRejects(
-			() => service.revise(revised.id, userId),
+			() => service.revise(revised.id, userId, adminPrincipal("test")),
 			ConflictException,
 		);
 	});
 
 	it("locks the body after sending and voids cleanly", async () => {
-		const created = await service.createFromEstimate(estimateId, userId);
-		await service.send({ id: created.id }, "Kyle");
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		await service.send({ id: created.id }, "Kyle", adminPrincipal("test"));
 		await expectRejects(
 			() =>
-				service.update({
-					id: created.id,
-					data: { body: [{ kind: "heading", text: "Nope" }] },
-				}),
+				service.update(
+					{
+						id: created.id,
+						data: { body: [{ kind: "heading", text: "Nope" }] },
+					},
+					adminPrincipal("test"),
+				),
 			ConflictException,
 		);
 
-		const voided = await service.void(created.id);
+		const voided = await service.void(created.id, adminPrincipal("test"));
 		expect(voided.status).toBe("VOID");
 		expect(voided.viewToken).toBeNull();
 	});

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { ContractsService } from "../src/contracts/contracts.service";
 import type { MailerService } from "../src/mailer/mailer.service";
@@ -134,9 +135,16 @@ function fakeDb(
 		estimate: {
 			findUnique: async ({ where }: { where: { id: string } }) =>
 				estimates.get(where.id) ?? null,
+			findFirst: async ({
+				where,
+			}: {
+				where: { AND: [{ id: string }, unknown] };
+			}) => estimates.get(where.AND[0].id) ?? null,
 		},
 		contract: {
 			findUnique: async (args: { select?: Record<string, unknown> } = {}) =>
+				applySelect(row, args.select),
+			findFirst: async (args: { select?: Record<string, unknown> } = {}) =>
 				applySelect(row, args.select),
 			findMany: async () => listRows,
 			count: async () => listRows.length,
@@ -235,13 +243,16 @@ describe("ContractsService.list", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.list({
-			q: "",
-			sort: "updatedAt",
-			dir: "desc",
-			page: 1,
-			pageSize: 20,
-		});
+		const result = await service.list(
+			{
+				q: "",
+				sort: "updatedAt",
+				dir: "desc",
+				page: 1,
+				pageSize: 20,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(result.rows[0]?.valueCents).toBe(1750);
 		expect(result.rows[0]?.currency).toBe("USD");
@@ -275,13 +286,16 @@ describe("ContractsService.list", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.list({
-			q: "",
-			sort: "updatedAt",
-			dir: "desc",
-			page: 1,
-			pageSize: 20,
-		});
+		const result = await service.list(
+			{
+				q: "",
+				sort: "updatedAt",
+				dir: "desc",
+				page: 1,
+				pageSize: 20,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(result.rows[0]?.valueCents).toBe(6000);
 		expect(result.rows[0]?.currency).toBe("USD");
@@ -296,13 +310,16 @@ describe("ContractsService.list", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.list({
-			q: "",
-			sort: "updatedAt",
-			dir: "desc",
-			page: 1,
-			pageSize: 20,
-		});
+		const result = await service.list(
+			{
+				q: "",
+				sort: "updatedAt",
+				dir: "desc",
+				page: 1,
+				pageSize: 20,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(result.rows[0]?.valueCents).toBeNull();
 		expect(result.rows[0]?.currency).toBeNull();
@@ -328,7 +345,7 @@ describe("ContractsService.byId", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.byId("contract1");
+		const result = await service.byId("contract1", adminPrincipal("test"));
 
 		expect("signingToken" in result).toBe(false);
 		expect("signatureData" in result).toBe(false);
@@ -354,6 +371,7 @@ describe("ContractsService.createFromEstimate", () => {
 		const created = await service.createFromEstimate(
 			{ estimateId: "est1" },
 			"user1",
+			adminPrincipal("test"),
 		);
 
 		expect(created.title).toBe("Roof estimate");
@@ -374,9 +392,9 @@ describe("ContractsService.send", () => {
 			fakeMailer(true),
 		);
 
-		await expect(service.send({ id: "contract1" })).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
+		await expect(
+			service.send({ id: "contract1" }, undefined, adminPrincipal("test")),
+		).rejects.toBeInstanceOf(BadRequestException);
 	});
 
 	it("flips DRAFT to SENT and stores a 43-char signing token", async () => {
@@ -388,7 +406,11 @@ describe("ContractsService.send", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.send({ id: "contract1" }, "Alex Rivera");
+		const result = await service.send(
+			{ id: "contract1" },
+			"Alex Rivera",
+			adminPrincipal("test"),
+		);
 
 		expect(result.status).toBe("SENT");
 		expect(getRow().signingToken).toHaveLength(43);
@@ -406,11 +428,15 @@ describe("ContractsService.send", () => {
 			fakeMailer(true),
 		);
 
-		await expect(service.send({ id: "contract1" })).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
+		await expect(
+			service.send({ id: "contract1" }, undefined, adminPrincipal("test")),
+		).rejects.toBeInstanceOf(BadRequestException);
 
-		const result = await service.send({ id: "contract1" }, "Alex Rivera");
+		const result = await service.send(
+			{ id: "contract1" },
+			"Alex Rivera",
+			adminPrincipal("test"),
+		);
 		expect(result.status).toBe("SENT");
 		expect(getRow().status).toBe("SENT");
 	});
@@ -426,7 +452,11 @@ describe("ContractsService.send", () => {
 			fakeMailer(true),
 		);
 
-		await service.send({ id: "contract1" }, "Alex Rivera");
+		await service.send(
+			{ id: "contract1" },
+			"Alex Rivera",
+			adminPrincipal("test"),
+		);
 
 		expect(getRow().signingToken).not.toBe("old-token");
 		expect(getRow().signingToken).toHaveLength(43);
@@ -442,7 +472,7 @@ describe("ContractsService.send", () => {
 		);
 
 		await expect(
-			service.send({ id: "contract1" }, "Alex Rivera"),
+			service.send({ id: "contract1" }, "Alex Rivera", adminPrincipal("test")),
 		).rejects.toBeInstanceOf(BadRequestException);
 		expect(getRow().status).toBe("DRAFT");
 	});
@@ -459,7 +489,10 @@ describe("ContractsService.update", () => {
 		);
 
 		await expect(
-			service.update({ id: "contract1", data: { title: "New title" } }),
+			service.update(
+				{ id: "contract1", data: { title: "New title" } },
+				adminPrincipal("test"),
+			),
 		).rejects.toBeInstanceOf(ConflictException);
 	});
 
@@ -472,7 +505,10 @@ describe("ContractsService.update", () => {
 			fakeMailer(true),
 		);
 
-		await service.update({ id: "contract1", data: { invoiceId: "inv1" } });
+		await service.update(
+			{ id: "contract1", data: { invoiceId: "inv1" } },
+			adminPrincipal("test"),
+		);
 
 		expect(getRow().invoiceId).toBe("inv1");
 	});
@@ -488,9 +524,9 @@ describe("ContractsService.delete", () => {
 			fakeMailer(true),
 		);
 
-		await expect(service.delete("contract1")).rejects.toBeInstanceOf(
-			ConflictException,
-		);
+		await expect(
+			service.delete("contract1", adminPrincipal("test")),
+		).rejects.toBeInstanceOf(ConflictException);
 	});
 
 	it("succeeds while status is DRAFT", async () => {
@@ -502,7 +538,7 @@ describe("ContractsService.delete", () => {
 			fakeMailer(true),
 		);
 
-		const result = await service.delete("contract1");
+		const result = await service.delete("contract1", adminPrincipal("test"));
 		expect(result.id).toBe("contract1");
 	});
 });
@@ -517,9 +553,9 @@ describe("ContractsService.void", () => {
 			fakeMailer(true),
 		);
 
-		await expect(service.void("contract1")).rejects.toBeInstanceOf(
-			ConflictException,
-		);
+		await expect(
+			service.void("contract1", adminPrincipal("test")),
+		).rejects.toBeInstanceOf(ConflictException);
 	});
 
 	it("moves a SENT contract to VOID", async () => {
@@ -531,7 +567,7 @@ describe("ContractsService.void", () => {
 			fakeMailer(true),
 		);
 
-		await service.void("contract1");
+		await service.void("contract1", adminPrincipal("test"));
 		expect(getRow().status).toBe("VOID");
 	});
 });

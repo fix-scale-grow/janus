@@ -2,6 +2,11 @@ import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
 import type { AccessPrincipal } from "@crm/db/access-policy";
 import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
+import {
 	measureSatellite,
 	measureScene,
 	parseDrawingScale,
@@ -91,8 +96,10 @@ export class EstimatesService {
 		private readonly photos: PhotosService,
 	) {}
 
-	async list(input: EstimateListInput) {
-		const where = this.buildWhere(input);
+	async list(input: EstimateListInput, p: AccessPrincipal) {
+		const where: Prisma.EstimateWhereInput = {
+			AND: [this.buildWhere(input), dealChildWhere(p)],
+		};
 		const { skip, take } = paginate(input);
 
 		const [rows, total] = await Promise.all([
@@ -122,9 +129,9 @@ export class EstimatesService {
 		};
 	}
 
-	async byId(id: string) {
-		const row = await this.db.estimate.findUnique({
-			where: { id },
+	async byId(id: string, p: AccessPrincipal) {
+		const row = await this.db.estimate.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
 			include: {
 				lineItems: { orderBy: { sortOrder: "asc" } },
 				contact: {
@@ -157,7 +164,13 @@ export class EstimatesService {
 		return { ...estimate, totals, drawingStale };
 	}
 
-	async create(input: EstimateCreateInput, userId: string) {
+	async create(input: EstimateCreateInput, p: AccessPrincipal) {
+		if (input.dealId) {
+			await this.assertDealInScope(input.dealId, p);
+		}
+		if (input.contactId) {
+			await this.assertContactInScope(input.contactId, p);
+		}
 		const currency = await this.currencyFor(input.dealId);
 
 		try {
@@ -167,7 +180,7 @@ export class EstimatesService {
 					dealId: input.dealId,
 					contactId: input.contactId,
 					currency,
-					createdById: userId,
+					createdById: p.userId,
 				},
 			});
 		} catch (error) {
@@ -175,7 +188,8 @@ export class EstimatesService {
 		}
 	}
 
-	async rename(input: EstimateRenameInput) {
+	async rename(input: EstimateRenameInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.estimate.update({
 				where: { id: input.id },
@@ -187,7 +201,8 @@ export class EstimatesService {
 		}
 	}
 
-	async updateText(input: EstimateUpdateTextInput) {
+	async updateText(input: EstimateUpdateTextInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		const { id, ...fields } = input;
 		const data = Object.fromEntries(
 			Object.entries(fields)
@@ -210,7 +225,8 @@ export class EstimatesService {
 		}
 	}
 
-	async setStatus(input: EstimateSetStatusInput) {
+	async setStatus(input: EstimateSetStatusInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.estimate.update({
 				where: { id: input.id },
@@ -222,7 +238,8 @@ export class EstimatesService {
 		}
 	}
 
-	async setTier(input: EstimateSetTierInput) {
+	async setTier(input: EstimateSetTierInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.estimate.update({
 				where: { id: input.id },
@@ -234,7 +251,8 @@ export class EstimatesService {
 		}
 	}
 
-	async delete(id: string) {
+	async delete(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		try {
 			return await this.db.estimate.delete({
 				where: { id },
@@ -245,14 +263,8 @@ export class EstimatesService {
 		}
 	}
 
-	async addLineItem(input: EstimateAddLineItemInput) {
-		const estimate = await this.db.estimate.findUnique({
-			where: { id: input.estimateId },
-			select: { id: true },
-		});
-		if (!estimate) {
-			throw new NotFoundException(`No estimate with id ${input.estimateId}.`);
-		}
+	async addLineItem(input: EstimateAddLineItemInput, p: AccessPrincipal) {
+		await this.assertInScope(input.estimateId, p);
 
 		if (input.serviceId) {
 			const service = await this.db.service.findUnique({
@@ -307,7 +319,8 @@ export class EstimatesService {
 		});
 	}
 
-	async updateLineItem(input: EstimateUpdateLineItemInput) {
+	async updateLineItem(input: EstimateUpdateLineItemInput, p: AccessPrincipal) {
+		await this.assertLineItemInScope(input.id, p);
 		try {
 			return await this.db.estimateLineItem.update({
 				where: { id: input.id },
@@ -318,7 +331,8 @@ export class EstimatesService {
 		}
 	}
 
-	async removeLineItem(id: string) {
+	async removeLineItem(id: string, p: AccessPrincipal) {
+		await this.assertLineItemInScope(id, p);
 		try {
 			return await this.db.estimateLineItem.delete({
 				where: { id },
@@ -331,10 +345,10 @@ export class EstimatesService {
 
 	async generateFromDrawing(
 		input: EstimateGenerateFromDrawingInput,
-		userId: string,
+		p: AccessPrincipal,
 	) {
-		const drawing = await this.db.drawing.findUnique({
-			where: { id: input.drawingId },
+		const drawing = await this.db.drawing.findFirst({
+			where: { AND: [{ id: input.drawingId }, dealChildWhere(p)] },
 			include: { deal: { select: { currency: true } } },
 		});
 
@@ -363,7 +377,7 @@ export class EstimatesService {
 					contactId: drawing.contactId,
 					drawingId: drawing.id,
 					currency: drawing.deal?.currency ?? "USD",
-					createdById: userId,
+					createdById: p.userId,
 					drawingSyncedAt: new Date(),
 				},
 			});
@@ -387,7 +401,9 @@ export class EstimatesService {
 		return created;
 	}
 
-	async resyncFromDrawing(id: string) {
+	async resyncFromDrawing(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
+
 		const estimate = await this.db.estimate.findUnique({
 			where: { id },
 			include: { lineItems: true },
@@ -492,19 +508,13 @@ export class EstimatesService {
 	}
 
 	async assignContact(input: EstimateAssignContactInput, p: AccessPrincipal) {
-		const estimate = await this.db.estimate.findUnique({
-			where: { id: input.id },
-			select: { id: true },
-		});
-		if (!estimate) {
-			throw new NotFoundException(`No estimate with id ${input.id}.`);
-		}
+		await this.assertInScope(input.id, p);
 
 		let contactId: string;
 
 		if (input.contactId) {
-			const contact = await this.db.contact.findUnique({
-				where: { id: input.contactId },
+			const contact = await this.db.contact.findFirst({
+				where: { AND: [{ id: input.contactId }, contactScopeWhere(p)] },
 				select: { id: true },
 			});
 			if (!contact) {
@@ -543,7 +553,11 @@ export class EstimatesService {
 		return updated;
 	}
 
-	async document(id: string): Promise<{ filename: string; base64: string }> {
+	async document(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ filename: string; base64: string }> {
+		await this.assertInScope(id, p);
 		const estimate = await this.loadForPdf(id);
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderEstimatePdf(estimate, workspaceName);
@@ -554,7 +568,13 @@ export class EstimatesService {
 		};
 	}
 
-	async send(input: EstimateSendInput, senderName?: string) {
+	async send(
+		input: EstimateSendInput,
+		senderName: string | undefined,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
+
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -630,6 +650,49 @@ export class EstimatesService {
 
 	mailerConfigured(): boolean {
 		return this.mailer.isConfigured();
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.estimate.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No estimate with id ${id}.`);
+	}
+
+	private async assertLineItemInScope(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.estimateLineItem.findFirst({
+			where: { AND: [{ id }, { estimate: dealChildWhere(p) }] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No line item with id ${id}.`);
+	}
+
+	private async assertDealInScope(
+		dealId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No deal with id ${dealId}.`);
+	}
+
+	private async assertContactInScope(
+		contactId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.contact.findFirst({
+			where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No contact with id ${contactId}.`);
+		}
 	}
 
 	private async loadForPdf(id: string) {

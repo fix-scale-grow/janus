@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
@@ -77,31 +78,33 @@ function fakeDb(options: {
 	const updated: { id: string; quantity: number }[] = [];
 	const syncStamps: (Date | null | undefined)[] = [];
 
+	const estimateRow = (id: string) => ({
+		id,
+		title: "Roof estimate",
+		status: "DRAFT" as const,
+		currency: "USD",
+		selectedTier: "BETTER" as const,
+		dealId: null,
+		contactId: null,
+		drawingId: "dr1",
+		createdById: "user1",
+		createdAt: new Date("2026-01-01T00:00:00Z"),
+		updatedAt: new Date("2026-01-01T00:00:00Z"),
+		drawingSyncedAt: options.drawingSyncedAt ?? null,
+		lineItems: options.lineItems,
+		contact: null,
+		drawing: {
+			updatedAt: options.drawingUpdatedAt ?? new Date(0),
+			sceneUpdatedAt: options.drawingSceneUpdatedAt ?? null,
+		},
+	});
+
 	const db = {
 		estimate: {
-			findUnique: async (args: {
-				include?: unknown;
-				where: { id: string };
-			}) => ({
-				id: args.where.id,
-				title: "Roof estimate",
-				status: "DRAFT" as const,
-				currency: "USD",
-				selectedTier: "BETTER" as const,
-				dealId: null,
-				contactId: null,
-				drawingId: "dr1",
-				createdById: "user1",
-				createdAt: new Date("2026-01-01T00:00:00Z"),
-				updatedAt: new Date("2026-01-01T00:00:00Z"),
-				drawingSyncedAt: options.drawingSyncedAt ?? null,
-				lineItems: options.lineItems,
-				contact: null,
-				drawing: {
-					updatedAt: options.drawingUpdatedAt ?? new Date(0),
-					sceneUpdatedAt: options.drawingSceneUpdatedAt ?? null,
-				},
-			}),
+			findUnique: async (args: { include?: unknown; where: { id: string } }) =>
+				estimateRow(args.where.id),
+			findFirst: async (args: { where: { AND: [{ id: string }, unknown] } }) =>
+				estimateRow(args.where.AND[0].id),
 			update: async (args: { data: { drawingSyncedAt?: Date } }) => {
 				syncStamps.push(args.data.drawingSyncedAt);
 				return { id: "est1" };
@@ -179,7 +182,10 @@ describe("resyncFromDrawing", () => {
 			lineItems: [PRICED_ITEM],
 		});
 
-		const result = await service(db).resyncFromDrawing("est1");
+		const result = await service(db).resyncFromDrawing(
+			"est1",
+			adminPrincipal("test"),
+		);
 
 		expect(updated).toHaveLength(1);
 		expect(updated[0]?.quantity).toBe(111.8);
@@ -195,7 +201,10 @@ describe("resyncFromDrawing", () => {
 			lineItems: [PRICED_ITEM],
 		});
 
-		const result = await service(db).resyncFromDrawing("est1");
+		const result = await service(db).resyncFromDrawing(
+			"est1",
+			adminPrincipal("test"),
+		);
 
 		expect(created).toHaveLength(1);
 		expect(created[0]?.scopeId).toBe("sq2");
@@ -213,7 +222,7 @@ describe("resyncFromDrawing", () => {
 			],
 		});
 
-		await service(db).resyncFromDrawing("est1");
+		await service(db).resyncFromDrawing("est1", adminPrincipal("test"));
 
 		expect(updated).toHaveLength(0);
 		expect(created).toHaveLength(0);
@@ -225,7 +234,7 @@ describe("resyncFromDrawing", () => {
 			lineItems: [PRICED_ITEM],
 		});
 
-		await service(db).resyncFromDrawing("est1");
+		await service(db).resyncFromDrawing("est1", adminPrincipal("test"));
 
 		expect(syncStamps).toHaveLength(1);
 		expect(syncStamps[0]).toBeInstanceOf(Date);
@@ -241,7 +250,7 @@ describe("byId drawing staleness", () => {
 			drawingSyncedAt: new Date("2026-02-01T00:00:00Z"),
 		});
 
-		const row = await service(db).byId("est1");
+		const row = await service(db).byId("est1", adminPrincipal("test"));
 
 		expect(row.drawingStale).toBe(true);
 	});
@@ -254,7 +263,7 @@ describe("byId drawing staleness", () => {
 			drawingSyncedAt: new Date("2026-02-02T00:00:00Z"),
 		});
 
-		const row = await service(db).byId("est1");
+		const row = await service(db).byId("est1", adminPrincipal("test"));
 
 		expect(row.drawingStale).toBe(false);
 	});
@@ -268,7 +277,7 @@ describe("byId drawing staleness", () => {
 			drawingSyncedAt: new Date("2026-02-02T00:00:00Z"),
 		});
 
-		const row = await service(db).byId("est1");
+		const row = await service(db).byId("est1", adminPrincipal("test"));
 
 		expect(row.drawingStale).toBe(false);
 	});
@@ -282,7 +291,7 @@ describe("byId drawing staleness", () => {
 			drawingSyncedAt: new Date("2026-02-02T00:00:00Z"),
 		});
 
-		const row = await service(db).byId("est1");
+		const row = await service(db).byId("est1", adminPrincipal("test"));
 
 		expect(row.drawingStale).toBe(true);
 	});
@@ -296,7 +305,7 @@ describe("byId drawing staleness", () => {
 			drawingSyncedAt: new Date("2026-02-01T00:00:00Z"),
 		});
 
-		const row = await service(db).byId("est1");
+		const row = await service(db).byId("est1", adminPrincipal("test"));
 
 		expect(row.drawingStale).toBe(true);
 	});

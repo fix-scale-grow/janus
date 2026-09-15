@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { BadRequestException } from "@nestjs/common";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
@@ -144,7 +145,11 @@ describe("EstimatesService.send merge guard", () => {
 
 		let caught: unknown;
 		try {
-			await estimates.send({ id: estimateId });
+			await estimates.send(
+				{ id: estimateId },
+				undefined,
+				adminPrincipal("test"),
+			);
 		} catch (error) {
 			caught = error;
 		}
@@ -170,7 +175,11 @@ describe("EstimatesService.send merge guard", () => {
 		});
 		const { estimates } = servicesFor(mailer);
 
-		const result = await estimates.send({ id: estimateId });
+		const result = await estimates.send(
+			{ id: estimateId },
+			undefined,
+			adminPrincipal("test"),
+		);
 		expect(result.status).toBe("SENT");
 
 		const entries = await readdir(outboxDir);

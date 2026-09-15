@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { appUrl, DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import type { Db, EstimateTier, Prisma } from "@crm/db";
+import { type AccessPrincipal, adminPrincipal } from "@crm/db/access-policy";
+import { dealChildWhere } from "@crm/db/access-scope";
 import { ActivityType } from "@crm/db/enums";
 import {
 	BadRequestException,
@@ -110,7 +112,8 @@ export class ProposalsService {
 		private readonly photos: PhotosService,
 	) {}
 
-	async forEstimate(estimateId: string) {
+	async forEstimate(estimateId: string, p: AccessPrincipal) {
+		await this.assertEstimateInScope(estimateId, p);
 		const row = await this.db.proposal.findFirst({
 			where: { estimateId },
 			orderBy: { revision: "desc" },
@@ -120,7 +123,12 @@ export class ProposalsService {
 		return this.detail(row);
 	}
 
-	async createFromEstimate(estimateId: string, userId: string) {
+	async createFromEstimate(
+		estimateId: string,
+		userId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertEstimateInScope(estimateId, p);
 		const estimate = await this.db.estimate.findUnique({
 			where: { id: estimateId },
 			select: { id: true, title: true },
@@ -155,7 +163,8 @@ export class ProposalsService {
 		return this.detail(row);
 	}
 
-	async revise(id: string, userId: string) {
+	async revise(id: string, userId: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		const existing = await this.db.proposal.findUnique({
 			where: { id },
 			select: DETAIL_SELECT,
@@ -199,7 +208,8 @@ export class ProposalsService {
 		return this.detail(row);
 	}
 
-	async update(input: ProposalUpdateInput) {
+	async update(input: ProposalUpdateInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		const existing = await this.loadOrThrow(input.id);
 		if (existing.status !== "DRAFT" && existing.status !== "SENT") {
 			throw new ConflictException("This proposal can no longer be edited.");
@@ -222,7 +232,12 @@ export class ProposalsService {
 		}
 	}
 
-	async send(input: ProposalSendInput, senderName?: string) {
+	async send(
+		input: ProposalSendInput,
+		senderName: string | undefined,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -304,7 +319,8 @@ export class ProposalsService {
 		}
 	}
 
-	async void(id: string) {
+	async void(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		const existing = await this.loadOrThrow(id);
 		if (existing.status !== "DRAFT" && existing.status !== "SENT") {
 			throw new ConflictException("This proposal can no longer be voided.");
@@ -321,7 +337,11 @@ export class ProposalsService {
 		}
 	}
 
-	async document(id: string): Promise<{ filename: string; base64: string }> {
+	async document(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ filename: string; base64: string }> {
+		await this.assertInScope(id, p);
 		const proposal = await this.db.proposal.findUnique({
 			where: { id },
 			select: DETAIL_SELECT,
@@ -528,6 +548,7 @@ export class ProposalsService {
 			await this.contracts.createFromEstimate(
 				{ estimateId: proposal.estimateId },
 				proposal.createdById,
+				adminPrincipal("system"),
 			);
 		} catch (error) {
 			this.logger.error(
@@ -738,6 +759,27 @@ export class ProposalsService {
 			throw new NotFoundException(`No proposal with id ${id}.`);
 		}
 		return row;
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.proposal.findFirst({
+			where: { AND: [{ id }, { estimate: dealChildWhere(p) }] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No proposal with id ${id}.`);
+	}
+
+	private async assertEstimateInScope(
+		estimateId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.estimate.findFirst({
+			where: { AND: [{ id: estimateId }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No estimate with id ${estimateId}.`);
+		}
 	}
 
 	private async workspaceName(): Promise<string> {

@@ -14,6 +14,14 @@ export type AccessFixture = {
 	otherDealId: string;
 	clerkContactId: string;
 	otherContactId: string;
+	clerkEstimateId: string;
+	otherEstimateId: string;
+	looseEstimateByClerkId: string;
+	looseEstimateByAdminId: string;
+	clerkInvoiceId: string;
+	otherInvoiceId: string;
+	clerkContractId: string;
+	otherContractId: string;
 	cleanup(): Promise<void>;
 };
 
@@ -109,6 +117,68 @@ export async function createAccessFixture(
 			{ dealId: otherDeal.id, contactId: otherContact.id },
 		],
 	});
+	const clerkEstimate = await db.estimate.create({
+		data: {
+			title: `Clerk estimate ${suffix}`,
+			dealId: clerkDeal.id,
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const otherEstimate = await db.estimate.create({
+		data: {
+			title: `Other estimate ${suffix}`,
+			dealId: otherDeal.id,
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
+	const looseEstimateByClerk = await db.estimate.create({
+		data: {
+			title: `Loose clerk estimate ${suffix}`,
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const looseEstimateByAdmin = await db.estimate.create({
+		data: {
+			title: `Loose admin estimate ${suffix}`,
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
+	const clerkInvoice = await db.invoice.create({
+		data: {
+			dealId: clerkDeal.id,
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const otherInvoice = await db.invoice.create({
+		data: {
+			dealId: otherDeal.id,
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
+	const clerkContract = await db.contract.create({
+		data: {
+			title: `Clerk contract ${suffix}`,
+			dealId: clerkDeal.id,
+			body: [],
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const otherContract = await db.contract.create({
+		data: {
+			title: `Other contract ${suffix}`,
+			dealId: otherDeal.id,
+			body: [],
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
 	const resolve = async (id: string) => {
 		const p = await resolvePrincipal(db, id);
 		if (!p) throw new Error(`principal ${id} missing`);
@@ -125,8 +195,36 @@ export async function createAccessFixture(
 		otherDealId: otherDeal.id,
 		clerkContactId: clerkContact.id,
 		otherContactId: otherContact.id,
+		clerkEstimateId: clerkEstimate.id,
+		otherEstimateId: otherEstimate.id,
+		looseEstimateByClerkId: looseEstimateByClerk.id,
+		looseEstimateByAdminId: looseEstimateByAdmin.id,
+		clerkInvoiceId: clerkInvoice.id,
+		otherInvoiceId: otherInvoice.id,
+		clerkContractId: clerkContract.id,
+		otherContractId: otherContract.id,
 		async cleanup() {
 			const userIds = Object.values(users).map((u) => u.id);
+			await db.contract.deleteMany({
+				where: {
+					id: { in: [clerkContract.id, otherContract.id] },
+				},
+			});
+			await db.invoice.deleteMany({
+				where: { id: { in: [clerkInvoice.id, otherInvoice.id] } },
+			});
+			await db.estimate.deleteMany({
+				where: {
+					id: {
+						in: [
+							clerkEstimate.id,
+							otherEstimate.id,
+							looseEstimateByClerk.id,
+							looseEstimateByAdmin.id,
+						],
+					},
+				},
+			});
 			await db.dealContact.deleteMany({
 				where: { dealId: { in: [clerkDeal.id, otherDeal.id] } },
 			});

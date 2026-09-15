@@ -10,10 +10,7 @@ import {
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type {
-	AccessTrpcContext,
-	AuthedTrpcContext,
-} from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	estimateAddLineItemInput,
@@ -40,60 +37,78 @@ export class EstimatesRouter {
 	) {}
 
 	@Query({ input: estimateListInput, meta: access("estimates", "VIEW") })
-	async list(@Input() input: z.infer<typeof estimateListInput>) {
-		return this.estimates.list(input);
+	async list(
+		@Input() input: z.infer<typeof estimateListInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.list(input, ctx.access);
 	}
 
 	@Query({ input: estimateIdInput, meta: access("estimates", "VIEW") })
-	async byId(@Input("id") id: string) {
-		return this.estimates.byId(id);
+	async byId(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.estimates.byId(id, ctx.access);
 	}
 
 	@Mutation({ input: estimateCreateInput, meta: access("estimates", "EDIT") })
 	async create(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof estimateCreateInput>,
 	) {
-		return this.estimates.create(input, ctx.user.id);
+		return this.estimates.create(input, ctx.access);
 	}
 
 	@Mutation({ input: estimateRenameInput, meta: access("estimates", "EDIT") })
-	async rename(@Input() input: z.infer<typeof estimateRenameInput>) {
-		return this.estimates.rename(input);
+	async rename(
+		@Input() input: z.infer<typeof estimateRenameInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.rename(input, ctx.access);
 	}
 
 	@Mutation({
 		input: estimateUpdateTextInput,
 		meta: access("estimates", "EDIT"),
 	})
-	async updateText(@Input() input: z.infer<typeof estimateUpdateTextInput>) {
-		return this.estimates.updateText(input);
+	async updateText(
+		@Input() input: z.infer<typeof estimateUpdateTextInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.updateText(input, ctx.access);
 	}
 
 	@Mutation({
 		input: estimateSetStatusInput,
 		meta: access("estimates", "EDIT"),
 	})
-	async setStatus(@Input() input: z.infer<typeof estimateSetStatusInput>) {
-		return this.estimates.setStatus(input);
+	async setStatus(
+		@Input() input: z.infer<typeof estimateSetStatusInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.setStatus(input, ctx.access);
 	}
 
 	@Mutation({ input: estimateSetTierInput, meta: access("estimates", "EDIT") })
-	async setTier(@Input() input: z.infer<typeof estimateSetTierInput>) {
-		return this.estimates.setTier(input);
+	async setTier(
+		@Input() input: z.infer<typeof estimateSetTierInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.setTier(input, ctx.access);
 	}
 
 	@Mutation({ input: estimateIdInput, meta: access("estimates", "DELETE") })
-	async delete(@Input("id") id: string) {
-		return this.estimates.delete(id);
+	async delete(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.estimates.delete(id, ctx.access);
 	}
 
 	@Mutation({
 		input: estimateAddLineItemInput,
 		meta: access("estimates", "EDIT"),
 	})
-	async addLineItem(@Input() input: z.infer<typeof estimateAddLineItemInput>) {
-		return this.estimates.addLineItem(input);
+	async addLineItem(
+		@Input() input: z.infer<typeof estimateAddLineItemInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.addLineItem(input, ctx.access);
 	}
 
 	@Mutation({
@@ -102,16 +117,17 @@ export class EstimatesRouter {
 	})
 	async updateLineItem(
 		@Input() input: z.infer<typeof estimateUpdateLineItemInput>,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.estimates.updateLineItem(input);
+		return this.estimates.updateLineItem(input, ctx.access);
 	}
 
 	@Mutation({
 		input: estimateLineItemIdInput,
 		meta: access("estimates", "DELETE"),
 	})
-	async removeLineItem(@Input("id") id: string) {
-		return this.estimates.removeLineItem(id);
+	async removeLineItem(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.estimates.removeLineItem(id, ctx.access);
 	}
 
 	@Mutation({
@@ -119,15 +135,18 @@ export class EstimatesRouter {
 		meta: access("estimates", "EDIT"),
 	})
 	async generateFromDrawing(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof estimateGenerateFromDrawingInput>,
 	) {
-		return this.estimates.generateFromDrawing(input, ctx.user.id);
+		return this.estimates.generateFromDrawing(input, ctx.access);
 	}
 
 	@Mutation({ input: estimateIdInput, meta: access("estimates", "EDIT") })
-	async resyncFromDrawing(@Input("id") id: string) {
-		return this.estimates.resyncFromDrawing(id);
+	async resyncFromDrawing(
+		@Input("id") id: string,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.estimates.resyncFromDrawing(id, ctx.access);
 	}
 
 	@Mutation({
@@ -142,16 +161,16 @@ export class EstimatesRouter {
 	}
 
 	@Query({ input: estimateIdInput, meta: access("estimates", "VIEW") })
-	async document(@Input("id") id: string) {
-		return this.estimates.document(id);
+	async document(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.estimates.document(id, ctx.access);
 	}
 
 	@Mutation({ input: estimateSendInput, meta: access("estimates", "EDIT") })
 	async send(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof estimateSendInput>,
 	) {
-		return this.estimates.send(input, ctx.user.name);
+		return this.estimates.send(input, ctx.user.name, ctx.access);
 	}
 
 	@Query({ meta: access("estimates", "VIEW") })

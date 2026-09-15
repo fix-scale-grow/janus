@@ -10,7 +10,7 @@ import {
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	proposalCreateInput,
@@ -29,8 +29,11 @@ export class ProposalsRouter {
 	) {}
 
 	@Query({ input: proposalForEstimateInput, meta: access("estimates", "VIEW") })
-	async forEstimate(@Input("estimateId") estimateId: string) {
-		return this.proposals.forEstimate(estimateId);
+	async forEstimate(
+		@Input("estimateId") estimateId: string,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.proposals.forEstimate(estimateId, ctx.access);
 	}
 
 	@Query({ meta: access("estimates", "VIEW") })
@@ -41,36 +44,43 @@ export class ProposalsRouter {
 	@Mutation({ input: proposalCreateInput, meta: access("estimates", "EDIT") })
 	async createFromEstimate(
 		@Input("estimateId") estimateId: string,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.proposals.createFromEstimate(estimateId, ctx.user.id);
+		return this.proposals.createFromEstimate(
+			estimateId,
+			ctx.user.id,
+			ctx.access,
+		);
 	}
 
 	@Mutation({ input: proposalUpdateInput, meta: access("estimates", "EDIT") })
-	async update(@Input() input: z.infer<typeof proposalUpdateInput>) {
-		return this.proposals.update(input);
+	async update(
+		@Input() input: z.infer<typeof proposalUpdateInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.proposals.update(input, ctx.access);
 	}
 
 	@Mutation({ input: proposalSendInput, meta: access("estimates", "EDIT") })
 	async send(
 		@Input() input: z.infer<typeof proposalSendInput>,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.proposals.send(input, ctx.user.name);
+		return this.proposals.send(input, ctx.user.name, ctx.access);
 	}
 
 	@Mutation({ input: proposalIdInput, meta: access("estimates", "EDIT") })
-	async void(@Input("id") id: string) {
-		return this.proposals.void(id);
+	async void(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.proposals.void(id, ctx.access);
 	}
 
 	@Mutation({ input: proposalIdInput, meta: access("estimates", "EDIT") })
-	async revise(@Input("id") id: string, @Ctx() ctx: AuthedTrpcContext) {
-		return this.proposals.revise(id, ctx.user.id);
+	async revise(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.proposals.revise(id, ctx.user.id, ctx.access);
 	}
 
 	@Query({ input: proposalIdInput, meta: access("estimates", "VIEW") })
-	async document(@Input("id") id: string) {
-		return this.proposals.document(id);
+	async document(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.proposals.document(id, ctx.access);
 	}
 }

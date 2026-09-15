@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { BadRequestException } from "@nestjs/common";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
@@ -51,6 +52,7 @@ function fakeDb() {
 	const db = {
 		estimate: {
 			findUnique: async () => ESTIMATE_ROW,
+			findFirst: async () => ESTIMATE_ROW,
 			update: async (args: { data: { status: string } }) => {
 				updateCalled = true;
 				return { id: ESTIMATE_ROW.id, status: args.data.status };
@@ -138,9 +140,9 @@ describe("EstimatesService.send", () => {
 			noPhotos,
 		);
 
-		await expect(service.send({ id: "est1" })).rejects.toBeInstanceOf(
-			BadRequestException,
-		);
+		await expect(
+			service.send({ id: "est1" }, undefined, adminPrincipal("test")),
+		).rejects.toBeInstanceOf(BadRequestException);
 
 		expect(wasUpdateCalled()).toBe(false);
 	});
@@ -158,7 +160,11 @@ describe("EstimatesService.send", () => {
 			noPhotos,
 		);
 
-		const result = await service.send({ id: "est1" });
+		const result = await service.send(
+			{ id: "est1" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(result.status).toBe("SENT");
 	});
@@ -176,7 +182,7 @@ describe("EstimatesService.send", () => {
 			noPhotos,
 		);
 
-		await service.send({ id: "est1" });
+		await service.send({ id: "est1" }, undefined, adminPrincipal("test"));
 
 		expect(lastSend()?.subject).toBe("Your estimate from Acme Roofing");
 	});
@@ -194,7 +200,11 @@ describe("EstimatesService.send", () => {
 			noPhotos,
 		);
 
-		await service.send({ id: "est1", personalNote: "See you Tuesday!" });
+		await service.send(
+			{ id: "est1", personalNote: "See you Tuesday!" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(lastSend()?.html).toContain("See you Tuesday!");
 	});
@@ -212,7 +222,11 @@ describe("EstimatesService.send", () => {
 			noPhotos,
 		);
 
-		await service.send({ id: "est1", subject: "Custom subject" });
+		await service.send(
+			{ id: "est1", subject: "Custom subject" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(lastSend()?.subject).toBe("Custom subject");
 	});

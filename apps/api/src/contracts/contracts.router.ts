@@ -10,7 +10,7 @@ import {
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	contractCreateFromEstimateInput,
@@ -30,13 +30,16 @@ export class ContractsRouter {
 	) {}
 
 	@Query({ input: contractListInput, meta: access("contracts", "VIEW") })
-	async list(@Input() input: z.infer<typeof contractListInput>) {
-		return this.contracts.list(input);
+	async list(
+		@Input() input: z.infer<typeof contractListInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.contracts.list(input, ctx.access);
 	}
 
 	@Query({ input: contractIdInput, meta: access("contracts", "VIEW") })
-	async byId(@Input("id") id: string) {
-		return this.contracts.byId(id);
+	async byId(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.contracts.byId(id, ctx.access);
 	}
 
 	@Mutation({
@@ -44,46 +47,49 @@ export class ContractsRouter {
 		meta: access("contracts", "EDIT"),
 	})
 	async createFromEstimate(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof contractCreateFromEstimateInput>,
 	) {
-		return this.contracts.createFromEstimate(input, ctx.user.id);
+		return this.contracts.createFromEstimate(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: contractCreateInput, meta: access("contracts", "EDIT") })
 	async create(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof contractCreateInput>,
 	) {
-		return this.contracts.create(input, ctx.user.id);
+		return this.contracts.create(input, ctx.access);
 	}
 
 	@Mutation({ input: contractUpdateInput, meta: access("contracts", "EDIT") })
-	async update(@Input() input: z.infer<typeof contractUpdateInput>) {
-		return this.contracts.update(input);
+	async update(
+		@Input() input: z.infer<typeof contractUpdateInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.contracts.update(input, ctx.access);
 	}
 
 	@Mutation({ input: contractSendInput, meta: access("contracts", "EDIT") })
 	async send(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof contractSendInput>,
 	) {
-		return this.contracts.send(input, ctx.user.name);
+		return this.contracts.send(input, ctx.user.name, ctx.access);
 	}
 
 	@Mutation({ input: contractIdInput, meta: access("contracts", "EDIT") })
-	async void(@Input("id") id: string) {
-		return this.contracts.void(id);
+	async void(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.contracts.void(id, ctx.access);
 	}
 
 	@Mutation({ input: contractIdInput, meta: access("contracts", "DELETE") })
-	async delete(@Input("id") id: string) {
-		return this.contracts.delete(id);
+	async delete(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.contracts.delete(id, ctx.access);
 	}
 
 	@Query({ input: contractIdInput, meta: access("contracts", "VIEW") })
-	async document(@Input("id") id: string) {
-		return this.contracts.document(id);
+	async document(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
+		return this.contracts.document(id, ctx.access);
 	}
 
 	@Query({ meta: access("contracts", "VIEW") })
