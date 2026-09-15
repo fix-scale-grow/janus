@@ -248,7 +248,18 @@ Every tRPC procedure carries an access tag in its `meta`: `access(area, need)`
 for an area-scoped read or write, `adminOnly()` for admin-only procedures, or
 `anyMember()` for anything any signed-in member may call. `apps/api/test/
 access-tags.spec.ts` scans every router and fails the build on an untagged
-procedure, so a new procedure without a tag never ships.
+procedure, so a new procedure without a tag never ships. The only untagged
+procedures are the public ones in that spec's `PUBLIC_PROCEDURES` allowlist:
+contract signing by token, the proposal viewer, and SSO sign-in options. A new
+public procedure is added to that allowlist in the same change.
+
+`field: true` on a tag (`access(area, need, { field: true })` or
+`anyMember({ field: true })`) marks a procedure the `/field` pages call. A
+group with surface `FIELD` reaches only those procedures: the middleware
+refuses every other procedure before the service runs. A `FIELD` group also
+gets no Janus chat, and the app's file routes refuse drawings and permit
+documents on that surface. Photos and receipts stay open, because field
+close-out needs them.
 
 `ctx.access` is the caller's `AccessPrincipal` — group, scope (`ALL`/`OWN`/
 `ASSIGNED`), surface (`FULL`/`FIELD`), and the resolved policy of areas,
@@ -258,6 +269,17 @@ argument and scopes its query with the matching helper from
 `photoScopeWhere`, `activityScopeWhere`, and the `*ChildWhere` variants for
 records that hang off a deal). A record outside the caller's scope is excluded
 from the query, so reading it returns not found, never forbidden.
+
+Catalog services are the exception. Forms, fields, symbols and crews take no
+principal: their procedures are tag-only, and the tag alone decides access.
+
+A scope is always composed with `AND`, never spread into the base filter:
+`where: { AND: [baseWhere, scopeWhere] }`. A spread lets a key in one object
+silently replace the same key in the other, and the scope is lost.
+
+A drawing, estimate, invoice, project or contract with no deal follows one
+rule. `ALL` sees it. `OWN` sees it when `createdById` is the caller. `ASSIGNED`
+never sees it, because nothing assigns a deal-less record to anyone.
 
 Money is never gated by returning less data than the schema promises; a
 service always returns the shape and nulls the money fields instead, via
@@ -270,6 +292,16 @@ Areas, needs, scopes, surfaces and money switches are all defined once in
 on an existing area is added there and nowhere else; every reader —
 `access-policy`, the scope helpers, the app's nav and field gates, the agent's
 tool guards — derives from that one config.
+
+Groups are seeded once per install by `ensureAccessGroups` in
+`@crm/db/access-resolve`. The API, the app's file routes and the agent all
+run it before they resolve a principal. First seeding creates the seed groups
+and places every existing plain member into Office. A member who held the old
+`profit.view` permission goes into "Office + profit" instead. The same
+transaction writes `appSetting.accessGroupsSeededAt`. Seeding never runs again
+once that marker is set, even when every group is later deleted, so a member
+who joins afterwards has no access until an admin picks a group. An install
+that already has groups but no marker gets the marker and no new groups.
 
 `apps/app/lib/access-rules.ts` turns the same principal into what the app
 shows: which nav modules are visible, which buttons render, and whether money
