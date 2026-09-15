@@ -46,7 +46,7 @@ export const DEMO_DEAL_ID_PREFIX = "seed-deal-";
 
 export const DEMO_EMAIL_DOMAINS = ["example.com", "example.net"] as const;
 
-const OWNERS = [
+export const OWNERS = [
 	{ name: "Dana Whitaker", email: "dana.whitaker@example.com" },
 	{ name: "Rick Callahan", email: "rick.callahan@example.com" },
 	{ name: "Maria Delgado", email: "maria.delgado@example.com" },
