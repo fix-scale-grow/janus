@@ -140,3 +140,33 @@ describe("agentRecordsVisible", () => {
 		).toBe(false);
 	});
 });
+
+describe("FIELD surface on office documents", () => {
+	test("a FIELD principal cannot open a drawing it could otherwise see", async () => {
+		const field = { ...f.clerk, surface: "FIELD" as const };
+		expect(await drawingVisible(f.clerk, f.clerkDrawingId, "VIEW")).toBe(true);
+		expect(await drawingVisible(field, f.clerkDrawingId, "VIEW")).toBe(false);
+	});
+
+	test("a FIELD principal cannot open a permit document", async () => {
+		const document = await db.permitDocument.create({
+			data: {
+				permitId: f.clerkPermitId,
+				slotKey: `field-slot-${suffix}`,
+				label: "Field slot",
+			},
+			select: { id: true },
+		});
+		const field = { ...f.office, surface: "FIELD" as const };
+		const full = await permitDocumentVisible(f.office, document.id, "VIEW");
+		const onField = await permitDocumentVisible(field, document.id, "VIEW");
+		await db.permitDocument.delete({ where: { id: document.id } });
+		expect(full).toBe(true);
+		expect(onField).toBe(false);
+	});
+
+	test("a FIELD principal still reaches photos for close-out", async () => {
+		const field = { ...f.clerk, surface: "FIELD" as const };
+		expect(await photoVisible(field, f.clerkPhotoId)).toBe(true);
+	});
+});

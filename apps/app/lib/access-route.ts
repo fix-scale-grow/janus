@@ -56,7 +56,7 @@ export async function drawingVisible(
 	drawingId: string,
 	need: "VIEW" | "EDIT",
 ): Promise<boolean> {
-	if (!allows(p, "drawings", need)) return false;
+	if (p.surface === "FIELD" || !allows(p, "drawings", need)) return false;
 	const found = await db.drawing.findFirst({
 		where: { AND: [{ id: drawingId }, dealChildWhere(p)] },
 		select: { id: true },
@@ -69,7 +69,7 @@ export async function permitDocumentVisible(
 	documentId: string,
 	need: "VIEW" | "EDIT",
 ): Promise<boolean> {
-	if (!allows(p, "permits", need)) return false;
+	if (p.surface === "FIELD" || !allows(p, "permits", need)) return false;
 	const found = await db.permitDocument.findFirst({
 		where: { AND: [{ id: documentId }, { permit: requiredDealChildWhere(p) }] },
 		select: { id: true },
