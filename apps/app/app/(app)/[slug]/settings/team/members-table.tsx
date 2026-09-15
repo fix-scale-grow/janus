@@ -35,6 +35,13 @@ import { LocalRelativeTime } from "@/components/local-date-time";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
+import {
+	type GroupMove,
+	type GroupMoveProgress,
+	groupMoveCopy,
+	groupMoveFailure,
+	needsGroupMoveConfirm,
+} from "./group-move";
 import { membersSearchParams } from "./members-search-params";
 
 const ROLE_LABEL = {
@@ -47,13 +54,6 @@ type Role = keyof typeof ROLE_LABEL;
 
 type MemberRow = RouterOutputs["workspace"]["members"]["rows"][number];
 type AccessGroupRow = RouterOutputs["accessGroups"]["list"][number];
-
-type OwnerDemotion = {
-	memberId: string;
-	name: string;
-	groupId: string;
-	groupName: string;
-};
 
 const ADMIN_VALUE = "admin";
 const OWNER_VALUE = "owner";
@@ -238,9 +238,7 @@ export function MembersTable() {
 		}),
 	);
 
-	const [pendingDemotion, setPendingDemotion] = useState<OwnerDemotion | null>(
-		null,
-	);
+	const [pendingMove, setPendingMove] = useState<GroupMove | null>(null);
 
 	const demoteRole = useMutation(
 		trpc.workspace.setMemberRole.mutationOptions(),
@@ -249,20 +247,28 @@ export function MembersTable() {
 		trpc.accessGroups.setMemberAccess.mutationOptions(),
 	);
 
-	const moveOwnerToGroup = async (demotion: OwnerDemotion) => {
+	const moveToGroup = async (move: GroupMove) => {
+		let progress: GroupMoveProgress = "none";
 		try {
-			await demoteRole.mutateAsync({
-				memberId: demotion.memberId,
-				role: "admin",
-			});
+			if (move.demoteOwner) {
+				await demoteRole.mutateAsync({
+					memberId: move.memberId,
+					role: "admin",
+				});
+				progress = "adminSet";
+			}
 			await joinGroup.mutateAsync({
-				memberId: demotion.memberId,
-				access: { kind: "group", groupId: demotion.groupId },
+				memberId: move.memberId,
+				access: { kind: "group", groupId: move.groupId },
 			});
-			toast.success(`${demotion.name} is now in ${demotion.groupName}.`);
+			toast.success(`${move.name} is now in ${move.groupName}.`);
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Could not change access.",
+				groupMoveFailure(
+					move,
+					progress,
+					error instanceof Error ? error.message : "Could not change access.",
+				),
 			);
 		} finally {
 			await Promise.all([cache.workspace(), cache.accessGroups()]);
@@ -276,19 +282,22 @@ export function MembersTable() {
 		joinGroup.isPending;
 
 	const handleChangeAccess = (member: MemberRow, value: string) => {
+		const group = groups.data?.find((g) => g.id === value);
+		if (group && needsGroupMoveConfirm(member)) {
+			setPendingMove({
+				memberId: member.id,
+				name: firstName(member.name),
+				groupId: group.id,
+				groupName: group.name,
+				demoteOwner: member.role === "owner",
+				self: member.isViewer,
+			});
+			return;
+		}
+
 		if (member.role === "owner") {
 			if (value === ADMIN_VALUE) {
 				setRole.mutate({ memberId: member.id, role: "admin" });
-				return;
-			}
-			const group = groups.data?.find((g) => g.id === value);
-			if (group) {
-				setPendingDemotion({
-					memberId: member.id,
-					name: firstName(member.name),
-					groupId: group.id,
-					groupName: group.name,
-				});
 			}
 			return;
 		}
@@ -384,26 +393,25 @@ export function MembersTable() {
 
 			<AlertDialog
 				onOpenChange={(open) => {
-					if (!open) setPendingDemotion(null);
+					if (!open) setPendingMove(null);
 				}}
-				open={pendingDemotion !== null}
+				open={pendingMove !== null}
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>
-							Make {pendingDemotion?.name} a member of{" "}
-							{pendingDemotion?.groupName}?
+							{pendingMove ? groupMoveCopy(pendingMove).title : null}
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							They stop being an owner.
+							{pendingMove ? groupMoveCopy(pendingMove).description : null}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
-								if (pendingDemotion) void moveOwnerToGroup(pendingDemotion);
-								setPendingDemotion(null);
+								if (pendingMove) void moveToGroup(pendingMove);
+								setPendingMove(null);
 							}}
 						>
 							Change access

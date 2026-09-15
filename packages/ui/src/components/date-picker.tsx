@@ -21,8 +21,10 @@ export function DatePicker({
 	onChange,
 	placeholder = "Select a date",
 	variant,
+	disabled,
 }: {
 	id?: string;
+	disabled?: boolean;
 	value: string | null | undefined;
 	onChange: (next: string) => void;
 	placeholder?: string;
@@ -42,6 +44,7 @@ export function DatePicker({
 				<button
 					type="button"
 					id={id}
+					disabled={disabled}
 					data-slot="date-picker-trigger"
 					data-size="default"
 					data-placeholder={selected ? undefined : ""}

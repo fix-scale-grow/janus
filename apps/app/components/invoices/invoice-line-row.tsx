@@ -52,9 +52,11 @@ function parseQuantity(value: string): number | undefined {
 export function InvoiceLineRow({
 	invoiceId,
 	item,
+	readOnly,
 }: {
 	invoiceId: string;
 	item: InvoiceLineItemRow;
+	readOnly: boolean;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -126,6 +128,35 @@ export function InvoiceLineRow({
 		item.priceCents === null
 			? null
 			: Math.round(itemQuantity * item.priceCents);
+
+	if (readOnly) {
+		return (
+			<SimpleTableRow>
+				<TableCell className="px-3 py-2">{item.name}</TableCell>
+				<TableCell className="px-3 py-2 text-right tabular-nums">
+					{itemQuantity.toFixed(2)}
+				</TableCell>
+				<TableCell className="px-3 py-2 text-muted-foreground">
+					{UNIT_LABELS[item.unit]}
+				</TableCell>
+				<TableCell className="px-3 py-2 text-right tabular-nums">
+					{item.priceCents === null ? (
+						<span className="text-muted-foreground">Hidden</span>
+					) : (
+						formatUsd(item.priceCents)
+					)}
+				</TableCell>
+				<TableCell className="px-3 py-2 text-right tabular-nums">
+					{lineTotalCents === null ? (
+						<span className="text-muted-foreground">Hidden</span>
+					) : (
+						formatUsd(lineTotalCents)
+					)}
+				</TableCell>
+				<TableCell className="px-3 py-2" />
+			</SimpleTableRow>
+		);
+	}
 
 	return (
 		<SimpleTableRow>

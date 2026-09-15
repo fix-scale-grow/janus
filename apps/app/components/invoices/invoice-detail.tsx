@@ -50,6 +50,7 @@ import {
 } from "@/components/page-shell";
 import { LinkedPhotosSection } from "@/components/photos/linked-photos-section";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -156,6 +157,8 @@ export function InvoiceDetail({
 	const [sendOpen, setSendOpen] = useState(false);
 	const [previewOpen, setPreviewOpen] = useState(false);
 	const [assignContactOpen, setAssignContactOpen] = useState(false);
+	const { can } = useAccess();
+	const canEdit = can("invoices", "EDIT");
 
 	const setQueryData = (
 		updater: (previous: InvoiceDetailData) => InvoiceDetailData,
@@ -272,6 +275,7 @@ export function InvoiceDetail({
 				</PageShellHeading>
 				<PageShellActions>
 					<Select
+						disabled={!canEdit}
 						value={data.status}
 						onValueChange={(status) =>
 							setStatus.mutate({
@@ -300,6 +304,7 @@ export function InvoiceDetail({
 						contactId={data.contactId}
 						open={assignContactOpen}
 						onOpenChange={setAssignContactOpen}
+						readOnly={!canEdit}
 					/>
 					<Button
 						variant="outline"
@@ -318,13 +323,13 @@ export function InvoiceDetail({
 						<Icon icon={Download} data-icon="inline-start" />
 						Download PDF
 					</Button>
-					{mailerConfigured.data ? (
+					{canEdit && mailerConfigured.data ? (
 						<Button size="sm" onClick={() => setSendOpen(true)}>
 							<Icon icon={Send} data-icon="inline-start" />
 							Send
 						</Button>
 					) : null}
-					{data.status === "DRAFT" || data.status === "SENT" ? (
+					{canEdit && (data.status === "DRAFT" || data.status === "SENT") ? (
 						<Button
 							variant={data.status === "SENT" ? "default" : "outline"}
 							size="sm"
@@ -334,19 +339,21 @@ export function InvoiceDetail({
 							Mark paid
 						</Button>
 					) : null}
-					<NewProjectDialog
-						trigger={
-							<Button variant="outline" size="sm">
-								Start project
-							</Button>
-						}
-						defaults={{
-							name: `Invoice #${data.number} project`,
-							dealId: data.dealId ?? undefined,
-							contactId: data.contactId ?? undefined,
-							invoiceId: invoiceId,
-						}}
-					/>
+					{can("projects", "EDIT") ? (
+						<NewProjectDialog
+							trigger={
+								<Button variant="outline" size="sm">
+									Start project
+								</Button>
+							}
+							defaults={{
+								name: `Invoice #${data.number} project`,
+								dealId: data.dealId ?? undefined,
+								contactId: data.contactId ?? undefined,
+								invoiceId: invoiceId,
+							}}
+						/>
+					) : null}
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/invoices")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
@@ -364,6 +371,7 @@ export function InvoiceDetail({
 							<DatePicker
 								value={issuedDay ? toDay(new Date(issuedDay)) : null}
 								onChange={saveIssuedAt}
+								disabled={!canEdit}
 							/>
 						</Field>
 						<Field>
@@ -371,6 +379,7 @@ export function InvoiceDetail({
 							<DatePicker
 								value={dueDay ? toDay(new Date(dueDay)) : null}
 								onChange={saveDueAt}
+								disabled={!canEdit}
 							/>
 						</Field>
 						<StatCard
@@ -387,7 +396,10 @@ export function InvoiceDetail({
 						<Textarea
 							value={notes}
 							onChange={(event) => setNotes(event.target.value)}
-							onBlur={commitNotes}
+							onBlur={() => {
+								if (canEdit) commitNotes();
+							}}
+							readOnly={!canEdit}
 							rows={3}
 						/>
 					</Field>
@@ -398,6 +410,7 @@ export function InvoiceDetail({
 							scopeOfWork: data.scopeOfWork,
 							terms: data.terms,
 						}}
+						readOnly={!canEdit}
 						onCommit={(field, next) =>
 							update.mutate({ id: invoiceId, data: { [field]: next } })
 						}
@@ -428,6 +441,7 @@ export function InvoiceDetail({
 												key={item.id}
 												invoiceId={invoiceId}
 												item={item}
+												readOnly={!canEdit}
 											/>
 										))}
 									</SimpleTable>
@@ -436,16 +450,20 @@ export function InvoiceDetail({
 						</div>
 					)}
 
-					<div>
-						<AddInvoiceLineItem invoiceId={invoiceId} />
-					</div>
+					{canEdit ? (
+						<div>
+							<AddInvoiceLineItem invoiceId={invoiceId} />
+						</div>
+					) : null}
 
 					<LinkedPhotosSection
 						surface="invoice"
 						targetId={invoiceId}
 						dealId={data.dealId ?? null}
 						contactId={data.contactId ?? null}
-						onAttachAnchor={() => setAssignContactOpen(true)}
+						onAttachAnchor={
+							canEdit ? () => setAssignContactOpen(true) : undefined
+						}
 					/>
 
 					<div className="flex justify-end border-t pt-4">

@@ -62,10 +62,12 @@ export function EstimateLineRow({
 	estimateId,
 	item,
 	tier,
+	readOnly,
 }: {
 	estimateId: string;
 	item: EstimateLineItemRow;
 	tier: EstimateTier;
+	readOnly: boolean;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -140,6 +142,35 @@ export function EstimateLineRow({
 
 	const lineTotalCents =
 		priceCents === null ? null : Math.round(itemQuantity * priceCents);
+
+	if (readOnly) {
+		return (
+			<SimpleTableRow>
+				<TableCell className="px-3 py-2">{item.name}</TableCell>
+				<TableCell className="px-3 py-2 text-right tabular-nums">
+					{itemQuantity.toFixed(2)}
+				</TableCell>
+				<TableCell className="px-3 py-2 text-muted-foreground">
+					{UNIT_LABELS[item.unit]}
+				</TableCell>
+				<TableCell className="px-3 py-2 text-right tabular-nums">
+					{priceCents === null ? (
+						<span className="text-muted-foreground">Hidden</span>
+					) : (
+						formatUsd(priceCents)
+					)}
+				</TableCell>
+				<TableCell className="px-3 py-2 text-right tabular-nums">
+					{lineTotalCents === null ? (
+						<span className="text-muted-foreground">Hidden</span>
+					) : (
+						formatUsd(lineTotalCents)
+					)}
+				</TableCell>
+				<TableCell className="px-3 py-2" />
+			</SimpleTableRow>
+		);
+	}
 
 	return (
 		<SimpleTableRow>

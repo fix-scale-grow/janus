@@ -28,11 +28,13 @@ function TextField({
 	label,
 	hint,
 	value,
+	readOnly,
 	onCommit,
 }: {
 	label: string;
 	hint: string;
 	value: string | null;
+	readOnly: boolean;
 	onCommit: (next: string | null) => void;
 }) {
 	const [draft, setDraft] = useState(value ?? "");
@@ -43,8 +45,10 @@ function TextField({
 			<FieldLabel>{label}</FieldLabel>
 			<Textarea
 				value={draft}
+				readOnly={readOnly}
 				onChange={(event) => setDraft(event.target.value)}
 				onBlur={() => {
+					if (readOnly) return;
 					const next = draft.trim();
 					if (next === (value ?? "")) return;
 					onCommit(next || null);
@@ -58,9 +62,11 @@ function TextField({
 
 export function DocumentTextFields({
 	values,
+	readOnly = false,
 	onCommit,
 }: {
 	values: Record<DocumentTextField, string | null>;
+	readOnly?: boolean;
 	onCommit: (field: DocumentTextField, next: string | null) => void;
 }) {
 	return (
@@ -77,6 +83,7 @@ export function DocumentTextFields({
 					label={field.label}
 					hint={field.hint}
 					value={values[field.key]}
+					readOnly={readOnly}
 					onCommit={(next) => onCommit(field.key, next)}
 				/>
 			))}

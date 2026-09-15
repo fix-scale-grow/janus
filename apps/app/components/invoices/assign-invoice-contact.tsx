@@ -30,9 +30,11 @@ export function AssignInvoiceContact({
 	contactId,
 	open: openProp,
 	onOpenChange,
+	readOnly = false,
 }: {
 	invoiceId: string;
 	contactId: string | null;
+	readOnly?: boolean;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 }) {
@@ -74,6 +76,18 @@ export function AssignInvoiceContact({
 	const submit = (id: string) => {
 		assign.mutate({ id: invoiceId, data: { contactId: id } });
 	};
+
+	if (readOnly) {
+		return contact.data ? (
+			<RecordLink
+				kind="contact"
+				id={contact.data.id}
+				className="truncate text-sm"
+			>
+				{contactName(contact.data)}
+			</RecordLink>
+		) : null;
+	}
 
 	return (
 		<Popover

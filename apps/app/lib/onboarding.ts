@@ -1,3 +1,4 @@
+import { accessPolicySchema } from "@crm/db/access-policy";
 import type { NextRequest } from "next/server";
 import type { AreaAccess } from "@/lib/access-rules";
 import { API_URL } from "@/lib/env";
@@ -42,7 +43,7 @@ type GateResult = {
 	researchConfigured?: boolean;
 	surface?: "FULL" | "FIELD";
 	isAdmin?: boolean;
-	areas?: AreaAccess["areas"];
+	areas?: unknown;
 };
 
 const gateCache = new WeakMap<NextRequest, Promise<GateResult | null>>();
@@ -104,8 +105,23 @@ export async function readAccessGate(
 	return {
 		surface: gate.surface,
 		isAdmin: gate.isAdmin,
-		areaAccess: gate.areas
-			? { isAdmin: gate.isAdmin, areas: gate.areas }
-			: null,
+		areaAccess: parseGateAreas(gate.isAdmin, gate.areas),
 	};
+}
+
+export function parseGateAreas(
+	isAdmin: boolean,
+	value: unknown,
+): AreaAccess | null {
+	if (value === undefined) return null;
+	const parsed = accessPolicySchema.shape.areas.safeParse(value);
+	if (!parsed.success) {
+		console.error(
+			`workspace.gate returned unreadable areas: ${parsed.error.issues
+				.map((issue) => `${issue.path.join(".")} ${issue.message}`)
+				.join("; ")}`,
+		);
+		return null;
+	}
+	return { isAdmin, areas: parsed.data };
 }

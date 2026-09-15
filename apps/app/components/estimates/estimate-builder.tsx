@@ -338,7 +338,11 @@ export function EstimateBuilder({
 		<PageShell>
 			<PageShellHeader>
 				<PageShellHeading>
-					{editingTitle ? (
+					{!canEdit ? (
+						<div className="col-start-1 row-start-1 min-w-0 self-center">
+							<PageShellTitle className="truncate">{data.title}</PageShellTitle>
+						</div>
+					) : editingTitle ? (
 						<Input
 							id={titleId}
 							autoFocus
@@ -422,6 +426,7 @@ export function EstimateBuilder({
 						contact={data.contact}
 						open={assignContactOpen}
 						onOpenChange={setAssignContactOpen}
+						readOnly={!canEdit}
 					/>
 					<Button asChild variant="outline" size="sm">
 						<Link href={workspaceUrl(`/estimates/${estimateId}/proposal`)}>
@@ -493,13 +498,19 @@ export function EstimateBuilder({
 				<div className="flex flex-col gap-6">
 					<Tabs
 						value={tier}
-						onValueChange={(next) =>
-							setTier.mutate({ id: estimateId, tier: next as EstimateTier })
-						}
+						onValueChange={(next) => {
+							if (canEdit) {
+								setTier.mutate({ id: estimateId, tier: next as EstimateTier });
+							}
+						}}
 					>
 						<TabsList>
 							{TIER_ORDER.map((value) => (
-								<TabsTrigger key={value} value={value}>
+								<TabsTrigger
+									key={value}
+									value={value}
+									disabled={!canEdit && value !== tier}
+								>
 									{TIER_LABEL[value]}
 								</TabsTrigger>
 							))}
@@ -553,6 +564,7 @@ export function EstimateBuilder({
 												estimateId={estimateId}
 												item={item}
 												tier={tier}
+												readOnly={!canEdit}
 											/>
 										))}
 									</SimpleTable>
@@ -561,9 +573,11 @@ export function EstimateBuilder({
 						</div>
 					)}
 
-					<div>
-						<AddLineItem estimateId={estimateId} />
-					</div>
+					{canEdit ? (
+						<div>
+							<AddLineItem estimateId={estimateId} />
+						</div>
+					) : null}
 
 					<DocumentTextFields
 						values={{
@@ -571,6 +585,7 @@ export function EstimateBuilder({
 							scopeOfWork: data.scopeOfWork,
 							terms: data.terms,
 						}}
+						readOnly={!canEdit}
 						onCommit={(field, next) =>
 							updateText.mutate({ id: estimateId, [field]: next })
 						}
@@ -581,7 +596,9 @@ export function EstimateBuilder({
 						targetId={estimateId}
 						dealId={data.dealId ?? null}
 						contactId={data.contactId ?? null}
-						onAttachAnchor={() => setAssignContactOpen(true)}
+						onAttachAnchor={
+							canEdit ? () => setAssignContactOpen(true) : undefined
+						}
 					/>
 				</div>
 			</PageShellContent>

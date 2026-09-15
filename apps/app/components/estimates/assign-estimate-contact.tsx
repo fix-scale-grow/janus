@@ -35,9 +35,11 @@ export function AssignEstimateContact({
 	contact,
 	open: openProp,
 	onOpenChange,
+	readOnly = false,
 }: {
 	estimateId: string;
 	contact: EstimateContact;
+	readOnly?: boolean;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 }) {
@@ -105,6 +107,14 @@ export function AssignEstimateContact({
 			newContact: { name, email, phone: newPhone.trim() || undefined },
 		});
 	};
+
+	if (readOnly) {
+		return contact ? (
+			<RecordLink kind="contact" id={contact.id} className="truncate text-sm">
+				{contactName(contact)}
+			</RecordLink>
+		) : null;
+	}
 
 	return (
 		<Popover
