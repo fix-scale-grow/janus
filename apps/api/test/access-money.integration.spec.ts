@@ -18,6 +18,7 @@ import { dealListInput } from "../src/deals/deals.contracts";
 import { DealsService } from "../src/deals/deals.service";
 import { EstimatesService } from "../src/estimates/estimates.service";
 import { FieldsService } from "../src/fields/fields.service";
+import { invoiceAddLineItemInput } from "../src/invoices/invoices.contracts";
 import { InvoicesService } from "../src/invoices/invoices.service";
 import type { MailerService } from "../src/mailer/mailer.service";
 import type { PermitTriggerService } from "../src/permits/permit-trigger.service";
@@ -421,6 +422,34 @@ describe("money masking", () => {
 		expect(stored.priceCents).toBe(0);
 
 		await db.invoiceLineItem.delete({ where: { id: created.id } });
+	});
+
+	it("invoices addLineItem by serviceId snapshots the service price without prices", async () => {
+		const noPrices = { ...f.clerk, policy: { ...f.clerk.policy, money: [] } };
+		const service = await db.service.findUniqueOrThrow({
+			where: { id: anyServiceId },
+			select: { unitPriceCents: true, name: true, unit: true },
+		});
+
+		const created = await invoices.addLineItem(
+			invoiceAddLineItemInput.parse({
+				invoiceId: f.clerkInvoiceId,
+				serviceId: anyServiceId,
+				name: service.name,
+				unit: service.unit,
+				quantity: 1,
+			}),
+			noPrices,
+		);
+		expect(created.priceCents).toBeNull();
+
+		const stored = await db.invoiceLineItem.findUniqueOrThrow({
+			where: { id: created.id },
+			select: { priceCents: true },
+		});
+		await db.invoiceLineItem.delete({ where: { id: created.id } });
+		expect(service.unitPriceCents).toBeGreaterThan(0);
+		expect(stored.priceCents).toBe(service.unitPriceCents);
 	});
 
 	it("contracts send and document refuse a priced render without prices", async () => {

@@ -68,6 +68,7 @@ export type InvoiceUpdateInput = z.infer<typeof invoiceUpdateInput>;
 
 export const invoiceAddLineItemInput = z.object({
 	invoiceId: z.string().min(1),
+	serviceId: z.string().min(1).optional(),
 	name: z.string().trim().min(1).max(200),
 	unit: z.enum(["PER_SQUARE", "PER_LINEAR_FT", "PER_EACH", "FLAT"]),
 	quantity: quantity.default(1),

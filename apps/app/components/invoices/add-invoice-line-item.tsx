@@ -96,12 +96,10 @@ export function AddInvoiceLineItem({
 	const addService = (service: ServiceRow) => {
 		add.mutate({
 			invoiceId,
+			serviceId: service.id,
 			name: service.name,
 			unit: service.unit,
 			quantity: 1,
-			...(service.unitPriceCents === null
-				? {}
-				: { priceCents: service.unitPriceCents }),
 		});
 	};
 

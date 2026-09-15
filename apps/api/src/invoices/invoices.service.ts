@@ -357,9 +357,18 @@ export class InvoicesService {
 
 	async addLineItem(input: InvoiceAddLineItemInput, p: AccessPrincipal) {
 		await this.assertInScope(input.invoiceId, p);
-		this.assertCanWritePrices(p, [
-			input.priceCents === 0 ? undefined : input.priceCents,
-		]);
+		const line = input.serviceId
+			? await this.serviceLine(input.serviceId)
+			: {
+					name: input.name,
+					unit: input.unit,
+					priceCents: input.priceCents,
+				};
+		if (!input.serviceId) {
+			this.assertCanWritePrices(p, [
+				input.priceCents === 0 ? undefined : input.priceCents,
+			]);
+		}
 
 		const count = await this.db.invoiceLineItem.count({
 			where: { invoiceId: input.invoiceId },
@@ -368,15 +377,30 @@ export class InvoicesService {
 		const created = await this.db.invoiceLineItem.create({
 			data: {
 				invoiceId: input.invoiceId,
-				name: input.name,
-				unit: input.unit,
+				name: line.name,
+				unit: line.unit,
 				quantity: input.quantity,
-				priceCents: input.priceCents,
+				priceCents: line.priceCents,
 				areaLabel: input.areaLabel,
 				sortOrder: count,
 			},
 		});
 		return maskCents(p, "prices", created, ["priceCents"]);
+	}
+
+	private async serviceLine(serviceId: string) {
+		const service = await this.db.service.findUnique({
+			where: { id: serviceId },
+			select: { name: true, unit: true, unitPriceCents: true },
+		});
+		if (!service) {
+			throw new NotFoundException(`No service with id ${serviceId}.`);
+		}
+		return {
+			name: service.name,
+			unit: service.unit,
+			priceCents: service.unitPriceCents,
+		};
 	}
 
 	async updateLineItem(input: InvoiceUpdateLineItemInput, p: AccessPrincipal) {
