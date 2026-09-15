@@ -236,6 +236,7 @@ export default defineChannel({
 					await settle(subject, EnrichmentStatus.COMPLETE);
 					if (subject.kind === "drawing-check" && subject.drawingId) {
 						await fileDrawingCheckConversation(
+							ctx,
 							subject.drawingId,
 							ctx.session.id,
 						);

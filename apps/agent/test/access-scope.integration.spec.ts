@@ -8,6 +8,7 @@ import type { AccessPrincipal } from "@crm/db/access-policy";
 import { sessionPrincipal } from "../agent/lib/access";
 import { readDealHistory } from "../agent/lib/accounts";
 import { contactsNeedingWork, readCrmHistory } from "../agent/lib/crm";
+import { fileDrawingCheckConversation } from "../agent/lib/drawing-conversation";
 import { listDrawings } from "../agent/lib/drawing-lookup";
 import { loadDrawingSummary } from "../agent/lib/drawing-summary";
 import { loadEstimateSummary } from "../agent/lib/estimate-summary";
@@ -113,6 +114,44 @@ describe("sessionPrincipal", () => {
 		);
 		expect(p.userId).toBe(f.clerkId);
 		expect(p.isAdmin).toBe(false);
+	});
+
+	test("a drawing check files its conversation to the person it ran as", async () => {
+		const sessionId = `session-${suffix}-drawing-check`;
+		await fileDrawingCheckConversation(
+			automatedCtx({
+				taskKind: "drawing-check",
+				estimateId: f.clerkEstimateId,
+				drawingId: f.looseDrawingByAdminId,
+			}),
+			f.looseDrawingByAdminId,
+			sessionId,
+		);
+		const filed = await db.agentConversation.findMany({
+			where: { sessionId },
+			select: { userId: true },
+		});
+		await db.agentConversation.deleteMany({ where: { sessionId } });
+		expect(filed).toEqual([{ userId: f.clerkId }]);
+	});
+
+	test("a drawing check with a requester files to that requester", async () => {
+		const sessionId = `session-${suffix}-drawing-check-requester`;
+		await fileDrawingCheckConversation(
+			automatedCtx({
+				taskKind: "drawing-check",
+				estimateId: f.otherEstimateId,
+				requestedById: f.clerkId,
+			}),
+			f.looseDrawingByAdminId,
+			sessionId,
+		);
+		const filed = await db.agentConversation.findMany({
+			where: { sessionId },
+			select: { userId: true },
+		});
+		await db.agentConversation.deleteMany({ where: { sessionId } });
+		expect(filed).toEqual([{ userId: f.clerkId }]);
 	});
 
 	test("a scheduled team-agent run runs as the agent's creator, never as admin", async () => {

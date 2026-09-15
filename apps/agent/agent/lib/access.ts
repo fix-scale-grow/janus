@@ -111,7 +111,9 @@ function teamAgentUser(
 	return userId;
 }
 
-async function automationRequester(ctx: AccessContext): Promise<string | null> {
+export async function automationRequester(
+	ctx: AccessContext,
+): Promise<string | null> {
 	const current = ctx.session.auth.current;
 	const requestedById = currentAttribute(current, "requestedById");
 	if (requestedById) return requestedById;

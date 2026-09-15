@@ -1,21 +1,20 @@
 import { db } from "@crm/db";
+import { type AccessContext, automationRequester } from "./access";
 
 export async function fileDrawingCheckConversation(
+	ctx: AccessContext,
 	drawingId: string,
 	sessionId: string,
 ): Promise<void> {
 	try {
-		const drawing = await db.drawing.findUnique({
-			where: { id: drawingId },
-			select: { createdById: true },
-		});
-		if (!drawing) return;
+		const userId = await automationRequester(ctx);
+		if (!userId) return;
 
 		await db.agentConversation.create({
 			data: {
 				kind: "RECORD",
 				drawingId,
-				userId: drawing.createdById,
+				userId,
 				sessionId,
 				title: "Drawing review",
 				lastMessageAt: new Date(),
