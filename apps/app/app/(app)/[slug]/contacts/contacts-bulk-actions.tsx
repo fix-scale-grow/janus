@@ -1,6 +1,5 @@
 "use client";
 
-import Renew from "@carbon/icons-react/es/Renew";
 import TrashCan from "@carbon/icons-react/es/TrashCan";
 import {
 	DropdownMenuGroup,
@@ -52,20 +51,6 @@ export function ContactsBulkActions({
 		}),
 	);
 
-	const enrich = useMutation(
-		trpc.contacts.bulkEnrich.mutationOptions({
-			onSuccess: async (result) => {
-				await cache.contact();
-				reportBulk(
-					result,
-					(count) => `Looking up ${contacts(count)} — the table will update.`,
-				);
-				onDone();
-			},
-			onError,
-		}),
-	);
-
 	const remove = useMutation(
 		trpc.contacts.bulkDelete.mutationOptions({
 			onSuccess: async (result, variables) => {
@@ -78,7 +63,7 @@ export function ContactsBulkActions({
 		}),
 	);
 
-	const pending = assignOwner.isPending || enrich.isPending || remove.isPending;
+	const pending = assignOwner.isPending || remove.isPending;
 
 	return (
 		<>
@@ -88,12 +73,6 @@ export function ContactsBulkActions({
 					unassignedLabel="Nobody"
 					onSelect={(ownerId) => assignOwner.mutate({ ids, ownerId })}
 				/>
-				<DropdownMenuGroup>
-					<DropdownMenuItem onSelect={() => enrich.mutate({ ids })}>
-						<Renew />
-						Re-enrich
-					</DropdownMenuItem>
-				</DropdownMenuGroup>
 				{canDelete ? (
 					<>
 						<DropdownMenuSeparator />

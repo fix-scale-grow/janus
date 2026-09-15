@@ -5,8 +5,6 @@ import { API_URL } from "@/lib/env";
 
 export const ONBOARDING_PATH = "/onboarding";
 
-export const RESEARCH_PATH = "/onboarding/research";
-
 const GATE_TIMEOUT_MS = 2_000;
 
 export type Gate = "settled" | "required" | "unknown";
@@ -40,7 +38,6 @@ type GateResult = {
 	onboarded?: boolean;
 	canRename?: boolean;
 	slug?: string;
-	researchConfigured?: boolean;
 	surface?: "FULL" | "FIELD";
 	isAdmin?: boolean;
 	areas?: unknown;
@@ -77,14 +74,6 @@ export async function readWorkspaceGate(
 		gate: gate.onboarded || !gate.canRename ? "settled" : "required",
 		slug,
 	};
-}
-
-export async function readResearchGate(request: NextRequest): Promise<Gate> {
-	const gate = await readGate(request);
-
-	if (typeof gate?.researchConfigured !== "boolean") return "unknown";
-
-	return gate.researchConfigured ? "settled" : "required";
 }
 
 export type AccessGate = {

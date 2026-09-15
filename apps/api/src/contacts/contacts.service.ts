@@ -473,10 +473,6 @@ export class ContactsService {
 		};
 	}
 
-	async bulkEnrich(ids: string[], p: AccessPrincipal): Promise<BulkResult> {
-		return runBulk(ids, (id) => this.enrich(id, p));
-	}
-
 	async bulkDelete(ids: string[], p: AccessPrincipal): Promise<BulkResult> {
 		return runBulk(ids, (id) => this.delete(id, p));
 	}
@@ -532,33 +528,6 @@ export class ContactsService {
 					}
 				: null,
 		};
-	}
-
-	async enrich(
-		id: string,
-		p: AccessPrincipal,
-	): Promise<{ id: string; queued: true }> {
-		const contact = await this.db.contact.findFirst({
-			where: { AND: [{ id }, contactScopeWhere(p)] },
-			select: { id: true, imageUrl: true },
-		});
-
-		if (!contact) {
-			throw new NotFoundException(`No contact with id ${id}.`);
-		}
-
-		await this.db.contact.update({
-			where: { id },
-			data: { enrichmentStatus: "PENDING", enrichmentError: null },
-		});
-
-		await this.agent.contactCreated(
-			id,
-			"A rep asked for a fresh look",
-			p.userId,
-		);
-
-		return { id, queued: true };
 	}
 
 	async decideFact(

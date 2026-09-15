@@ -4,17 +4,14 @@ import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
 import {
 	acceptPermitDisclaimerSetting,
 	DEFAULT_AGENT_MODEL,
-	maskKey,
 	type NavLayout,
 	type PermitSettings,
 	readAgentModel,
-	readContextDevKey,
 	readDealNumberStart,
 	readNavLayout,
 	readPermitSettings,
 	type UsState,
 	writeAgentModel,
-	writeContextDevKey,
 	writeDealNumberStart,
 	writeNavLayout,
 	writePermitSettings,
@@ -25,8 +22,6 @@ import {
 	Injectable,
 	Logger,
 } from "@nestjs/common";
-import { ResearchKeyService } from "../agent/research-key.service";
-import { BackfillService } from "../backfill/backfill.service";
 import { InjectDatabase } from "../database/database.constants";
 import {
 	type DocumentChrome,
@@ -51,11 +46,6 @@ export interface ModelCatalogResult {
 	available: boolean;
 }
 
-export interface ResearchKeySettings {
-	configured: boolean;
-	hint: string | null;
-}
-
 export interface NavLayoutSettings {
 	layout: NavLayout;
 }
@@ -71,8 +61,6 @@ export class SettingsService {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
 		private readonly catalog: ModelCatalogService,
-		private readonly researchKeys: ResearchKeyService,
-		private readonly backfill: BackfillService,
 	) {}
 
 	async agentModel(): Promise<AgentModelSettings> {
@@ -126,47 +114,6 @@ export class SettingsService {
 	async modelCatalog(): Promise<ModelCatalogResult> {
 		const models = await this.catalog.models();
 		return { models: models ?? [], available: models !== null };
-	}
-
-	async researchKey(): Promise<ResearchKeySettings> {
-		const key = await readContextDevKey(this.db);
-
-		return { configured: key !== null, hint: key ? maskKey(key) : null };
-	}
-
-	async setResearchKey(apiKey: string): Promise<ResearchKeySettings> {
-		const check = await this.researchKeys.verify(apiKey);
-
-		if (check.outcome === "invalid") {
-			throw new BadRequestException(check.reason);
-		}
-
-		await writeContextDevKey(this.db, apiKey);
-
-		this.logger.log({
-			message: "Context key saved",
-			verified: check.outcome === "valid",
-		});
-
-		void this.backfill
-			.run("contacts")
-			.then(({ queued, remaining }) => {
-				if (queued > 0) {
-					this.logger.log({
-						message: "Queued the research that was waiting on a key",
-						queued,
-						remaining,
-					});
-				}
-			})
-			.catch((error: unknown) => {
-				this.logger.warn(
-					{ message: "Could not queue the waiting research" },
-					error instanceof Error ? error.stack : String(error),
-				);
-			});
-
-		return this.researchKey();
 	}
 
 	private async requireAdmin(userId: string, message: string): Promise<void> {

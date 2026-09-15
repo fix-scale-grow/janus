@@ -10,9 +10,7 @@ import { isMarketing } from "@/lib/env";
 import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
 import {
 	ONBOARDING_PATH,
-	RESEARCH_PATH,
 	readAccessGate,
-	readResearchGate,
 	readWorkspaceGate,
 } from "@/lib/onboarding";
 import { workspaceUrl } from "@/lib/workspace-url";
@@ -44,22 +42,16 @@ export async function proxy(request: NextRequest) {
 
 	if (isUngated(pathname)) return NextResponse.next();
 
-	const [workspace, research, access] = await Promise.all([
+	const [workspace, access] = await Promise.all([
 		readWorkspaceGate(request),
-		readResearchGate(request),
 		readAccessGate(request),
 	]);
 
 	if (workspace.gate === "required") return sendTo(ONBOARDING_PATH, request);
-	if (research === "required" && access.isAdmin) {
-		return sendTo(RESEARCH_PATH, request);
+
+	if (workspace.gate !== "settled" || !workspace.slug) {
+		return NextResponse.next();
 	}
-
-	const researchSettled =
-		research === "settled" || (access.surface !== null && !access.isAdmin);
-	const settled = workspace.gate === "settled" && researchSettled;
-
-	if (!settled || !workspace.slug) return NextResponse.next();
 
 	const target = appPath(pathname, workspace.slug);
 	const fieldTarget = fieldRedirect(access.surface, target, workspace.slug);
@@ -114,7 +106,7 @@ function isAnonymous(pathname: string): boolean {
 }
 
 function isSetup(pathname: string): boolean {
-	return pathname === ONBOARDING_PATH || pathname === RESEARCH_PATH;
+	return isUnder(pathname, ONBOARDING_PATH);
 }
 
 function sendTo(path: string, request: NextRequest): NextResponse {

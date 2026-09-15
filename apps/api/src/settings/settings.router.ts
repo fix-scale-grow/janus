@@ -18,7 +18,6 @@ import {
 	setDocumentChromeInput,
 	setNavLayoutInput,
 	setPermitsInput,
-	setResearchKeyInput,
 } from "./settings.contracts";
 import { SettingsService } from "./settings.service";
 
@@ -42,16 +41,6 @@ export class SettingsRouter {
 	@Mutation({ input: setAgentModelInput, meta: adminOnly() })
 	async setAgentModel(@Input() input: z.infer<typeof setAgentModelInput>) {
 		return this.settings.setAgentModel(input.modelId);
-	}
-
-	@Query({ meta: anyMember() })
-	async researchKey() {
-		return this.settings.researchKey();
-	}
-
-	@Mutation({ input: setResearchKeyInput, meta: adminOnly() })
-	async setResearchKey(@Input() input: z.infer<typeof setResearchKeyInput>) {
-		return this.settings.setResearchKey(input.apiKey);
 	}
 
 	@Query({ meta: anyMember() })

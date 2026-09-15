@@ -39,7 +39,7 @@ import { proposalTokenInput, proposalAcceptInput, proposalDeclineInput, proposal
 import { recentTouchInput } from "../recents/recents.contracts";
 import { reportRangeInput } from "../reports/reports.contracts";
 import { serviceListInput, serviceIdInput, serviceCreateInput, serviceUpdateInput } from "../services-catalog/services-catalog.contracts";
-import { setAgentModelInput, setResearchKeyInput, setDocumentChromeInput, setNavLayoutInput, setDealNumberStartInput, setPermitsInput } from "../settings/settings.contracts";
+import { setAgentModelInput, setDocumentChromeInput, setNavLayoutInput, setDealNumberStartInput, setPermitsInput } from "../settings/settings.contracts";
 import { slackChannelsInput, slackJoinChannelInput, slackCreateChannelInput } from "../slack/slack.contracts";
 import { ssoProviderListInput, registerSsoProviderInput, deleteSsoProviderInput } from "../sso/sso.contracts";
 import { symbolListInput, symbolIdInput, symbolCreateInput, symbolUpdateInput, symbolIdsInput, symbolBulkSetTradeInput, symbolBulkSetServiceInput, symbolPackInput } from "../symbols/symbols.contracts";
@@ -192,15 +192,9 @@ const appRouter = t.router({
     delete: publicProcedure
       .input(contactIdInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["delete"]>>),
-    enrich: publicProcedure
-      .input(contactIdInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["enrich"]>>),
     bulkAssignOwner: publicProcedure
       .input(contactBulkOwnerInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkAssignOwner"]>>),
-    bulkEnrich: publicProcedure
-      .input(contactBulkInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkEnrich"]>>),
     bulkDelete: publicProcedure
       .input(contactBulkInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<ContactsRouter["bulkDelete"]>>),
@@ -958,11 +952,6 @@ const appRouter = t.router({
     setAgentModel: publicProcedure
       .input(setAgentModelInput)
       .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setAgentModel"]>>),
-    researchKey: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["researchKey"]>>),
-    setResearchKey: publicProcedure
-      .input(setResearchKeyInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["setResearchKey"]>>),
     documentChrome: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<SettingsRouter["documentChrome"]>>),
     setDocumentChrome: publicProcedure

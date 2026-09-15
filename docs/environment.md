@@ -124,27 +124,21 @@ single place that knows what is set.
 because the API and the seed write pictures too. The Next.js app is deliberately
 excluded — recognising our URL for the image optimizer needs no token.
 
-### The Context key is asked for, not configured
+### The Context key is stored, not configured
 
 **`CONTEXT_DEV_API_KEY` is not a variable here and must not become one.** The key lives
-in `AppSetting`, is asked for at `/onboarding/research`, and changes on Settings →
-General — an admin who cannot redeploy cannot set a variable.
+in `AppSetting.contextDevApiKey`. The app has no screen for it: the onboarding research
+step, the Settings › General card and the contact research badges were removed on
+2026-09-15. A key already saved stays in use by the agent.
 
-- **An install that had the variable is asked again**: no migration, no fallback, and
-  **the gate cannot be dismissed**.
 - **Nothing is lost while waiting.** A keyless `brand` task settles `SKIPPED` *before*
   anything marks the row `RUNNING`, and `settle` only overwrites `RUNNING` — so the
   company stays `PENDING`, which the sweep re-queues
   (`test/keyless-brand.integration.spec.ts`).
-- **Saving the key runs the company sweep immediately** (fire-and-forget).
 - **`readContextDevKey` (`@crm/db/settings`) is the only reader**, read live with no
   cache. An unreadable database is a capability that is off, not an exception.
-- **The key is never read back** — only whether one is set, and its last four.
-- **The agent checks it, not the API** (a vendor client in the API is a bug):
-  `settings.setResearchKey` calls `POST /internal/crm/verify-key` and writes unless the
-  answer is *invalid*. **`401` is the only answer meaning the key is wrong**, and **a
-  check that cannot be made is not a failed check** — `unknown` saves anyway and logs it
-  unverified.
+- **The agent still owns the check** (a vendor client in the API is a bug):
+  `POST /internal/crm/verify-key` stays in the agent. No API procedure calls it now.
 
 ## Mailbox sync
 

@@ -1,19 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
-import { ResearchKeyService } from "../src/agent/research-key.service";
-import { BackfillService } from "../src/backfill/backfill.service";
 import { ModelCatalogService } from "../src/settings/model-catalog.service";
 import { SettingsService } from "../src/settings/settings.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "settings-nav-spec";
 
-const service = new SettingsService(
-	db,
-	{} as ModelCatalogService,
-	{} as ResearchKeyService,
-	{} as BackfillService,
-);
+const service = new SettingsService(db, {} as ModelCatalogService);
 
 let adminUserId: string;
 let memberUserId: string;

@@ -70,22 +70,12 @@ export class ContactsRouter {
 		return this.contacts.delete(id, ctx.access);
 	}
 
-	@Mutation({ input: contactIdInput, meta: access("contacts", "EDIT") })
-	async enrich(@Ctx() ctx: AccessTrpcContext, @Input("id") id: string) {
-		return this.contacts.enrich(id, ctx.access);
-	}
-
 	@Mutation({ input: contactBulkOwnerInput, meta: access("contacts", "EDIT") })
 	async bulkAssignOwner(
 		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof contactBulkOwnerInput>,
 	) {
 		return this.contacts.bulkAssignOwner(input, ctx.access);
-	}
-
-	@Mutation({ input: contactBulkInput, meta: access("contacts", "EDIT") })
-	async bulkEnrich(@Ctx() ctx: AccessTrpcContext, @Input("ids") ids: string[]) {
-		return this.contacts.bulkEnrich(ids, ctx.access);
 	}
 
 	@Mutation({ input: contactBulkInput, meta: access("contacts", "DELETE") })

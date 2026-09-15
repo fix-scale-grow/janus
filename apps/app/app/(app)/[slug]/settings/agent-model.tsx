@@ -109,7 +109,7 @@ export function AgentModel() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>Research agent</CardTitle>
+				<CardTitle>Agent model</CardTitle>
 				<CardDescription>
 					The model the agent thinks with, routed through the Vercel AI Gateway.
 				</CardDescription>

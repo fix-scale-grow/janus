@@ -10,7 +10,6 @@ import {
 import type { z } from "zod";
 import { adminOnly, anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import { SettingsService } from "../settings/settings.service";
 import type {
 	AccessTrpcContext,
 	AuthedTrpcContext,
@@ -28,7 +27,6 @@ import { WorkspaceService } from "./workspace.service";
 export class WorkspaceRouter {
 	constructor(
 		@Inject(WorkspaceService) private readonly workspace: WorkspaceService,
-		@Inject(SettingsService) private readonly settings: SettingsService,
 	) {}
 
 	@Query({ meta: anyMember({ field: true }) })
@@ -38,15 +36,11 @@ export class WorkspaceRouter {
 
 	@Query({ meta: anyMember({ field: true }) })
 	async gate(@Ctx() ctx: AccessTrpcContext) {
-		const [workspace, research] = await Promise.all([
-			this.workspace.get(ctx.user.id),
-			this.settings.researchKey(),
-		]);
+		const workspace = await this.workspace.get(ctx.user.id);
 		return {
 			onboarded: workspace.onboarded,
 			canRename: workspace.canRename,
 			slug: workspace.slug,
-			researchConfigured: research.configured,
 			surface: ctx.access.surface,
 			isAdmin: ctx.access.isAdmin,
 			areas: ctx.access.policy.areas,

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { NextRequest } from "next/server";
-import { readResearchGate, readWorkspaceGate } from "../lib/onboarding";
+import { readWorkspaceGate } from "../lib/onboarding";
 import { proxy } from "../proxy";
 
 const SESSION_COOKIE = `${AUTH_COOKIE_PREFIX}.session_token=abc.def`;
@@ -42,14 +42,12 @@ const gate = (data: {
 	onboarded: boolean;
 	canRename: boolean;
 	slug?: string;
-	researchConfigured?: boolean;
 	surface?: "FULL" | "FIELD";
 	isAdmin?: boolean;
 }) => ({
 	result: {
 		data: {
 			slug: SLUG,
-			researchConfigured: true,
 			surface: "FULL" as const,
 			isAdmin: true,
 			...data,
@@ -60,13 +58,11 @@ const gate = (data: {
 function setup({
 	onboarded = true,
 	canRename = true,
-	configured = true,
 	slug = SLUG,
 	isAdmin = true,
 }: {
 	onboarded?: boolean;
 	canRename?: boolean;
-	configured?: boolean;
 	slug?: string;
 	isAdmin?: boolean;
 } = {}) {
@@ -80,7 +76,6 @@ function setup({
 				onboarded,
 				canRename,
 				slug,
-				researchConfigured: configured,
 				isAdmin,
 			}),
 		);
@@ -141,34 +136,6 @@ describe("readWorkspaceGate", () => {
 	});
 });
 
-describe("readResearchGate", () => {
-	it("is settled once a key is saved, and required until then", async () => {
-		answerWith(
-			gate({ onboarded: true, canRename: true, researchConfigured: true }),
-		);
-		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
-			"settled",
-		);
-
-		answerWith(
-			gate({ onboarded: true, canRename: true, researchConfigured: false }),
-		);
-		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
-			"required",
-		);
-	});
-
-	it("is unknown rather than required when the API cannot be read", async () => {
-		stub(async () => {
-			throw new Error("connect ECONNREFUSED");
-		});
-
-		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
-			"unknown",
-		);
-	});
-});
-
 describe("proxy", () => {
 	it("shows a stranger the landing page and nothing behind it", async () => {
 		marketing("true");
@@ -190,7 +157,7 @@ describe("proxy", () => {
 
 	it("never aims a redirect at the sign-in page itself", async () => {
 		marketing(undefined);
-		setup({ onboarded: false, configured: false });
+		setup({ onboarded: false });
 
 		expect(redirectedTo(await proxy(request("/sign-in")))).toBeNull();
 		expect(
@@ -303,7 +270,7 @@ describe("proxy", () => {
 	});
 
 	it("never gates the signing link behind onboarding either", async () => {
-		setup({ onboarded: false, configured: false });
+		setup({ onboarded: false });
 
 		expect(
 			redirectedTo(await proxy(request("/sign/abc123", [SESSION_COOKIE]))),
@@ -373,46 +340,46 @@ describe("the slug the app is served under", () => {
 	});
 });
 
-describe("the research key gate", () => {
-	it("sends an onboarded rep with no key to the key form", async () => {
-		setup({ configured: false });
+describe("no research key step", () => {
+	it("takes an onboarded admin with no research key straight into the workspace", async () => {
+		setup({ isAdmin: true });
 
+		expect(redirectedTo(await proxy(request("/", [SESSION_COOKIE])))).toBe(
+			`/${SLUG}`,
+		);
 		expect(
 			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
-		).toBe("/onboarding/research");
+		).toBeNull();
 	});
 
-	it("lets that form render rather than looping onto itself", async () => {
-		setup({ configured: false });
+	it("moves an old research step link into the workspace", async () => {
+		setup();
 
 		expect(
 			redirectedTo(
 				await proxy(request("/onboarding/research", [SESSION_COOKIE])),
 			),
-		).toBeNull();
+		).toBe(`/${SLUG}`);
 	});
 
-	it("asks the first question first when both are outstanding", async () => {
-		setup({ onboarded: false, configured: false });
-
-		expect(
-			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
-		).toBe("/onboarding");
-	});
-
-	it("sends them on to the key once the workspace is named", async () => {
-		setup({ onboarded: true, configured: false });
+	it("does not ask the API for a research key", async () => {
+		stub(async (url) => {
+			expect(url).toContain("workspace.gate");
+			return json({
+				result: {
+					data: {
+						onboarded: true,
+						canRename: true,
+						slug: SLUG,
+						surface: "FULL",
+						isAdmin: true,
+					},
+				},
+			});
+		});
 
 		expect(
 			redirectedTo(await proxy(request("/onboarding", [SESSION_COOKIE]))),
-		).toBe("/onboarding/research");
-	});
-
-	it("does not treat research as settled when the gate read fails", async () => {
-		answerWith({ error: { message: "UNAUTHORIZED" } }, 401);
-
-		expect(
-			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
-		).toBeNull();
+		).toBe(`/${SLUG}`);
 	});
 });

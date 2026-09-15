@@ -25,8 +25,6 @@ import { InvoicesTable } from "@/app/(app)/[slug]/invoices/invoices-table";
 import { NewInvoiceButton } from "@/app/(app)/[slug]/invoices/new-invoice-button";
 import { AgentPanel } from "@/components/crm/agent-panel";
 import { contactName } from "@/components/crm/contact-name";
-import { ContactEnrichmentAction } from "@/components/crm/enrichment-actions";
-import { EnrichmentIndicator } from "@/components/crm/enrichment-status";
 import { FactProvenance, FactSuggestion } from "@/components/crm/facts";
 import { FieldsCog, RecordFields } from "@/components/crm/fields/record-fields";
 import {
@@ -54,7 +52,6 @@ import { NewDrawingMenu } from "@/components/drawings/new-drawing-menu";
 import { LocalDateTime, LocalRelativeDate } from "@/components/local-date-time";
 import { PhotoGrid } from "@/components/photos/photo-grid";
 import { factsByField } from "@/lib/contact-facts";
-import { ENRICHMENT_POLL_MS, isEnriching } from "@/lib/enrichment-status";
 import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -90,15 +87,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 	const trpc = useTRPC();
 	const { tab, setTab } = useRecordSheetView("overview");
 
-	const query = useQuery({
-		...trpc.contacts.byId.queryOptions({ id: contactId }),
-		refetchInterval: (current) => {
-			const record = current.state.data;
-			return record && isEnriching(record.enrichmentStatus, record.queued)
-				? ENRICHMENT_POLL_MS
-				: false;
-		},
-	});
+	const query = useQuery(trpc.contacts.byId.queryOptions({ id: contactId }));
 	const contact = query.data;
 
 	const tabs: DetailSheetTab[] = contact
@@ -163,15 +152,6 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 					<MetaLine parts={[contact.title, contact.companyName]} />
 				) : undefined
 			}
-			note={
-				contact && contact.enrichmentStatus !== "COMPLETE" ? (
-					<EnrichmentIndicator
-						status={contact.enrichmentStatus}
-						queued={contact.queued}
-						title={contact.enrichmentError}
-					/>
-				) : null
-			}
 			media={
 				<PersonAvatar
 					src={contact?.imageUrl}
@@ -183,7 +163,6 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 			actions={
 				contact ? (
 					<>
-						<ContactEnrichmentAction contactId={contact.id} />
 						{contact.email ? (
 							<Button asChild variant="outline" size="sm">
 								<a href={`mailto:${contact.email}`}>
