@@ -8,6 +8,7 @@ import { markRunning, settle } from "./enrichment";
 import { collapsing, runLimited } from "./pool";
 import { runSlackChannelJoin } from "./slack-join-task";
 import { runSlackPeopleMatch } from "./slack-people";
+import { parseTaskRequester } from "./task-requester";
 import {
 	claimDue,
 	completeTask,
@@ -243,8 +244,14 @@ export function taskAuth(task: LeasedTask, base: AppAuth = APP_AUTH): AppAuth {
 			...(task.dealId ? { dealId: task.dealId } : {}),
 			...(task.drawingId ? { drawingId: task.drawingId } : {}),
 			...drawingCheckAttributes(task),
+			...requesterAttributes(task),
 		},
 	};
+}
+
+function requesterAttributes(task: LeasedTask): { requestedById?: string } {
+	const requestedById = parseTaskRequester(task.payload);
+	return requestedById ? { requestedById } : {};
 }
 
 function drawingCheckAttributes(task: LeasedTask): { estimateId?: string } {

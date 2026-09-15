@@ -42,13 +42,18 @@ export class AgentTriggerService {
 		});
 	}
 
-	async contactCreated(contactId: string, reason: string): Promise<void> {
+	async contactCreated(
+		contactId: string,
+		reason: string,
+		requestedById?: string,
+	): Promise<void> {
 		await this.enqueue({
 			contactId,
 			kind: "identify",
 			reason,
 			priority: PRIORITY.identify,
 			budget: 4,
+			...(requestedById ? { payload: { requestedById } } : {}),
 		});
 	}
 
@@ -207,7 +212,11 @@ export class AgentTriggerService {
 		});
 	}
 
-	async permitResearchRequested(dealId: string, reason: string): Promise<void> {
+	async permitResearchRequested(
+		dealId: string,
+		reason: string,
+		requestedById?: string,
+	): Promise<void> {
 		try {
 			const created = await this.db.$transaction(async (tx) => {
 				await lockIdempotencyKey(tx, `permit-research:${dealId}`);
@@ -226,7 +235,11 @@ export class AgentTriggerService {
 						priority: PRIORITY.permitResearch,
 						budget: 6,
 						dueAt: new Date(),
-						payload: { dealId, reason },
+						payload: {
+							dealId,
+							reason,
+							...(requestedById ? { requestedById } : {}),
+						},
 					},
 				});
 				return true;
@@ -257,6 +270,7 @@ export class AgentTriggerService {
 		drawingId: string,
 		estimateId: string,
 		reason: string,
+		requestedById?: string,
 	): Promise<void> {
 		await this.enqueue({
 			drawingId,
@@ -264,7 +278,7 @@ export class AgentTriggerService {
 			reason,
 			priority: PRIORITY.requested,
 			budget: 6,
-			payload: { estimateId },
+			payload: { estimateId, ...(requestedById ? { requestedById } : {}) },
 			subject: { path: ["estimateId"], value: estimateId },
 		});
 	}

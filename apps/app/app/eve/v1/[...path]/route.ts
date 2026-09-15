@@ -11,6 +11,17 @@ import {
 	bridgeConfigured,
 	mintBridgeToken,
 } from "@/lib/agent-bridge";
+import {
+	AGENT_SESSION_CLAIM,
+	addClaim,
+	claimCookie,
+	claimCookieValue,
+	isSessionCreate,
+	readClaims,
+	requestedSessionId,
+	sessionAllowed,
+	signClaims,
+} from "@/lib/agent-session-claim";
 import { getSession } from "@/lib/session";
 
 async function handler(request: Request): Promise<Response> {
@@ -60,7 +71,12 @@ async function handler(request: Request): Promise<Response> {
 	const builderConversationId = request.headers.get(
 		"x-crm-builder-conversation",
 	);
-	const requestedSession = sessionFromPath(url.pathname);
+	const requestedSession = requestedSessionId(url.pathname);
+	const secret = process.env.AGENT_BRIDGE_SECRET ?? "";
+	const claims = await readClaims(
+		claimCookieValue(request.headers.get("cookie")),
+		secret,
+	);
 	headers.delete("x-crm-contact");
 	headers.delete("x-crm-deal");
 	headers.delete("x-crm-drawing");
@@ -71,7 +87,15 @@ async function handler(request: Request): Promise<Response> {
 			where: { sessionId: requestedSession },
 			select: { userId: true },
 		});
-		if (conversation && conversation.userId !== session.user.id) {
+		if (
+			!sessionAllowed({
+				sessionId: requestedSession,
+				userId: session.user.id,
+				conversation,
+				claims,
+				now: Date.now(),
+			})
+		) {
 			return Response.json(
 				{ error: "Conversation not found." },
 				{ status: 404 },
@@ -155,6 +179,24 @@ async function handler(request: Request): Promise<Response> {
 		responseHeaders.delete(header);
 	}
 
+	const createdSession = isSessionCreate(request.method, url.pathname)
+		? upstream.headers.get(AGENT_SESSION_CLAIM.sessionHeader)
+		: null;
+	if (upstream.ok && createdSession) {
+		const next = addClaim(
+			claims,
+			{ sessionId: createdSession, userId: session.user.id },
+			Date.now(),
+		);
+		responseHeaders.append(
+			"set-cookie",
+			claimCookie(
+				await signClaims(next, secret),
+				process.env.NODE_ENV === "production",
+			),
+		);
+	}
+
 	return new Response(upstream.body, {
 		status: upstream.status,
 		statusText: upstream.statusText,
@@ -174,9 +216,4 @@ export {
 
 function cuid(value: string | null): string | undefined {
 	return value && /^[a-z0-9]{20,32}$/.test(value) ? value : undefined;
-}
-
-function sessionFromPath(pathname: string): string | null {
-	const match = pathname.match(/\/eve\/v1\/session\/([^/]+)/);
-	return match?.[1] ? decodeURIComponent(match[1]) : null;
 }

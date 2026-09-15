@@ -18,7 +18,11 @@ export class PermitTriggerService {
 		private readonly agentTrigger: AgentTriggerService,
 	) {}
 
-	async onStageChanged(dealId: string, stageId: string): Promise<void> {
+	async onStageChanged(
+		dealId: string,
+		stageId: string,
+		requestedById?: string,
+	): Promise<void> {
 		try {
 			const settings = await readPermitSettings(this.db);
 			if (
@@ -60,6 +64,7 @@ export class PermitTriggerService {
 			await this.agentTrigger.permitResearchRequested(
 				dealId,
 				"stage entered a permit trigger",
+				requestedById,
 			);
 		} catch (error) {
 			this.logger.error(

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import {
 	composeClosing,
 	contactPreamble,
@@ -22,6 +23,7 @@ let userId: string;
 let contractSentLabel: string;
 
 const rep = { dispatched: false };
+const admin = adminPrincipal("test-admin");
 
 async function salesStage(key: string): Promise<{ id: string; label: string }> {
 	return db.stage.findFirstOrThrow({
@@ -84,14 +86,14 @@ async function cleanup(): Promise<void> {
 
 describe("contactPreamble", () => {
 	it("states their company name as plain text", async () => {
-		const { markdown, focus } = await contactPreamble(paulaId, rep);
+		const { markdown, focus } = await contactPreamble(paulaId, rep, admin);
 
 		expect(markdown).toContain(companyName);
 		expect(focus).toEqual({ contactId: paulaId });
 	});
 
 	it("lists the deals they are on", async () => {
-		const { markdown } = await contactPreamble(paulaId, rep);
+		const { markdown } = await contactPreamble(paulaId, rep, admin);
 
 		expect(markdown).toContain(
 			`(${contractSentLabel}, Champion) \`${dealId}\``,
@@ -104,7 +106,7 @@ describe("contactPreamble", () => {
 			select: { id: true },
 		});
 
-		const { markdown } = await contactPreamble(orphan.id, rep);
+		const { markdown } = await contactPreamble(orphan.id, rep, admin);
 		expect(markdown).toContain("They are not on any deal.");
 
 		await db.contact.delete({ where: { id: orphan.id } });
@@ -113,7 +115,7 @@ describe("contactPreamble", () => {
 
 describe("dealPreamble", () => {
 	it("carries the deal and the people, all with ids", async () => {
-		const { markdown, focus } = await dealPreamble(dealId, rep);
+		const { markdown, focus } = await dealPreamble(dealId, rep, admin);
 
 		expect(markdown).toContain(`deal id \`${dealId}\``);
 		expect(markdown).toContain(`Champion \`${paulaId}\``);
@@ -134,7 +136,7 @@ describe("drawingPreamble", () => {
 			select: { id: true },
 		});
 
-		const { markdown } = await drawingPreamble(drawing.id, rep);
+		const { markdown } = await drawingPreamble(drawing.id, rep, admin);
 
 		expect(markdown).toContain("BEGIN UNTRUSTED DATA");
 		expect(markdown).toContain(": drawing title ---");
@@ -153,7 +155,7 @@ describe("drawingPreamble", () => {
 			select: { id: true },
 		});
 
-		const { markdown } = await drawingPreamble(drawing.id, rep);
+		const { markdown } = await drawingPreamble(drawing.id, rep, admin);
 
 		expect(markdown).toContain("BEGIN UNTRUSTED DATA");
 		expect(markdown).toContain(": deal name ---");
@@ -171,7 +173,7 @@ describe("drawingPreamble", () => {
 			select: { id: true },
 		});
 
-		const { markdown } = await drawingPreamble(drawing.id, rep);
+		const { markdown } = await drawingPreamble(drawing.id, rep, admin);
 
 		expect(markdown).toContain(
 			"has been generated from it yet.\n\nA drawing here is a job's takeoff",
@@ -196,7 +198,7 @@ describe("permitResearchPreamble", () => {
 			select: { id: true },
 		});
 
-		const { markdown } = await permitResearchPreamble(dealId, rep);
+		const { markdown } = await permitResearchPreamble(dealId, rep, admin);
 
 		expect(markdown).toContain("BEGIN UNTRUSTED DATA");
 		expect(markdown).toContain(": jurisdiction guess ---");
@@ -207,17 +209,25 @@ describe("permitResearchPreamble", () => {
 
 describe("who opened the session", () => {
 	it("tells a rep's session to answer the question", async () => {
-		const { markdown } = await contactPreamble(paulaId, { dispatched: false });
+		const { markdown } = await contactPreamble(
+			paulaId,
+			{ dispatched: false },
+			admin,
+		);
 
 		expect(markdown).toContain("A rep has this record open");
 		expect(markdown).not.toContain("Nobody is waiting on a reply");
 	});
 
 	it("tells a dispatched session to do the work and stop", async () => {
-		const { markdown } = await contactPreamble(paulaId, {
-			dispatched: true,
-			kind: "identity",
-		});
+		const { markdown } = await contactPreamble(
+			paulaId,
+			{
+				dispatched: true,
+				kind: "identity",
+			},
+			admin,
+		);
 
 		expect(markdown).toContain("Nobody is waiting on a reply");
 		expect(markdown).not.toContain("A rep has this record open");
@@ -226,8 +236,8 @@ describe("who opened the session", () => {
 
 describe("sessionPreamble", () => {
 	it("routes each record kind to its own conversation", async () => {
-		const contact = await sessionPreamble({ contactId: paulaId }, rep);
-		const deal = await sessionPreamble({ dealId }, rep);
+		const contact = await sessionPreamble({ contactId: paulaId }, rep, admin);
+		const deal = await sessionPreamble({ dealId }, rep, admin);
 
 		expect(contact.markdown).toContain("Start with `read_crm_history`");
 		expect(deal.markdown).toContain("Start with `read_deal_history`");
@@ -237,13 +247,14 @@ describe("sessionPreamble", () => {
 		const { markdown } = await sessionPreamble(
 			{ contactId: paulaId, dealId },
 			rep,
+			admin,
 		);
 
 		expect(markdown).toContain("Start with `read_crm_history`");
 	});
 
 	it("tells a session with no record that the CRM is searchable", async () => {
-		const { markdown } = await sessionPreamble({}, rep);
+		const { markdown } = await sessionPreamble({}, rep, admin);
 
 		expect(markdown).toBe((await noRecordPreamble()).markdown);
 		expect(markdown).toContain("`search_crm`");
@@ -255,8 +266,8 @@ describe("every session is told who we are", () => {
 		const expected = await composeClosing(await identity());
 
 		for (const { markdown } of [
-			await contactPreamble(paulaId, rep),
-			await dealPreamble(dealId, rep),
+			await contactPreamble(paulaId, rep, admin),
+			await dealPreamble(dealId, rep, admin),
 			await noRecordPreamble(),
 		]) {
 			expect(markdown.endsWith(expected)).toBe(true);
@@ -269,6 +280,7 @@ describe("the workspace profile session", () => {
 		const { markdown, focus } = await sessionPreamble(
 			{},
 			{ dispatched: true, kind: "workspace-profile" },
+			admin,
 		);
 
 		expect(focus).toEqual({});

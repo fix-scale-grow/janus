@@ -333,6 +333,7 @@ export class ContactsService {
 		await this.agent.contactCreated(
 			contact.id,
 			"Added by a rep, with nothing on the record yet",
+			p.userId,
 		);
 
 		return {
@@ -551,7 +552,11 @@ export class ContactsService {
 			data: { enrichmentStatus: "PENDING", enrichmentError: null },
 		});
 
-		await this.agent.contactCreated(id, "A rep asked for a fresh look");
+		await this.agent.contactCreated(
+			id,
+			"A rep asked for a fresh look",
+			p.userId,
+		);
 
 		return { id, queued: true };
 	}

@@ -1,8 +1,15 @@
 import { db } from "@crm/db";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import { guessJurisdictionFromAddress } from "@crm/db/permits";
 import { websiteUrl } from "@crm/db/workspace";
 import { capabilitiesMarkdown, enabled } from "./capabilities";
 import { JANUS_ROLE } from "./janus-role";
+import { maskedAmount } from "./lookup";
 import { RESEARCH_RULES } from "./permit-research";
 import { fenceUntrusted } from "./untrusted";
 import { identity, usMarkdown, type WorkspaceIdentity } from "./workspace";
@@ -26,14 +33,15 @@ export async function sessionPreamble(
 		drawingId?: string | null;
 	},
 	opened: Opened,
+	p: AccessPrincipal,
 ): Promise<Preamble> {
 	if (opened.kind === "workspace-profile") return workspacePreamble();
 	if (opened.kind === "permit-research" && record.dealId) {
-		return permitResearchPreamble(record.dealId, opened);
+		return permitResearchPreamble(record.dealId, opened, p);
 	}
-	if (record.contactId) return contactPreamble(record.contactId, opened);
-	if (record.dealId) return dealPreamble(record.dealId, opened);
-	if (record.drawingId) return drawingPreamble(record.drawingId, opened);
+	if (record.contactId) return contactPreamble(record.contactId, opened, p);
+	if (record.dealId) return dealPreamble(record.dealId, opened, p);
+	if (record.drawingId) return drawingPreamble(record.drawingId, opened, p);
 	return noRecordPreamble();
 }
 
@@ -69,9 +77,10 @@ function opening(opened: Opened, questions: string): string {
 export async function contactPreamble(
 	contactId: string,
 	opened: Opened,
+	p: AccessPrincipal,
 ): Promise<Preamble> {
-	const contact = await db.contact.findUnique({
-		where: { id: contactId },
+	const contact = await db.contact.findFirst({
+		where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
 		select: {
 			firstName: true,
 			lastName: true,
@@ -80,6 +89,9 @@ export async function contactPreamble(
 			companyName: true,
 			brief: { select: { refreshedAt: true } },
 			deals: {
+				where: allows(p, "deals", "VIEW")
+					? { deal: dealScopeWhere(p) }
+					: { dealId: { in: [] } },
 				orderBy: { deal: { lastActivityAt: "desc" } },
 				take: 5,
 				select: {
@@ -160,9 +172,11 @@ export async function contactPreamble(
 export async function dealPreamble(
 	dealId: string,
 	opened: Opened,
+	p: AccessPrincipal,
 ): Promise<Preamble> {
-	const deal = await db.deal.findUnique({
-		where: { id: dealId },
+	const seesContacts = allows(p, "contacts", "VIEW");
+	const deal = await db.deal.findFirst({
+		where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
 		select: {
 			name: true,
 			description: true,
@@ -172,6 +186,7 @@ export async function dealPreamble(
 			expectedCloseDate: true,
 			lastActivityAt: true,
 			contacts: {
+				where: seesContacts ? {} : { contactId: { in: [] } },
 				select: {
 					role: true,
 					contact: {
@@ -184,6 +199,7 @@ export async function dealPreamble(
 
 	if (!deal) return { markdown: await closing(), focus: {} };
 
+	const amount = maskedAmount(p, deal.amount);
 	const people = deal.contacts
 		.map(({ role, contact }) => {
 			const name = [contact.firstName, contact.lastName]
@@ -203,9 +219,7 @@ export async function dealPreamble(
 		fenceUntrusted("deal name", deal.name),
 		"",
 		`Stage: **${deal.stage.label}**${
-			deal.amount
-				? `. Amount: ${deal.amount} ${deal.currency ?? ""}`.trim()
-				: ""
+			amount ? `. Amount: ${amount} ${deal.currency ?? ""}`.trim() : ""
 		}${
 			deal.expectedCloseDate
 				? `. Expected close: ${deal.expectedCloseDate.toDateString()}`
@@ -221,7 +235,9 @@ export async function dealPreamble(
 					fenceUntrusted("deal description", deal.description),
 				]
 			: []),
-		people ? `People on it: ${people}` : "Nobody is attached to it yet.",
+		...(seesContacts
+			? [people ? `People on it: ${people}` : "Nobody is attached to it yet."]
+			: []),
 		"",
 		opening(
 			opened,
@@ -241,9 +257,10 @@ export async function dealPreamble(
 export async function permitResearchPreamble(
 	dealId: string,
 	opened: Opened,
+	p: AccessPrincipal,
 ): Promise<Preamble> {
-	const deal = await db.deal.findUnique({
-		where: { id: dealId },
+	const deal = await db.deal.findFirst({
+		where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
 		select: {
 			name: true,
 			drawings: {
@@ -295,9 +312,13 @@ export async function permitResearchPreamble(
 export async function drawingPreamble(
 	drawingId: string,
 	opened: Opened,
+	p: AccessPrincipal,
 ): Promise<Preamble> {
-	const drawing = await db.drawing.findUnique({
-		where: { id: drawingId },
+	const seesDeals = allows(p, "deals", "VIEW");
+	const seesContacts = allows(p, "contacts", "VIEW");
+	const seesEstimates = allows(p, "estimates", "VIEW");
+	const drawing = await db.drawing.findFirst({
+		where: { AND: [{ id: drawingId }, dealChildWhere(p)] },
 		select: {
 			title: true,
 			scale: true,
@@ -306,6 +327,7 @@ export async function drawingPreamble(
 			contactId: true,
 			contact: { select: { firstName: true, lastName: true } },
 			estimates: {
+				where: seesEstimates ? dealChildWhere(p) : { id: { in: [] } },
 				orderBy: { createdAt: "desc" },
 				take: 1,
 				select: { id: true, status: true },
@@ -315,18 +337,21 @@ export async function drawingPreamble(
 
 	if (!drawing) return { markdown: await closing(), focus: {} };
 
-	const contactName = drawing.contact
-		? [drawing.contact.firstName, drawing.contact.lastName]
-				.filter(Boolean)
-				.join(" ")
-		: null;
-	const dealBlock = drawing.dealId
-		? [
-				`It is on deal \`${drawing.dealId}\`, named:`,
-				"",
-				fenceUntrusted("deal name", drawing.deal?.name ?? ""),
-			].join("\n")
-		: "It is not on a deal.";
+	const contactName =
+		seesContacts && drawing.contact
+			? [drawing.contact.firstName, drawing.contact.lastName]
+					.filter(Boolean)
+					.join(" ")
+			: null;
+	const dealBlock = !seesDeals
+		? ""
+		: drawing.dealId
+			? [
+					`It is on deal \`${drawing.dealId}\`, named:`,
+					"",
+					fenceUntrusted("deal name", drawing.deal?.name ?? ""),
+				].join("\n")
+			: "It is not on a deal.";
 	const estimate = drawing.estimates[0];
 
 	const markdown = [
@@ -347,9 +372,13 @@ export async function drawingPreamble(
 		drawing.scale
 			? "It has a scale set, so areas and lengths on it are measured in real feet."
 			: "It has no scale set yet, so areas and lengths cannot be measured — only counts and prices per unit will resolve.",
-		estimate
-			? `An estimate already exists from it: \`${estimate.id}\` (${estimate.status}).`
-			: "No estimate has been generated from it yet.",
+		...(seesEstimates
+			? [
+					estimate
+						? `An estimate already exists from it: \`${estimate.id}\` (${estimate.status}).`
+						: "No estimate has been generated from it yet.",
+				]
+			: []),
 		"",
 		"A drawing here is a job's takeoff, not a sketch. Every shape drawn on it (an area, a line, or a pin) can carry a scope: which service it prices against, its own label, and an adjustment factor. The scope panel in the editor is where a rep assigns that. A shape with no service assigned is unpriced and shows as unassigned.",
 		"",

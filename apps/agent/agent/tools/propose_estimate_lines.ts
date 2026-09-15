@@ -1,7 +1,8 @@
 import { ServiceUnit } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { sessionPrincipal, targetsBlocked } from "../lib/access";
+import { sessionPrincipal, targetsBlocked, writeGuard } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { applyEstimateLines } from "../lib/estimate-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -43,27 +44,31 @@ const line = z.object({
 	source: z.enum(["missing", "note", "chat"]),
 });
 
+const toolInput = z.object({
+	estimateId: z.cuid(),
+	estimateTitle: z
+		.string()
+		.trim()
+		.min(1)
+		.max(ESTIMATE_LINES.limits.maxEstimateTitle),
+	lines: z.array(line).min(1).max(ESTIMATE_LINES.limits.maxLines),
+});
+
+const blockedFor = (p: AccessPrincipal, input: z.infer<typeof toolInput>) =>
+	targetsBlocked(p, [{ kind: "estimate", id: input.estimateId, need: "EDIT" }]);
+
 export default defineTool({
 	description:
 		"Propose one or more line items for an estimate: a missing item, a drawing note turned into a line, or one asked for in chat. A person approves before anything is added. Fill unitPriceCents from the book price read_crm_history or the service catalog reported, so the rep sees a price on the card before approving — it is display only. At approval the live book price on the service is copied onto any line with a serviceId, never the value proposed here, and a custom line without one is added at zero.",
-	inputSchema: z.object({
-		estimateId: z.cuid(),
-		estimateTitle: z
-			.string()
-			.trim()
-			.min(1)
-			.max(ESTIMATE_LINES.limits.maxEstimateTitle),
-		lines: z.array(line).min(1).max(ESTIMATE_LINES.limits.maxLines),
-	}),
+	inputSchema: toolInput,
 	approval: sensitiveWrite(
 		"Propose the line items in chat instead and let a rep add them from the estimate.",
+		writeGuard(toolInput, blockedFor),
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
 
-		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
-			{ kind: "estimate", id: input.estimateId, need: "EDIT" },
-		]);
+		const blocked = await blockedFor(await sessionPrincipal(ctx), input);
 		if (blocked) return { applied: false as const, reason: blocked };
 
 		return applyEstimateLines(

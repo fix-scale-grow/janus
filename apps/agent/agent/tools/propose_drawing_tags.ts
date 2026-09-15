@@ -1,6 +1,7 @@
+import type { AccessPrincipal } from "@crm/db/access-policy";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { sessionPrincipal, targetsBlocked } from "../lib/access";
+import { sessionPrincipal, targetsBlocked, writeGuard } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { applyDrawingTags } from "../lib/drawing-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -23,22 +24,26 @@ const tag = z.object({
 	reason: z.string().trim().min(1).max(DRAWING_TAGS.limits.maxReason),
 });
 
+const toolInput = z.object({
+	drawingId: z.cuid(),
+	tags: z.array(tag).min(1).max(DRAWING_TAGS.limits.maxTags),
+});
+
+const blockedFor = (p: AccessPrincipal, input: z.infer<typeof toolInput>) =>
+	targetsBlocked(p, [{ kind: "drawing", id: input.drawingId, need: "EDIT" }]);
+
 export default defineTool({
 	description:
 		"Propose a service for one or more shapes on a drawing, from scopeIds read_drawing already reported. A person approves before anything changes — draft each tag with the shape's own label, the service it should price against, and why.",
-	inputSchema: z.object({
-		drawingId: z.cuid(),
-		tags: z.array(tag).min(1).max(DRAWING_TAGS.limits.maxTags),
-	}),
+	inputSchema: toolInput,
 	approval: sensitiveWrite(
 		"Propose the tags in chat instead and let a rep assign the services from the drawing editor.",
+		writeGuard(toolInput, blockedFor),
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
 
-		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
-			{ kind: "drawing", id: input.drawingId, need: "EDIT" },
-		]);
+		const blocked = await blockedFor(await sessionPrincipal(ctx), input);
 		if (blocked) return { applied: false as const, reason: blocked };
 
 		return applyDrawingTags(

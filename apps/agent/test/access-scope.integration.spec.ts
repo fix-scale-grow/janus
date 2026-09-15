@@ -12,8 +12,15 @@ import { listDrawings } from "../agent/lib/drawing-lookup";
 import { loadDrawingSummary } from "../agent/lib/drawing-summary";
 import { loadEstimateSummary } from "../agent/lib/estimate-summary";
 import { listDeals, searchCrm } from "../agent/lib/lookup";
+import {
+	contactPreamble,
+	dealPreamble,
+	drawingPreamble,
+} from "../agent/lib/preamble";
 import { listPriceBook } from "../agent/lib/price-book";
 import attachDrawingTool from "../agent/tools/attach_drawing";
+import fillWorksheetTool from "../agent/tools/fill_worksheet";
+import proposeEstimateLinesTool from "../agent/tools/propose_estimate_lines";
 import readEstimateTool from "../agent/tools/read_estimate";
 import readPermitTool from "../agent/tools/read_permit";
 import searchCrmTool from "../agent/tools/search_crm";
@@ -177,11 +184,22 @@ describe("agent reads are scoped to the caller", () => {
 		expect(ids).toContain(f.clerkContactId);
 		expect(ids).not.toContain(f.otherDealId);
 		expect(ids).not.toContain(f.otherContactId);
+		const admin = await searchCrm(suffix, { limit: 25 }, f.admin);
+		const adminIds = [...admin.contacts, ...admin.deals].map((row) => row.id);
+		expect(adminIds).toContain(f.otherDealId);
+		expect(adminIds).toContain(f.otherContactId);
 	});
 
 	test("search_crm skips areas the group cannot view", async () => {
 		const result = await searchCrm(suffix, { limit: 25 }, f.crew);
 		expect(result.total).toBe(0);
+		const partial = await searchCrm(
+			suffix,
+			{ limit: 25 },
+			hiding(f.clerk, "deals"),
+		);
+		expect(partial.deals).toEqual([]);
+		expect(partial.contacts.map((row) => row.id)).toContain(f.clerkContactId);
 	});
 
 	test("estimate summary is not found outside scope", async () => {
@@ -226,7 +244,10 @@ describe("agent reads are scoped to the caller", () => {
 	test("outstanding work lists only in-scope contacts", async () => {
 		const rows = await contactsNeedingWork(500, f.clerk);
 		const ids = rows.map((row) => row.id);
+		expect(ids).toContain(f.clerkContactId);
 		expect(ids).not.toContain(f.otherContactId);
+		const all = await contactsNeedingWork(1_000_000, f.admin);
+		expect(all.map((row) => row.id)).toContain(f.otherContactId);
 	});
 
 	test("price book hides prices without the switch", async () => {
@@ -333,5 +354,311 @@ describe("agent tools refuse what the group cannot do", () => {
 			refused:
 				"Your group (Sales clerk) can't edit the price book. Ask an admin.",
 		});
+	});
+});
+
+function hiding(
+	p: AccessPrincipal,
+	...areas: (keyof AccessPrincipal["policy"]["areas"])[]
+): AccessPrincipal {
+	const next = { ...p.policy.areas };
+	for (const area of areas) next[area] = "HIDDEN";
+	return { ...p, policy: { ...p.policy, areas: next } };
+}
+
+describe("session preambles stay inside the caller's access", () => {
+	test("a deal preamble hides the amount without the prices switch", async () => {
+		await db.deal.update({
+			where: { id: f.clerkDealId },
+			data: { amount: 54_321 },
+		});
+		const hidden = await dealPreamble(
+			f.clerkDealId,
+			{ dispatched: false },
+			withoutPrices(f.clerk),
+		);
+		const shown = await dealPreamble(
+			f.clerkDealId,
+			{ dispatched: false },
+			f.admin,
+		);
+		expect(hidden.markdown).toContain(f.clerkDealId);
+		expect(hidden.markdown).not.toContain("54321");
+		expect(hidden.markdown).not.toContain("Amount:");
+		expect(shown.markdown).toContain("Amount: 54321");
+	});
+
+	test("a deal preamble outside scope names nothing", async () => {
+		const outside = await dealPreamble(
+			f.otherDealId,
+			{ dispatched: false },
+			f.clerk,
+		);
+		const admin = await dealPreamble(
+			f.otherDealId,
+			{ dispatched: false },
+			f.admin,
+		);
+		expect(outside.markdown).not.toContain(f.otherDealId);
+		expect(admin.markdown).toContain(f.otherDealId);
+	});
+
+	test("a contact preamble lists only deals the caller can see", async () => {
+		await db.dealContact.create({
+			data: { dealId: f.otherDealId, contactId: f.clerkContactId },
+		});
+		try {
+			const clerk = await contactPreamble(
+				f.clerkContactId,
+				{ dispatched: false },
+				f.clerk,
+			);
+			const noDeals = await contactPreamble(
+				f.clerkContactId,
+				{ dispatched: false },
+				hiding(f.clerk, "deals"),
+			);
+			const admin = await contactPreamble(
+				f.clerkContactId,
+				{ dispatched: false },
+				f.admin,
+			);
+			expect(clerk.markdown).toContain(f.clerkDealId);
+			expect(clerk.markdown).not.toContain(f.otherDealId);
+			expect(noDeals.markdown).not.toContain(f.clerkDealId);
+			expect(admin.markdown).toContain(f.clerkDealId);
+			expect(admin.markdown).toContain(f.otherDealId);
+		} finally {
+			await db.dealContact.delete({
+				where: {
+					dealId_contactId: {
+						dealId: f.otherDealId,
+						contactId: f.clerkContactId,
+					},
+				},
+			});
+		}
+	});
+
+	test("a drawing preamble and summary omit contact and estimate without their areas", async () => {
+		await db.drawing.update({
+			where: { id: f.clerkDrawingId },
+			data: {
+				contactId: f.clerkContactId,
+				scene: {
+					excalidraw: { elements: [], appState: {}, files: {} },
+					satellite: null,
+				},
+			},
+		});
+		await db.estimate.update({
+			where: { id: f.clerkEstimateId },
+			data: { drawingId: f.clerkDrawingId },
+		});
+		try {
+			const hidden = await drawingPreamble(
+				f.clerkDrawingId,
+				{ dispatched: false },
+				hiding(f.clerk, "contacts", "estimates"),
+			);
+			const admin = await drawingPreamble(
+				f.clerkDrawingId,
+				{ dispatched: false },
+				f.admin,
+			);
+			expect(hidden.markdown).toContain(f.clerkDrawingId);
+			expect(hidden.markdown).not.toContain(f.clerkContactId);
+			expect(hidden.markdown).not.toContain(f.clerkEstimateId);
+			expect(admin.markdown).toContain(f.clerkContactId);
+			expect(admin.markdown).toContain(f.clerkEstimateId);
+
+			const summary = await loadDrawingSummary(
+				f.clerkDrawingId,
+				hiding(f.clerk, "contacts"),
+			);
+			const adminSummary = await loadDrawingSummary(f.clerkDrawingId, f.admin);
+			if (!summary.found || !adminSummary.found) {
+				throw new Error("expected both drawing summaries");
+			}
+			expect(summary.contact).toBeNull();
+			expect(adminSummary.contact?.id).toBe(f.clerkContactId);
+		} finally {
+			await db.estimate.update({
+				where: { id: f.clerkEstimateId },
+				data: { drawingId: null },
+			});
+			await db.drawing.update({
+				where: { id: f.clerkDrawingId },
+				data: { contactId: null },
+			});
+		}
+	});
+});
+
+describe("unattended and deployed sessions resolve the right person", () => {
+	test("a permit-research task runs as the rep who moved the deal", async () => {
+		const p = await sessionPrincipal(
+			automatedCtx({ taskKind: "permit-research", requestedById: f.clerkId }),
+		);
+		expect(p.userId).toBe(f.clerkId);
+		expect(p.isAdmin).toBe(false);
+	});
+
+	test("a permit-research task with no requester runs as automation", async () => {
+		const p = await sessionPrincipal(
+			automatedCtx({ taskKind: "permit-research" }),
+		);
+		expect(p).toMatchObject({ userId: "janus-automation", isAdmin: true });
+	});
+
+	test("a drawing check without a readable estimate is refused", async () => {
+		await expect(
+			sessionPrincipal(
+				automatedCtx({
+					taskKind: "drawing-check",
+					estimateId: "cmaaaaaaaaaaaaaaaaaaaaaaa",
+				}),
+			),
+		).rejects.toThrow("This check has no requesting user.");
+	});
+
+	function teamAgentCtx(
+		authenticator: string,
+		principalId: string,
+		attributes: Record<string, string>,
+		initiatorAttributes: Record<string, string> = {},
+	) {
+		return {
+			session: {
+				auth: {
+					current: {
+						authenticator,
+						principalId,
+						principalType: "user",
+						attributes: { purpose: "team-agent", ...attributes },
+					},
+					initiator: { attributes: initiatorAttributes },
+				},
+			},
+		};
+	}
+
+	test("a manual team-agent run runs as its initiator", async () => {
+		const p = await sessionPrincipal(
+			teamAgentCtx("crm-user", f.clerkId, { userId: f.clerkId }),
+		);
+		expect(p.userId).toBe(f.clerkId);
+	});
+
+	test("a team-agent run with an unknown authenticator is refused", async () => {
+		await expect(
+			sessionPrincipal(
+				teamAgentCtx("crm-app", f.clerkId, { userId: f.clerkId }),
+			),
+		).rejects.toThrow("This deployed-agent run has an unrecognised caller.");
+	});
+
+	test("a manual team-agent run naming another user is refused", async () => {
+		await expect(
+			sessionPrincipal(
+				teamAgentCtx("crm-user", f.clerkId, { userId: f.adminId }),
+			),
+		).rejects.toThrow("This deployed-agent run names a different user.");
+	});
+
+	test("a team-agent userId only on the initiator is not trusted", async () => {
+		await expect(
+			sessionPrincipal(
+				teamAgentCtx("crm-schedule", f.clerkId, {}, { userId: f.adminId }),
+			),
+		).rejects.toThrow("This session is missing userId.");
+	});
+});
+
+describe("approval-gated writes refuse before the card", () => {
+	function approvalCall(session: unknown, toolInput: unknown) {
+		return {
+			session,
+			toolName: "tool",
+			toolInput,
+			approvedTools: [],
+			callId: "call-access",
+		} as never;
+	}
+
+	function estimateInput(estimateId: string) {
+		return {
+			estimateId,
+			estimateTitle: "Roof",
+			lines: [
+				{
+					name: "Ridge vent",
+					unit: "PER_EACH",
+					quantity: 1,
+					reason: "Missing from the takeoff.",
+					source: "missing",
+				},
+			],
+		};
+	}
+
+	test("propose_estimate_lines denies a clerk an estimate outside scope", async () => {
+		const approval = proposeEstimateLinesTool.approval as (
+			c: never,
+		) => Promise<unknown>;
+		const clerk = userCtx(f.clerkId).session;
+		const admin = userCtx(f.adminId).session;
+		expect(
+			await approval(approvalCall(clerk, estimateInput(f.otherEstimateId))),
+		).toEqual({ type: "denied", reason: "No such estimate." });
+		expect(
+			await approval(approvalCall(clerk, estimateInput(f.clerkEstimateId))),
+		).toBe("user-approval");
+		expect(
+			await approval(approvalCall(admin, estimateInput(f.otherEstimateId))),
+		).toBe("user-approval");
+	});
+
+	test("update_service denies a clerk without the price book switch", async () => {
+		const approval = updateServiceTool.approval as (
+			c: never,
+		) => Promise<unknown>;
+		const input = {
+			serviceId: "cmaaaaaaaaaaaaaaaaaaaaaaa",
+			current: {
+				name: "x",
+				unitPriceCents: 1,
+				priceGoodCents: null,
+				priceBestCents: null,
+				modifier: null,
+			},
+			changes: { unitPriceCents: 2 },
+		};
+		expect(
+			await approval(approvalCall(userCtx(f.clerkId).session, input)),
+		).toEqual({
+			type: "denied",
+			reason:
+				"Your group (Sales clerk) can't edit the price book. Ask an admin.",
+		});
+		expect(
+			await approval(approvalCall(userCtx(f.adminId).session, input)),
+		).toBe("user-approval");
+	});
+
+	test("fill_worksheet denies a clerk whose group has no permits", async () => {
+		const approval = fillWorksheetTool.approval as (
+			c: never,
+		) => Promise<unknown>;
+		const input = { permitId: f.clerkPermitId, answers: {} };
+		expect(
+			await approval(approvalCall(userCtx(f.clerkId).session, input)),
+		).toEqual({
+			type: "denied",
+			reason: "Your group (Sales clerk) can't edit permits. Ask an admin.",
+		});
+		expect(
+			await approval(approvalCall(userCtx(f.adminId).session, input)),
+		).toBe("user-approval");
 	});
 });

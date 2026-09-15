@@ -288,17 +288,26 @@ before the existing approval or unattended denial.
 
 - **A bridge session is the signed-in member.** A person who is not a member is
   refused, and a session with no user principal is refused.
-- **A system-initiated unattended task runs as `janus-automation`**, an admin
-  principal. Those sessions are already write-locked.
-- **A drawing check runs as the estimate's creator.** `taskAuth` carries the
-  payload's `estimateId`; the check reads it back to find the person.
-- **A team-agent run runs as its initiator, or else the agent's creator.** Any
-  member can deploy an agent, so a scheduled run never gets admin reach.
+- **An unattended task runs as the rep who asked for it.** The API writes
+  `requestedById` into the task payload; `taskAuth` copies it into the session.
+  A drawing check without one runs as the estimate's creator, and is refused when
+  that cannot be read. Only a task nobody asked for runs as `janus-automation`.
+- **A team-agent run runs as its initiator, or else the agent's creator.** The
+  caller must be `crm-user` or `crm-schedule`, and `userId` is read from the
+  current turn only. Any member can deploy an agent, so a run never gets admin reach.
+- **Approval-gated writes refuse before the card.** `sensitiveWrite` takes a
+  `writeGuard`; the same check runs again in `execute`.
+- **Session preambles use the same principal**, so the instructions never carry a
+  masked amount or a record the caller cannot see.
 - **A section the group cannot view is left out**, not refused, in tools that read
   several areas (`search_crm`, `read_crm_history`, `read_deal_history`,
   `read_drawing`).
 - **The bridge route refuses Janus** to a non-member, a field-surface group and an
   ungrouped non-admin, and 404s a tagged record outside the caller's scope.
+- **The bridge route owns the session ACL.** A session id in the path must belong
+  to an `AgentConversation` of the caller, or to a signed `janus_agent_sessions`
+  claim the route set when that caller created it (`lib/agent-session-claim.ts`).
+  The claim covers the seconds before the panel files the conversation.
 
 ## Sandbox
 

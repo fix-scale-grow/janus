@@ -440,6 +440,7 @@ export class EstimatesService {
 			drawing.id,
 			created.id,
 			"An estimate was just generated from this drawing.",
+			p.userId,
 		);
 
 		return created;

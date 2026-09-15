@@ -1,7 +1,8 @@
+import type { AccessPrincipal } from "@crm/db/access-policy";
 import { serviceModifier } from "@crm/drawings";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { priceBookRefusal, sessionPrincipal } from "../lib/access";
+import { priceBookRefusal, sessionPrincipal, writeGuard } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { applyServiceUpdate, SERVICE_WRITES } from "../lib/service-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -31,22 +32,28 @@ const changes = z
 		message: "At least one change is required.",
 	});
 
+const toolInput = z.object({
+	serviceId: z.cuid(),
+	current,
+	changes,
+});
+
+const blockedFor = async (p: AccessPrincipal) =>
+	priceBookRefusal(p)?.refused ?? null;
+
 export default defineTool({
 	description:
 		"Update a service on the price book: its name, prices, or modifier. A person approves before anything changes. current must be the exact values read_price_book just reported for this service — every field it read, not only the ones changing — so the approval card can show old → new. At approval the writer re-reads the live row and refuses if current no longer matches it, so read the price book again after any other update before retrying.",
-	inputSchema: z.object({
-		serviceId: z.cuid(),
-		current,
-		changes,
-	}),
+	inputSchema: toolInput,
 	approval: sensitiveWrite(
 		"Propose the change in chat instead and let a rep update the service from the price book.",
+		writeGuard(toolInput, blockedFor),
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
 
-		const denied = priceBookRefusal(await sessionPrincipal(ctx));
-		if (denied) return denied;
+		const refused = await blockedFor(await sessionPrincipal(ctx));
+		if (refused) return { refused };
 
 		return applyServiceUpdate(input.serviceId, input.current, input.changes);
 	},

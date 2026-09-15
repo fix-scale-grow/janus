@@ -94,4 +94,20 @@ describe("estimateGenerated drawing-check dedupe", () => {
 		const payload = created[0]?.payload as { estimateId: string } | undefined;
 		expect(payload?.estimateId).toBe("es2");
 	});
+
+	it("records the person who generated the estimate as the requester", async () => {
+		const { db, created } = fakeDb([]);
+
+		await new AgentTriggerService(db).estimateGenerated(
+			"dr1",
+			"es3",
+			"An estimate was just generated from this drawing.",
+			"user-1",
+		);
+
+		expect(created[0]?.payload).toEqual({
+			estimateId: "es3",
+			requestedById: "user-1",
+		});
+	});
 });

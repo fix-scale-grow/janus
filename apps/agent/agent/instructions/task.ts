@@ -1,4 +1,5 @@
 import { defineDynamic, defineInstructions } from "eve/instructions";
+import { sessionPrincipal } from "../lib/access";
 import { focusOn, setBudget } from "../lib/focus";
 import { sessionPreamble } from "../lib/preamble";
 import { RESEARCH_INSTRUCTIONS } from "../lib/research-instructions";
@@ -24,6 +25,7 @@ export default defineDynamic({
 
 			if (budget) setBudget(budget);
 
+			const principal = await sessionPrincipal(ctx);
 			const { markdown, focus } = await sessionPreamble(
 				{
 					contactId: asString(attributes.contactId),
@@ -36,6 +38,7 @@ export default defineDynamic({
 					reason: asString(attributes.reason),
 					budget,
 				},
+				principal,
 			);
 
 			focusOn({ ...focus, sessionId: ctx.session.id });

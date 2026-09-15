@@ -134,6 +134,21 @@ describe("taskAuth", () => {
 		expect(taskAuth(task()).attributes).not.toHaveProperty("estimateId");
 	});
 
+	it("carries the rep who asked for the task, so it runs under their group", () => {
+		const auth = taskAuth(
+			task({
+				kind: "permit-research",
+				payload: { dealId: "deal_1", reason: "x", requestedById: "user_1" },
+			}),
+		);
+
+		expect(auth.attributes).toMatchObject({ requestedById: "user_1" });
+		expect(taskAuth(task()).attributes).not.toHaveProperty("requestedById");
+		expect(() => taskAuth(task({ payload: { requestedById: 42 } }))).toThrow(
+			"This task's requestedById is unreadable",
+		);
+	});
+
 	it("omits the id of a record the task does not name", () => {
 		const auth = taskAuth(task({ contactId: null, dealId: "deal_1" }));
 

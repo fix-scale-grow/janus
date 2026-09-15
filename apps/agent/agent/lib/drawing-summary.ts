@@ -154,6 +154,7 @@ export async function loadDrawingSummary(
 	p: AccessPrincipal,
 ): Promise<DrawingSummary | { found: false; reason: string }> {
 	const seesEstimates = allows(p, "estimates", "VIEW");
+	const seesContacts = allows(p, "contacts", "VIEW");
 	const drawing = await db.drawing.findFirst({
 		where: { AND: [{ id: drawingId }, dealChildWhere(p)] },
 		select: {
@@ -219,7 +220,7 @@ export async function loadDrawingSummary(
 				}
 			: null,
 		contact:
-			drawing.contact && contactName
+			seesContacts && drawing.contact && contactName
 				? {
 						id: drawing.contact.id,
 						name: fenceUntrusted("contact name", contactName),

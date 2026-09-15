@@ -576,7 +576,11 @@ export class DealsService {
 		const { updated, now, fromKey, toKey } = transition;
 
 		await this.stamp.touch({ dealId: updated.id }, now);
-		await this.permitTrigger.onStageChanged(updated.id, updated.stageId);
+		await this.permitTrigger.onStageChanged(
+			updated.id,
+			updated.stageId,
+			p.userId,
+		);
 
 		this.logger.log({
 			message: "Deal stage changed",

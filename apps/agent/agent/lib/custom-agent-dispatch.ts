@@ -2,6 +2,7 @@ import { db, Prisma } from "@crm/db";
 import { CRM_EVENT_CATALOG, isCrmEventType } from "@crm/db/crm-events";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import type { SendFn } from "eve/channels";
+import { AGENT_ACCESS } from "./access";
 import { DISPATCH } from "./dispatch-config";
 import { DEPENDENCY_UNAVAILABLE, runDependencyFailure } from "./run-preflight";
 import {
@@ -489,7 +490,9 @@ export async function dispatchAgentRun(runId: string, send: SendFn) {
 	try {
 		const session = await send(`Execute deployed agent run ${run.id}.`, {
 			auth: {
-				authenticator: run.initiatedById ? "crm-user" : "crm-schedule",
+				authenticator: run.initiatedById
+					? AGENT_ACCESS.teamAgent.userAuthenticator
+					: AGENT_ACCESS.teamAgent.scheduleAuthenticator,
 				principalType: run.initiatedById ? "user" : "runtime",
 				principalId,
 				attributes: {

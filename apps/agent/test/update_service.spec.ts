@@ -80,7 +80,7 @@ describe("update_service input schema", () => {
 describe("update_service approval policy", () => {
 	const input = baseInput({ unitPriceCents: 9000 });
 
-	it("requires a person's approval for an interactive session", async () => {
+	it("denies an interactive caller who is not a workspace member, before the card", async () => {
 		const decision = await updateService.approval?.({
 			session: {
 				auth: {
@@ -88,6 +88,7 @@ describe("update_service approval policy", () => {
 						authenticator: "better-auth",
 						principalId: "user1",
 						principalType: "user",
+						attributes: {},
 					},
 					initiator: null,
 				},
@@ -98,7 +99,10 @@ describe("update_service approval policy", () => {
 			callId: "call1",
 		} as never);
 
-		expect(decision).toBe("user-approval");
+		expect(decision).toEqual({
+			type: "denied",
+			reason: "This person is not a member of this workspace.",
+		});
 	});
 
 	it("refuses a dispatched session and never stalls", async () => {

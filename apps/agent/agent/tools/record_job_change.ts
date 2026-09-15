@@ -1,27 +1,34 @@
 import { db } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { sessionPrincipal, targetsBlocked } from "../lib/access";
+import { sessionPrincipal, targetsBlocked, writeGuard } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { writeTimelineNote } from "../lib/crm";
 import { lastEmployerChange } from "../lib/facts";
 import { focusOn } from "../lib/focus";
 import { assertResearchPurpose } from "../lib/session-purpose";
 
+const toolInput = z.object({
+	contactId: z.string(),
+});
+
+const blockedFor = (p: AccessPrincipal, input: z.infer<typeof toolInput>) =>
+	targetsBlocked(p, [{ kind: "contact", id: input.contactId, need: "EDIT" }]);
+
 export default defineTool({
 	description:
 		"Raise a job change on a contact's timeline and task their owner. Reads the change from the facts already recorded; call it after recording a new employer.",
-	inputSchema: z.object({
-		contactId: z.string(),
-	}),
+	inputSchema: toolInput,
 	approval: sensitiveWrite(
 		"Raise the change — the alert lands on the timeline and their owner decides what to do about it.",
+		writeGuard(toolInput, blockedFor),
 	),
 	async execute({ contactId }, ctx) {
 		assertResearchPurpose(ctx);
-		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
-			{ kind: "contact", id: contactId, need: "EDIT" },
-		]);
+		const blocked = await blockedFor(await sessionPrincipal(ctx), {
+			contactId,
+		});
 		if (blocked) return { raised: false as const, reason: blocked };
 		focusOn({ contactId });
 

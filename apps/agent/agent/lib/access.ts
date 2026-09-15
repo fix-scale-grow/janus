@@ -16,15 +16,23 @@ import {
 	dealScopeWhere,
 	requiredDealChildWhere,
 } from "@crm/db/access-scope";
-import { isAutomated } from "./approval";
+import type { z } from "zod";
+import { isAutomated, type WriteGuard } from "./approval";
 import { parseDrawingCheckPayload } from "./drawing-check-payload";
-import { attribute, purposeOf, requireAttribute } from "./session-purpose";
+import { purposeOf } from "./session-purpose";
 
 export const AGENT_ACCESS = {
 	automationPrincipalId: "janus-automation",
 	notMember: "This person is not a member of this workspace.",
 	missingUser: "This session is missing userId.",
 	adminOnlyFields: "Only a workspace admin can change custom fields.",
+	noCheckRequester: "This check has no requesting user.",
+	teamAgent: {
+		userAuthenticator: "crm-user",
+		scheduleAuthenticator: "crm-schedule",
+		unknownCaller: "This deployed-agent run has an unrecognised caller.",
+		userMismatch: "This deployed-agent run names a different user.",
+	},
 	notFound: {
 		contact: "No such contact.",
 		deal: "No such deal.",
@@ -55,35 +63,71 @@ export type Refusal = { refused: string };
 export async function sessionPrincipal(
 	ctx: AccessContext,
 ): Promise<AccessPrincipal> {
+	const current = ctx.session.auth.current;
+
 	if (isAutomated(ctx.session)) {
-		const initiator = await automationInitiator(ctx);
-		return initiator
-			? memberPrincipal(initiator)
+		const requester = await automationRequester(ctx);
+		return requester
+			? memberPrincipal(requester)
 			: adminPrincipal(AGENT_ACCESS.automationPrincipalId);
 	}
 
 	if (purposeOf(ctx) === "team-agent") {
-		return memberPrincipal(requireAttribute(ctx, "userId"));
+		return memberPrincipal(teamAgentUser(current));
 	}
 
-	const current = ctx.session.auth.current;
 	if (current?.principalType !== "user" || !current.principalId) {
 		throw new Error(AGENT_ACCESS.missingUser);
 	}
 	return memberPrincipal(current.principalId);
 }
 
-async function automationInitiator(ctx: AccessContext): Promise<string | null> {
-	if (attribute(ctx, "taskKind") !== "drawing-check") return null;
+function currentAttribute(
+	current: AccessContext["session"]["auth"]["current"],
+	key: string,
+): string | null {
+	const value = current?.attributes[key];
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function teamAgentUser(
+	current: AccessContext["session"]["auth"]["current"],
+): string {
+	const authenticator = current?.authenticator;
+	if (
+		authenticator !== AGENT_ACCESS.teamAgent.userAuthenticator &&
+		authenticator !== AGENT_ACCESS.teamAgent.scheduleAuthenticator
+	) {
+		throw new Error(AGENT_ACCESS.teamAgent.unknownCaller);
+	}
+	const userId = currentAttribute(current, "userId");
+	if (!userId) throw new Error(AGENT_ACCESS.missingUser);
+	if (
+		authenticator === AGENT_ACCESS.teamAgent.userAuthenticator &&
+		userId !== current?.principalId
+	) {
+		throw new Error(AGENT_ACCESS.teamAgent.userMismatch);
+	}
+	return userId;
+}
+
+async function automationRequester(ctx: AccessContext): Promise<string | null> {
+	const current = ctx.session.auth.current;
+	const requestedById = currentAttribute(current, "requestedById");
+	if (requestedById) return requestedById;
+	if (currentAttribute(current, "taskKind") !== "drawing-check") return null;
+
 	const parsed = parseDrawingCheckPayload({
-		estimateId: attribute(ctx, "estimateId"),
+		estimateId: currentAttribute(current, "estimateId"),
 	});
-	if (!parsed) return null;
-	const estimate = await db.estimate.findUnique({
-		where: { id: parsed.estimateId },
-		select: { createdById: true },
-	});
-	return estimate?.createdById ?? null;
+	const estimate = parsed
+		? await db.estimate.findUnique({
+				where: { id: parsed.estimateId },
+				select: { createdById: true },
+			})
+		: null;
+	if (!estimate?.createdById) throw new Error(AGENT_ACCESS.noCheckRequester);
+	return estimate.createdById;
 }
 
 async function memberPrincipal(userId: string): Promise<AccessPrincipal> {
@@ -179,4 +223,15 @@ async function inScope(
 				})) !== null
 			);
 	}
+}
+
+export function writeGuard<T>(
+	schema: z.ZodType<T>,
+	check: (p: AccessPrincipal, input: T) => Promise<string | null>,
+): WriteGuard {
+	return async (session, toolInput) => {
+		const parsed = schema.safeParse(toolInput);
+		if (!parsed.success) return null;
+		return check(await sessionPrincipal({ session }), parsed.data);
+	};
 }

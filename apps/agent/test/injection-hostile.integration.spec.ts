@@ -283,18 +283,31 @@ describe("a sales clerk cannot talk Janus past their group", () => {
 			noPrices(f.clerk),
 		);
 		const all = JSON.stringify({ listed, searched, hostile });
+		expect(searched.deals.map((deal) => deal.id)).toContain(f.clerkDealId);
+		expect(listed.deals.map((deal) => deal.id)).toContain(f.clerkDealId);
 		expect(all).not.toContain(f.otherDealId);
 		expect(listed.deals.every((deal) => deal.amount === null)).toBe(true);
 		expect(searched.deals.every((deal) => deal.amount === null)).toBe(true);
 		expect(all).not.toContain("98765");
+
+		const admin = await searchCrm(`${suffix}-clerk`, { limit: 25 }, f.admin);
+		const adminDeal = admin.deals.find((deal) => deal.id === f.otherDealId);
+		expect(adminDeal?.amount).toBe(98_765);
 	});
 
 	it("search_crm with the hostile request leaves out other reps' records", async () => {
 		const result = JSON.stringify(
 			await execute(searchCrmTool, { query: `${suffix}-clerk`, limit: 25 }),
 		);
+		expect(result).toContain(f.clerkDealId);
 		expect(result).not.toContain(f.otherDealId);
 		expect(result).not.toContain(f.otherContactId);
+
+		const admin = JSON.stringify(
+			await searchCrm(`${suffix}-clerk`, { limit: 25 }, f.admin),
+		);
+		expect(admin).toContain(f.otherDealId);
+		expect(admin).toContain(f.otherContactId);
 	});
 
 	it("read estimate <otherEstimateId> is not found for the clerk", async () => {
@@ -303,5 +316,9 @@ describe("a sales clerk cannot talk Janus past their group", () => {
 		expect(estimateId).toBe(f.otherEstimateId);
 		const result = await execute(readEstimateTool, { estimateId });
 		expect(result).toEqual({ found: false, reason: "No such estimate." });
+		const own = await execute(readEstimateTool, {
+			estimateId: f.clerkEstimateId,
+		});
+		expect(own).toMatchObject({ found: true, estimateId: f.clerkEstimateId });
 	});
 });

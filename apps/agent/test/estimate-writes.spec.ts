@@ -81,7 +81,7 @@ describe("propose_estimate_lines input schema", () => {
 describe("propose_estimate_lines approval policy", () => {
 	const input = baseInput([baseLine()]);
 
-	it("requires a person's approval for an interactive session", async () => {
+	it("denies an interactive caller who is not a workspace member, before the card", async () => {
 		const decision = await proposeEstimateLines.approval?.({
 			session: {
 				auth: {
@@ -89,6 +89,7 @@ describe("propose_estimate_lines approval policy", () => {
 						authenticator: "better-auth",
 						principalId: "user1",
 						principalType: "user",
+						attributes: {},
 					},
 					initiator: null,
 				},
@@ -99,7 +100,10 @@ describe("propose_estimate_lines approval policy", () => {
 			callId: "call1",
 		} as never);
 
-		expect(decision).toBe("user-approval");
+		expect(decision).toEqual({
+			type: "denied",
+			reason: "This person is not a member of this workspace.",
+		});
 	});
 
 	it("refuses a dispatched session and never stalls", async () => {
