@@ -136,6 +136,18 @@ export function fromDay(value: string | null | undefined): Date | undefined {
 	return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+export function toUtcDay(date: Date): string {
+	return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+export function fromUtcDay(value: string | null | undefined): Date | undefined {
+	if (!value) return undefined;
+	const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+	if (!year || !month || !day) return undefined;
+	const date = new Date(Date.UTC(year, month - 1, day));
+	return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
 export function formatDay(value: string | null | undefined): string {
 	const date = fromDay(value);
 	return date ? dayFormat.format(date) : (value ?? "—");

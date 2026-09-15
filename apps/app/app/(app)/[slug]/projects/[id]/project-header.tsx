@@ -36,7 +36,7 @@ import {
 } from "@crm/ui/components/select";
 import { Spinner } from "@crm/ui/components/spinner";
 import { useSearchInput } from "@crm/ui/hooks/use-search-input";
-import { fromDay, toDay } from "@crm/ui/lib/format";
+import { fromUtcDay, toUtcDay } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -320,10 +320,10 @@ export function ProjectHeader({ id }: { id: string }) {
 					<span className="text-muted-foreground text-xs">Starts</span>
 					<DatePicker
 						value={
-							project.startDate ? toDay(new Date(project.startDate)) : null
+							project.startDate ? toUtcDay(new Date(project.startDate)) : null
 						}
 						onChange={(day) => {
-							const startDate = day ? fromDay(day) : undefined;
+							const startDate = day ? fromUtcDay(day) : undefined;
 							if (startDate) update.mutate({ id, startDate });
 						}}
 					/>
@@ -331,11 +331,13 @@ export function ProjectHeader({ id }: { id: string }) {
 				<span className="flex items-center gap-1.5">
 					<span className="text-muted-foreground text-xs">Finish by</span>
 					<DatePicker
-						value={project.goalDate ? toDay(new Date(project.goalDate)) : null}
+						value={
+							project.goalDate ? toUtcDay(new Date(project.goalDate)) : null
+						}
 						onChange={(day) =>
 							update.mutate({
 								id,
-								goalDate: day ? (fromDay(day) ?? null) : null,
+								goalDate: day ? (fromUtcDay(day) ?? null) : null,
 							})
 						}
 					/>

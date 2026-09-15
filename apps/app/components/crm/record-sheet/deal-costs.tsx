@@ -34,7 +34,7 @@ import {
 } from "@crm/ui/components/select";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { formatPercent, formatUsd, toDay } from "@crm/ui/lib/format";
+import { formatPercent, formatUsd, toDay, toUtcDay } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -525,7 +525,7 @@ function EditCostForm({
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
-	const [date, setDate] = useState<string>(toDay(new Date(row.date)));
+	const [date, setDate] = useState<string>(toUtcDay(new Date(row.date)));
 	const [category, setCategory] = useState<Category>(row.category);
 	const [amount, setAmount] = useState(String((row.amountCents ?? 0) / 100));
 	const [note, setNote] = useState(row.note ?? "");

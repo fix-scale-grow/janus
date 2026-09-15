@@ -31,7 +31,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { StatCard } from "@crm/ui/components/stat-card";
 import { Textarea } from "@crm/ui/components/textarea";
-import { formatUsd, fromDay, toDay } from "@crm/ui/lib/format";
+import { formatUsd, fromUtcDay, toUtcDay } from "@crm/ui/lib/format";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -248,14 +248,14 @@ export function InvoiceDetail({
 	const saveIssuedAt = (next: string) => {
 		update.mutate({
 			id: invoiceId,
-			data: { issuedAt: next ? (fromDay(next) ?? null) : null },
+			data: { issuedAt: next ? (fromUtcDay(next) ?? null) : null },
 		});
 	};
 
 	const saveDueAt = (next: string) => {
 		update.mutate({
 			id: invoiceId,
-			data: { dueAt: next ? (fromDay(next) ?? null) : null },
+			data: { dueAt: next ? (fromUtcDay(next) ?? null) : null },
 		});
 	};
 
@@ -369,7 +369,7 @@ export function InvoiceDetail({
 						<Field>
 							<FieldLabel>Issued</FieldLabel>
 							<DatePicker
-								value={issuedDay ? toDay(new Date(issuedDay)) : null}
+								value={issuedDay ? toUtcDay(new Date(issuedDay)) : null}
 								onChange={saveIssuedAt}
 								disabled={!canEdit}
 							/>
@@ -377,7 +377,7 @@ export function InvoiceDetail({
 						<Field>
 							<FieldLabel>Due</FieldLabel>
 							<DatePicker
-								value={dueDay ? toDay(new Date(dueDay)) : null}
+								value={dueDay ? toUtcDay(new Date(dueDay)) : null}
 								onChange={saveDueAt}
 								disabled={!canEdit}
 							/>

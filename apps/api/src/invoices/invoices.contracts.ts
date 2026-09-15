@@ -1,5 +1,6 @@
 import { InvoiceStatus } from "@crm/db";
 import { z } from "zod";
+import { toDay } from "../projects/projects.contracts";
 import { listInput } from "../trpc/list-input";
 
 const statusEnum = z.enum(
@@ -9,6 +10,8 @@ const statusEnum = z.enum(
 const tierEnum = z.enum(["GOOD", "BETTER", "BEST"]);
 
 const cents = z.number().int().min(0).max(99_999_999);
+
+const dayInput = z.coerce.date().transform(toDay);
 
 const quantity = z
 	.number()
@@ -55,8 +58,8 @@ export const invoiceUpdateInput = z.object({
 	id: z.string().min(1),
 	data: z.object({
 		notes: z.string().trim().max(5000).nullable().optional(),
-		dueAt: z.coerce.date().nullable().optional(),
-		issuedAt: z.coerce.date().nullable().optional(),
+		dueAt: dayInput.nullable().optional(),
+		issuedAt: dayInput.nullable().optional(),
 		contactId: z.string().nullable().optional(),
 		introNote: z.string().trim().max(5000).nullable().optional(),
 		scopeOfWork: z.string().trim().max(5000).nullable().optional(),

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { formatDay, fromDay, toDay } from "@crm/ui/lib/format";
+import {
+	formatDay,
+	fromDay,
+	fromUtcDay,
+	toDay,
+	toUtcDay,
+} from "@crm/ui/lib/format";
 
 describe("day strings", () => {
 	it("round-trips a date through its local parts", () => {
@@ -22,5 +28,32 @@ describe("day strings", () => {
 		expect(fromDay("")).toBeUndefined();
 		expect(fromDay("someday")).toBeUndefined();
 		expect(formatDay(null)).toBe("—");
+	});
+});
+
+describe("stored day values", () => {
+	it("reads a stored day as the day the server wrote", () => {
+		expect(toUtcDay(new Date("2026-09-15T00:00:00.000Z"))).toBe("2026-09-15");
+		expect(toUtcDay(new Date("2026-01-05T00:00:00.000Z"))).toBe("2026-01-05");
+	});
+
+	it("writes a picked day back as that same day in UTC", () => {
+		const written = fromUtcDay("2026-09-15");
+		expect(written?.toISOString()).toBe("2026-09-15T00:00:00.000Z");
+		expect(toUtcDay(written as Date)).toBe("2026-09-15");
+	});
+
+	it("round-trips every day of a year in this timezone", () => {
+		for (let index = 0; index < 365; index += 1) {
+			const stored = new Date(Date.UTC(2026, 0, 1 + index));
+			const day = toUtcDay(stored);
+			expect(fromUtcDay(day)?.getTime()).toBe(stored.getTime());
+		}
+	});
+
+	it("has nothing to show for nothing", () => {
+		expect(fromUtcDay(null)).toBeUndefined();
+		expect(fromUtcDay("")).toBeUndefined();
+		expect(fromUtcDay("someday")).toBeUndefined();
 	});
 });

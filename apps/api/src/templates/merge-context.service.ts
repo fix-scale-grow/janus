@@ -75,6 +75,7 @@ const CONTRACT_SELECT = {
 
 const DUE_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
 	dateStyle: "medium",
+	timeZone: "UTC",
 });
 
 @Injectable()

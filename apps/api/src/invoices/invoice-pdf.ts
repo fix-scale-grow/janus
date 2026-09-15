@@ -52,6 +52,11 @@ export type InvoicePdfInvoice = {
 	terms: string | null;
 };
 
+const DAY_FORMAT = new Intl.DateTimeFormat("en-US", {
+	dateStyle: "medium",
+	timeZone: "UTC",
+});
+
 const GENERAL_GROUP = "General";
 
 const UNIT_LABELS: Record<string, string> = {
@@ -337,8 +342,8 @@ export async function renderInvoicePdf(
 		: null;
 
 	const dateParts = [
-		invoice.issuedAt ? `Issued ${invoice.issuedAt.toLocaleDateString()}` : null,
-		invoice.dueAt ? `Due ${invoice.dueAt.toLocaleDateString()}` : null,
+		invoice.issuedAt ? `Issued ${DAY_FORMAT.format(invoice.issuedAt)}` : null,
+		invoice.dueAt ? `Due ${DAY_FORMAT.format(invoice.dueAt)}` : null,
 	].filter(Boolean);
 
 	const photosSection =
