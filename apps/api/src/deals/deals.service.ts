@@ -6,6 +6,12 @@ import {
 	ProductionStage,
 	StageOutcome,
 } from "@crm/db";
+import {
+	type AccessPrincipal,
+	allows,
+	refusalMessage,
+} from "@crm/db/access-policy";
+import { dealScopeWhere, isUnscoped } from "@crm/db/access-scope";
 import { normalizeCurrency } from "@crm/db/currency";
 import {
 	entryStageOf,
@@ -15,6 +21,7 @@ import {
 } from "@crm/db/stage-semantics";
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -132,17 +139,24 @@ export class DealsService {
 		private readonly permitTrigger: PermitTriggerService,
 	) {}
 
-	async list(input: DealListInput) {
-		const where = this.buildWhere(input);
+	async list(input: DealListInput, p: AccessPrincipal) {
+		const baseWhere = this.buildWhere(input);
+		const scopeWhere = dealScopeWhere(p);
+		const where: Prisma.DealWhereInput = { AND: [baseWhere, scopeWhere] };
 		const { skip, take } = paginate(input);
 
-		const { stageId: _ignoredStageId, ...restWhere } = where;
+		const { stageId: _ignoredStageId, ...restWhere } = baseWhere;
 		const openWhere: Prisma.DealWhereInput = {
-			...restWhere,
-			stage: {
-				outcome: StageOutcome.OPEN,
-				...(input.pipelineId ? { pipelineId: input.pipelineId } : {}),
-			},
+			AND: [
+				{
+					...restWhere,
+					stage: {
+						outcome: StageOutcome.OPEN,
+						...(input.pipelineId ? { pipelineId: input.pipelineId } : {}),
+					},
+				},
+				scopeWhere,
+			],
 		};
 		const base = await this.conversion.reportingCurrency();
 
@@ -169,7 +183,7 @@ export class DealsService {
 				},
 			}),
 			this.db.deal.count({ where }),
-			this.facetCounts(input),
+			this.facetCounts(input, p),
 			this.db.deal.aggregate({
 				where: { AND: [openWhere, this.conversion.countedWhere(base)] },
 				_sum: { baseAmount: true },
@@ -217,9 +231,9 @@ export class DealsService {
 		};
 	}
 
-	async byId(id: string) {
-		const deal = await this.db.deal.findUnique({
-			where: { id },
+	async byId(id: string, p: AccessPrincipal) {
+		const deal = await this.db.deal.findFirst({
+			where: { AND: [{ id }, dealScopeWhere(p)] },
 			select: {
 				id: true,
 				name: true,
@@ -267,7 +281,8 @@ export class DealsService {
 		};
 	}
 
-	async create(input: DealCreateInput) {
+	async create(input: DealCreateInput, p: AccessPrincipal) {
+		const ownerId = isUnscoped(p) ? input.ownerId : p.userId;
 		const stage = input.stage
 			? await this.resolveStage(input.stage)
 			: await this.defaultEntryStage();
@@ -293,7 +308,7 @@ export class DealsService {
 				const created = await tx.deal.create({
 					data: {
 						name: input.name.trim(),
-						ownerId: input.ownerId,
+						ownerId,
 						stageId: stage.id,
 						stageChangedAt: now,
 						closedAt: closed ? now : null,
@@ -334,7 +349,9 @@ export class DealsService {
 		}
 	}
 
-	async update(id: string, input: DealUpdateInput) {
+	async update(id: string, input: DealUpdateInput, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
+
 		const data: Prisma.DealUpdateInput = {};
 
 		if (input.name !== undefined) data.name = input.name.trim();
@@ -343,6 +360,7 @@ export class DealsService {
 				input.description === null ? null : blankToNull(input.description);
 		}
 		if (input.ownerId !== undefined) {
+			this.assertOwnerAssignable(input.ownerId, p);
 			data.owner = { connect: { id: input.ownerId } };
 		}
 		if (input.amountCents !== undefined) {
@@ -394,7 +412,12 @@ export class DealsService {
 		}
 	}
 
-	async delete(id: string): Promise<{ id: string; name: string }> {
+	async delete(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ id: string; name: string }> {
+		await this.assertInScope(id, p);
+
 		let deleted: { targets: StampTargets; name: string };
 
 		try {
@@ -424,7 +447,13 @@ export class DealsService {
 		return { id, name: deleted.name };
 	}
 
-	async setStage(input: SetStageInput, actingUserId: string) {
+	async setStage(
+		input: SetStageInput,
+		actingUserId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
+
 		const closedReason = input.closedReason?.trim();
 
 		const transition = await this.agent.withCrmEvents(async (tx, emit) => {
@@ -545,7 +574,7 @@ export class DealsService {
 	 * first so the job just touched sits on top. Each row carries the primary
 	 * reachable contact (first attached contact with a phone) so the mobile field
 	 * UI can one-tap Call without a second round-trip. Read-only. */
-	async fieldToday() {
+	async fieldToday(p: AccessPrincipal) {
 		const ACTIVE_PRODUCTION = [
 			ProductionStage.SCHEDULED,
 			ProductionStage.IN_PROGRESS,
@@ -554,8 +583,13 @@ export class DealsService {
 
 		const rows = await this.db.deal.findMany({
 			where: {
-				stage: { outcome: StageOutcome.WON },
-				productionStage: { in: ACTIVE_PRODUCTION },
+				AND: [
+					{
+						stage: { outcome: StageOutcome.WON },
+						productionStage: { in: ACTIVE_PRODUCTION },
+					},
+					dealScopeWhere(p),
+				],
 			},
 			orderBy: [
 				{ productionStageChangedAt: { sort: "desc", nulls: "last" } },
@@ -602,9 +636,17 @@ export class DealsService {
 	async setProductionStage(
 		input: SetProductionStageInput,
 		actingUserId: string,
+		p: AccessPrincipal,
 	) {
-		const deal = await this.db.deal.findUnique({
-			where: { id: input.id },
+		if (
+			!allows(p, "deals", "EDIT") &&
+			input.stage !== ProductionStage.COMPLETE
+		) {
+			throw new ForbiddenException(refusalMessage(p, "deals", "EDIT"));
+		}
+
+		const deal = await this.db.deal.findFirst({
+			where: { AND: [{ id: input.id }, dealScopeWhere(p)] },
 			select: {
 				id: true,
 				productionStage: true,
@@ -652,9 +694,9 @@ export class DealsService {
 		return { ...updated, changed: true as const };
 	}
 
-	async contactOptions(dealId: string) {
-		const deal = await this.db.deal.findUnique({
-			where: { id: dealId },
+	async contactOptions(dealId: string, p: AccessPrincipal) {
+		const deal = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
 			select: { contacts: { select: { contactId: true } } },
 		});
 
@@ -672,9 +714,9 @@ export class DealsService {
 		});
 	}
 
-	async attachContact(input: DealAttachContactInput) {
-		const deal = await this.db.deal.findUnique({
-			where: { id: input.dealId },
+	async attachContact(input: DealAttachContactInput, p: AccessPrincipal) {
+		const deal = await this.db.deal.findFirst({
+			where: { AND: [{ id: input.dealId }, dealScopeWhere(p)] },
 			select: { id: true },
 		});
 
@@ -713,7 +755,9 @@ export class DealsService {
 		return { dealId: input.dealId, contactId: input.contactId };
 	}
 
-	async detachContact(input: DealDetachContactInput) {
+	async detachContact(input: DealDetachContactInput, p: AccessPrincipal) {
+		await this.assertInScope(input.dealId, p);
+
 		const { count } = await this.db.dealContact.deleteMany({
 			where: { dealId: input.dealId, contactId: input.contactId },
 		});
@@ -731,7 +775,9 @@ export class DealsService {
 		return { dealId: input.dealId, contactId: input.contactId };
 	}
 
-	async setContactRole(input: DealContactRoleInput) {
+	async setContactRole(input: DealContactRoleInput, p: AccessPrincipal) {
+		await this.assertInScope(input.dealId, p);
+
 		const role = roleOrNull(input.role);
 
 		const { count } = await this.db.dealContact.updateMany({
@@ -746,10 +792,15 @@ export class DealsService {
 		return { dealId: input.dealId, contactId: input.contactId, role };
 	}
 
-	async bulkAssignOwner(input: DealBulkOwnerInput): Promise<BulkResult> {
+	async bulkAssignOwner(
+		input: DealBulkOwnerInput,
+		p: AccessPrincipal,
+	): Promise<BulkResult> {
+		this.assertOwnerAssignable(input.ownerId, p);
 		await requireOwner(this.db, input.ownerId);
 
 		const ids = [...new Set(input.ids)];
+		await this.assertAllInScope(ids, p);
 		const { count } = await this.db.deal.updateMany({
 			where: { id: { in: ids } },
 			data: { ownerId: input.ownerId },
@@ -772,7 +823,10 @@ export class DealsService {
 	async bulkSetStage(
 		input: DealBulkStageInput,
 		actingUserId: string,
+		p: AccessPrincipal,
 	): Promise<BulkResult> {
+		await this.assertAllInScope(input.ids, p);
+
 		const closedReason = input.closedReason?.trim();
 		const stage = await this.resolveStage(input.stage);
 
@@ -783,12 +837,13 @@ export class DealsService {
 		}
 
 		return runBulk(input.ids, (id) =>
-			this.setStage({ id, stage: input.stage, closedReason }, actingUserId),
+			this.setStage({ id, stage: input.stage, closedReason }, actingUserId, p),
 		);
 	}
 
-	async bulkDelete(ids: string[]): Promise<BulkResult> {
-		return runBulk(ids, (id) => this.delete(id));
+	async bulkDelete(ids: string[], p: AccessPrincipal): Promise<BulkResult> {
+		await this.assertAllInScope(ids, p);
+		return runBulk(ids, (id) => this.delete(id, p));
 	}
 
 	private searchFilter(q: string): Prisma.DealWhereInput {
@@ -857,7 +912,10 @@ export class DealsService {
 		return where;
 	}
 
-	private async facetCounts(input: DealListInput): Promise<{
+	private async facetCounts(
+		input: DealListInput,
+		p: AccessPrincipal,
+	): Promise<{
 		counts: {
 			status: { open: number; closed: number };
 			owner: Record<string, number>;
@@ -866,13 +924,17 @@ export class DealsService {
 		};
 		stages: StageFacetMeta[];
 	}> {
-		const where = this.searchFilter(input.q);
+		const searchWhere = this.searchFilter(input.q);
+		const scopeWhere = dealScopeWhere(p);
+		const where: Prisma.DealWhereInput = { AND: [searchWhere, scopeWhere] };
 
 		const [owners, stageGroups, ...closingCounts] = await Promise.all([
 			this.db.deal.groupBy({ by: ["ownerId"], where, _count: { _all: true } }),
 			this.db.deal.groupBy({ by: ["stageId"], where, _count: { _all: true } }),
 			...CLOSING_WINDOWS.map((window) =>
-				this.db.deal.count({ where: { ...where, ...closingFilter(window) } }),
+				this.db.deal.count({
+					where: { AND: [searchWhere, closingFilter(window), scopeWhere] },
+				}),
 			),
 		]);
 
@@ -958,6 +1020,35 @@ export class DealsService {
 		}
 
 		return entry;
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.deal.findFirst({
+			where: { AND: [{ id }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No deal with id ${id}.`);
+	}
+
+	private async assertAllInScope(
+		ids: string[],
+		p: AccessPrincipal,
+	): Promise<void> {
+		for (const id of [...new Set(ids)]) {
+			await this.assertInScope(id, p);
+		}
+	}
+
+	private assertOwnerAssignable(ownerId: string, p: AccessPrincipal): void {
+		if (isUnscoped(p) || ownerId === p.userId) return;
+		if (!p.groupName) {
+			throw new ForbiddenException(
+				"You aren't in a group yet, so you can't give deals to other people. Ask an admin.",
+			);
+		}
+		throw new ForbiddenException(
+			`Your group (${p.groupName}) can't give deals to other people. Ask an admin.`,
+		);
 	}
 
 	private translate(error: unknown, id: string): unknown {

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, RecordSource } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ContactsService } from "../src/contacts/contacts.service";
@@ -29,6 +30,7 @@ const queue = new AgentQueueService(db);
 const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
 const match = new MailboxMatchService(db, agent, log);
+const ADMIN = adminPrincipal("test");
 
 let entryStageId: string | undefined;
 
@@ -105,12 +107,15 @@ describe("deleting a contact", () => {
 	let contactId: string;
 
 	it("takes the record, its queued research and its transcript with it", async () => {
-		const created = await contacts.create({
-			firstName: "Gone",
-			lastName: "Person",
-			email,
-			ownerId: userId,
-		});
+		const created = await contacts.create(
+			{
+				firstName: "Gone",
+				lastName: "Person",
+				email,
+				ownerId: userId,
+			},
+			ADMIN,
+		);
 		contactId = created.id;
 
 		await parked({ contactId });
@@ -126,7 +131,7 @@ describe("deleting a contact", () => {
 			},
 		});
 
-		expect(await contacts.delete(contactId)).toEqual({
+		expect(await contacts.delete(contactId, ADMIN)).toEqual({
 			id: contactId,
 			name: "Gone Person",
 		});
@@ -180,7 +185,7 @@ describe("deleting a contact", () => {
 	});
 
 	it("lets a rep add them back by hand, which lifts the suppression", async () => {
-		const readded = await contacts.create({ firstName: "Gone", email });
+		const readded = await contacts.create({ firstName: "Gone", email }, ADMIN);
 
 		expect(
 			await db.suppressedContact.findUnique({ where: { email } }),
@@ -194,7 +199,10 @@ describe("deleting a contact", () => {
 		const typed = `Mixed.Case@${domain.toUpperCase()}`;
 		const asSynced = typed.toLowerCase();
 
-		const created = await contacts.create({ firstName: "Mixed", email: typed });
+		const created = await contacts.create(
+			{ firstName: "Mixed", email: typed },
+			ADMIN,
+		);
 
 		expect(
 			await db.contact.findUnique({
@@ -203,7 +211,7 @@ describe("deleting a contact", () => {
 			}),
 		).toEqual({ email: asSynced });
 
-		await contacts.delete(created.id);
+		await contacts.delete(created.id, ADMIN);
 
 		expect(
 			await db.suppressedContact.findUnique({ where: { email: asSynced } }),
@@ -228,10 +236,13 @@ describe("deleting a contact", () => {
 
 describe("the activity stamps a delete leaves behind", () => {
 	it("are recomputed on every record the deleted one's activities touched", async () => {
-		const contact = await contacts.create({
-			firstName: "Stamped",
-			email: `stamped@${stampDomain}`,
-		});
+		const contact = await contacts.create(
+			{
+				firstName: "Stamped",
+				email: `stamped@${stampDomain}`,
+			},
+			ADMIN,
+		);
 		const deal = await db.deal.create({
 			data: {
 				name: "Stamped deal",
@@ -254,7 +265,7 @@ describe("the activity stamps a delete leaves behind", () => {
 		});
 		await stamp.touch({ contactId: contact.id, dealId: deal.id }, at);
 
-		await contacts.delete(contact.id);
+		await contacts.delete(contact.id, ADMIN);
 
 		expect(
 			await db.deal.findUnique({

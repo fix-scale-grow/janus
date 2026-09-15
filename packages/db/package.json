@@ -6,6 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./access-config": "./src/access-config.ts",
+		"./access-fixture": "./src/access-fixture.ts",
 		"./access-policy": "./src/access-policy.ts",
 		"./access-resolve": "./src/access-resolve.ts",
 		"./access-scope": "./src/access-scope.ts",

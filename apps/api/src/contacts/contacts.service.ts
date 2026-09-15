@@ -7,6 +7,8 @@ import {
 	Prisma as PrismaNamespace,
 	type RecordSource,
 } from "@crm/db";
+import { type AccessPrincipal } from "@crm/db/access-policy";
+import { contactScopeWhere, isUnscoped } from "@crm/db/access-scope";
 import {
 	ConflictException,
 	Injectable,
@@ -94,8 +96,13 @@ export class ContactsService {
 		private readonly fields: FieldsService,
 	) {}
 
-	async list(input: ContactListInput): Promise<ListResult<ContactRow>> {
-		const where = this.buildWhere(input);
+	async list(
+		input: ContactListInput,
+		p: AccessPrincipal,
+	): Promise<ListResult<ContactRow>> {
+		const where: Prisma.ContactWhereInput = {
+			AND: [this.buildWhere(input), contactScopeWhere(p)],
+		};
 		const { skip, take } = paginate(input);
 
 		const [rows, total, facetCounts] = await Promise.all([
@@ -119,7 +126,7 @@ export class ContactsService {
 				},
 			}),
 			this.db.contact.count({ where }),
-			this.facetCounts(input),
+			this.facetCounts(input, p),
 		]);
 
 		const tableFields = await this.fields.tableValuesFor(
@@ -139,28 +146,33 @@ export class ContactsService {
 		};
 	}
 
-	async options(q: string) {
+	async options(q: string, p: AccessPrincipal) {
 		const term = q.trim();
 
 		return this.db.contact.findMany({
-			where: term
-				? {
-						OR: [
-							{ firstName: { contains: term, mode: "insensitive" } },
-							{ lastName: { contains: term, mode: "insensitive" } },
-							{ email: { contains: term, mode: "insensitive" } },
-						],
-					}
-				: {},
+			where: {
+				AND: [
+					term
+						? {
+								OR: [
+									{ firstName: { contains: term, mode: "insensitive" } },
+									{ lastName: { contains: term, mode: "insensitive" } },
+									{ email: { contains: term, mode: "insensitive" } },
+								],
+							}
+						: {},
+					contactScopeWhere(p),
+				],
+			},
 			select: { id: true, firstName: true, lastName: true, email: true },
 			orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
 			take: 100,
 		});
 	}
 
-	async byId(id: string) {
-		const contact = await this.db.contact.findUnique({
-			where: { id },
+	async byId(id: string, p: AccessPrincipal) {
+		const contact = await this.db.contact.findFirst({
+			where: { AND: [{ id }, contactScopeWhere(p)] },
 			select: {
 				id: true,
 				firstName: true,
@@ -254,7 +266,8 @@ export class ContactsService {
 		};
 	}
 
-	async create(input: ContactCreateInput) {
+	async create(input: ContactCreateInput, p: AccessPrincipal) {
+		const ownerId = isUnscoped(p) ? (input.ownerId ?? null) : p.userId;
 		const email = normalizeEmail(input.email ?? "");
 
 		if (email) {
@@ -280,7 +293,7 @@ export class ContactsService {
 					phone: blankToNull(input.phone ?? ""),
 					title: blankToNull(input.title ?? ""),
 					companyName: blankToNull(input.companyName ?? ""),
-					ownerId: input.ownerId ?? null,
+					ownerId,
 				},
 				select: {
 					id: true,
@@ -317,7 +330,12 @@ export class ContactsService {
 		};
 	}
 
-	async delete(id: string): Promise<{ id: string; name: string }> {
+	async delete(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ id: string; name: string }> {
+		await this.assertInScope(id, p);
+
 		let deleted: {
 			targets: StampTargets;
 			name: string;
@@ -369,7 +387,9 @@ export class ContactsService {
 		return { id, name: deleted.name };
 	}
 
-	async update(id: string, input: ContactUpdateInput) {
+	async update(id: string, input: ContactUpdateInput, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
+
 		const data: Prisma.ContactUpdateInput = {};
 
 		if (input.firstName !== undefined) data.firstName = input.firstName.trim();
@@ -410,14 +430,17 @@ export class ContactsService {
 		}
 	}
 
-	async bulkAssignOwner(input: ContactBulkOwnerInput): Promise<BulkResult> {
+	async bulkAssignOwner(
+		input: ContactBulkOwnerInput,
+		p: AccessPrincipal,
+	): Promise<BulkResult> {
 		const ownerId = input.ownerId || null;
 
 		await requireOwner(this.db, ownerId);
 
 		const ids = [...new Set(input.ids)];
 		const { count } = await this.db.contact.updateMany({
-			where: { id: { in: ids } },
+			where: { AND: [{ id: { in: ids } }, contactScopeWhere(p)] },
 			data: { ownerId },
 		});
 
@@ -435,12 +458,12 @@ export class ContactsService {
 		};
 	}
 
-	async bulkEnrich(ids: string[]): Promise<BulkResult> {
-		return runBulk(ids, (id) => this.enrich(id));
+	async bulkEnrich(ids: string[], p: AccessPrincipal): Promise<BulkResult> {
+		return runBulk(ids, (id) => this.enrich(id, p));
 	}
 
-	async bulkDelete(ids: string[]): Promise<BulkResult> {
-		return runBulk(ids, (id) => this.delete(id));
+	async bulkDelete(ids: string[], p: AccessPrincipal): Promise<BulkResult> {
+		return runBulk(ids, (id) => this.delete(id, p));
 	}
 
 	private async allowAgain(
@@ -496,9 +519,12 @@ export class ContactsService {
 		};
 	}
 
-	async enrich(id: string): Promise<{ id: string; queued: true }> {
-		const contact = await this.db.contact.findUnique({
-			where: { id },
+	async enrich(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<{ id: string; queued: true }> {
+		const contact = await this.db.contact.findFirst({
+			where: { AND: [{ id }, contactScopeWhere(p)] },
 			select: { id: true, imageUrl: true },
 		});
 
@@ -519,6 +545,7 @@ export class ContactsService {
 	async decideFact(
 		input: FactDecisionInput,
 		userId: string,
+		p: AccessPrincipal,
 	): Promise<{ contactId: string; field: string; applied: boolean }> {
 		const fact = await this.db.contactFact.findUnique({
 			where: { id: input.factId },
@@ -534,6 +561,8 @@ export class ContactsService {
 		if (!fact) {
 			throw new NotFoundException(`No fact with id ${input.factId}.`);
 		}
+
+		await this.assertInScope(fact.contactId, p);
 
 		if (fact.status !== FactStatus.PROPOSED) {
 			throw new ConflictException("That suggestion has already been settled.");
@@ -623,8 +652,10 @@ export class ContactsService {
 		return where;
 	}
 
-	private async facetCounts(input: ContactListInput) {
-		const where = this.searchFilter(input.q);
+	private async facetCounts(input: ContactListInput, p: AccessPrincipal) {
+		const where: Prisma.ContactWhereInput = {
+			AND: [this.searchFilter(input.q), contactScopeWhere(p)],
+		};
 
 		const [owners, sources] = await Promise.all([
 			this.db.contact.groupBy({
@@ -643,6 +674,14 @@ export class ContactsService {
 			owner: countsByKey(owners, "ownerId", FACET_UNASSIGNED),
 			source: countsByKey(sources, "source"),
 		};
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.contact.findFirst({
+			where: { AND: [{ id }, contactScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No contact with id ${id}.`);
 	}
 
 	private translate(error: unknown, id: string): unknown {

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db, RateSource } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { normalizeCurrency } from "@crm/db/currency";
 import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
@@ -32,6 +33,7 @@ const deals = new DealsService(
 	permitTrigger,
 );
 const dashboard = new DashboardService(db, conversion);
+const ADMIN = adminPrincipal("test");
 
 let previousReportingCurrency: string | null = null;
 let entryStageId: string;
@@ -129,19 +131,25 @@ afterAll(async () => {
 
 describe("a total across currencies", () => {
 	it("converts on write and never adds two currencies together", async () => {
-		await deals.create({
-			name: `Domestic ${suffix}`,
-			ownerId: userId,
-			amountCents: MILLION,
-			currency: "USD",
-		});
+		await deals.create(
+			{
+				name: `Domestic ${suffix}`,
+				ownerId: userId,
+				amountCents: MILLION,
+				currency: "USD",
+			},
+			ADMIN,
+		);
 
-		await deals.create({
-			name: `Continental ${suffix}`,
-			ownerId: userId,
-			amountCents: MILLION,
-			currency: "EUR",
-		});
+		await deals.create(
+			{
+				name: `Continental ${suffix}`,
+				ownerId: userId,
+				amountCents: MILLION,
+				currency: "EUR",
+			},
+			ADMIN,
+		);
 
 		expect(await pipelineCents()).toBe(MILLION + 1.1 * MILLION);
 	});
@@ -161,12 +169,15 @@ describe("a total across currencies", () => {
 	it("leaves a deal it cannot convert out of the total, and says so", async () => {
 		const before = await pipelineCents();
 
-		await deals.create({
-			name: `Alpine ${suffix}`,
-			ownerId: userId,
-			amountCents: HALF_MILLION,
-			currency: "CHF",
-		});
+		await deals.create(
+			{
+				name: `Alpine ${suffix}`,
+				ownerId: userId,
+				amountCents: HALF_MILLION,
+				currency: "CHF",
+			},
+			ADMIN,
+		);
 
 		expect(await pipelineCents()).toBe(before);
 
@@ -236,17 +247,20 @@ describe("the deals list", () => {
 		await writeReportingCurrency(db, "USD");
 		await conversion.rerateAll();
 
-		const list = await deals.list({
-			q: "",
-			page: 1,
-			pageSize: 25,
-			sort: "amount",
-			dir: "desc",
-			status: "open",
-			owner: userId,
-			stage: "all",
-			closing: "all",
-		});
+		const list = await deals.list(
+			{
+				q: "",
+				page: 1,
+				pageSize: 25,
+				sort: "amount",
+				dir: "desc",
+				status: "open",
+				owner: userId,
+				stage: "all",
+				closing: "all",
+			},
+			ADMIN,
+		);
 
 		expect(list.reportingCurrency).toBe("USD");
 		expect(list.unconverted.count).toBe(0);
@@ -268,12 +282,15 @@ describe("a converted figure knows which currency it is in", () => {
 		const summary = await dashboard.summary(userId, { scope: "me" });
 		expect(summary.unconverted.count).toBe(0);
 
-		const deal = await deals.create({
-			name: `Stale ${suffix}`,
-			ownerId: userId,
-			amountCents: MILLION,
-			currency: "USD",
-		});
+		const deal = await deals.create(
+			{
+				name: `Stale ${suffix}`,
+				ownerId: userId,
+				amountCents: MILLION,
+				currency: "USD",
+			},
+			ADMIN,
+		);
 
 		expect(await pipelineCents()).toBe(before + MILLION);
 
@@ -388,12 +405,15 @@ describe("a converted figure knows which currency it is in", () => {
 		await writeReportingCurrency(db, "USD");
 		await conversion.rerateAll();
 
-		const deal = await deals.create({
-			name: `Frozen ${suffix}`,
-			ownerId: userId,
-			amountCents: MILLION,
-			currency: "EUR",
-		});
+		const deal = await deals.create(
+			{
+				name: `Frozen ${suffix}`,
+				ownerId: userId,
+				amountCents: MILLION,
+				currency: "EUR",
+			},
+			ADMIN,
+		);
 
 		const frozen = await db.deal.findUnique({
 			where: { id: deal.id },
@@ -477,13 +497,16 @@ describe("the dashboard only values what it can convert", () => {
 	}
 
 	it("does not average a won deal it cannot value into the rest", async () => {
-		const won = await deals.create({
-			name: `Valued win ${suffix}`,
-			ownerId: analystId,
-			amountCents: 10_000,
-			currency: "USD",
-			stage: closedWonStageId,
-		});
+		const won = await deals.create(
+			{
+				name: `Valued win ${suffix}`,
+				ownerId: analystId,
+				amountCents: 10_000,
+				currency: "USD",
+				stage: closedWonStageId,
+			},
+			ADMIN,
+		);
 
 		const unvalued = await stale("Stale win", closedWonStageId, true);
 
@@ -497,12 +520,15 @@ describe("the dashboard only values what it can convert", () => {
 	});
 
 	it("does not let a stale figure set the largest open deal", async () => {
-		const open = await deals.create({
-			name: `Valued open ${suffix}`,
-			ownerId: analystId,
-			amountCents: 10_000,
-			currency: "USD",
-		});
+		const open = await deals.create(
+			{
+				name: `Valued open ${suffix}`,
+				ownerId: analystId,
+				amountCents: 10_000,
+				currency: "USD",
+			},
+			ADMIN,
+		);
 
 		const unvalued = await stale("Stale open", demoBookedStageId, false);
 

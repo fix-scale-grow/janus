@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import {
 	readReportingCurrency,
 	writeReportingCurrency,
@@ -33,6 +34,7 @@ const deals = new DealsService(
 	fields,
 	permitTrigger,
 );
+const ADMIN = adminPrincipal("test");
 
 let ownerId: string;
 let pipelineAId: string;
@@ -220,10 +222,13 @@ describe("create", () => {
 		const entry = entryStageOf(pipeline?.stages ?? []);
 		expect(entry).toBeDefined();
 
-		const deal = await deals.create({
-			name: `${prefix}_default_entry`,
-			ownerId,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_default_entry`,
+				ownerId,
+			},
+			ADMIN,
+		);
 
 		const stored = await db.deal.findUnique({
 			where: { id: deal.id },
@@ -236,10 +241,13 @@ describe("create", () => {
 		const previous = await readReportingCurrency(db);
 		await writeReportingCurrency(db, "USD");
 
-		const deal = await deals.create({
-			name: `${prefix}_no_currency`,
-			ownerId,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_no_currency`,
+				ownerId,
+			},
+			ADMIN,
+		);
 
 		const stored = await db.deal.findUnique({
 			where: { id: deal.id },
@@ -252,11 +260,14 @@ describe("create", () => {
 
 	it("rejects an unknown stage id", async () => {
 		await expectRejects(
-			deals.create({
-				name: `${prefix}_unknown_stage`,
-				ownerId,
-				stage: "does-not-exist",
-			}),
+			deals.create(
+				{
+					name: `${prefix}_unknown_stage`,
+					ownerId,
+					stage: "does-not-exist",
+				},
+				ADMIN,
+			),
 			/no longer exists/,
 		);
 	});
@@ -276,11 +287,14 @@ describe("create", () => {
 		});
 
 		await expectRejects(
-			deals.create({
-				name: `${prefix}_archived_stage`,
-				ownerId,
-				stage: archived.id,
-			}),
+			deals.create(
+				{
+					name: `${prefix}_archived_stage`,
+					ownerId,
+					stage: archived.id,
+				},
+				ADMIN,
+			),
 			/no longer exists/,
 		);
 	});
@@ -289,33 +303,42 @@ describe("create", () => {
 describe("create reason guard", () => {
 	it("refuses to create a deal directly into a LOST stage without a reason", async () => {
 		await expectRejects(
-			deals.create({
-				name: `${prefix}_create_lost_no_reason`,
-				ownerId,
-				stage: lostA.id,
-			}),
+			deals.create(
+				{
+					name: `${prefix}_create_lost_no_reason`,
+					ownerId,
+					stage: lostA.id,
+				},
+				ADMIN,
+			),
 			/teaches nobody anything/,
 		);
 	});
 
 	it("refuses to create a deal directly into a DISQUALIFIED stage without a reason", async () => {
 		await expectRejects(
-			deals.create({
-				name: `${prefix}_create_disqualified_no_reason`,
-				ownerId,
-				stage: disqualifiedA.id,
-			}),
+			deals.create(
+				{
+					name: `${prefix}_create_disqualified_no_reason`,
+					ownerId,
+					stage: disqualifiedA.id,
+				},
+				ADMIN,
+			),
 			/teaches nobody anything/,
 		);
 	});
 
 	it("creates a deal into a LOST stage when a reason is given", async () => {
-		const deal = await deals.create({
-			name: `${prefix}_create_lost_with_reason`,
-			ownerId,
-			stage: lostA.id,
-			closedReason: "Went with a competitor",
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_create_lost_with_reason`,
+				ownerId,
+				stage: lostA.id,
+				closedReason: "Went with a competitor",
+			},
+			ADMIN,
+		);
 
 		const stored = await db.deal.findUnique({
 			where: { id: deal.id },
@@ -348,14 +371,21 @@ describe("archived pipeline guard", () => {
 			select: { id: true },
 		});
 
-		const deal = await deals.create({
-			name: `${prefix}_archived_pipeline_target`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_archived_pipeline_target`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
 		await expectRejects(
-			deals.setStage({ id: deal.id, stage: archivedPipelineStage.id }, ownerId),
+			deals.setStage(
+				{ id: deal.id, stage: archivedPipelineStage.id },
+				ownerId,
+				ADMIN,
+			),
 			/no longer exists/,
 		);
 	});
@@ -363,41 +393,51 @@ describe("archived pipeline guard", () => {
 
 describe("setStage reason guard", () => {
 	it("refuses to close as LOST without a reason", async () => {
-		const deal = await deals.create({
-			name: `${prefix}_lost_no_reason`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_lost_no_reason`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
 		await expectRejects(
-			deals.setStage({ id: deal.id, stage: lostA.id }, ownerId),
+			deals.setStage({ id: deal.id, stage: lostA.id }, ownerId, ADMIN),
 			/teaches nobody anything/,
 		);
 	});
 
 	it("refuses to close as DISQUALIFIED without a reason", async () => {
-		const deal = await deals.create({
-			name: `${prefix}_disqualified_no_reason`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_disqualified_no_reason`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
 		await expectRejects(
-			deals.setStage({ id: deal.id, stage: disqualifiedA.id }, ownerId),
+			deals.setStage({ id: deal.id, stage: disqualifiedA.id }, ownerId, ADMIN),
 			/teaches nobody anything/,
 		);
 	});
 
 	it("allows LOST with a reason and clears back open again", async () => {
-		const deal = await deals.create({
-			name: `${prefix}_lost_then_reopened`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_lost_then_reopened`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
 		const closed = await deals.setStage(
 			{ id: deal.id, stage: lostA.id, closedReason: "Went cold" },
 			ownerId,
+			ADMIN,
 		);
 		expect(closed.changed).toBe(true);
 
@@ -411,6 +451,7 @@ describe("setStage reason guard", () => {
 		const reopened = await deals.setStage(
 			{ id: deal.id, stage: midA.id },
 			ownerId,
+			ADMIN,
 		);
 		expect(reopened.changed).toBe(true);
 
@@ -434,14 +475,21 @@ describe("setStage reason guard", () => {
 
 describe("bulkSetStage reason guard", () => {
 	it("refuses DISQUALIFIED without a reason for the whole selection", async () => {
-		const deal = await deals.create({
-			name: `${prefix}_bulk_disqualified`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_bulk_disqualified`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
 		await expectRejects(
-			deals.bulkSetStage({ ids: [deal.id], stage: disqualifiedA.id }, ownerId),
+			deals.bulkSetStage(
+				{ ids: [deal.id], stage: disqualifiedA.id },
+				ownerId,
+				ADMIN,
+			),
 			/teaches nobody anything/,
 		);
 	});
@@ -449,29 +497,38 @@ describe("bulkSetStage reason guard", () => {
 
 describe("wonOnly and pipelineId filters", () => {
 	it("wonOnly returns only deals in a WON stage", async () => {
-		const won = await deals.create({
-			name: `${prefix}_filter_won`,
-			ownerId,
-			stage: wonA.id,
-		});
-		const open = await deals.create({
-			name: `${prefix}_filter_open`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const won = await deals.create(
+			{
+				name: `${prefix}_filter_won`,
+				ownerId,
+				stage: wonA.id,
+			},
+			ADMIN,
+		);
+		const open = await deals.create(
+			{
+				name: `${prefix}_filter_open`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
-		const list = await deals.list({
-			q: prefix,
-			page: 1,
-			pageSize: 25,
-			sort: "",
-			dir: "asc",
-			status: "all",
-			owner: "all",
-			stage: "all",
-			closing: "all",
-			wonOnly: true,
-		});
+		const list = await deals.list(
+			{
+				q: prefix,
+				page: 1,
+				pageSize: 25,
+				sort: "",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "all",
+				wonOnly: true,
+			},
+			ADMIN,
+		);
 
 		const ids = list.rows.map((row) => (row as { id: string }).id);
 		expect(ids).toContain(won.id);
@@ -479,29 +536,38 @@ describe("wonOnly and pipelineId filters", () => {
 	});
 
 	it("pipelineId returns only deals on that pipeline", async () => {
-		const inA = await deals.create({
-			name: `${prefix}_filter_pipeline_a`,
-			ownerId,
-			stage: entryA.id,
-		});
-		const inB = await deals.create({
-			name: `${prefix}_filter_pipeline_b`,
-			ownerId,
-			stage: entryB.id,
-		});
+		const inA = await deals.create(
+			{
+				name: `${prefix}_filter_pipeline_a`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
+		const inB = await deals.create(
+			{
+				name: `${prefix}_filter_pipeline_b`,
+				ownerId,
+				stage: entryB.id,
+			},
+			ADMIN,
+		);
 
-		const list = await deals.list({
-			q: prefix,
-			page: 1,
-			pageSize: 25,
-			sort: "",
-			dir: "asc",
-			status: "all",
-			owner: "all",
-			stage: "all",
-			closing: "all",
-			pipelineId: pipelineAId,
-		});
+		const list = await deals.list(
+			{
+				q: prefix,
+				page: 1,
+				pageSize: 25,
+				sort: "",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "all",
+				pipelineId: pipelineAId,
+			},
+			ADMIN,
+		);
 
 		const ids = list.rows.map((row) => (row as { id: string }).id);
 		expect(ids).toContain(inA.id);
@@ -515,31 +581,40 @@ describe("closing filter merges with pipeline filter", () => {
 			Date.now() - 7 * 24 * 60 * 60 * 1000,
 		).toISOString();
 
-		const overdueInA = await deals.create({
-			name: `${prefix}_overdue_pipeline_a`,
-			ownerId,
-			stage: entryA.id,
-			expectedCloseDate: overdue,
-		});
-		const overdueInB = await deals.create({
-			name: `${prefix}_overdue_pipeline_b`,
-			ownerId,
-			stage: entryB.id,
-			expectedCloseDate: overdue,
-		});
+		const overdueInA = await deals.create(
+			{
+				name: `${prefix}_overdue_pipeline_a`,
+				ownerId,
+				stage: entryA.id,
+				expectedCloseDate: overdue,
+			},
+			ADMIN,
+		);
+		const overdueInB = await deals.create(
+			{
+				name: `${prefix}_overdue_pipeline_b`,
+				ownerId,
+				stage: entryB.id,
+				expectedCloseDate: overdue,
+			},
+			ADMIN,
+		);
 
-		const list = await deals.list({
-			q: prefix,
-			page: 1,
-			pageSize: 25,
-			sort: "",
-			dir: "asc",
-			status: "all",
-			owner: "all",
-			stage: "all",
-			closing: "overdue",
-			pipelineId: pipelineAId,
-		});
+		const list = await deals.list(
+			{
+				q: prefix,
+				page: 1,
+				pageSize: 25,
+				sort: "",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "overdue",
+				pipelineId: pipelineAId,
+			},
+			ADMIN,
+		);
 
 		const ids = list.rows.map((row) => (row as { id: string }).id);
 		expect(ids).toContain(overdueInA.id);
@@ -549,23 +624,29 @@ describe("closing filter merges with pipeline filter", () => {
 
 describe("searchFilter digit overflow", () => {
 	it("returns name matches without throwing on a 10-digit phone-number query", async () => {
-		const named = await deals.create({
-			name: `${prefix}_5551234567_callback`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const named = await deals.create(
+			{
+				name: `${prefix}_5551234567_callback`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
-		const list = await deals.list({
-			q: "5551234567",
-			page: 1,
-			pageSize: 25,
-			sort: "",
-			dir: "asc",
-			status: "all",
-			owner: "all",
-			stage: "all",
-			closing: "all",
-		});
+		const list = await deals.list(
+			{
+				q: "5551234567",
+				page: 1,
+				pageSize: 25,
+				sort: "",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "all",
+			},
+			ADMIN,
+		);
 
 		const ids = list.rows.map((row) => (row as { id: string }).id);
 		expect(ids).toContain(named.id);
@@ -574,23 +655,29 @@ describe("searchFilter digit overflow", () => {
 
 describe("facetCounts stage meta", () => {
 	it("carries id/label/color/pipelineId for every counted stage", async () => {
-		await deals.create({
-			name: `${prefix}_facet_meta`,
-			ownerId,
-			stage: midA.id,
-		});
+		await deals.create(
+			{
+				name: `${prefix}_facet_meta`,
+				ownerId,
+				stage: midA.id,
+			},
+			ADMIN,
+		);
 
-		const list = await deals.list({
-			q: prefix,
-			page: 1,
-			pageSize: 25,
-			sort: "",
-			dir: "asc",
-			status: "all",
-			owner: "all",
-			stage: "all",
-			closing: "all",
-		});
+		const list = await deals.list(
+			{
+				q: prefix,
+				page: 1,
+				pageSize: 25,
+				sort: "",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "all",
+			},
+			ADMIN,
+		);
 
 		const meta = list.stages.find((stage) => stage.id === midA.id);
 		expect(meta).toEqual({
@@ -604,15 +691,19 @@ describe("facetCounts stage meta", () => {
 
 describe("cross-pipeline setStage", () => {
 	it("moves the deal's pipeline when the target stage lives elsewhere", async () => {
-		const deal = await deals.create({
-			name: `${prefix}_cross_pipeline`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const deal = await deals.create(
+			{
+				name: `${prefix}_cross_pipeline`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
 		const moved = await deals.setStage(
 			{ id: deal.id, stage: entryB.id },
 			ownerId,
+			ADMIN,
 		);
 		expect(moved.changed).toBe(true);
 
@@ -627,17 +718,20 @@ describe("cross-pipeline setStage", () => {
 describe("closing filter guard", () => {
 	it("rejects a closing value that is not a closing window, instead of a 500", async () => {
 		await expectRejects(
-			deals.list({
-				q: prefix,
-				page: 1,
-				pageSize: 25,
-				sort: "",
-				dir: "asc",
-				status: "all",
-				owner: "all",
-				stage: "all",
-				closing: "cksomeactualdealidnotawindow",
-			}),
+			deals.list(
+				{
+					q: prefix,
+					page: 1,
+					pageSize: 25,
+					sort: "",
+					dir: "asc",
+					status: "all",
+					owner: "all",
+					stage: "all",
+					closing: "cksomeactualdealidnotawindow",
+				},
+				ADMIN,
+			),
 			/is not a closing window/,
 		);
 	});
@@ -645,30 +739,39 @@ describe("closing filter guard", () => {
 
 describe("sort by stage position", () => {
 	it("orders by the stage's position within its pipeline", async () => {
-		const last = await deals.create({
-			name: `${prefix}_sort_last`,
-			ownerId,
-			stage: lostA.id,
-			closedReason: "Went with a competitor",
-		});
-		const first = await deals.create({
-			name: `${prefix}_sort_first`,
-			ownerId,
-			stage: entryA.id,
-		});
+		const last = await deals.create(
+			{
+				name: `${prefix}_sort_last`,
+				ownerId,
+				stage: lostA.id,
+				closedReason: "Went with a competitor",
+			},
+			ADMIN,
+		);
+		const first = await deals.create(
+			{
+				name: `${prefix}_sort_first`,
+				ownerId,
+				stage: entryA.id,
+			},
+			ADMIN,
+		);
 
-		const list = await deals.list({
-			q: prefix,
-			page: 1,
-			pageSize: 50,
-			sort: "stage",
-			dir: "asc",
-			status: "all",
-			owner: "all",
-			stage: "all",
-			closing: "all",
-			pipelineId: pipelineAId,
-		});
+		const list = await deals.list(
+			{
+				q: prefix,
+				page: 1,
+				pageSize: 50,
+				sort: "stage",
+				dir: "asc",
+				status: "all",
+				owner: "all",
+				stage: "all",
+				closing: "all",
+				pipelineId: pipelineAId,
+			},
+			ADMIN,
+		);
 
 		const ids = list.rows.map((row) => (row as { id: string }).id);
 		expect(ids.indexOf(first.id)).toBeLessThan(ids.indexOf(last.id));

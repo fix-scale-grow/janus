@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
@@ -30,6 +31,7 @@ const deals = new DealsService(
 	new FieldsService(db, { fieldBackfill: async () => undefined } as never),
 	permitTrigger,
 );
+const ADMIN = adminPrincipal("test");
 const dashboard = new DashboardService(db, conversion);
 
 let previousReportingCurrency: string | null = null;
@@ -184,85 +186,111 @@ beforeAll(async () => {
 	const thisMonth = new Date();
 	thisMonth.setDate(15);
 
-	const openEntryADeal = await deals.create({
-		name: `${prefix}_open_entry_a`,
-		ownerId,
-		amountCents: 100_00,
-		currency: "USD",
-		stage: entryA.id,
-		expectedCloseDate: thisMonth.toISOString(),
-	});
+	const openEntryADeal = await deals.create(
+		{
+			name: `${prefix}_open_entry_a`,
+			ownerId,
+			amountCents: 100_00,
+			currency: "USD",
+			stage: entryA.id,
+			expectedCloseDate: thisMonth.toISOString(),
+		},
+		ADMIN,
+	);
 	openEntryADealId = openEntryADeal.id;
 
-	const openMidADeal = await deals.create({
-		name: `${prefix}_open_mid_a`,
-		ownerId,
-		amountCents: 200_00,
-		currency: "USD",
-		stage: midA.id,
-		expectedCloseDate: thisMonth.toISOString(),
-	});
+	const openMidADeal = await deals.create(
+		{
+			name: `${prefix}_open_mid_a`,
+			ownerId,
+			amountCents: 200_00,
+			currency: "USD",
+			stage: midA.id,
+			expectedCloseDate: thisMonth.toISOString(),
+		},
+		ADMIN,
+	);
 	openMidADealId = openMidADeal.id;
 
-	const openEntryBDeal = await deals.create({
-		name: `${prefix}_open_entry_b`,
-		ownerId,
-		amountCents: 900_00,
-		currency: "USD",
-		stage: entryB.id,
-		expectedCloseDate: thisMonth.toISOString(),
-	});
+	const openEntryBDeal = await deals.create(
+		{
+			name: `${prefix}_open_entry_b`,
+			ownerId,
+			amountCents: 900_00,
+			currency: "USD",
+			stage: entryB.id,
+			expectedCloseDate: thisMonth.toISOString(),
+		},
+		ADMIN,
+	);
 	openEntryBDealId = openEntryBDeal.id;
 
-	const wonADeal = await deals.create({
-		name: `${prefix}_won_a`,
-		ownerId,
-		amountCents: 300_00,
-		currency: "USD",
-		stage: entryA.id,
-	});
-	await deals.setStage({ id: wonADeal.id, stage: wonA.id }, ownerId);
+	const wonADeal = await deals.create(
+		{
+			name: `${prefix}_won_a`,
+			ownerId,
+			amountCents: 300_00,
+			currency: "USD",
+			stage: entryA.id,
+		},
+		ADMIN,
+	);
+	await deals.setStage({ id: wonADeal.id, stage: wonA.id }, ownerId, ADMIN);
 
-	const wonBDeal = await deals.create({
-		name: `${prefix}_won_b`,
-		ownerId,
-		amountCents: 400_00,
-		currency: "USD",
-		stage: entryB.id,
-	});
-	await deals.setStage({ id: wonBDeal.id, stage: wonB.id }, ownerId);
+	const wonBDeal = await deals.create(
+		{
+			name: `${prefix}_won_b`,
+			ownerId,
+			amountCents: 400_00,
+			currency: "USD",
+			stage: entryB.id,
+		},
+		ADMIN,
+	);
+	await deals.setStage({ id: wonBDeal.id, stage: wonB.id }, ownerId, ADMIN);
 
-	const lostADeal = await deals.create({
-		name: `${prefix}_lost_a`,
-		ownerId,
-		amountCents: 50_00,
-		currency: "USD",
-		stage: entryA.id,
-	});
+	const lostADeal = await deals.create(
+		{
+			name: `${prefix}_lost_a`,
+			ownerId,
+			amountCents: 50_00,
+			currency: "USD",
+			stage: entryA.id,
+		},
+		ADMIN,
+	);
 	await deals.setStage(
 		{ id: lostADeal.id, stage: lostA.id, closedReason: "Went cold" },
 		ownerId,
+		ADMIN,
 	);
 
-	const lostBDeal = await deals.create({
-		name: `${prefix}_lost_b`,
-		ownerId,
-		amountCents: 60_00,
-		currency: "USD",
-		stage: entryB.id,
-	});
+	const lostBDeal = await deals.create(
+		{
+			name: `${prefix}_lost_b`,
+			ownerId,
+			amountCents: 60_00,
+			currency: "USD",
+			stage: entryB.id,
+		},
+		ADMIN,
+	);
 	await deals.setStage(
 		{ id: lostBDeal.id, stage: lostB.id, closedReason: "Went cold" },
 		ownerId,
+		ADMIN,
 	);
 
-	const disqualifiedDeal = await deals.create({
-		name: `${prefix}_disqualified_a`,
-		ownerId,
-		amountCents: 70_00,
-		currency: "USD",
-		stage: entryA.id,
-	});
+	const disqualifiedDeal = await deals.create(
+		{
+			name: `${prefix}_disqualified_a`,
+			ownerId,
+			amountCents: 70_00,
+			currency: "USD",
+			stage: entryA.id,
+		},
+		ADMIN,
+	);
 	await deals.setStage(
 		{
 			id: disqualifiedDeal.id,
@@ -270,6 +298,7 @@ beforeAll(async () => {
 			closedReason: "Not a fit",
 		},
 		ownerId,
+		ADMIN,
 	);
 });
 

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ContactsService } from "../src/contacts/contacts.service";
@@ -38,6 +39,7 @@ const deals = new DealsService(
 	fields,
 	permitTrigger,
 );
+const ADMIN = adminPrincipal("test");
 
 async function expectRejects(
 	promise: Promise<unknown>,
@@ -90,22 +92,31 @@ afterAll(clean);
 
 describe("assigning an owner to a selection", () => {
 	it("moves every record it was given", async () => {
-		const first = await contacts.create({
-			firstName: "Ada",
-			email: `ada@${domain}`,
-			ownerId,
-		});
-		const second = await contacts.create({
-			firstName: "Grace",
-			email: `grace@${domain}`,
-			ownerId,
-		});
+		const first = await contacts.create(
+			{
+				firstName: "Ada",
+				email: `ada@${domain}`,
+				ownerId,
+			},
+			ADMIN,
+		);
+		const second = await contacts.create(
+			{
+				firstName: "Grace",
+				email: `grace@${domain}`,
+				ownerId,
+			},
+			ADMIN,
+		);
 
 		expect(
-			await contacts.bulkAssignOwner({
-				ids: [first.id, second.id],
-				ownerId: secondOwnerId,
-			}),
+			await contacts.bulkAssignOwner(
+				{
+					ids: [first.id, second.id],
+					ownerId: secondOwnerId,
+				},
+				ADMIN,
+			),
 		).toEqual({ requested: 2, succeeded: 2, failed: 0, message: null });
 
 		expect(
@@ -116,30 +127,42 @@ describe("assigning an owner to a selection", () => {
 	});
 
 	it("counts the same record once, however many times it was sent", async () => {
-		const only = await contacts.create({
-			firstName: "Edsger",
-			email: `edsger@${domain}`,
-		});
+		const only = await contacts.create(
+			{
+				firstName: "Edsger",
+				email: `edsger@${domain}`,
+			},
+			ADMIN,
+		);
 
 		expect(
-			await contacts.bulkAssignOwner({
-				ids: [only.id, only.id],
-				ownerId,
-			}),
+			await contacts.bulkAssignOwner(
+				{
+					ids: [only.id, only.id],
+					ownerId,
+				},
+				ADMIN,
+			),
 		).toEqual({ requested: 1, succeeded: 1, failed: 0, message: null });
 	});
 
 	it("refuses an owner who does not work here", async () => {
-		const contact = await contacts.create({
-			firstName: "Alan",
-			email: `alan@${domain}`,
-		});
+		const contact = await contacts.create(
+			{
+				firstName: "Alan",
+				email: `alan@${domain}`,
+			},
+			ADMIN,
+		);
 
 		await expectRejects(
-			contacts.bulkAssignOwner({
-				ids: [contact.id],
-				ownerId: `nobody-${suffix}`,
-			}),
+			contacts.bulkAssignOwner(
+				{
+					ids: [contact.id],
+					ownerId: `nobody-${suffix}`,
+				},
+				ADMIN,
+			),
 			/does not work here/,
 		);
 
@@ -154,16 +177,22 @@ describe("assigning an owner to a selection", () => {
 
 describe("deleting a selection", () => {
 	it("suppresses every address, exactly as deleting them one by one would", async () => {
-		const first = await contacts.create({
-			firstName: "Gone",
-			email: `gone@${domain}`,
-		});
-		const second = await contacts.create({
-			firstName: "Also Gone",
-			email: `also-gone@${domain}`,
-		});
+		const first = await contacts.create(
+			{
+				firstName: "Gone",
+				email: `gone@${domain}`,
+			},
+			ADMIN,
+		);
+		const second = await contacts.create(
+			{
+				firstName: "Also Gone",
+				email: `also-gone@${domain}`,
+			},
+			ADMIN,
+		);
 
-		expect(await contacts.bulkDelete([first.id, second.id])).toEqual({
+		expect(await contacts.bulkDelete([first.id, second.id], ADMIN)).toEqual({
 			requested: 2,
 			succeeded: 2,
 			failed: 0,
@@ -178,15 +207,18 @@ describe("deleting a selection", () => {
 	});
 
 	it("finishes the rest and says what it could not do", async () => {
-		const survivor = await contacts.create({
-			firstName: "Doomed",
-			email: `doomed@${domain}`,
-		});
+		const survivor = await contacts.create(
+			{
+				firstName: "Doomed",
+				email: `doomed@${domain}`,
+			},
+			ADMIN,
+		);
 
-		const result = await contacts.bulkDelete([
-			survivor.id,
-			`missing-${suffix}`,
-		]);
+		const result = await contacts.bulkDelete(
+			[survivor.id, `missing-${suffix}`],
+			ADMIN,
+		);
 
 		expect(result.succeeded).toBe(1);
 		expect(result.failed).toBe(1);
@@ -199,13 +231,20 @@ describe("deleting a selection", () => {
 
 describe("moving a selection of deals to a stage", () => {
 	it("will not close them as lost without a reason", async () => {
-		const deal = await deals.create({
-			name: `Unreasoned ${suffix}`,
-			ownerId,
-		});
+		const deal = await deals.create(
+			{
+				name: `Unreasoned ${suffix}`,
+				ownerId,
+			},
+			ADMIN,
+		);
 
 		await expectRejects(
-			deals.bulkSetStage({ ids: [deal.id], stage: closedLostStageId }, ownerId),
+			deals.bulkSetStage(
+				{ ids: [deal.id], stage: closedLostStageId },
+				ownerId,
+				ADMIN,
+			),
 			/teaches nobody anything/,
 		);
 
@@ -218,14 +257,20 @@ describe("moving a selection of deals to a stage", () => {
 	});
 
 	it("writes the one reason onto every deal's timeline", async () => {
-		const first = await deals.create({
-			name: `Lost one ${suffix}`,
-			ownerId,
-		});
-		const second = await deals.create({
-			name: `Lost two ${suffix}`,
-			ownerId,
-		});
+		const first = await deals.create(
+			{
+				name: `Lost one ${suffix}`,
+				ownerId,
+			},
+			ADMIN,
+		);
+		const second = await deals.create(
+			{
+				name: `Lost two ${suffix}`,
+				ownerId,
+			},
+			ADMIN,
+		);
 
 		expect(
 			await deals.bulkSetStage(
@@ -235,6 +280,7 @@ describe("moving a selection of deals to a stage", () => {
 					closedReason: "Budget pulled",
 				},
 				ownerId,
+				ADMIN,
 			),
 		).toEqual({ requested: 2, succeeded: 2, failed: 0, message: null });
 

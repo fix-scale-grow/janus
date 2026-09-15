@@ -7,6 +7,7 @@ import {
 	it,
 } from "bun:test";
 import { db, type FieldEntity } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ContactsService } from "../src/contacts/contacts.service";
@@ -48,6 +49,7 @@ const deals = new DealsService(
 	fields,
 	permitTrigger,
 );
+const ADMIN = adminPrincipal("test");
 
 let contactId: string;
 let bridgeSecret: string | undefined;
@@ -494,10 +496,14 @@ describe("a record update that fails", () => {
 		});
 
 		await expectRejects(
-			contacts.update(record, {
-				ownerId: `nobody-${suffix}`,
-				fields: { spec_note: "Reads the docs" },
-			}),
+			contacts.update(
+				record,
+				{
+					ownerId: `nobody-${suffix}`,
+					fields: { spec_note: "Reads the docs" },
+				},
+				ADMIN,
+			),
 		);
 
 		expect(await db.fieldValue.count({ where: { contactId: record } })).toBe(0);
@@ -527,15 +533,23 @@ describe("a record update that fails", () => {
 		});
 
 		await expectRejects(
-			deals.update(deal.id, {
-				ownerId: `nobody-${suffix}`,
-				fields: { spec_risk: "Champion left" },
-			}),
+			deals.update(
+				deal.id,
+				{
+					ownerId: `nobody-${suffix}`,
+					fields: { spec_risk: "Champion left" },
+				},
+				ADMIN,
+			),
 		);
 
 		expect(await db.fieldValue.count({ where: { dealId: deal.id } })).toBe(0);
 
-		await deals.update(deal.id, { fields: { spec_risk: "Champion left" } });
+		await deals.update(
+			deal.id,
+			{ fields: { spec_risk: "Champion left" } },
+			ADMIN,
+		);
 
 		expect(await db.fieldValue.count({ where: { dealId: deal.id } })).toBe(1);
 	});

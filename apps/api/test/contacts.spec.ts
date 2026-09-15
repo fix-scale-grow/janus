@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { contactCreateInput } from "../src/contacts/contacts.contracts";
@@ -21,6 +22,7 @@ const stamp = new ActivityStampService(db);
 const queue = new AgentQueueService(db);
 const fields = new FieldsService(db, agent);
 const contacts = new ContactsService(db, agent, queue, stamp, fields);
+const ADMIN = adminPrincipal("test");
 
 async function clean() {
 	await db.contact.deleteMany({ where: ours });
@@ -31,39 +33,52 @@ afterAll(clean);
 
 describe("a contact's company name", () => {
 	it("is trimmed and stored on create, blank comes back null", async () => {
-		const withName = await contacts.create({
-			firstName: "Ada",
-			email: `ada@${domain}`,
-			companyName: "  Acme Roofing  ",
-		});
+		const withName = await contacts.create(
+			{
+				firstName: "Ada",
+				email: `ada@${domain}`,
+				companyName: "  Acme Roofing  ",
+			},
+			ADMIN,
+		);
 
-		const stored = await contacts.byId(withName.id);
+		const stored = await contacts.byId(withName.id, ADMIN);
 		expect(stored.companyName).toBe("Acme Roofing");
 
-		const withoutName = await contacts.create({
-			firstName: "Grace",
-			email: `grace@${domain}`,
-			companyName: "   ",
-		});
+		const withoutName = await contacts.create(
+			{
+				firstName: "Grace",
+				email: `grace@${domain}`,
+				companyName: "   ",
+			},
+			ADMIN,
+		);
 
-		const storedWithout = await contacts.byId(withoutName.id);
+		const storedWithout = await contacts.byId(withoutName.id, ADMIN);
 		expect(storedWithout.companyName).toBeNull();
 	});
 
 	it("round-trips through an update, trimmed and blank-to-null", async () => {
-		const created = await contacts.create({
-			firstName: "Alan",
-			email: `alan@${domain}`,
-		});
+		const created = await contacts.create(
+			{
+				firstName: "Alan",
+				email: `alan@${domain}`,
+			},
+			ADMIN,
+		);
 
-		await contacts.update(created.id, { companyName: "  Turing Corp  " });
+		await contacts.update(
+			created.id,
+			{ companyName: "  Turing Corp  " },
+			ADMIN,
+		);
 
-		const updated = await contacts.byId(created.id);
+		const updated = await contacts.byId(created.id, ADMIN);
 		expect(updated.companyName).toBe("Turing Corp");
 
-		await contacts.update(created.id, { companyName: "" });
+		await contacts.update(created.id, { companyName: "" }, ADMIN);
 
-		const cleared = await contacts.byId(created.id);
+		const cleared = await contacts.byId(created.id, ADMIN);
 		expect(cleared.companyName).toBeNull();
 	});
 

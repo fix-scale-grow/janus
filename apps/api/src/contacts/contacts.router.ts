@@ -10,7 +10,7 @@ import {
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	contactBulkInput,
@@ -32,60 +32,72 @@ export class ContactsRouter {
 	) {}
 
 	@Query({ input: contactListInput, meta: access("contacts", "VIEW") })
-	async list(@Input() input: z.infer<typeof contactListInput>) {
-		return this.contacts.list(input);
+	async list(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof contactListInput>,
+	) {
+		return this.contacts.list(input, ctx.access);
 	}
 
 	@Query({ input: contactIdInput, meta: access("contacts", "VIEW") })
-	async byId(@Input("id") id: string) {
-		return this.contacts.byId(id);
+	async byId(@Ctx() ctx: AccessTrpcContext, @Input("id") id: string) {
+		return this.contacts.byId(id, ctx.access);
 	}
 
 	@Query({ input: contactOptionsInput, meta: access("contacts", "VIEW") })
-	async options(@Input("q") q: string) {
-		return this.contacts.options(q);
+	async options(@Ctx() ctx: AccessTrpcContext, @Input("q") q: string) {
+		return this.contacts.options(q, ctx.access);
 	}
 
 	@Mutation({ input: contactCreateInput, meta: access("contacts", "EDIT") })
-	async create(@Input() input: z.infer<typeof contactCreateInput>) {
-		return this.contacts.create(input);
+	async create(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof contactCreateInput>,
+	) {
+		return this.contacts.create(input, ctx.access);
 	}
 
 	@Mutation({ input: contactUpdateArgs, meta: access("contacts", "EDIT") })
-	async update(@Input() input: z.infer<typeof contactUpdateArgs>) {
-		return this.contacts.update(input.id, input.data);
+	async update(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof contactUpdateArgs>,
+	) {
+		return this.contacts.update(input.id, input.data, ctx.access);
 	}
 
 	@Mutation({ input: contactIdInput, meta: access("contacts", "DELETE") })
-	async delete(@Input("id") id: string) {
-		return this.contacts.delete(id);
+	async delete(@Ctx() ctx: AccessTrpcContext, @Input("id") id: string) {
+		return this.contacts.delete(id, ctx.access);
 	}
 
 	@Mutation({ input: contactIdInput, meta: access("contacts", "EDIT") })
-	async enrich(@Input("id") id: string) {
-		return this.contacts.enrich(id);
+	async enrich(@Ctx() ctx: AccessTrpcContext, @Input("id") id: string) {
+		return this.contacts.enrich(id, ctx.access);
 	}
 
 	@Mutation({ input: contactBulkOwnerInput, meta: access("contacts", "EDIT") })
-	async bulkAssignOwner(@Input() input: z.infer<typeof contactBulkOwnerInput>) {
-		return this.contacts.bulkAssignOwner(input);
+	async bulkAssignOwner(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof contactBulkOwnerInput>,
+	) {
+		return this.contacts.bulkAssignOwner(input, ctx.access);
 	}
 
 	@Mutation({ input: contactBulkInput, meta: access("contacts", "EDIT") })
-	async bulkEnrich(@Input("ids") ids: string[]) {
-		return this.contacts.bulkEnrich(ids);
+	async bulkEnrich(@Ctx() ctx: AccessTrpcContext, @Input("ids") ids: string[]) {
+		return this.contacts.bulkEnrich(ids, ctx.access);
 	}
 
 	@Mutation({ input: contactBulkInput, meta: access("contacts", "DELETE") })
-	async bulkDelete(@Input("ids") ids: string[]) {
-		return this.contacts.bulkDelete(ids);
+	async bulkDelete(@Ctx() ctx: AccessTrpcContext, @Input("ids") ids: string[]) {
+		return this.contacts.bulkDelete(ids, ctx.access);
 	}
 
 	@Mutation({ input: factDecisionInput, meta: access("contacts", "EDIT") })
 	async decideFact(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof factDecisionInput>,
 	) {
-		return this.contacts.decideFact(input, ctx.user.id);
+		return this.contacts.decideFact(input, ctx.user.id, ctx.access);
 	}
 }

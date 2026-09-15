@@ -10,7 +10,7 @@ import {
 import type { z } from "zod";
 import { access, anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	dealAttachContactInput,
@@ -35,41 +35,50 @@ export class DealsRouter {
 	constructor(@Inject(DealsService) private readonly deals: DealsService) {}
 
 	@Query({ input: dealListInput, meta: access("deals", "VIEW") })
-	async list(@Input() input: z.infer<typeof dealListInput>) {
-		return this.deals.list(input);
+	async list(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealListInput>,
+	) {
+		return this.deals.list(input, ctx.access);
 	}
 
 	@Query({ input: dealIdInput, meta: access("deals", "VIEW") })
-	async byId(@Input("id") id: string) {
-		return this.deals.byId(id);
+	async byId(@Ctx() ctx: AccessTrpcContext, @Input("id") id: string) {
+		return this.deals.byId(id, ctx.access);
 	}
 
 	@Query({ meta: anyMember({ field: true }) })
-	async fieldToday() {
-		return this.deals.fieldToday();
+	async fieldToday(@Ctx() ctx: AccessTrpcContext) {
+		return this.deals.fieldToday(ctx.access);
 	}
 
 	@Mutation({ input: dealCreateInput, meta: access("deals", "EDIT") })
-	async create(@Input() input: z.infer<typeof dealCreateInput>) {
-		return this.deals.create(input);
+	async create(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealCreateInput>,
+	) {
+		return this.deals.create(input, ctx.access);
 	}
 
 	@Mutation({ input: dealUpdateArgs, meta: access("deals", "EDIT") })
-	async update(@Input() input: z.infer<typeof dealUpdateArgs>) {
-		return this.deals.update(input.id, input.data);
+	async update(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealUpdateArgs>,
+	) {
+		return this.deals.update(input.id, input.data, ctx.access);
 	}
 
 	@Mutation({ input: dealIdInput, meta: access("deals", "DELETE") })
-	async delete(@Input("id") id: string) {
-		return this.deals.delete(id);
+	async delete(@Ctx() ctx: AccessTrpcContext, @Input("id") id: string) {
+		return this.deals.delete(id, ctx.access);
 	}
 
 	@Mutation({ input: setStageInput, meta: access("deals", "EDIT") })
 	async setStage(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof setStageInput>,
 	) {
-		return this.deals.setStage(input, ctx.user.id);
+		return this.deals.setStage(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({
@@ -77,47 +86,62 @@ export class DealsRouter {
 		meta: access("deals", ["EDIT", "deals.markComplete"], { field: true }),
 	})
 	async setProductionStage(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof setProductionStageInput>,
 	) {
-		return this.deals.setProductionStage(input, ctx.user.id);
+		return this.deals.setProductionStage(input, ctx.user.id, ctx.access);
 	}
 
 	@Query({ input: dealContactsInput, meta: access("deals", "VIEW") })
-	async contactOptions(@Input("dealId") dealId: string) {
-		return this.deals.contactOptions(dealId);
+	async contactOptions(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input("dealId") dealId: string,
+	) {
+		return this.deals.contactOptions(dealId, ctx.access);
 	}
 
 	@Mutation({ input: dealAttachContactInput, meta: access("deals", "EDIT") })
-	async attachContact(@Input() input: z.infer<typeof dealAttachContactInput>) {
-		return this.deals.attachContact(input);
+	async attachContact(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealAttachContactInput>,
+	) {
+		return this.deals.attachContact(input, ctx.access);
 	}
 
 	@Mutation({ input: dealDetachContactInput, meta: access("deals", "EDIT") })
-	async detachContact(@Input() input: z.infer<typeof dealDetachContactInput>) {
-		return this.deals.detachContact(input);
+	async detachContact(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealDetachContactInput>,
+	) {
+		return this.deals.detachContact(input, ctx.access);
 	}
 
 	@Mutation({ input: dealContactRoleInput, meta: access("deals", "EDIT") })
-	async setContactRole(@Input() input: z.infer<typeof dealContactRoleInput>) {
-		return this.deals.setContactRole(input);
+	async setContactRole(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealContactRoleInput>,
+	) {
+		return this.deals.setContactRole(input, ctx.access);
 	}
 
 	@Mutation({ input: dealBulkOwnerInput, meta: access("deals", "EDIT") })
-	async bulkAssignOwner(@Input() input: z.infer<typeof dealBulkOwnerInput>) {
-		return this.deals.bulkAssignOwner(input);
+	async bulkAssignOwner(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof dealBulkOwnerInput>,
+	) {
+		return this.deals.bulkAssignOwner(input, ctx.access);
 	}
 
 	@Mutation({ input: dealBulkStageInput, meta: access("deals", "EDIT") })
 	async bulkSetStage(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof dealBulkStageInput>,
 	) {
-		return this.deals.bulkSetStage(input, ctx.user.id);
+		return this.deals.bulkSetStage(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: dealBulkInput, meta: access("deals", "DELETE") })
-	async bulkDelete(@Input("ids") ids: string[]) {
-		return this.deals.bulkDelete(ids);
+	async bulkDelete(@Ctx() ctx: AccessTrpcContext, @Input("ids") ids: string[]) {
+		return this.deals.bulkDelete(ids, ctx.access);
 	}
 }

@@ -8,6 +8,7 @@ import {
 	StageOutcome,
 	TemplatePurpose,
 } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { classifyTouch, type RawTouch, type Touch } from "@crm/db/attribution";
 import {
 	FORMS,
@@ -607,12 +608,18 @@ export class FormsService {
 			.filter(Boolean)
 			.join(" ");
 
-		const deal = await this.deals.create({
-			name: contactName ? `${form.name} — ${contactName}` : form.name,
-			ownerId,
-		});
+		const deal = await this.deals.create(
+			{
+				name: contactName ? `${form.name} — ${contactName}` : form.name,
+				ownerId,
+			},
+			adminPrincipal("system"),
+		);
 
-		await this.deals.attachContact({ dealId: deal.id, contactId });
+		await this.deals.attachContact(
+			{ dealId: deal.id, contactId },
+			adminPrincipal("system"),
+		);
 
 		const activity = await this.db.activity.create({
 			data: {

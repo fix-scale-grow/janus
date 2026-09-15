@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
@@ -25,6 +26,7 @@ const deals = new DealsService(
 	fields,
 	permitTrigger,
 );
+const ADMIN = adminPrincipal("test");
 const channelId = `event-channel-${suffix}`;
 const ownerId = `event-owner-${suffix}`;
 let persistedDealId = "";
@@ -212,12 +214,15 @@ describe("CRM agent events", () => {
 	});
 
 	it("emits each real deal lifecycle transition exactly once", async () => {
-		const deal = await deals.create({
-			name: "Event-driven deal",
-			ownerId,
-			amountCents: 25_000,
-			currency: "USD",
-		});
+		const deal = await deals.create(
+			{
+				name: "Event-driven deal",
+				ownerId,
+				amountCents: 25_000,
+				currency: "USD",
+			},
+			ADMIN,
+		);
 		persistedDealId = deal.id;
 
 		const [closedWonStageId, qualifiedStageId] = await Promise.all([
@@ -236,15 +241,19 @@ describe("CRM agent events", () => {
 		]);
 
 		const transitions = await Promise.all([
-			deals.setStage({ id: deal.id, stage: closedWonStageId }, ownerId),
-			deals.setStage({ id: deal.id, stage: closedWonStageId }, ownerId),
+			deals.setStage({ id: deal.id, stage: closedWonStageId }, ownerId, ADMIN),
+			deals.setStage({ id: deal.id, stage: closedWonStageId }, ownerId, ADMIN),
 		]);
 
 		expect(transitions.map((transition) => transition.changed).sort()).toEqual([
 			false,
 			true,
 		]);
-		await deals.setStage({ id: deal.id, stage: qualifiedStageId }, ownerId);
+		await deals.setStage(
+			{ id: deal.id, stage: qualifiedStageId },
+			ownerId,
+			ADMIN,
+		);
 
 		const reasons = (
 			await db.agentTask.findMany({

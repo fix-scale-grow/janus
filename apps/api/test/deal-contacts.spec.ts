@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
@@ -26,6 +27,7 @@ const deals = new DealsService(
 	new FieldsService(db, { fieldBackfill: async () => undefined } as never),
 	permitTrigger,
 );
+const ADMIN = adminPrincipal("test");
 
 let dealId: string;
 let championId: string;
@@ -69,10 +71,13 @@ beforeAll(async () => {
 	});
 	colleagueId = colleague.id;
 
-	const deal = await deals.create({
-		name: `Renewal ${suffix}`,
-		ownerId: userId,
-	});
+	const deal = await deals.create(
+		{
+			name: `Renewal ${suffix}`,
+			ownerId: userId,
+		},
+		ADMIN,
+	);
 	dealId = deal.id;
 });
 
@@ -80,21 +85,24 @@ afterAll(clean);
 
 describe("creating a deal", () => {
 	it("needs no company", async () => {
-		const deal = await deals.create({
-			name: `No company needed ${suffix}`,
-			ownerId: userId,
-		});
+		const deal = await deals.create(
+			{
+				name: `No company needed ${suffix}`,
+				ownerId: userId,
+			},
+			ADMIN,
+		);
 
 		expect(deal.name).toBe(`No company needed ${suffix}`);
 
-		const stored = await deals.byId(deal.id);
+		const stored = await deals.byId(deal.id, ADMIN);
 		expect(stored.name).toBe(`No company needed ${suffix}`);
 	});
 });
 
 describe("bringing a contact onto a deal", () => {
 	it("offers any contact not already on it", async () => {
-		const options = await deals.contactOptions(dealId);
+		const options = await deals.contactOptions(dealId, ADMIN);
 		const ids = options.map((option) => option.id);
 
 		expect(ids).toContain(championId);
@@ -102,13 +110,16 @@ describe("bringing a contact onto a deal", () => {
 	});
 
 	it("attaches with a role and reads back on the deal", async () => {
-		await deals.attachContact({
-			dealId,
-			contactId: championId,
-			role: "Champion",
-		});
+		await deals.attachContact(
+			{
+				dealId,
+				contactId: championId,
+				role: "Champion",
+			},
+			ADMIN,
+		);
 
-		const deal = await deals.byId(dealId);
+		const deal = await deals.byId(dealId, ADMIN);
 
 		expect(deal.contacts).toHaveLength(1);
 		expect(deal.contacts[0]?.id).toBe(championId);
@@ -116,32 +127,35 @@ describe("bringing a contact onto a deal", () => {
 	});
 
 	it("stops offering somebody already on it", async () => {
-		const options = await deals.contactOptions(dealId);
+		const options = await deals.contactOptions(dealId, ADMIN);
 
 		expect(options.map((option) => option.id)).not.toContain(championId);
 	});
 
 	it("attaching twice keeps the role it already has", async () => {
-		await deals.attachContact({ dealId, contactId: championId });
+		await deals.attachContact({ dealId, contactId: championId }, ADMIN);
 
-		const deal = await deals.byId(dealId);
+		const deal = await deals.byId(dealId, ADMIN);
 
 		expect(deal.contacts).toHaveLength(1);
 		expect(deal.contacts[0]?.role).toBe("Champion");
 	});
 
 	it("any contact may attach, regardless of who they work for", async () => {
-		await deals.attachContact({ dealId, contactId: colleagueId });
+		await deals.attachContact({ dealId, contactId: colleagueId }, ADMIN);
 
-		const deal = await deals.byId(dealId);
+		const deal = await deals.byId(dealId, ADMIN);
 
 		expect(deal.contacts.map((contact) => contact.id)).toContain(colleagueId);
 	});
 
 	it("blanks a role rather than storing an empty string", async () => {
-		await deals.setContactRole({ dealId, contactId: championId, role: "  " });
+		await deals.setContactRole(
+			{ dealId, contactId: championId, role: "  " },
+			ADMIN,
+		);
 
-		const deal = await deals.byId(dealId);
+		const deal = await deals.byId(dealId, ADMIN);
 
 		expect(
 			deal.contacts.find((contact) => contact.id === championId)?.role,
@@ -150,18 +164,21 @@ describe("bringing a contact onto a deal", () => {
 
 	it("will not set a role on somebody who is not on the deal", async () => {
 		await expect(
-			deals.setContactRole({
-				dealId,
-				contactId: `stranger-${suffix}`,
-				role: "Blocker",
-			}),
+			deals.setContactRole(
+				{
+					dealId,
+					contactId: `stranger-${suffix}`,
+					role: "Blocker",
+				},
+				ADMIN,
+			),
 		).rejects.toThrow("That contact is not on this deal.");
 	});
 
 	it("takes them off again, leaving the contact in the CRM", async () => {
-		await deals.detachContact({ dealId, contactId: championId });
+		await deals.detachContact({ dealId, contactId: championId }, ADMIN);
 
-		const deal = await deals.byId(dealId);
+		const deal = await deals.byId(dealId, ADMIN);
 
 		expect(deal.contacts.map((contact) => contact.id)).not.toContain(
 			championId,
@@ -171,7 +188,7 @@ describe("bringing a contact onto a deal", () => {
 
 	it("says so when they were never on it", async () => {
 		await expect(
-			deals.detachContact({ dealId, contactId: championId }),
+			deals.detachContact({ dealId, contactId: championId }, ADMIN),
 		).rejects.toThrow("That contact is not on this deal.");
 	});
 });

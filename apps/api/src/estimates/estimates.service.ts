@@ -1,5 +1,6 @@
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import {
 	measureSatellite,
 	measureScene,
@@ -512,12 +513,15 @@ export class EstimatesService {
 			contactId = contact.id;
 		} else if (input.newContact) {
 			const [firstName, ...rest] = input.newContact.name.trim().split(/\s+/);
-			const created = await this.contacts.create({
-				firstName: firstName ?? input.newContact.name.trim(),
-				lastName: rest.length > 0 ? rest.join(" ") : undefined,
-				email: input.newContact.email,
-				phone: input.newContact.phone,
-			});
+			const created = await this.contacts.create(
+				{
+					firstName: firstName ?? input.newContact.name.trim(),
+					lastName: rest.length > 0 ? rest.join(" ") : undefined,
+					email: input.newContact.email,
+					phone: input.newContact.phone,
+				},
+				adminPrincipal("system"),
+			);
 			contactId = created.id;
 		} else {
 			throw new BadRequestException(

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
@@ -29,6 +30,7 @@ const deals = new DealsService(
 );
 
 const drawings = new DrawingsService(db);
+const ADMIN = adminPrincipal("test");
 
 let dealId: string;
 let contactId: string;
@@ -63,9 +65,12 @@ beforeAll(async () => {
 	});
 	contactId = contact.id;
 
-	const deal = await deals.create({ name: `Roof ${suffix}`, ownerId: userId });
+	const deal = await deals.create(
+		{ name: `Roof ${suffix}`, ownerId: userId },
+		ADMIN,
+	);
 	dealId = deal.id;
-	await deals.attachContact({ dealId, contactId });
+	await deals.attachContact({ dealId, contactId }, ADMIN);
 
 	const drawing = await db.drawing.create({
 		data: {

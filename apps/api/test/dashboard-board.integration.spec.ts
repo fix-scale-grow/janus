@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
 import { ConversionService } from "../src/currency/conversion.service";
@@ -30,6 +31,7 @@ const deals = new DealsService(
 	permitTrigger,
 );
 const dashboard = new DashboardService(db, conversion);
+const ADMIN = adminPrincipal("test");
 
 let pipelineId: string;
 let stageA: { id: string; label: string; color: string };
@@ -105,48 +107,63 @@ beforeAll(async () => {
 		select: { id: true },
 	});
 
-	const dealA1 = await deals.create({
-		name: `${prefix}_a1`,
-		ownerId,
-		amountCents: 100_00,
-		currency: "USD",
-		stage: stageA.id,
-	});
+	const dealA1 = await deals.create(
+		{
+			name: `${prefix}_a1`,
+			ownerId,
+			amountCents: 100_00,
+			currency: "USD",
+			stage: stageA.id,
+		},
+		ADMIN,
+	);
 	dealA1Id = dealA1.id;
 
-	const dealA2 = await deals.create({
-		name: `${prefix}_a2`,
-		ownerId,
-		amountCents: 300_00,
-		currency: "USD",
-		stage: stageA.id,
-	});
+	const dealA2 = await deals.create(
+		{
+			name: `${prefix}_a2`,
+			ownerId,
+			amountCents: 300_00,
+			currency: "USD",
+			stage: stageA.id,
+		},
+		ADMIN,
+	);
 	dealA2Id = dealA2.id;
 
-	const dealA3 = await deals.create({
-		name: `${prefix}_a3`,
-		ownerId,
-		amountCents: 200_00,
-		currency: "USD",
-		stage: stageA.id,
-	});
+	const dealA3 = await deals.create(
+		{
+			name: `${prefix}_a3`,
+			ownerId,
+			amountCents: 200_00,
+			currency: "USD",
+			stage: stageA.id,
+		},
+		ADMIN,
+	);
 	dealA3Id = dealA3.id;
 
-	const dealA4 = await deals.create({
-		name: `${prefix}_a4`,
-		ownerId,
-		stage: stageA.id,
-	});
+	const dealA4 = await deals.create(
+		{
+			name: `${prefix}_a4`,
+			ownerId,
+			stage: stageA.id,
+		},
+		ADMIN,
+	);
 	dealA4Id = dealA4.id;
 
-	const wonDeal = await deals.create({
-		name: `${prefix}_won`,
-		ownerId,
-		amountCents: 999_00,
-		currency: "USD",
-		stage: stageA.id,
-	});
-	await deals.setStage({ id: wonDeal.id, stage: wonStage.id }, ownerId);
+	const wonDeal = await deals.create(
+		{
+			name: `${prefix}_won`,
+			ownerId,
+			amountCents: 999_00,
+			currency: "USD",
+			stage: stageA.id,
+		},
+		ADMIN,
+	);
+	await deals.setStage({ id: wonDeal.id, stage: wonStage.id }, ownerId, ADMIN);
 });
 
 afterAll(async () => {
