@@ -3,14 +3,17 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
+		"predev": "bun run setup:maplibre",
 		"dev": "next dev",
+		"prebuild": "bun run setup:maplibre",
 		"build": "next build",
 		"start": "next start",
 		"typegen": "next typegen",
 		"check-types": "next typegen && tsc --noEmit",
 		"test": "bun test",
 		"lint": "biome check .",
-		"postinstall": "node scripts/sync-maplibre-worker.mjs"
+		"postinstall": "bun run setup:maplibre",
+		"setup:maplibre": "node scripts/sync-maplibre-worker.mjs"
 	},
 	"dependencies": {
 		"@carbon/icons-react": "^11.82.0",

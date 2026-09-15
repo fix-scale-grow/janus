@@ -34,7 +34,10 @@ export type UseSatelliteFeaturesResult = {
 	mode: SatelliteMode;
 	setMode: (mode: SatelliteMode) => void;
 	updateFeatureScope: (scopeId: string, update: ScopeShapeUpdate) => void;
+	workerMissing: boolean;
 };
+
+const WORKER_URL = "/vendor/maplibre-gl/maplibre-gl-worker.mjs";
 
 function closedRing(coordinates: [number, number][]): [number, number][] {
 	const first = coordinates[0];
@@ -126,6 +129,7 @@ export function useSatelliteFeatures(
 	const drawRef = useRef<TerraDraw | null>(null);
 	const moveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [mode, setModeState] = useState<SatelliteMode>("select");
+	const [workerMissing, setWorkerMissing] = useState(false);
 
 	const setMode = useCallback((next: SatelliteMode) => {
 		drawRef.current?.setMode(next);
@@ -170,8 +174,18 @@ export function useSatelliteFeatures(
 			let cancelled = false;
 
 			(async () => {
+				const workerCheck = await fetch(WORKER_URL, { method: "HEAD" }).catch(
+					() => null,
+				);
+				if (cancelled) return;
+				if (!workerCheck?.ok) {
+					setWorkerMissing(true);
+					return;
+				}
+				setWorkerMissing(false);
+
 				const { Map: MaplibreMap, setWorkerUrl } = await import("maplibre-gl");
-				setWorkerUrl("/vendor/maplibre-gl/maplibre-gl-worker.mjs");
+				setWorkerUrl(WORKER_URL);
 				if (cancelled) return;
 				const saved = sceneRef.current.satellite;
 				const center = saved?.center ?? DRAWINGS.satellite.fallbackCenter;
@@ -346,5 +360,5 @@ export function useSatelliteFeatures(
 		[],
 	);
 
-	return { containerRef, mode, setMode, updateFeatureScope };
+	return { containerRef, mode, setMode, updateFeatureScope, workerMissing };
 }

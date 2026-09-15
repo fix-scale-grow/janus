@@ -19,7 +19,7 @@ export type SatelliteCanvasProps = {
 };
 
 export function SatelliteCanvas(props: SatelliteCanvasProps) {
-	const { containerRef, mode, setMode, updateFeatureScope } =
+	const { containerRef, mode, setMode, updateFeatureScope, workerMissing } =
 		useSatelliteFeatures({
 			sceneRef: props.sceneRef,
 			address: props.address,
@@ -33,6 +33,20 @@ export function SatelliteCanvas(props: SatelliteCanvasProps) {
 			props.updateShapeRef.current = null;
 		};
 	}, [props.updateShapeRef, updateFeatureScope]);
+
+	if (workerMissing) {
+		return (
+			<div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+				<p className="font-medium text-foreground">
+					The satellite map cannot start here.
+				</p>
+				<p className="text-muted-foreground text-sm">
+					Run <code>bun run setup:maplibre</code> at the repo root, then reload
+					this page.
+				</p>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex h-full min-h-0 flex-1 flex-col">
