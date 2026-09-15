@@ -275,3 +275,47 @@ describe("contacts scope", () => {
 		expect(result.message).toMatch(/No contact with id/);
 	});
 });
+
+describe("deals fieldToday", () => {
+	let wonDealId: string;
+
+	beforeAll(async () => {
+		const wonStage = await db.stage.findFirstOrThrow({
+			where: { key: "CLOSED_WON" },
+		});
+		const won = await db.deal.create({
+			data: {
+				name: `Field today ${suffix}`,
+				ownerId: f.adminId,
+				stageId: wonStage.id,
+				productionStage: ProductionStage.IN_PROGRESS,
+			},
+			select: { id: true },
+		});
+		wonDealId = won.id;
+	});
+
+	afterAll(async () => {
+		await db.deal.deleteMany({ where: { id: wonDealId } });
+	});
+
+	test("a principal without deals or projects gets no jobs, even with ALL scope", async () => {
+		const base = noAccessPrincipal(`field-today-${suffix}`);
+		const blind: AccessPrincipal = { ...base, scope: "ALL" };
+		expect(await deals.fieldToday(blind)).toEqual([]);
+	});
+
+	test("projects VIEW alone lists the in-scope jobs", async () => {
+		const base = noAccessPrincipal(`field-today-projects-${suffix}`);
+		const crew: AccessPrincipal = {
+			...base,
+			scope: "ALL",
+			policy: {
+				...base.policy,
+				areas: { ...base.policy.areas, projects: "VIEW" },
+			},
+		};
+		const rows = await deals.fieldToday(crew);
+		expect(rows.some((row) => row.id === wonDealId)).toBe(true);
+	});
+});

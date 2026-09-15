@@ -599,6 +599,9 @@ export class DealsService {
 	 * reachable contact (first attached contact with a phone) so the mobile field
 	 * UI can one-tap Call without a second round-trip. Read-only. */
 	async fieldToday(p: AccessPrincipal) {
+		if (!allows(p, "deals", "VIEW") && !allows(p, "projects", "VIEW")) {
+			return [];
+		}
 		const ACTIVE_PRODUCTION = [
 			ProductionStage.SCHEDULED,
 			ProductionStage.IN_PROGRESS,
