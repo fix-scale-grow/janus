@@ -451,13 +451,36 @@ export class ConversationsService {
 				select: { id: true },
 			});
 
-			this.agent?.builderConversationQueued();
+			void this.dispatchOrFail(conversation.id);
 			return conversation;
 		} catch (error) {
 			if (!isUniqueConstraint(error)) throw error;
 			const winner = await this.requestByClientId(input.clientRequestId);
 			if (!winner) throw error;
 			return this.replayBuilderCreation(winner, userId);
+		}
+	}
+
+	private async dispatchOrFail(conversationId: string): Promise<void> {
+		if (!this.agent) return;
+		const delivered = await this.agent.builderConversationDelivered();
+		if (delivered) return;
+
+		const failed = await this.db.agentConversationSubmission.updateMany({
+			where: { conversationId, status: "PENDING" },
+			data: {
+				status: "FAILED",
+				errorCode: AGENT_UNREACHABLE_CODE,
+				errorMessage: AGENT_UNREACHABLE,
+			},
+		});
+
+		if (failed.count > 0) {
+			this.logger.warn({
+				message: "No agent took the message, so the chat says so",
+				conversationId,
+				count: failed.count,
+			});
 		}
 	}
 
@@ -540,7 +563,7 @@ export class ConversationsService {
 				return created;
 			});
 
-			this.agent?.builderConversationQueued();
+			void this.dispatchOrFail(input.id);
 			return submission;
 		} catch (error) {
 			if (!isUniqueConstraint(error)) throw error;
@@ -650,7 +673,7 @@ export class ConversationsService {
 				return created;
 			});
 
-			this.agent?.builderConversationQueued();
+			void this.dispatchOrFail(input.id);
 			return submission;
 		} catch (error) {
 			if (!isUniqueConstraint(error)) throw error;

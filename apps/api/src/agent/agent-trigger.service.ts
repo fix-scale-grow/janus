@@ -287,6 +287,10 @@ export class AgentTriggerService {
 		this.pokeRoute("/internal/crm/builder-dispatch");
 	}
 
+	async builderConversationDelivered(): Promise<boolean> {
+		return this.post("/internal/crm/builder-dispatch");
+	}
+
 	deployedAgentRunQueued(): void {
 		this.pokeRoute("/internal/crm/agent-dispatch");
 	}
