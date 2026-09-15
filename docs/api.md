@@ -236,11 +236,12 @@ picker reads.
 
 ## Money
 
-A deal is sold in one currency and reported in another, and **only `baseAmount` may
-ever be summed**. The rules — `baseCurrency`, `countedWhere`/`pendingWhere`, frozen
-rates, the supported currencies, the keyless feed, and why the fetcher is the one
-documented exception to *no intelligence in the API* — are in **`docs/currency.md`**.
-Read it before touching any amount, total, chart or rate.
+The product is USD-only in the UI and in every tRPC input, and **only
+`baseAmount` may ever be summed**. The multi-currency engine stays underneath —
+`baseCurrency`, `countedWhere`/`pendingWhere`, frozen rates, the supported
+currencies, the keyless feed, and why the fetcher is the one documented
+exception to *no intelligence in the API* — are in **`docs/currency.md`**. Read
+it before touching any amount, total, chart or rate.
 
 ## Access groups
 

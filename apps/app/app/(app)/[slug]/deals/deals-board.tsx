@@ -8,7 +8,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import {
 	closestCorners,
@@ -176,7 +176,6 @@ export function DealsBoard({
 	);
 
 	const rows = deals.data?.rows ?? [];
-	const reportingCurrency = deals.data?.reportingCurrency ?? "usd";
 	const columns = activePipeline?.stages ?? [];
 	const stageIds = useMemo(
 		() => new Set(columns.map((stage) => stage.id)),
@@ -264,7 +263,6 @@ export function DealsBoard({
 							key={stage.id}
 							stage={stage}
 							rows={byStage.get(stage.id) ?? []}
-							reportingCurrency={reportingCurrency}
 							density={density}
 							onOpen={(id) => openRecord({ kind: "deal", id })}
 							onHover={(id) => prefetchRecord({ kind: "deal", id })}
@@ -284,14 +282,12 @@ export function DealsBoard({
 function BoardColumn({
 	stage,
 	rows,
-	reportingCurrency,
 	density,
 	onOpen,
 	onHover,
 }: {
 	stage: Pipeline["stages"][number];
 	rows: DealRow[];
-	reportingCurrency: string;
 	density: BoardDensity;
 	onOpen: (id: string) => void;
 	onHover: (id: string) => void;
@@ -317,7 +313,7 @@ function BoardColumn({
 					</span>
 				</div>
 				<p className="mt-0.5 pl-4.5 text-xs text-muted-foreground">
-					{pricesHidden ? "Hidden" : formatMoney(total, reportingCurrency)}
+					{pricesHidden ? "Hidden" : formatUsd(total)}
 				</p>
 			</div>
 			<div
@@ -430,7 +426,7 @@ function DealCardBody({
 							? mine && !money("prices")
 								? "Hidden"
 								: "—"
-							: formatMoney(row.amountCents, row.currency)}
+							: formatUsd(row.amountCents)}
 					</span>
 				</span>
 			</button>

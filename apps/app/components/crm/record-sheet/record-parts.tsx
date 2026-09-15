@@ -7,7 +7,7 @@ import { Icon } from "@crm/ui/components/icon";
 import { SimpleTableRow } from "@crm/ui/components/simple-table";
 import { Spinner } from "@crm/ui/components/spinner";
 import { TableCell } from "@crm/ui/components/table";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import type { ReactNode } from "react";
 import {
 	DetailSheetHeader,
@@ -105,13 +105,7 @@ export function AddRow({
 	);
 }
 
-export function DealAmount({
-	amountCents,
-	currency,
-}: {
-	amountCents: number | null;
-	currency: string;
-}) {
+export function DealAmount({ amountCents }: { amountCents: number | null }) {
 	const { mine, money } = useAccess();
 	if (amountCents === null) {
 		if (mine && !money("prices")) {
@@ -119,9 +113,7 @@ export function DealAmount({
 		}
 		return <EmptyCellValue />;
 	}
-	return (
-		<span className="tabular-nums">{formatMoney(amountCents, currency)}</span>
-	);
+	return <span className="tabular-nums">{formatUsd(amountCents)}</span>;
 }
 
 export function MetaLine({

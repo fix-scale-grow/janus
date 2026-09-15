@@ -62,7 +62,7 @@ import type {
 	DealBulkOwnerInput,
 	DealBulkStageInput,
 	DealContactRoleInput,
-	DealCreateInput,
+	DealCreateData,
 	DealDetachContactInput,
 	DealListInput,
 	DealUpdateInput,
@@ -301,7 +301,7 @@ export class DealsService {
 		);
 	}
 
-	async create(input: DealCreateInput, p: AccessPrincipal) {
+	async create(input: DealCreateData, p: AccessPrincipal) {
 		const ownerId = isUnscoped(p) ? input.ownerId : p.userId;
 		const stage = input.stage
 			? await this.resolveStage(input.stage)
@@ -315,9 +315,7 @@ export class DealsService {
 		const closed = isClosedStage(stage);
 		const now = new Date();
 
-		const currency = normalizeCurrency(
-			input.currency ?? (await this.conversion.reportingCurrency()),
-		);
+		const currency = normalizeCurrency(input.currency ?? "USD");
 		const fx = await this.conversion.dealFields(
 			decimalFromCents(input.amountCents),
 			currency,

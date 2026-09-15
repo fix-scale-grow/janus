@@ -10,7 +10,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
-import { formatMoneyCompact } from "@crm/ui/lib/format";
+import { formatUsdCompact } from "@crm/ui/lib/format";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { DealStageIndicator } from "@/components/crm/deal-stage";
@@ -122,7 +122,7 @@ function DealsOpenBody({ biggestOpen }: { biggestOpen: BiggestOpenDeal[] }) {
 							{deal.amountCents === null ? (
 								<EmptyCellValue />
 							) : (
-								formatMoneyCompact(deal.amountCents, deal.currency)
+								formatUsdCompact(deal.amountCents)
 							)}
 						</TableCell>
 					</SimpleTableRow>

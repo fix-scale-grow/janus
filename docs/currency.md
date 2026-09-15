@@ -1,5 +1,9 @@
 # Currency — read when touching deal amounts, totals, or rates
 
+The product is USD-only: the UI never shows a currency picker or a non-USD
+label, and every tRPC input that used to accept a currency now only accepts
+`"USD"`. The multi-currency engine below is retained underneath, unused by the
+UI, so a self-hoster who edits the database directly does not corrupt totals.
 
 Two amounts, and only one is ever summed. (`_sum: { amount: true }` once added euros
 to dollars and printed `$2.0M`, silently.)
@@ -33,8 +37,8 @@ to dollars and printed `$2.0M`, silently.)
 inverts on ingest.
 
 - **`MANUAL` beats `FETCHED`** (unique on `(base, quote, source)`), which makes the
-  fetcher optional — Settings → Currencies is the manual path. `resolveRate` refuses a
-  rate ≤ 0.
+  fetcher optional — `currency.setManualRate` is the manual path, with no UI surface
+  now that the product is USD-only. `resolveRate` refuses a rate ≤ 0.
 - **Re-rating deduplicates codes through a `Set`** — `currency` was free text, so
   ` usd ` and `USD` were two groups each updating every variant.
 - **`MAX_AMOUNT_CENTS`** (`deals.contracts.ts`) is what `Decimal(14, 2)` holds;

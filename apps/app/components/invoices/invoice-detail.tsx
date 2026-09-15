@@ -31,7 +31,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { StatCard } from "@crm/ui/components/stat-card";
 import { Textarea } from "@crm/ui/components/textarea";
-import { formatMoney, fromDay, toDay } from "@crm/ui/lib/format";
+import { formatUsd, fromDay, toDay } from "@crm/ui/lib/format";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -376,9 +376,7 @@ export function InvoiceDetail({
 						<StatCard
 							label="Total"
 							value={
-								data.totalCents === null
-									? "Hidden"
-									: formatMoney(data.totalCents, data.currency)
+								data.totalCents === null ? "Hidden" : formatUsd(data.totalCents)
 							}
 							className="rounded-lg border bg-card"
 						/>
@@ -430,7 +428,6 @@ export function InvoiceDetail({
 												key={item.id}
 												invoiceId={invoiceId}
 												item={item}
-												currency={data.currency}
 											/>
 										))}
 									</SimpleTable>
@@ -440,10 +437,7 @@ export function InvoiceDetail({
 					)}
 
 					<div>
-						<AddInvoiceLineItem
-							invoiceId={invoiceId}
-							currency={data.currency}
-						/>
+						<AddInvoiceLineItem invoiceId={invoiceId} />
 					</div>
 
 					<LinkedPhotosSection
@@ -460,7 +454,7 @@ export function InvoiceDetail({
 							{data.totalCents === null ? (
 								<span className="text-muted-foreground">Hidden</span>
 							) : (
-								formatMoney(data.totalCents, data.currency)
+								formatUsd(data.totalCents)
 							)}
 						</span>
 					</div>

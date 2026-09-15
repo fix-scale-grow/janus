@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProductionStage } from "@crm/db/enums";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import {
 	closestCorners,
@@ -144,7 +144,6 @@ export function ProductionBoard({
 	);
 
 	const rows = deals.data?.rows ?? [];
-	const reportingCurrency = deals.data?.reportingCurrency ?? "usd";
 
 	const byColumn = useMemo(() => {
 		const map = new Map<ProductionColumn, DealRow[]>();
@@ -198,7 +197,6 @@ export function ProductionBoard({
 							column={column.id}
 							label={column.label}
 							rows={byColumn.get(column.id) ?? []}
-							reportingCurrency={reportingCurrency}
 							density={density}
 							onOpen={(id) => openRecord({ kind: "deal", id })}
 							onHover={(id) => prefetchRecord({ kind: "deal", id })}
@@ -219,7 +217,6 @@ function BoardColumn({
 	column,
 	label,
 	rows,
-	reportingCurrency,
 	density,
 	onOpen,
 	onHover,
@@ -227,7 +224,6 @@ function BoardColumn({
 	column: ProductionColumn;
 	label: string;
 	rows: DealRow[];
-	reportingCurrency: string;
 	density: BoardDensity;
 	onOpen: (id: string) => void;
 	onHover: (id: string) => void;
@@ -253,7 +249,7 @@ function BoardColumn({
 					</span>
 				</div>
 				<p className="mt-0.5 pl-4.5 text-xs text-muted-foreground">
-					{pricesHidden ? "Hidden" : formatMoney(total, reportingCurrency)}
+					{pricesHidden ? "Hidden" : formatUsd(total)}
 				</p>
 			</div>
 			<div
@@ -360,7 +356,7 @@ function JobCardBody({
 							? mine && !money("prices")
 								? "Hidden"
 								: "—"
-							: formatMoney(row.amountCents, row.currency)}
+							: formatUsd(row.amountCents)}
 					</span>
 				</span>
 			</button>

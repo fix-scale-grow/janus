@@ -2,7 +2,7 @@
 
 import type { ChartConfig } from "@crm/ui/components/chart";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import {
 	SummarySpinnerRow,
 	useSummary,
@@ -39,12 +39,9 @@ function TrendBody() {
 		);
 	}
 
-	const { trend, reportingCurrency } = summary;
+	const { trend } = summary;
 	const exact = (value: unknown) =>
-		formatMoney(
-			typeof value === "number" ? value : Number(value),
-			reportingCurrency,
-		);
+		formatUsd(typeof value === "number" ? value : Number(value));
 	const hasTrend = trend.some(
 		(point) => (point.won ?? 0) > 0 || (point.created ?? 0) > 0,
 	);

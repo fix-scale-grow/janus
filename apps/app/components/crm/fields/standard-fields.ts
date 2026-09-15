@@ -10,5 +10,5 @@ export const STANDARD_FIELDS: Record<FieldEntity, readonly string[]> = {
 		"Company",
 		"Owner",
 	],
-	DEAL: ["Name", "Amount", "Currency", "Close date", "Owner", "Stage"],
+	DEAL: ["Name", "Amount", "Close date", "Owner", "Stage"],
 };

@@ -12,7 +12,7 @@ import {
 } from "@crm/ui/components/input-group";
 import { SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { currencySymbol, formatMoney } from "@crm/ui/lib/format";
+import { formatUsd, usdSymbol } from "@crm/ui/lib/format";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -62,12 +62,10 @@ export function EstimateLineRow({
 	estimateId,
 	item,
 	tier,
-	currency,
 }: {
 	estimateId: string;
 	item: EstimateLineItemRow;
 	tier: EstimateTier;
-	currency: string;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
@@ -76,7 +74,7 @@ export function EstimateLineRow({
 	const priceCents = item[priceField];
 	const pricesHidden = priceCents === null;
 	const itemQuantity = Number(item.quantity);
-	const symbol = currencySymbol(currency);
+	const symbol = usdSymbol();
 
 	const [name, setName] = useState(item.name);
 	const [quantity, setQuantity] = useState(itemQuantity.toFixed(2));
@@ -186,7 +184,7 @@ export function EstimateLineRow({
 				{lineTotalCents === null ? (
 					<span className="text-muted-foreground">Hidden</span>
 				) : (
-					formatMoney(lineTotalCents, currency)
+					formatUsd(lineTotalCents)
 				)}
 			</TableCell>
 			<TableCell className="px-3 py-2">

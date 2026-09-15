@@ -5,7 +5,6 @@ import Chat from "@carbon/icons-react/es/Chat";
 import Close from "@carbon/icons-react/es/Close";
 import Phone from "@carbon/icons-react/es/Phone";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
-import { CURRENCIES, normalizeCurrency } from "@crm/db/currency";
 import type { FieldValueJson } from "@crm/db/fields";
 import { Button } from "@crm/ui/components/button";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
@@ -18,7 +17,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -77,52 +76,6 @@ import { AddRow, RecordSheetFrame } from "./record-parts";
 import { useOpenRecord, useRecordSheetView } from "./record-stack";
 
 type Deal = RouterOutputs["deals"]["byId"];
-
-function dealCurrency(currency: string) {
-	return normalizeCurrency(currency) || currency;
-}
-
-function legacyCurrencyLabel(currency: string) {
-	const known = CURRENCIES.find((entry) => entry.code === currency);
-	return known
-		? `${known.code} · ${known.name}`
-		: `${currency} — no longer supported`;
-}
-
-function LegacyCurrency({ deal }: { deal: Deal }) {
-	const currency = dealCurrency(deal.currency);
-
-	if (currency === "USD") return null;
-
-	return (
-		<DetailSheetProperty label="Currency">
-			<span className="text-muted-foreground">
-				{legacyCurrencyLabel(currency)}
-			</span>
-		</DetailSheetProperty>
-	);
-}
-
-function ReportedValue({ deal }: { deal: Deal }) {
-	const currency = dealCurrency(deal.currency);
-
-	if (currency === deal.reportingCurrency) return null;
-	if (deal.amountCents === null) return null;
-
-	return (
-		<DetailSheetProperty label={`In ${deal.reportingCurrency}`}>
-			{deal.baseAmountCents === null ? (
-				<span className="text-muted-foreground">
-					No {currency} rate — left out of totals
-				</span>
-			) : (
-				<span className="tabular-nums text-muted-foreground">
-					≈ {formatMoney(deal.baseAmountCents, deal.reportingCurrency)}
-				</span>
-			)}
-		</DetailSheetProperty>
-	);
-}
 
 const CONTACT_COLUMNS = [
 	{ id: "name", header: "Name", width: "w-[28%]", className: "pl-5" },
@@ -275,7 +228,7 @@ export function DealSheet({ dealId }: { dealId: string }) {
 								)
 							) : (
 								<span className="tabular-nums">
-									{formatMoney(deal.amountCents, dealCurrency(deal.currency))}
+									{formatUsd(deal.amountCents)}
 								</span>
 							)}
 						</DetailSheetStat>
@@ -322,8 +275,6 @@ function DealOverview({ deal }: { deal: Deal }) {
 
 	const save = (data: Parameters<typeof update.mutate>[0]["data"]) =>
 		update.mutate({ id: deal.id, data });
-
-	const currency = dealCurrency(deal.currency);
 
 	const isSaving = savingField(update);
 
@@ -376,12 +327,8 @@ function DealOverview({ deal }: { deal: Deal }) {
 							}
 							save({ amountCents: Math.round(parsed * 100) });
 						}}
-						render={(value) =>
-							formatMoney(Math.round(Number(value) * 100), currency)
-						}
+						render={(value) => formatUsd(Math.round(Number(value) * 100))}
 					/>
-					<LegacyCurrency deal={deal} />
-					<ReportedValue deal={deal} />
 					<InlineDateField
 						label="Close date"
 						value={deal.expectedCloseDate}

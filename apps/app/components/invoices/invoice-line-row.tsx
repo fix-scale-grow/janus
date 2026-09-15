@@ -12,7 +12,7 @@ import {
 } from "@crm/ui/components/input-group";
 import { SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { currencySymbol, formatMoney } from "@crm/ui/lib/format";
+import { formatUsd, usdSymbol } from "@crm/ui/lib/format";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -52,17 +52,15 @@ function parseQuantity(value: string): number | undefined {
 export function InvoiceLineRow({
 	invoiceId,
 	item,
-	currency,
 }: {
 	invoiceId: string;
 	item: InvoiceLineItemRow;
-	currency: string;
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 
 	const itemQuantity = Number(item.quantity);
-	const symbol = currencySymbol(currency);
+	const symbol = usdSymbol();
 	const pricesHidden = item.priceCents === null;
 
 	const [name, setName] = useState(item.name);
@@ -172,7 +170,7 @@ export function InvoiceLineRow({
 				{lineTotalCents === null ? (
 					<span className="text-muted-foreground">Hidden</span>
 				) : (
-					formatMoney(lineTotalCents, currency)
+					formatUsd(lineTotalCents)
 				)}
 			</TableCell>
 			<TableCell className="px-3 py-2">

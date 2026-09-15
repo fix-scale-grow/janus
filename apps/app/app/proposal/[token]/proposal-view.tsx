@@ -6,7 +6,7 @@ import { Field, FieldLabel } from "@crm/ui/components/field";
 import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
 import { Textarea } from "@crm/ui/components/textarea";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -174,7 +174,7 @@ export function ProposalView({
 									{TIER_LABEL[option]}
 								</span>
 								<span className="font-semibold text-lg tabular-nums">
-									{formatMoney(proposal.totals[option], proposal.currency)}
+									{formatUsd(proposal.totals[option])}
 								</span>
 							</button>
 						))}
@@ -193,9 +193,8 @@ export function ProposalView({
 										{item.quantity}
 									</span>
 									<span className="w-24 text-right text-sm tabular-nums">
-										{formatMoney(
+										{formatUsd(
 											Math.round(item.quantity * item[TIER_PRICE_FIELD[tier]]),
-											proposal.currency,
 										)}
 									</span>
 								</span>

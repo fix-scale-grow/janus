@@ -38,7 +38,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { TableCell } from "@crm/ui/components/table";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -191,7 +191,7 @@ function PageInvoicesTable({ savedState }: { savedState?: SavedTableView }) {
 					{row.totalCents === null ? (
 						<span className="text-muted-foreground">Hidden</span>
 					) : (
-						formatMoney(row.totalCents, row.currency)
+						formatUsd(row.totalCents)
 					)}
 				</span>
 			),
@@ -353,7 +353,7 @@ function EmbeddedInvoicesTable({
 						{row.totalCents === null ? (
 							<span className="text-muted-foreground">Hidden</span>
 						) : (
-							formatMoney(row.totalCents, row.currency)
+							formatUsd(row.totalCents)
 						)}
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right text-muted-foreground">

@@ -4,8 +4,8 @@ import { StatCard, type StatDelta } from "@crm/ui/components/stat-card";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
 import {
 	formatCount,
-	formatMoneyCompact,
 	formatPercent,
+	formatUsdCompact,
 } from "@crm/ui/lib/format";
 import {
 	SummarySpinnerRow,
@@ -29,19 +29,10 @@ function changeDelta(
 }
 
 export function StatWonMonthWidget() {
-	const { summary, refetchSummary } = useSummary();
-	const unconverted = summary?.unconverted;
-	const reportingCurrency = summary?.reportingCurrency;
+	const { refetchSummary } = useSummary();
 
 	return (
-		<WidgetShell
-			title="Closed won this month"
-			description={
-				unconverted && unconverted.count > 0 && reportingCurrency
-					? `Every figure above is in ${reportingCurrency}. ${formatCount(unconverted.count, "deal")} in ${unconverted.currencies.join(", ")} ${unconverted.count === 1 ? "is" : "are"} not included — there is no rate to convert ${unconverted.currencies.length === 1 ? "it" : "them"} with.`
-					: undefined
-			}
-		>
+		<WidgetShell title="Closed won this month">
 			<WidgetBoundary onRetry={refetchSummary}>
 				<StatWonMonthBody />
 			</WidgetBoundary>
@@ -59,8 +50,8 @@ function StatWonMonthBody() {
 		);
 	}
 
-	const { wonThisMonth, wonPrevMonth, reportingCurrency } = summary;
-	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
+	const { wonThisMonth, wonPrevMonth } = summary;
+	const money = formatUsdCompact;
 	const thisMonthCents = wonThisMonth.valueCents;
 	const prevMonthCents = wonPrevMonth.valueCents;
 
@@ -105,8 +96,8 @@ function StatOpenPipelineBody() {
 		);
 	}
 
-	const { pipeline, closingThisMonthTotal, reportingCurrency } = summary;
-	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
+	const { pipeline, closingThisMonthTotal } = summary;
+	const money = formatUsdCompact;
 	const totalCents = pipeline.totalCents;
 	const closingCents = closingThisMonthTotal.valueCents;
 
@@ -194,9 +185,8 @@ function StatAvgDealBody() {
 		);
 	}
 
-	const { performance, reportingCurrency } = summary;
-	const formatCents = (cents: number) =>
-		formatMoneyCompact(cents, reportingCurrency);
+	const { performance } = summary;
+	const formatCents = formatUsdCompact;
 	const pricesHidden = Boolean(mine) && !money("prices");
 
 	return (

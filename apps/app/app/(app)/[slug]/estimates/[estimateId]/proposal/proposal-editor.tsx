@@ -26,7 +26,7 @@ import { Field, FieldLabel } from "@crm/ui/components/field";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import { Spinner } from "@crm/ui/components/spinner";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -145,7 +145,6 @@ export function ProposalEditor({ estimateId }: { estimateId: string }) {
 			proposal={proposal.data}
 			estimateTitle={estimate.data?.title ?? ""}
 			totals={estimate.data?.totals ?? null}
-			currency={estimate.data?.currency ?? "USD"}
 			contactId={estimate.data?.contactId ?? undefined}
 			dealId={estimate.data?.dealId ?? undefined}
 			defaultTo={estimate.data?.contact?.email ?? ""}
@@ -159,7 +158,6 @@ function ProposalBody({
 	proposal,
 	estimateTitle,
 	totals,
-	currency,
 	contactId,
 	dealId,
 	defaultTo,
@@ -173,7 +171,6 @@ function ProposalBody({
 		betterCents: number | null;
 		bestCents: number | null;
 	} | null;
-	currency: string;
 	contactId?: string;
 	dealId?: string;
 	defaultTo: string;
@@ -531,7 +528,7 @@ function ProposalBody({
 												{cents === null ? (
 													<span className="text-muted-foreground">Hidden</span>
 												) : (
-													formatMoney(cents, currency)
+													formatUsd(cents)
 												)}
 											</span>
 										</div>

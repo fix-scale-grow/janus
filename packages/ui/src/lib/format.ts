@@ -39,6 +39,20 @@ function fractionDigits(code: string): number {
 	return digits;
 }
 
+export const APP_CURRENCY = "USD";
+
+export function formatUsd(cents: number): string {
+	return formatMoney(cents, APP_CURRENCY);
+}
+
+export function formatUsdCompact(cents: number): string {
+	return formatMoneyCompact(cents, APP_CURRENCY);
+}
+
+export function usdSymbol(): string {
+	return currencySymbol(APP_CURRENCY);
+}
+
 export function formatMoney(cents: number, currency = "usd"): string {
 	const code = displayCurrencyCode(currency);
 	const whole = cents % 100 === 0;

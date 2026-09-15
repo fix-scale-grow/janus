@@ -21,7 +21,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { Skeleton } from "@crm/ui/components/skeleton";
 import { TableCell } from "@crm/ui/components/table";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -86,11 +86,7 @@ function ContractValue({ row }: { row: ContractRow }) {
 		}
 		return <EmptyCellValue />;
 	}
-	return (
-		<span className="tabular-nums">
-			{formatMoney(row.valueCents, row.currency)}
-		</span>
-	);
+	return <span className="tabular-nums">{formatUsd(row.valueCents)}</span>;
 }
 
 export function ContractsTable({

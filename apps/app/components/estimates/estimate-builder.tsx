@@ -40,7 +40,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { StatCard } from "@crm/ui/components/stat-card";
 import { Tabs, TabsList, TabsTrigger } from "@crm/ui/components/tabs";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -501,7 +501,7 @@ export function EstimateBuilder({
 									value={
 										tierTotalCents === null
 											? "Hidden"
-											: formatMoney(tierTotalCents, data.currency)
+											: formatUsd(tierTotalCents)
 									}
 									className={cn(
 										"rounded-lg border bg-card",
@@ -538,7 +538,6 @@ export function EstimateBuilder({
 												estimateId={estimateId}
 												item={item}
 												tier={tier}
-												currency={data.currency}
 											/>
 										))}
 									</SimpleTable>
@@ -548,7 +547,7 @@ export function EstimateBuilder({
 					)}
 
 					<div>
-						<AddLineItem estimateId={estimateId} currency={data.currency} />
+						<AddLineItem estimateId={estimateId} />
 					</div>
 
 					<DocumentTextFields

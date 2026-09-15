@@ -8,7 +8,7 @@ import {
 	SelectValue,
 } from "@crm/ui/components/select";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
-import { formatMoney, formatMoneyCompact } from "@crm/ui/lib/format";
+import { formatUsd, formatUsdCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -80,18 +80,15 @@ export function PipelineDonutWidget() {
 		);
 	}
 
-	const { pipeline, reportingCurrency } = summary;
+	const { pipeline } = summary;
 	const chartError = secondarySelected && chartQuery.isError;
 	const chartPipeline: PipelineStages = secondarySelected
 		? (chartQuery.data ?? pipeline)
 		: pipeline;
 
-	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
+	const money = formatUsdCompact;
 	const exact = (value: unknown) =>
-		formatMoney(
-			typeof value === "number" ? value : Number(value),
-			reportingCurrency,
-		);
+		formatUsd(typeof value === "number" ? value : Number(value));
 
 	const moneyMasked =
 		chartPipeline.stages.length > 0 &&

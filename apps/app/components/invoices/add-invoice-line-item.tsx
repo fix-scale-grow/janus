@@ -25,7 +25,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -61,13 +61,7 @@ function emptyCustom() {
 	return { name: "", unit: "PER_EACH" as ServiceUnit, quantity: "1" };
 }
 
-export function AddInvoiceLineItem({
-	invoiceId,
-	currency,
-}: {
-	invoiceId: string;
-	currency: string;
-}) {
+export function AddInvoiceLineItem({ invoiceId }: { invoiceId: string }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const [open, setOpen] = useState(false);
@@ -163,7 +157,7 @@ export function AddInvoiceLineItem({
 										<span className="text-muted-foreground tabular-nums">
 											{service.unitPriceCents === null
 												? "Hidden"
-												: formatMoney(service.unitPriceCents, currency)}
+												: formatUsd(service.unitPriceCents)}
 										</span>
 									</CommandItem>
 								))}

@@ -576,10 +576,7 @@ function ContactDeals({ contact }: { contact: Contact }) {
 						<DealStageMenu dealId={deal.id} stage={deal.stage} />
 					</TableCell>
 					<TableCell className="px-3 py-2.5 text-right">
-						<DealAmount
-							amountCents={deal.amountCents}
-							currency={deal.currency}
-						/>
+						<DealAmount amountCents={deal.amountCents} />
 					</TableCell>
 					<TableCell className="px-3 py-2.5">
 						<OwnerCell owner={deal.owner} />

@@ -8,7 +8,7 @@ import {
 } from "@crm/ui/components/simple-table";
 import { StatusIndicator } from "@crm/ui/components/status-indicator";
 import { TableCell } from "@crm/ui/components/table";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -76,10 +76,7 @@ export function DealListResultTable({ result }: { result: DealListResult }) {
 										<EmptyCellValue />
 									) : (
 										<span className="tabular-nums">
-											{formatMoney(
-												Math.round(deal.amount * 100),
-												deal.currency,
-											)}
+											{formatUsd(Math.round(deal.amount * 100))}
 										</span>
 									)}
 								</TableCell>
@@ -156,12 +153,8 @@ function humaniseStage(stage: string): string {
 }
 
 function pipelineTotal(deals: readonly DealListItem[]): string | null {
-	const currencies = new Set(deals.map((deal) => deal.currency));
-	if (currencies.size !== 1) return null;
-
-	const currency = currencies.values().next().value;
-	if (!currency) return null;
+	if (deals.length === 0) return null;
 
 	const amount = deals.reduce((sum, deal) => sum + (deal.amount ?? 0), 0);
-	return `${formatMoney(Math.round(amount * 100), currency)} pipeline`;
+	return `${formatUsd(Math.round(amount * 100))} pipeline`;
 }

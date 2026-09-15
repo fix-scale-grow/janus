@@ -237,9 +237,9 @@ describe("create", () => {
 		expect(stored?.stageId).toBe(entry?.id);
 	});
 
-	it("stores USD when no currency is given", async () => {
+	it("stores USD when no currency is given, even if reportingCurrency says otherwise", async () => {
 		const previous = await readReportingCurrency(db);
-		await writeReportingCurrency(db, "USD");
+		await writeReportingCurrency(db, "EUR");
 
 		const deal = await deals.create(
 			{

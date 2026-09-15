@@ -7,7 +7,7 @@ import {
 } from "@crm/ui/components/data-table";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import { useTableSelection } from "@crm/ui/hooks/use-table-selection";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { CLOSING_OPTIONS } from "@/components/crm/closing-window";
@@ -37,11 +37,7 @@ function DealAmountCell({ row }: { row: DealRow }) {
 		}
 		return <EmptyCellValue />;
 	}
-	return (
-		<span className="tabular-nums">
-			{formatMoney(row.amountCents, row.currency)}
-		</span>
-	);
+	return <span className="tabular-nums">{formatUsd(row.amountCents)}</span>;
 }
 
 const COLUMNS: DataTableColumn<DealRow>[] = [
@@ -232,7 +228,6 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 
 	const { mine, money } = useAccess();
 	const openValueCents = deals.data?.openValueCents;
-	const reportingCurrency = deals.data?.reportingCurrency;
 	const unconverted = deals.data?.unconverted;
 	const uncounted = unconverted?.count ?? 0;
 	const pricesHidden =
@@ -301,17 +296,8 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 				) : openPipelineCents === null ? undefined : (
 					<span>
 						{deals.data?.total ?? 0} deals ·{" "}
-						<span className="tabular-nums">
-							{formatMoney(openPipelineCents, reportingCurrency)}
-						</span>{" "}
+						<span className="tabular-nums">{formatUsd(openPipelineCents)}</span>{" "}
 						open pipeline
-						{unconverted && unconverted.count > 0 ? (
-							<span className="text-muted-foreground">
-								{" "}
-								· {unconverted.count} not counted (no{" "}
-								{unconverted.currencies.join(", ")} rate)
-							</span>
-						) : null}
 					</span>
 				)
 			}

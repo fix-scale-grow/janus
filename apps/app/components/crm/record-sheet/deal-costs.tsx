@@ -34,7 +34,7 @@ import {
 } from "@crm/ui/components/select";
 import { SimpleTable, SimpleTableRow } from "@crm/ui/components/simple-table";
 import { TableCell } from "@crm/ui/components/table";
-import { formatMoney, formatPercent, toDay } from "@crm/ui/lib/format";
+import { formatPercent, formatUsd, toDay } from "@crm/ui/lib/format";
 import { cn } from "@crm/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -141,9 +141,9 @@ export function DealCosts({ dealId }: { dealId: string }) {
 							.map((entry) =>
 								entry.totalCents === null
 									? "Hidden"
-									: formatMoney(entry.totalCents, entry.currency),
+									: formatUsd(entry.totalCents),
 							)
-							.join(", ") || formatMoney(0)}
+							.join(", ") || formatUsd(0)}
 					</p>
 				)}
 			</DetailSheetSection>
@@ -187,26 +187,21 @@ function ProfitStrip({ lines }: { lines: ProfitLine[] }) {
 					key={line.currency}
 					className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
 				>
-					<span className="font-medium text-muted-foreground uppercase tracking-wide">
-						{line.currency}
-					</span>
 					<span>
 						Invoiced{" "}
 						<span className="tabular-nums">
-							{formatMoney(line.invoicedCents, line.currency)}
+							{formatUsd(line.invoicedCents)}
 						</span>
 					</span>
 					<span>
 						Collected{" "}
 						<span className="tabular-nums">
-							{formatMoney(line.collectedCents, line.currency)}
+							{formatUsd(line.collectedCents)}
 						</span>
 					</span>
 					<span>
 						Costs{" "}
-						<span className="tabular-nums">
-							{formatMoney(line.costsCents, line.currency)}
-						</span>
+						<span className="tabular-nums">{formatUsd(line.costsCents)}</span>
 					</span>
 					<span
 						className={cn(
@@ -215,9 +210,7 @@ function ProfitStrip({ lines }: { lines: ProfitLine[] }) {
 						)}
 					>
 						Profit{" "}
-						<span className="tabular-nums">
-							{formatMoney(line.profitCents, line.currency)}
-						</span>
+						<span className="tabular-nums">{formatUsd(line.profitCents)}</span>
 						{line.marginPct === null ? null : (
 							<span className="tabular-nums">
 								{" "}
@@ -410,7 +403,7 @@ function CostRow({
 				{row.amountCents === null ? (
 					<span className="text-muted-foreground">Hidden</span>
 				) : (
-					formatMoney(row.amountCents, row.currency)
+					formatUsd(row.amountCents)
 				)}
 			</TableCell>
 			<TableCell className="px-3 py-2.5">

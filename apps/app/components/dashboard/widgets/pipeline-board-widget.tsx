@@ -4,7 +4,7 @@ import { CardPanelEmpty } from "@crm/ui/components/card";
 import { EmptyCellValue } from "@crm/ui/components/empty-cell";
 import { Spinner } from "@crm/ui/components/spinner";
 import { WidgetError, WidgetShell } from "@crm/ui/components/widget-shell";
-import { formatMoneyCompact } from "@crm/ui/lib/format";
+import { formatUsdCompact } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -120,7 +120,7 @@ function PipelineBoardDealChip({
 				{deal.amountCents === null ? (
 					<EmptyCellValue />
 				) : (
-					formatMoneyCompact(deal.amountCents, deal.currency)
+					formatUsdCompact(deal.amountCents)
 				)}
 			</span>
 		</button>

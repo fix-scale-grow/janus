@@ -3,7 +3,7 @@
 import Phone from "@carbon/icons-react/es/Phone";
 import { Button } from "@crm/ui/components/button";
 import { Icon } from "@crm/ui/components/icon";
-import { formatMoney } from "@crm/ui/lib/format";
+import { formatUsd } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { ProductionStageIndicator } from "@/components/crm/production-stage-change";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
@@ -75,7 +75,7 @@ export function FieldCrew() {
 										? mine && !money("prices")
 											? "Hidden"
 											: "—"
-										: formatMoney(job.amountCents, job.currency)}
+										: formatUsd(job.amountCents)}
 								</span>
 							</div>
 							<p className="mt-2 truncate text-base font-bold text-foreground">

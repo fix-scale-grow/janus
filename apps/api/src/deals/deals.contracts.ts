@@ -1,7 +1,6 @@
 import { ProductionStage } from "@crm/db";
 import { z } from "zod";
 import { bulkIdsInput } from "../crm/bulk";
-import { currencyCode } from "../currency/currency.contracts";
 import { recordFieldValues } from "../fields/fields.contracts";
 import { listInput } from "../trpc/list-input";
 
@@ -41,19 +40,23 @@ export const dealCreateInput = z.object({
 	ownerId: z.string().min(1, "A deal needs an owner."),
 	stage: z.string().min(1).optional(),
 	amountCents,
-	currency: currencyCode.optional(),
+	currency: z.literal("USD").optional(),
 	expectedCloseDate: z.string().nullable().optional(),
 	closedReason: z.string().trim().optional(),
 });
 
 export type DealCreateInput = z.infer<typeof dealCreateInput>;
 
-const dealUpdateInput = z.object({
+export type DealCreateData = Omit<DealCreateInput, "currency"> & {
+	currency?: string;
+};
+
+export const dealUpdateInput = z.object({
 	name: z.string().trim().min(1).optional(),
 	description: z.string().nullable().optional(),
 	ownerId: z.string().optional(),
 	amountCents,
-	currency: currencyCode.optional(),
+	currency: z.literal("USD").optional(),
 	expectedCloseDate: z.string().nullable().optional(),
 	fields: recordFieldValues.optional(),
 });

@@ -1,12 +1,5 @@
 "use client";
 
-export function ExcludedDisclosure({ excluded }: { excluded: number }) {
-	if (excluded <= 0) return null;
-
-	return (
-		<p className="text-muted-foreground text-sm">
-			{excluded} {excluded === 1 ? "entry" : "entries"} in other currencies{" "}
-			{excluded === 1 ? "is" : "are"} not included.
-		</p>
-	);
+export function ExcludedDisclosure(_props: { excluded: number }) {
+	return null;
 }
