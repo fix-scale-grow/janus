@@ -17,7 +17,7 @@ const Logo = ({ src, alt, className, ...props }: LogoProps) => {
 			height={512}
 			viewBox="0 0 512 512"
 			fill="none"
-			aria-label="Comp AI Logo"
+			aria-label="Janus logo"
 			className={className}
 			{...props}
 		>
