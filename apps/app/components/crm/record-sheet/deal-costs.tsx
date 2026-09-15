@@ -53,6 +53,7 @@ import type { RouterOutputs } from "@/lib/trpc/types";
 type Cost = RouterOutputs["costs"]["list"]["rows"][number];
 type Category = Cost["category"];
 type ProfitLine = RouterOutputs["costs"]["profitForDeal"]["byCurrency"][number];
+type CostTotal = RouterOutputs["costs"]["list"]["totalsByCurrency"][number];
 
 const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
 	{ value: "MATERIALS", label: "Materials" },
@@ -139,17 +140,7 @@ export function DealCosts({ dealId }: { dealId: string }) {
 						)}
 					/>
 				) : (
-					<p className="text-muted-foreground text-xs">
-						Costs ·{" "}
-						{(costs.data?.totalsByCurrency ?? [])
-							.filter((entry) => entry.currency === "USD")
-							.map((entry) =>
-								entry.totalCents === null
-									? "Hidden"
-									: formatUsd(entry.totalCents),
-							)
-							.join(", ") || formatUsd(0)}
-					</p>
+					<CostsSummary totals={costs.data?.totalsByCurrency ?? []} />
 				)}
 			</DetailSheetSection>
 
@@ -177,6 +168,28 @@ export function DealCosts({ dealId }: { dealId: string }) {
 				)}
 			</DetailSheetSection>
 		</DetailSheetBody>
+	);
+}
+
+function CostsSummary({ totals }: { totals: CostTotal[] }) {
+	if (totals.length === 0) {
+		return (
+			<p className="text-muted-foreground text-xs">Costs · {formatUsd(0)}</p>
+		);
+	}
+
+	const usdTotals = totals.filter((entry) => entry.currency === "USD");
+	if (usdTotals.length === 0) return null;
+
+	return (
+		<p className="text-muted-foreground text-xs">
+			Costs ·{" "}
+			{usdTotals
+				.map((entry) =>
+					entry.totalCents === null ? "Hidden" : formatUsd(entry.totalCents),
+				)
+				.join(", ")}
+		</p>
 	);
 }
 
