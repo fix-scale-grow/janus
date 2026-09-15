@@ -73,10 +73,10 @@ export class ConversationsRouter {
 
 	@Mutation({ input: conversationSaveInput, meta: anyMember() })
 	async save(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof conversationSaveInput>,
 	) {
-		return this.conversations.save(input, ctx.user.id);
+		return this.conversations.save(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: builderConversationCreateInput, meta: anyMember() })

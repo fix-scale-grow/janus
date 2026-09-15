@@ -305,9 +305,11 @@ before the existing approval or unattended denial.
 - **The bridge route refuses Janus** to a non-member, a field-surface group and an
   ungrouped non-admin, and 404s a tagged record outside the caller's scope.
 - **The bridge route owns the session ACL.** A session id in the path must belong
-  to an `AgentConversation` of the caller, or to a signed `janus_agent_sessions`
-  claim the route set when that caller created it (`lib/agent-session-claim.ts`).
-  The claim covers the seconds before the panel files the conversation.
+  to an `AgentConversation` of the caller. The route files that row itself when
+  eve answers `POST /eve/v1/session` with `x-eve-session-id`, before the browser
+  learns the id (`lib/agent-conversation-route.ts`). `conversations.save` only
+  updates a row the caller owns; it never files an unknown session id. A child
+  session from `subagent.called` has no row, so its stream path returns 404.
 
 ## Sandbox
 

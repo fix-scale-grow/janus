@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
-import { adminPrincipal } from "@crm/db/access-policy";
+import { adminPrincipal, noAccessPrincipal } from "@crm/db/access-policy";
 import { workspaceSlug } from "@crm/db/workspace";
+import { NotFoundException } from "@nestjs/common";
 import {
 	builderConversationCreateInput,
 	conversationListInput,
@@ -17,6 +18,29 @@ const memberId = `conversation-member-${suffix}`;
 
 let contactId: string;
 let service: ConversationsService;
+
+async function refusal(promise: Promise<unknown>): Promise<unknown> {
+	return promise.then(
+		() => null,
+		(error: unknown) => error,
+	);
+}
+
+async function file(
+	sessionId: string,
+	anchor: { kind?: "WORKSPACE"; contactId?: string } = {},
+	owner: string = userId,
+) {
+	return db.agentConversation.create({
+		data: {
+			kind: anchor.kind ?? "RECORD",
+			sessionId,
+			userId: owner,
+			contactId: anchor.contactId ?? null,
+		},
+		select: { id: true },
+	});
+}
 
 beforeAll(async () => {
 	await db.agentEvent.deleteMany({
@@ -86,6 +110,7 @@ describe("ConversationsService", () => {
 	});
 
 	it("saves a cursor and titles the thread from the opening question", async () => {
+		await file(`ses_${suffix}_1`, { contactId });
 		await service.save(
 			{
 				contactId,
@@ -96,6 +121,7 @@ describe("ConversationsService", () => {
 				messageCount: 2,
 			},
 			userId,
+			adminPrincipal(userId),
 		);
 
 		const [conversation] = await service.list(
@@ -123,6 +149,7 @@ describe("ConversationsService", () => {
 				messageCount: 4,
 			},
 			userId,
+			adminPrincipal(userId),
 		);
 
 		const [conversation] = await service.list(
@@ -145,10 +172,7 @@ describe("ConversationsService", () => {
 			userId,
 			adminPrincipal(userId),
 		);
-		await service.save(
-			{ contactId, sessionId: `ses_${suffix}_2`, messageCount: 1 },
-			userId,
-		);
+		await file(`ses_${suffix}_2`, { contactId });
 		expect(
 			await service.list({ contactId }, userId, adminPrincipal(userId)),
 		).toHaveLength(before.length + 1);
@@ -174,9 +198,15 @@ describe("ConversationsService", () => {
 	});
 
 	it("refuses a conversation that belongs to a record of neither kind", async () => {
-		await expect(
-			service.save({ sessionId: `ses_${suffix}_3` }, userId),
-		).rejects.toThrow();
+		expect(
+			await refusal(
+				service.save(
+					{ sessionId: `ses_${suffix}_3` },
+					userId,
+					adminPrincipal(userId),
+				),
+			),
+		).toBeInstanceOf(Error);
 	});
 
 	it("requires exactly one CRM record in list and save inputs", () => {
@@ -195,6 +225,7 @@ describe("ConversationsService", () => {
 
 	it("opens a workspace thread that belongs to no CRM record", async () => {
 		const sessionId = `ses_${suffix}_workspace`;
+		await file(sessionId, { kind: "WORKSPACE" });
 		const saved = await service.save(
 			{
 				kind: "WORKSPACE",
@@ -204,6 +235,7 @@ describe("ConversationsService", () => {
 				messageCount: 2,
 			},
 			userId,
+			adminPrincipal(userId),
 		);
 
 		expect(
@@ -237,10 +269,7 @@ describe("ConversationsService", () => {
 	});
 
 	it("keeps one rep's workspace threads out of another's", async () => {
-		await service.save(
-			{ kind: "WORKSPACE", sessionId: `ses_${suffix}_workspace_owned` },
-			userId,
-		);
+		await file(`ses_${suffix}_workspace_owned`, { kind: "WORKSPACE" });
 
 		expect(
 			await service.list(
@@ -252,10 +281,7 @@ describe("ConversationsService", () => {
 	});
 
 	it("keeps workspace threads out of a record's history", async () => {
-		await service.save(
-			{ kind: "WORKSPACE", sessionId: `ses_${suffix}_workspace_scope` },
-			userId,
-		);
+		await file(`ses_${suffix}_workspace_scope`, { kind: "WORKSPACE" });
 		const recordThreads = await service.list(
 			{ contactId },
 			userId,
@@ -300,11 +326,15 @@ describe("ConversationsService", () => {
 
 	it("does not move a workspace thread onto a CRM record", async () => {
 		const sessionId = `ses_${suffix}_workspace_move`;
-		await service.save({ kind: "WORKSPACE", sessionId }, userId);
+		await file(sessionId, { kind: "WORKSPACE" });
 
 		let moveError: unknown;
 		try {
-			await service.save({ contactId, sessionId }, userId);
+			await service.save(
+				{ contactId, sessionId },
+				userId,
+				adminPrincipal(userId),
+			);
 		} catch (error) {
 			moveError = error;
 		}
@@ -319,6 +349,7 @@ describe("ConversationsService", () => {
 
 	it("does not mutate a conversation owned by another rep", async () => {
 		const sessionId = `ses_${suffix}_ownership`;
+		await file(sessionId, { contactId });
 		await service.save(
 			{
 				contactId,
@@ -327,6 +358,7 @@ describe("ConversationsService", () => {
 				streamIndex: 3,
 			},
 			userId,
+			adminPrincipal(userId),
 		);
 
 		let ownershipError: unknown;
@@ -339,6 +371,7 @@ describe("ConversationsService", () => {
 					streamIndex: 99,
 				},
 				"somebody-else",
+				adminPrincipal("somebody-else"),
 			);
 		} catch (error) {
 			ownershipError = error;
@@ -355,11 +388,15 @@ describe("ConversationsService", () => {
 
 	it("does not move an existing session to another CRM record", async () => {
 		const sessionId = `ses_${suffix}_record`;
-		await service.save({ contactId, sessionId }, userId);
+		await file(sessionId, { contactId });
 
 		let recordError: unknown;
 		try {
-			await service.save({ dealId: "another-record", sessionId }, userId);
+			await service.save(
+				{ dealId: "another-record", sessionId },
+				userId,
+				adminPrincipal(userId),
+			);
 		} catch (error) {
 			recordError = error;
 		}
@@ -369,14 +406,115 @@ describe("ConversationsService", () => {
 
 	it("deduplicates concurrent saves of the same record session", async () => {
 		const sessionId = `ses_${suffix}_concurrent`;
+		const filed = await file(sessionId, { contactId });
 		const results = await Promise.all(
 			Array.from({ length: 4 }, () =>
-				service.save({ contactId, sessionId, streamIndex: 7 }, userId),
+				service.save(
+					{ contactId, sessionId, streamIndex: 7 },
+					userId,
+					adminPrincipal(userId),
+				),
 			),
 		);
 
-		expect(new Set(results.map((result) => result.id)).size).toBe(1);
+		expect([...new Set(results.map((result) => result.id))]).toEqual([
+			filed.id,
+		]);
 		expect(await db.agentConversation.count({ where: { sessionId } })).toBe(1);
+	});
+
+	it("refuses to file an unknown session and creates no row", async () => {
+		const sessionId = `ses_${suffix}_unknown`;
+
+		expect(
+			await refusal(
+				service.save(
+					{ contactId, sessionId, title: "Stolen", messageCount: 1 },
+					userId,
+					adminPrincipal(userId),
+				),
+			),
+		).toBeInstanceOf(NotFoundException);
+		expect(
+			await refusal(
+				service.save(
+					{ kind: "WORKSPACE", sessionId },
+					userId,
+					adminPrincipal(userId),
+				),
+			),
+		).toBeInstanceOf(NotFoundException);
+		expect(await db.agentConversation.count({ where: { sessionId } })).toBe(0);
+	});
+
+	it("refuses a session another rep owns with not found and leaves it alone", async () => {
+		const sessionId = `ses_${suffix}_foreign`;
+		await file(sessionId, { kind: "WORKSPACE" });
+
+		expect(
+			await refusal(
+				service.save(
+					{ kind: "WORKSPACE", sessionId, title: "Mine now", streamIndex: 5 },
+					"somebody-else",
+					adminPrincipal("somebody-else"),
+				),
+			),
+		).toBeInstanceOf(NotFoundException);
+		expect(
+			await db.agentConversation.findMany({
+				where: { sessionId },
+				select: { userId: true, title: true, streamIndex: true },
+			}),
+		).toEqual([{ userId, title: null, streamIndex: 0 }]);
+	});
+
+	it("titles a filed session once from the first save", async () => {
+		const sessionId = `ses_${suffix}_titled`;
+		const filed = await file(sessionId, { kind: "WORKSPACE" });
+
+		const saved = await service.save(
+			{
+				kind: "WORKSPACE",
+				sessionId,
+				title: "First question",
+				messageCount: 1,
+			},
+			userId,
+			adminPrincipal(userId),
+		);
+		await service.save(
+			{
+				kind: "WORKSPACE",
+				sessionId,
+				title: "Second question",
+				messageCount: 3,
+			},
+			userId,
+			adminPrincipal(userId),
+		);
+
+		expect(saved.id).toBe(filed.id);
+		expect(
+			await db.agentConversation.findUnique({
+				where: { id: filed.id },
+				select: { title: true, messageCount: true },
+			}),
+		).toEqual({ title: "First question", messageCount: 3 });
+	});
+
+	it("refuses to save a record chat whose record left the caller's scope", async () => {
+		const sessionId = `ses_${suffix}_out_of_scope`;
+		await file(sessionId, { contactId });
+
+		expect(
+			await refusal(
+				service.save(
+					{ contactId, sessionId, streamIndex: 4 },
+					userId,
+					noAccessPrincipal(userId),
+				),
+			),
+		).toBeInstanceOf(NotFoundException);
 	});
 
 	it("does not treat a builder session as a record conversation", async () => {
@@ -398,7 +536,11 @@ describe("ConversationsService", () => {
 
 		let saveError: unknown;
 		try {
-			await service.save({ contactId, sessionId }, userId);
+			await service.save(
+				{ contactId, sessionId },
+				userId,
+				adminPrincipal(userId),
+			);
 		} catch (error) {
 			saveError = error;
 		}
@@ -413,7 +555,7 @@ describe("ConversationsService", () => {
 
 	it("returns the newest event window in chronological order", async () => {
 		const sessionId = `ses_${suffix}_events`;
-		const saved = await service.save({ contactId, sessionId }, userId);
+		const saved = await file(sessionId, { contactId });
 		const emittedAt = new Date("2026-08-05T12:00:00.000Z");
 		await db.agentEvent.createMany({
 			data: [0, 1, 2, 3].map((position) => ({
@@ -480,7 +622,7 @@ describe("ConversationsService", () => {
 
 	it("forgets a conversation and the events behind it", async () => {
 		const sessionId = `ses_${suffix}_delete`;
-		const conversation = await service.save({ contactId, sessionId }, userId);
+		const conversation = await file(sessionId, { contactId });
 
 		await db.agentEvent.create({
 			data: {
@@ -520,10 +662,7 @@ describe("ConversationsService", () => {
 	});
 
 	it("will not let one rep delete another's conversation", async () => {
-		const conversation = await service.save(
-			{ contactId, sessionId: `ses_${suffix}_protected` },
-			userId,
-		);
+		const conversation = await file(`ses_${suffix}_protected`, { contactId });
 
 		let removeError: unknown;
 		try {

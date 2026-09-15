@@ -756,53 +756,11 @@ export class ConversationsService {
 	async save(
 		input: ConversationSaveInput,
 		userId: string,
+		p: AccessPrincipal,
 	): Promise<{ id: string }> {
 		const kind = conversationKindOf(input);
 		const recordId = kind === "RECORD" ? this.recordId(input) : null;
 		const missing = `No ${kind.toLowerCase()} conversation with session ${input.sessionId}.`;
-		const updateExisting = async (existing: {
-			id: string;
-			kind: string;
-			userId: string;
-			contactId: string | null;
-			dealId: string | null;
-			drawingId: string | null;
-		}) => {
-			if (existing.userId !== userId || existing.kind !== kind) {
-				throw new NotFoundException(missing);
-			}
-
-			const existingRecordId =
-				existing.contactId ?? existing.dealId ?? existing.drawingId ?? null;
-			if (existingRecordId !== recordId) {
-				throw new BadRequestException(
-					"A conversation cannot be moved to another CRM record.",
-				);
-			}
-
-			const updated = await this.db.agentConversation.updateMany({
-				where: {
-					id: existing.id,
-					kind,
-					userId,
-					contactId: input.contactId ?? null,
-					dealId: input.dealId ?? null,
-					drawingId: input.drawingId ?? null,
-				},
-				data: {
-					continuationToken: input.continuationToken ?? null,
-					streamIndex: input.streamIndex ?? 0,
-					messageCount: input.messageCount ?? 0,
-					lastMessageAt: new Date(),
-				},
-			});
-
-			if (updated.count !== 1) {
-				throw new NotFoundException(missing);
-			}
-
-			return { id: existing.id };
-		};
 
 		const existing = await this.db.agentConversation.findUnique({
 			where: { sessionId: input.sessionId },
@@ -813,48 +771,51 @@ export class ConversationsService {
 				contactId: true,
 				dealId: true,
 				drawingId: true,
+				title: true,
 			},
 		});
-		let conversation: { id: string };
 
-		if (existing) {
-			conversation = await updateExisting(existing);
-		} else {
-			try {
-				conversation = await this.db.agentConversation.create({
-					data: {
-						kind,
-						sessionId: input.sessionId,
-						continuationToken: input.continuationToken ?? null,
-						streamIndex: input.streamIndex ?? 0,
-						title: input.title?.slice(0, 120) ?? null,
-						messageCount: input.messageCount ?? 0,
-						userId,
-						contactId: input.contactId ?? null,
-						dealId: input.dealId ?? null,
-						drawingId: input.drawingId ?? null,
-					},
-					select: { id: true },
-				});
-			} catch (error) {
-				if (!isUniqueConstraint(error)) throw error;
-				const winner = await this.db.agentConversation.findUnique({
-					where: { sessionId: input.sessionId },
-					select: {
-						id: true,
-						kind: true,
-						userId: true,
-						contactId: true,
-						dealId: true,
-						drawingId: true,
-					},
-				});
-				if (!winner) throw error;
-				conversation = await updateExisting(winner);
-			}
+		if (!existing || existing.userId !== userId || existing.kind !== kind) {
+			throw new NotFoundException(missing);
 		}
 
-		return conversation;
+		const existingRecordId =
+			existing.contactId ?? existing.dealId ?? existing.drawingId ?? null;
+		if (existingRecordId !== recordId) {
+			throw new BadRequestException(
+				"A conversation cannot be moved to another CRM record.",
+			);
+		}
+
+		if (kind === "RECORD") {
+			await this.assertAnchorInScope(input, p);
+		}
+
+		const updated = await this.db.agentConversation.updateMany({
+			where: {
+				id: existing.id,
+				kind,
+				userId,
+				contactId: input.contactId ?? null,
+				dealId: input.dealId ?? null,
+				drawingId: input.drawingId ?? null,
+			},
+			data: {
+				continuationToken: input.continuationToken ?? null,
+				streamIndex: input.streamIndex ?? 0,
+				messageCount: input.messageCount ?? 0,
+				lastMessageAt: new Date(),
+				...(existing.title === null && input.title
+					? { title: input.title.slice(0, 120) }
+					: {}),
+			},
+		});
+
+		if (updated.count !== 1) {
+			throw new NotFoundException(missing);
+		}
+
+		return { id: existing.id };
 	}
 
 	async events(input: ConversationEventsInput, userId: string) {

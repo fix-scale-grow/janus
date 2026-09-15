@@ -12,16 +12,13 @@ import {
 	mintBridgeToken,
 } from "@/lib/agent-bridge";
 import {
-	AGENT_SESSION_CLAIM,
-	addClaim,
-	claimCookie,
-	claimCookieValue,
+	AGENT_SESSION_ROUTE,
+	conversationFiling,
+	fileBridgeConversation,
 	isSessionCreate,
-	readClaims,
 	requestedSessionId,
-	sessionAllowed,
-	signClaims,
-} from "@/lib/agent-session-claim";
+	sessionOwnedBy,
+} from "@/lib/agent-conversation-route";
 import { getSession } from "@/lib/session";
 
 async function handler(request: Request): Promise<Response> {
@@ -72,35 +69,26 @@ async function handler(request: Request): Promise<Response> {
 		"x-crm-builder-conversation",
 	);
 	const requestedSession = requestedSessionId(url.pathname);
-	const secret = process.env.AGENT_BRIDGE_SECRET ?? "";
-	const claims = await readClaims(
-		claimCookieValue(request.headers.get("cookie")),
-		secret,
-	);
+	const creatingSession = isSessionCreate(request.method, url.pathname);
 	headers.delete("x-crm-contact");
 	headers.delete("x-crm-deal");
 	headers.delete("x-crm-drawing");
 	headers.delete("x-crm-builder-conversation");
 
 	if (requestedSession) {
-		const conversation = await db.agentConversation.findUnique({
-			where: { sessionId: requestedSession },
-			select: { userId: true },
-		});
-		if (
-			!sessionAllowed({
-				sessionId: requestedSession,
-				userId: session.user.id,
-				conversation,
-				claims,
-				now: Date.now(),
-			})
-		) {
+		if (!(await sessionOwnedBy(requestedSession, session.user.id))) {
 			return Response.json(
 				{ error: "Conversation not found." },
 				{ status: 404 },
 			);
 		}
+	}
+
+	if (builderConversationId && creatingSession) {
+		return Response.json(
+			{ error: "A builder conversation starts on the server." },
+			{ status: 400 },
+		);
 	}
 
 	if (builderConversationId) {
@@ -128,8 +116,19 @@ async function handler(request: Request): Promise<Response> {
 		dealId: cuid(dealId),
 		drawingId: cuid(drawingId),
 	};
-	if (!(await agentRecordsVisible(principal, record))) {
+	if (
+		(contactId && !record.contactId) ||
+		(dealId && !record.dealId) ||
+		(drawingId && !record.drawingId) ||
+		!(await agentRecordsVisible(principal, record))
+	) {
 		return Response.json({ error: "Record not found." }, { status: 404 });
+	}
+	if (creatingSession && !conversationFiling(record)) {
+		return Response.json(
+			{ error: "Choose exactly one contact, deal or drawing." },
+			{ status: 400 },
+		);
 	}
 
 	headers.set(
@@ -179,22 +178,26 @@ async function handler(request: Request): Promise<Response> {
 		responseHeaders.delete(header);
 	}
 
-	const createdSession = isSessionCreate(request.method, url.pathname)
-		? upstream.headers.get(AGENT_SESSION_CLAIM.sessionHeader)
+	const createdSession = creatingSession
+		? upstream.headers.get(AGENT_SESSION_ROUTE.sessionHeader)
 		: null;
 	if (upstream.ok && createdSession) {
-		const next = addClaim(
-			claims,
-			{ sessionId: createdSession, userId: session.user.id },
-			Date.now(),
-		);
-		responseHeaders.append(
-			"set-cookie",
-			claimCookie(
-				await signClaims(next, secret),
-				process.env.NODE_ENV === "production",
-			),
-		);
+		try {
+			await fileBridgeConversation({
+				sessionId: createdSession,
+				userId: session.user.id,
+				record,
+			});
+		} catch (error) {
+			await upstream.body?.cancel();
+			return Response.json(
+				{
+					error: "The conversation could not be filed.",
+					detail: error instanceof Error ? error.message : String(error),
+				},
+				{ status: 500 },
+			);
+		}
 	}
 
 	return new Response(upstream.body, {
