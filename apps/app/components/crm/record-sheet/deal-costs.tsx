@@ -133,11 +133,16 @@ export function DealCosts({ dealId }: { dealId: string }) {
 		<DetailSheetBody>
 			<DetailSheetSection title="Profit">
 				{canViewProfit ? (
-					<ProfitStrip lines={profit.data?.byCurrency ?? []} />
+					<ProfitStrip
+						lines={(profit.data?.byCurrency ?? []).filter(
+							(line) => line.currency === "USD",
+						)}
+					/>
 				) : (
 					<p className="text-muted-foreground text-xs">
 						Costs ·{" "}
 						{(costs.data?.totalsByCurrency ?? [])
+							.filter((entry) => entry.currency === "USD")
 							.map((entry) =>
 								entry.totalCents === null
 									? "Hidden"

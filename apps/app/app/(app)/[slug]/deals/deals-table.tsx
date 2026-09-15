@@ -228,13 +228,11 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 
 	const { mine, money } = useAccess();
 	const openValueCents = deals.data?.openValueCents;
-	const unconverted = deals.data?.unconverted;
-	const uncounted = unconverted?.count ?? 0;
 	const pricesHidden =
 		deals.data !== undefined && openValueCents === null && mine
 			? !money("prices")
 			: false;
-	const openPipelineCents = openValueCents ?? (uncounted > 0 ? 0 : null);
+	const openPipelineCents = openValueCents ?? null;
 
 	const fieldColumns = useFieldColumns<DealRow>("DEAL");
 	const columns = useMemo(() => [...COLUMNS, ...fieldColumns], [fieldColumns]);

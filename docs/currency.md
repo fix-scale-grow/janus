@@ -1,9 +1,11 @@
 # Currency — read when touching deal amounts, totals, or rates
 
 The product is USD-only: the UI never shows a currency picker or a non-USD
-label, and every tRPC input that used to accept a currency now only accepts
-`"USD"`. The multi-currency engine below is retained underneath, unused by the
-UI, so a self-hoster who edits the database directly does not corrupt totals.
+label, and deal inputs and the reporting currency accept only USD (`setManualRate`
+and `removeManualRate` still take any supported code — the manual-rate path is
+how the underlying engine gets tested and reconciled). The multi-currency
+engine below is retained underneath, unused by the UI, so a self-hoster who
+edits the database directly does not corrupt totals.
 
 Two amounts, and only one is ever summed. (`_sum: { amount: true }` once added euros
 to dollars and printed `$2.0M`, silently.)
@@ -27,8 +29,9 @@ to dollars and printed `$2.0M`, silently.)
   unchanged one back in the same call. Converting on read makes a closed quarter change
   value every morning.
 - **A missing rate is a null, disclosed not zeroed** — it falls out of `_sum`
-  automatically, and `unconverted` counts those rows so the UI can say *3 deals in CHF
-  are not included*.
+  automatically, and `unconverted` counts those rows. Since the UI went USD-only it no
+  longer renders this disclosure; `openValueCents` being `null` simply hides the
+  pipeline total instead of showing a caveated number.
 - **`fillMissing()` never touches a converted deal**; `rerateAll()` is the only thing
   that overwrites a frozen rate, and only on a reporting-currency change.
 
@@ -50,8 +53,9 @@ inverts on ingest.
   `Intl` throws on non-three-letter input.
 - **`CURRENCIES` is eleven currencies and that is all this CRM supports** — USD, EUR,
   JPY, GBP, CNY, AUD, CAD, CHF, HKD, SGD, ZAR, in array order. `isCurrencyCode` is the
-  single gate for the picker, the feed filter and the stored setting. A refresh
-  **prunes** `FETCHED` rows outside the list and leaves `MANUAL` alone.
+  single gate for the manual-rate inputs, the feed filter and the stored setting (there
+  is no currency picker in the UI). A refresh **prunes** `FETCHED` rows outside the
+  list and leaves `MANUAL` alone.
 - **`applyRate` rounds to the *reporting* currency's `minorUnitsOf`**, not to two. The
   ×100 cents transport cannot represent a three-decimal minor unit; nor can
   `Decimal(14, 2)`.

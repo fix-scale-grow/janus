@@ -8,7 +8,7 @@ export const currencyCode = z
 	.refine(isCurrencyCode, "That is not a currency this CRM can convert.");
 
 export const setReportingCurrencyInput = z.object({
-	currency: z.literal("USD"),
+	currency: z.literal("USD", "The reporting currency is USD."),
 });
 
 export type SetReportingCurrencyInput = z.infer<

@@ -8,7 +8,6 @@ import {
 	DrillTable,
 	type DrillTableColumn,
 } from "@/components/reports/drill-table";
-import { ExcludedDisclosure } from "@/components/reports/excluded-disclosure";
 import { ExportCsvButton } from "@/components/reports/export-csv-button";
 import { KpiRow } from "@/components/reports/kpi-row";
 import { RangeControl } from "@/components/reports/range-control";
@@ -131,7 +130,6 @@ export function LeadSourcesReport() {
 							centerLabel="Contacts"
 						/>
 					</div>
-					<ExcludedDisclosure excluded={data?.excluded ?? 0} />
 				</>
 			) : null}
 

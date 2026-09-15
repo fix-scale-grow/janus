@@ -40,7 +40,7 @@ export const dealCreateInput = z.object({
 	ownerId: z.string().min(1, "A deal needs an owner."),
 	stage: z.string().min(1).optional(),
 	amountCents,
-	currency: z.literal("USD").optional(),
+	currency: z.literal("USD", "Deals are recorded in USD.").optional(),
 	expectedCloseDate: z.string().nullable().optional(),
 	closedReason: z.string().trim().optional(),
 });
@@ -56,7 +56,7 @@ export const dealUpdateInput = z.object({
 	description: z.string().nullable().optional(),
 	ownerId: z.string().optional(),
 	amountCents,
-	currency: z.literal("USD").optional(),
+	currency: z.literal("USD", "Deals are recorded in USD.").optional(),
 	expectedCloseDate: z.string().nullable().optional(),
 	fields: recordFieldValues.optional(),
 });

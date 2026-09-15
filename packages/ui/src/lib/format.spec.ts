@@ -1,5 +1,19 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { formatUsd, formatUsdCompact, usdSymbol } from "./format";
+
+const OriginalNumberFormat = Intl.NumberFormat;
+
+beforeAll(() => {
+	Intl.NumberFormat = new Proxy(OriginalNumberFormat, {
+		construct(target, args) {
+			return new target("en-US", args[1] as Intl.NumberFormatOptions);
+		},
+	});
+});
+
+afterAll(() => {
+	Intl.NumberFormat = OriginalNumberFormat;
+});
 
 describe("formatUsd", () => {
 	test("formats whole dollars with no cents", () => {

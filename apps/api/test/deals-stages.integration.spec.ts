@@ -239,23 +239,25 @@ describe("create", () => {
 
 	it("stores USD when no currency is given, even if reportingCurrency says otherwise", async () => {
 		const previous = await readReportingCurrency(db);
-		await writeReportingCurrency(db, "EUR");
+		try {
+			await writeReportingCurrency(db, "EUR");
 
-		const deal = await deals.create(
-			{
-				name: `${prefix}_no_currency`,
-				ownerId,
-			},
-			ADMIN,
-		);
+			const deal = await deals.create(
+				{
+					name: `${prefix}_no_currency`,
+					ownerId,
+				},
+				ADMIN,
+			);
 
-		const stored = await db.deal.findUnique({
-			where: { id: deal.id },
-			select: { currency: true },
-		});
-		expect(stored?.currency).toBe("USD");
-
-		await writeReportingCurrency(db, previous);
+			const stored = await db.deal.findUnique({
+				where: { id: deal.id },
+				select: { currency: true },
+			});
+			expect(stored?.currency).toBe("USD");
+		} finally {
+			await writeReportingCurrency(db, previous);
+		}
 	});
 
 	it("rejects an unknown stage id", async () => {
