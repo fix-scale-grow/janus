@@ -48,7 +48,7 @@ export function contactScopeWhere(
 
 export function activityScopeWhere(
 	p: AccessPrincipal,
-): Record<string, never> | Prisma.ActivityWhereInput {
+): Prisma.ActivityWhereInput {
 	if (isUnscoped(p)) return {};
 	return {
 		OR: [

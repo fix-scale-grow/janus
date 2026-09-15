@@ -444,30 +444,100 @@ describe("money masking", () => {
 	});
 
 	it("proposals null the viewToken for a principal without prices", async () => {
-		await db.estimate.update({
+		const original = await db.estimate.findUniqueOrThrow({
 			where: { id: f.clerkEstimateId },
-			data: { contactId: f.clerkContactId },
+			select: { contactId: true },
 		});
-		const created = await proposals.createFromEstimate(
-			f.clerkEstimateId,
-			f.clerkId,
-			f.admin,
-		);
-		const sent = await proposals.send(
-			{ id: created.id, to: "client@example.test" },
-			"Kyle",
-			f.admin,
-		);
-		expect(sent.viewToken).not.toBeNull();
+		let created: { id: string } | undefined;
+		try {
+			await db.estimate.update({
+				where: { id: f.clerkEstimateId },
+				data: { contactId: f.clerkContactId },
+			});
+			created = await proposals.createFromEstimate(
+				f.clerkEstimateId,
+				f.clerkId,
+				f.admin,
+			);
+			const sent = await proposals.send(
+				{ id: created.id, to: "client@example.test" },
+				"Kyle",
+				f.admin,
+			);
+			expect(sent.viewToken).not.toBeNull();
 
-		const noPrices = { ...f.clerk, policy: { ...f.clerk.policy, money: [] } };
-		const masked = await proposals.forEstimate(f.clerkEstimateId, noPrices);
-		expect(masked?.viewToken).toBeNull();
+			const noPrices = { ...f.clerk, policy: { ...f.clerk.policy, money: [] } };
+			const masked = await proposals.forEstimate(f.clerkEstimateId, noPrices);
+			expect(masked?.viewToken).toBeNull();
 
-		const unmasked = await proposals.forEstimate(f.clerkEstimateId, f.admin);
-		expect(unmasked?.viewToken).not.toBeNull();
+			const unmasked = await proposals.forEstimate(f.clerkEstimateId, f.admin);
+			expect(unmasked?.viewToken).not.toBeNull();
+		} finally {
+			if (created) await db.proposal.delete({ where: { id: created.id } });
+			await db.estimate.update({
+				where: { id: f.clerkEstimateId },
+				data: { contactId: original.contactId },
+			});
+		}
+	});
 
-		await db.proposal.delete({ where: { id: created.id } });
+	it("reports.pipeline's estimatesFunnel is scoped to the principal's deals", async () => {
+		const scopedWithProfit = {
+			...f.clerk,
+			policy: {
+				...f.clerk.policy,
+				money: [...f.clerk.policy.money, "profit" as const],
+			},
+		};
+
+		const before = await Promise.all([
+			reports.pipeline(scopedWithProfit, {}),
+			reports.pipeline(f.admin, {}),
+		]);
+
+		const otherSentEstimate = await db.estimate.create({
+			data: {
+				title: `Other scoped estimate ${suffix}`,
+				status: "SENT",
+				dealId: f.otherDealId,
+				createdById: f.adminId,
+				lineItems: {
+					create: [
+						{
+							name: "Tear-off",
+							unit: "PER_SQUARE",
+							quantity: 1,
+							priceGoodCents: 1000,
+							priceBetterCents: 1200,
+							priceBestCents: 1500,
+							sortOrder: 0,
+						},
+					],
+				},
+			},
+			select: { id: true },
+		});
+
+		try {
+			const after = await Promise.all([
+				reports.pipeline(scopedWithProfit, {}),
+				reports.pipeline(f.admin, {}),
+			]);
+
+			expect(
+				after[1].estimatesFunnel.sentCount -
+					before[1].estimatesFunnel.sentCount,
+			).toBe(1);
+			expect(
+				after[0].estimatesFunnel.sentCount -
+					before[0].estimatesFunnel.sentCount,
+			).toBe(0);
+		} finally {
+			await db.estimateLineItem.deleteMany({
+				where: { estimateId: otherSentEstimate.id },
+			});
+			await db.estimate.delete({ where: { id: otherSentEstimate.id } });
+		}
 	});
 
 	it("dashboard recentActivity is scoped to the principal's deals and contacts when viewing everyone", async () => {
