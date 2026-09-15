@@ -5,6 +5,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./access-config": "./src/access-config.ts",
+		"./access-policy": "./src/access-policy.ts",
 		"./agent-tasks": "./src/agent-tasks.ts",
 		"./attribution": "./src/attribution.ts",
 		"./blob": "./src/blob.ts",
