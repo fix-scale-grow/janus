@@ -49,15 +49,24 @@ function seedNavView(seed?: NavItemsSeed): NavView | undefined {
 	return { navOrder: seed.navOrder, navHidden: seed.navHidden };
 }
 
-function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
+function useNavPermissions(seed?: NavItemsSeed): Permissions | undefined {
 	const trpc = useTRPC();
 	const initialData = seedPermissions(seed);
 	const permissions = useQuery({
 		...trpc.permissions.mine.queryOptions(),
 		...(initialData ? { initialData } : {}),
 	});
+	return permissions.data;
+}
+
+export function useOfficeShell(seed?: NavItemsSeed): boolean {
+	const mine = useNavPermissions(seed);
+	return mine !== undefined && mine.surface !== "FIELD";
+}
+
+function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
+	const mine = useNavPermissions(seed);
 	const permitsEnabled = seed?.permitsEnabled ?? false;
-	const mine = permissions.data;
 
 	return useMemo(() => {
 		const gated = mine
@@ -107,9 +116,11 @@ function useNavHidden(seed?: NavItemsSeed): string[] | undefined {
 function useDealsStageChildren(seed?: NavItemsSeed): NavChild[] {
 	const trpc = useTRPC();
 	const initialData = seed?.pipelines;
+	const office = useOfficeShell(seed);
 	const pipelines = useQuery({
 		...trpc.pipelines.list.queryOptions({ includeArchived: false }),
 		...(initialData ? { initialData } : {}),
+		enabled: office,
 	});
 
 	return useMemo(() => {

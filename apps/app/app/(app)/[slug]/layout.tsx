@@ -69,7 +69,7 @@ async function MainContent({ children }: { children: React.ReactNode }) {
 		return <WaitingForGroup />;
 	}
 
-	return <>{children}</>;
+	return <HydrateClient>{children}</HydrateClient>;
 }
 
 async function AppRail({

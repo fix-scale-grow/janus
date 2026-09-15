@@ -27,9 +27,10 @@ import { QuickCreateMenu } from "@/components/nav/quick-create-menu";
 import { RecentsMenu } from "@/components/nav/recents-menu";
 import { SearchPill } from "@/components/nav/search-pill";
 import { TopNav } from "@/components/nav/top-nav";
-import type {
-	NavPermissions,
-	NavPipelines,
+import {
+	type NavPermissions,
+	type NavPipelines,
+	useOfficeShell,
 } from "@/components/nav/use-nav-items";
 import { signOutAndRedirect } from "@/lib/sign-out";
 import { useTRPC } from "@/lib/trpc/client";
@@ -61,6 +62,7 @@ export function AppHeader({
 	const workspace = useQuery(trpc.workspace.get.queryOptions());
 	const label = workspaceLabel(workspace.data?.name);
 	const logoUrl = workspace.data?.logoUrl ?? null;
+	const office = useOfficeShell({ permissions: initialPermissions });
 
 	return (
 		<header className="flex h-12 shrink-0 items-center gap-2 border-b px-3 [view-transition-name:app-header]">
@@ -89,9 +91,13 @@ export function AppHeader({
 
 			{navLayout === "TOP_BAR" ? (
 				<div className="hidden min-w-0 flex-1 items-center gap-1 md:flex">
-					<QuickCreateMenu variant="bar" />
-					<RecentsMenu variant="bar" />
-					<Separator orientation="vertical" className="mx-1 h-5" />
+					{office ? (
+						<>
+							<QuickCreateMenu variant="bar" />
+							<RecentsMenu variant="bar" />
+							<Separator orientation="vertical" className="mx-1 h-5" />
+						</>
+					) : null}
 					<TopNav
 						initialPermissions={initialPermissions}
 						initialNavOrder={initialNavOrder}

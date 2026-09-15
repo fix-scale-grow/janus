@@ -160,9 +160,10 @@ export function CloseReasonDialog() {
 	const [{ closeDealId, closeStageId }, setCloseParams] =
 		useQueryStates(closeReasonParams);
 	const [reason, setReason] = useState("");
-	const pipelines = useQuery(
-		trpc.pipelines.list.queryOptions({ includeArchived: false }),
-	);
+	const pipelines = useQuery({
+		...trpc.pipelines.list.queryOptions({ includeArchived: false }),
+		enabled: closeStageId !== null,
+	});
 
 	const close = () => {
 		setReason("");

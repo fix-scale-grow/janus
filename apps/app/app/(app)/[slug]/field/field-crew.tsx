@@ -32,17 +32,20 @@ function contactLabel(contact: FieldJob["contact"]): string | null {
 export function FieldCrew() {
 	const trpc = useTRPC();
 	const openRecord = useOpenRecord();
-	const { mine, money } = useAccess();
+	const { mine, money, isField } = useAccess();
 	const { data: jobs = [] } = useQuery(trpc.deals.fieldToday.queryOptions());
 
 	if (jobs.length === 0) {
+		const assignedOnly = isField && mine?.scope !== "ALL";
 		return (
 			<div className="mx-auto max-w-md py-16 text-center">
 				<p className="text-sm font-medium text-foreground">
-					No jobs on the floor
+					{assignedOnly ? "No jobs assigned to you" : "No jobs on the floor"}
 				</p>
 				<p className="mt-1 text-sm text-muted-foreground">
-					Won jobs show up here once they&apos;re scheduled or in progress.
+					{assignedOnly
+						? "Jobs show up here once the office assigns them to you or your crew. Expecting work today? Call the office."
+						: "Won jobs show up here once they're scheduled or in progress."}
 				</p>
 			</div>
 		);

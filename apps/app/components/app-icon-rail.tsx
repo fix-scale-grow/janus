@@ -57,6 +57,7 @@ import {
 	type NavPermissions,
 	type NavPipelines,
 	useNavItems,
+	useOfficeShell,
 } from "@/components/nav/use-nav-items";
 import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
 
@@ -323,6 +324,7 @@ export function AppIconRail({
 		pipelines: initialPipelines,
 		permitsEnabled: initialPermitsEnabled,
 	});
+	const office = useOfficeShell({ permissions: initialPermissions });
 	const suppressClick = useRef(false);
 
 	const sensors = useSensors(
@@ -356,9 +358,13 @@ export function AppIconRail({
 					aria-label="Primary"
 					className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
 				>
-					<QuickCreateMenu variant="rail" />
-					<RecentsMenu variant="rail" />
-					<div className="my-1 h-px w-5 bg-border" />
+					{office ? (
+						<>
+							<QuickCreateMenu variant="rail" />
+							<RecentsMenu variant="rail" />
+							<div className="my-1 h-px w-5 bg-border" />
+						</>
+					) : null}
 					<DndContext
 						id="app-rail-sort"
 						sensors={sensors}
