@@ -1879,10 +1879,13 @@ model Member {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           String       @default("member")
   createdAt      DateTime
+  groupId        String?
+  group          AccessGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
 
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+  @@index([groupId])
   @@map("member")
 }
 
@@ -2322,4 +2325,18 @@ model PermitPromptDismissal {
   createdAt DateTime @default(now())
 
   @@map("permit_prompt_dismissal")
+}
+
+model AccessGroup {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  surface   String   @default("FULL")
+  scope     String   @default("OWN")
+  policy    Json
+  seedKey   String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members   Member[]
+
+  @@map("access_group")
 }
