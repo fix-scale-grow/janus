@@ -36,7 +36,7 @@ export function NewInvoiceButton({
 		}),
 	);
 
-	if (mine && !can("invoices", "EDIT")) return null;
+	if (!mine || !can("invoices", "EDIT")) return null;
 
 	return (
 		<Button

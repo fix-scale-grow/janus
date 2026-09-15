@@ -14,6 +14,7 @@ import {
 	type DetailSheetTab,
 	DetailSheetTabs,
 } from "@/components/detail-sheet";
+import { useAccess } from "@/lib/access";
 import { useRecordStack } from "./record-stack";
 
 export function RecordSheetFrame({
@@ -111,7 +112,13 @@ export function DealAmount({
 	amountCents: number | null;
 	currency: string;
 }) {
-	if (amountCents === null) return <EmptyCellValue />;
+	const { mine, money } = useAccess();
+	if (amountCents === null) {
+		if (mine && !money("prices")) {
+			return <span className="text-muted-foreground">Hidden</span>;
+		}
+		return <EmptyCellValue />;
+	}
 	return (
 		<span className="tabular-nums">{formatMoney(amountCents, currency)}</span>
 	);

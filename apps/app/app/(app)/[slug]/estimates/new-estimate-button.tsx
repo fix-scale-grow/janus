@@ -36,7 +36,7 @@ export function NewEstimateButton({
 		}),
 	);
 
-	if (mine && !can("estimates", "EDIT")) return null;
+	if (!mine || !can("estimates", "EDIT")) return null;
 
 	return (
 		<Button

@@ -75,3 +75,20 @@ export function fieldRedirect(
 	const home = `/${slug}${ACCESS.fieldPathPrefix}`;
 	return pathname === home || pathname.startsWith(`${home}/`) ? null : home;
 }
+
+const SETTINGS_PER_USER_PATHS = ["/settings/navigation"];
+
+export function settingsRedirect(
+	isAdmin: boolean,
+	pathname: string,
+	slug: string,
+): string | null {
+	if (isAdmin) return null;
+	const root = `/${slug}/settings`;
+	if (!(pathname === root || pathname.startsWith(`${root}/`))) return null;
+	const isPerUser = SETTINGS_PER_USER_PATHS.some((path) => {
+		const full = `/${slug}${path}`;
+		return pathname === full || pathname.startsWith(`${full}/`);
+	});
+	return isPerUser ? null : `/${slug}`;
+}

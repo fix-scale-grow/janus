@@ -402,4 +402,20 @@ describe("the research key gate", () => {
 			redirectedTo(await proxy(request("/onboarding", [SESSION_COOKIE]))),
 		).toBe("/onboarding/research");
 	});
+
+	it("does not treat research as settled when the access read fails", async () => {
+		stub(async (url) => {
+			if (url.includes("workspace.get")) {
+				return json(workspace({ onboarded: true, canRename: true }));
+			}
+			if (url.includes("permissions.mine")) {
+				return json({ error: { message: "UNAUTHORIZED" } }, 401);
+			}
+			return json(researchKey(false));
+		});
+
+		expect(
+			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
+		).toBeNull();
+	});
 });

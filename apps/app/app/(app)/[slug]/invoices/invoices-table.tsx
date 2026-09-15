@@ -372,7 +372,7 @@ function InvoiceRowMenu({ row }: { row: InvoiceRow }) {
 	const [deleting, setDeleting] = useState(false);
 	const { mine, can } = useAccess();
 
-	if (mine && !can("invoices", "DELETE")) return null;
+	if (!mine || !can("invoices", "DELETE")) return null;
 
 	return (
 		<>

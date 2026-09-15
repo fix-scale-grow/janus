@@ -5,6 +5,7 @@ import { cn } from "@crm/ui/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
+import { useAccess } from "@/lib/access";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
 type SettingsNavItem = {
@@ -29,6 +30,8 @@ const ITEMS: SettingsNavItem[] = [
 	{ title: "Permits", href: `${ROOT}/permits` },
 	{ title: "SSO", href: `${ROOT}/sso` },
 ];
+
+const NAVIGATION_ITEM = { title: "Navigation", href: `${ROOT}/navigation` };
 
 function isActive(href: string, root: string, pathname: string): boolean {
 	return href === root ? pathname === href : pathname.startsWith(href);
@@ -111,11 +114,14 @@ export function SettingsSidebarFallback() {
 export function SettingsSidebar() {
 	const pathname = usePathname();
 	const workspaceUrl = useWorkspaceUrl();
+	const { mine, isAdmin } = useAccess();
 
 	const root = workspaceUrl(ROOT);
+	const visibleItems = mine && !isAdmin ? [NAVIGATION_ITEM] : ITEMS;
 	const items = useMemo(
-		() => ITEMS.map((item) => ({ ...item, href: workspaceUrl(item.href) })),
-		[workspaceUrl],
+		() =>
+			visibleItems.map((item) => ({ ...item, href: workspaceUrl(item.href) })),
+		[visibleItems, workspaceUrl],
 	);
 
 	return (

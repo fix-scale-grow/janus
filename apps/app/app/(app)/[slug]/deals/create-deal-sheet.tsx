@@ -55,7 +55,7 @@ function AddButton(props: ComponentProps<typeof Button>) {
 
 export function CreateDealSheet() {
 	const { mine, can } = useAccess();
-	if (mine && !can("deals", "EDIT")) return null;
+	if (!mine || !can("deals", "EDIT")) return null;
 
 	return (
 		<Suspense fallback={<AddButton disabled />}>

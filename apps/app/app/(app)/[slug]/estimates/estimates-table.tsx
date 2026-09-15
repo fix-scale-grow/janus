@@ -325,7 +325,7 @@ function EstimateRowMenu({ row }: { row: EstimateRow }) {
 	const [deleting, setDeleting] = useState(false);
 	const { mine, can } = useAccess();
 
-	if (mine && !can("estimates", "DELETE")) return null;
+	if (!mine || !can("estimates", "DELETE")) return null;
 
 	return (
 		<>

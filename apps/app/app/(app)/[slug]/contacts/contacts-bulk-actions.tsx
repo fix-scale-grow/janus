@@ -17,6 +17,7 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 
@@ -33,6 +34,8 @@ export function ContactsBulkActions({
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const { mine, can } = useAccess();
+	const canDelete = Boolean(mine) && can("contacts", "DELETE");
 	const users = useQuery(trpc.users.list.queryOptions());
 	const [confirming, setConfirming] = useState(false);
 
@@ -91,25 +94,31 @@ export function ContactsBulkActions({
 						Re-enrich
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
-				<DropdownMenuSeparator />
-				<DropdownMenuGroup>
-					<DropdownMenuItem
-						variant="destructive"
-						onSelect={() => setConfirming(true)}
-					>
-						<TrashCan />
-						Delete
-					</DropdownMenuItem>
-				</DropdownMenuGroup>
+				{canDelete ? (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuGroup>
+							<DropdownMenuItem
+								variant="destructive"
+								onSelect={() => setConfirming(true)}
+							>
+								<TrashCan />
+								Delete
+							</DropdownMenuItem>
+						</DropdownMenuGroup>
+					</>
+				) : null}
 			</BulkActionsMenu>
 
-			<BulkDeleteDialog
-				open={confirming}
-				onOpenChange={setConfirming}
-				title={`Delete ${contacts(ids.length)}?`}
-				description="Their email addresses are suppressed, so the inbox sync will not file them again. This cannot be undone."
-				onConfirm={() => remove.mutate({ ids })}
-			/>
+			{canDelete ? (
+				<BulkDeleteDialog
+					open={confirming}
+					onOpenChange={setConfirming}
+					title={`Delete ${contacts(ids.length)}?`}
+					description="Their email addresses are suppressed, so the inbox sync will not file them again. This cannot be undone."
+					onConfirm={() => remove.mutate({ ids })}
+				/>
+			) : null}
 		</>
 	);
 }

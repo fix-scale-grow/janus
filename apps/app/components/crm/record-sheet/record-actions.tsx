@@ -79,7 +79,7 @@ export function RecordActions({
 	const remove = useDeleteRecord(record);
 	const { mine, can } = useAccess();
 
-	if (mine && !can(AREA[record.kind], "DELETE")) return null;
+	if (!mine || !can(AREA[record.kind], "DELETE")) return null;
 
 	return (
 		<>

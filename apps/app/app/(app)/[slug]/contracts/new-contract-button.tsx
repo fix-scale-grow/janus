@@ -36,7 +36,7 @@ export function NewContractButton({
 		}),
 	);
 
-	if (mine && !can("contracts", "EDIT")) return null;
+	if (!mine || !can("contracts", "EDIT")) return null;
 
 	return (
 		<Button

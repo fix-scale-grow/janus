@@ -33,6 +33,7 @@ import {
 	BulkOwnerMenu,
 	reportBulk,
 } from "@/components/crm/bulk-actions";
+import { useAccess } from "@/lib/access";
 import { findStageById, groupStagesByPipeline } from "@/lib/stage-presentation";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -50,6 +51,8 @@ export function DealsBulkActions({
 }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
+	const { mine, can } = useAccess();
+	const canDelete = Boolean(mine) && can("deals", "DELETE");
 	const users = useQuery(trpc.users.list.queryOptions());
 	const pipelines = useQuery(
 		trpc.pipelines.list.queryOptions({ includeArchived: false }),
@@ -141,16 +144,20 @@ export function DealsBulkActions({
 						))}
 					</DropdownMenuSubContent>
 				</DropdownMenuSub>
-				<DropdownMenuSeparator />
-				<DropdownMenuGroup>
-					<DropdownMenuItem
-						variant="destructive"
-						onSelect={() => setConfirming(true)}
-					>
-						<TrashCan />
-						Delete
-					</DropdownMenuItem>
-				</DropdownMenuGroup>
+				{canDelete ? (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuGroup>
+							<DropdownMenuItem
+								variant="destructive"
+								onSelect={() => setConfirming(true)}
+							>
+								<TrashCan />
+								Delete
+							</DropdownMenuItem>
+						</DropdownMenuGroup>
+					</>
+				) : null}
 			</BulkActionsMenu>
 
 			<Dialog
@@ -223,13 +230,15 @@ export function DealsBulkActions({
 				</DialogContent>
 			</Dialog>
 
-			<BulkDeleteDialog
-				open={confirming}
-				onOpenChange={setConfirming}
-				title={`Delete ${deals(ids.length)}?`}
-				description="Everything filed against them — activity, notes, the amounts in your pipeline — goes too. This cannot be undone."
-				onConfirm={() => remove.mutate({ ids })}
-			/>
+			{canDelete ? (
+				<BulkDeleteDialog
+					open={confirming}
+					onOpenChange={setConfirming}
+					title={`Delete ${deals(ids.length)}?`}
+					description="Everything filed against them — activity, notes, the amounts in your pipeline — goes too. This cannot be undone."
+					onConfirm={() => remove.mutate({ ids })}
+				/>
+			) : null}
 		</>
 	);
 }

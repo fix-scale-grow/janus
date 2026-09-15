@@ -46,7 +46,7 @@ function AddButton(props: ComponentProps<typeof Button>) {
 
 export function CreateContactSheet() {
 	const { mine, can } = useAccess();
-	if (mine && !can("contacts", "EDIT")) return null;
+	if (!mine || !can("contacts", "EDIT")) return null;
 
 	return (
 		<Suspense fallback={<AddButton disabled />}>

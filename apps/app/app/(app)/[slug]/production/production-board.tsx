@@ -34,6 +34,7 @@ import { OwnerCell } from "@/components/crm/owner-cell";
 import { usePrefetchRecord } from "@/components/crm/record-sheet/record-prefetch";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
 import { LocalDay } from "@/components/local-date-time";
+import { useAccess } from "@/lib/access";
 import {
 	PRODUCTION_COLUMNS,
 	type ProductionColumn,
@@ -232,6 +233,8 @@ function BoardColumn({
 	onHover: (id: string) => void;
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: column });
+	const { mine, money } = useAccess();
+	const pricesHidden = Boolean(mine) && !money("prices");
 	const total = rows.reduce((sum, row) => sum + (row.baseAmountCents ?? 0), 0);
 
 	return (
@@ -250,7 +253,7 @@ function BoardColumn({
 					</span>
 				</div>
 				<p className="mt-0.5 pl-4.5 text-xs text-muted-foreground">
-					{formatMoney(total, reportingCurrency)}
+					{pricesHidden ? "Hidden" : formatMoney(total, reportingCurrency)}
 				</p>
 			</div>
 			<div
@@ -333,6 +336,7 @@ function JobCardBody({
 	dragging?: boolean;
 }) {
 	const compact = density === "compact";
+	const { mine, money } = useAccess();
 	return (
 		<div
 			className={cn(
@@ -353,7 +357,9 @@ function JobCardBody({
 					</span>
 					<span className="shrink-0 text-sm tabular-nums text-muted-foreground">
 						{row.amountCents === null
-							? "—"
+							? mine && !money("prices")
+								? "Hidden"
+								: "—"
 							: formatMoney(row.amountCents, row.currency)}
 					</span>
 				</span>

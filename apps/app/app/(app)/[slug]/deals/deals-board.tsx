@@ -297,6 +297,8 @@ function BoardColumn({
 	onHover: (id: string) => void;
 }) {
 	const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+	const { mine, money } = useAccess();
+	const pricesHidden = Boolean(mine) && !money("prices");
 	const total = rows.reduce((sum, row) => sum + (row.baseAmountCents ?? 0), 0);
 
 	return (
@@ -315,7 +317,7 @@ function BoardColumn({
 					</span>
 				</div>
 				<p className="mt-0.5 pl-4.5 text-xs text-muted-foreground">
-					{formatMoney(total, reportingCurrency)}
+					{pricesHidden ? "Hidden" : formatMoney(total, reportingCurrency)}
 				</p>
 			</div>
 			<div

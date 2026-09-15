@@ -1,7 +1,7 @@
 import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
-import { fieldRedirect } from "@/lib/access-rules";
+import { fieldRedirect, settingsRedirect } from "@/lib/access-rules";
 import { isMarketing } from "@/lib/env";
 import {
 	ONBOARDING_PATH,
@@ -10,7 +10,6 @@ import {
 	readResearchGate,
 	readWorkspaceGate,
 } from "@/lib/onboarding";
-import { PATHNAME_HEADER } from "@/lib/pathname-header";
 import { workspaceUrl } from "@/lib/workspace-url";
 
 const LANDING_PATH = "/";
@@ -51,15 +50,23 @@ export async function proxy(request: NextRequest) {
 		return sendTo(RESEARCH_PATH, request);
 	}
 
-	const researchSettled = research === "settled" || !access.isAdmin;
+	const researchSettled =
+		research === "settled" || (access.surface !== null && !access.isAdmin);
 	const settled = workspace.gate === "settled" && researchSettled;
 
 	if (!settled || !workspace.slug) return NextResponse.next();
 
 	const target = appPath(pathname, workspace.slug);
 	const fieldTarget = fieldRedirect(access.surface, target, workspace.slug);
+	if (fieldTarget) return sendTo(fieldTarget, request);
 
-	return sendTo(fieldTarget ?? target, request);
+	const settingsTarget = settingsRedirect(
+		access.isAdmin,
+		target,
+		workspace.slug,
+	);
+
+	return sendTo(settingsTarget ?? target, request);
 }
 
 function appPath(pathname: string, slug: string): string {
@@ -99,19 +106,12 @@ function isSetup(pathname: string): boolean {
 }
 
 function sendTo(path: string, request: NextRequest): NextResponse {
-	if (request.nextUrl.pathname === path) return passThrough(request);
+	if (request.nextUrl.pathname === path) return NextResponse.next();
 
 	const url = new URL(path, request.nextUrl);
 	url.search = request.nextUrl.search;
 
 	return NextResponse.redirect(url);
-}
-
-function passThrough(request: NextRequest): NextResponse {
-	const headers = new Headers(request.headers);
-	headers.set(PATHNAME_HEADER, request.nextUrl.pathname);
-
-	return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

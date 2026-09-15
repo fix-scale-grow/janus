@@ -87,7 +87,7 @@ export function NewProjectDialog({
 
 	const ready = name.trim() !== "" && startDate !== "";
 
-	if (mine && !can("projects", "EDIT")) return null;
+	if (!mine || !can("projects", "EDIT")) return null;
 
 	return (
 		<Dialog

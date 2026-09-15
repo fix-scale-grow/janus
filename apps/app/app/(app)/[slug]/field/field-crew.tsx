@@ -7,6 +7,7 @@ import { formatMoney } from "@crm/ui/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import { ProductionStageIndicator } from "@/components/crm/production-stage-change";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { useAccess } from "@/lib/access";
 import { dialHref } from "@/lib/dial";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -31,6 +32,7 @@ function contactLabel(contact: FieldJob["contact"]): string | null {
 export function FieldCrew() {
 	const trpc = useTRPC();
 	const openRecord = useOpenRecord();
+	const { mine, money } = useAccess();
 	const { data: jobs = [] } = useQuery(trpc.deals.fieldToday.queryOptions());
 
 	if (jobs.length === 0) {
@@ -70,7 +72,9 @@ export function FieldCrew() {
 								<ProductionStageIndicator stage={job.productionStage} />
 								<span className="text-sm font-semibold tabular-nums text-foreground">
 									{job.amountCents === null
-										? "—"
+										? mine && !money("prices")
+											? "Hidden"
+											: "—"
 										: formatMoney(job.amountCents, job.currency)}
 								</span>
 							</div>

@@ -12,6 +12,7 @@ import {
 	useSummary,
 	WidgetBoundary,
 } from "@/components/dashboard/summary-context";
+import { useAccess } from "@/lib/access";
 
 function changeDelta(
 	current: number,
@@ -137,6 +138,7 @@ export function StatWinRateWidget() {
 
 function StatWinRateBody() {
 	const { summary, isError, refetchSummary } = useSummary();
+	const { mine, money } = useAccess();
 	if (!summary) {
 		return isError ? (
 			<WidgetError onRetry={refetchSummary} />
@@ -146,6 +148,7 @@ function StatWinRateBody() {
 	}
 
 	const { performance } = summary;
+	const pricesHidden = Boolean(mine) && !money("prices");
 
 	return (
 		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
@@ -154,7 +157,9 @@ function StatWinRateBody() {
 				label={`Win rate (${performance.windowDays}d)`}
 				value={
 					performance.winRate === null
-						? "—"
+						? pricesHidden
+							? "Hidden"
+							: "—"
 						: formatPercent(performance.winRate)
 				}
 				description={
@@ -180,6 +185,7 @@ export function StatAvgDealWidget() {
 
 function StatAvgDealBody() {
 	const { summary, isError, refetchSummary } = useSummary();
+	const { mine, money } = useAccess();
 	if (!summary) {
 		return isError ? (
 			<WidgetError onRetry={refetchSummary} />
@@ -189,7 +195,9 @@ function StatAvgDealBody() {
 	}
 
 	const { performance, reportingCurrency } = summary;
-	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
+	const formatCents = (cents: number) =>
+		formatMoneyCompact(cents, reportingCurrency);
+	const pricesHidden = Boolean(mine) && !money("prices");
 
 	return (
 		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
@@ -198,8 +206,10 @@ function StatAvgDealBody() {
 				label={`Average deal (${performance.windowDays}d)`}
 				value={
 					performance.avgDealCents === null
-						? "—"
-						: money(performance.avgDealCents)
+						? pricesHidden
+							? "Hidden"
+							: "—"
+						: formatCents(performance.avgDealCents)
 				}
 				description={
 					performance.avgCycleDays === null

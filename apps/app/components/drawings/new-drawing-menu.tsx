@@ -87,7 +87,7 @@ export function NewDrawingMenu({
 		create.mutate({ background: item.background, dealId, contactId });
 	};
 
-	if (mine && !can("drawings", "EDIT")) return null;
+	if (!mine || !can("drawings", "EDIT")) return null;
 
 	return (
 		<DropdownMenu>

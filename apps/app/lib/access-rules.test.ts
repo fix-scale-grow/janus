@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { fieldRedirect, visibleModules } from "./access-rules";
+import {
+	fieldRedirect,
+	settingsRedirect,
+	visibleModules,
+} from "./access-rules";
 import { JANUS_LIVE_NAV } from "./janus-nav";
 
 const clerkMine = {
@@ -102,5 +106,32 @@ describe("fieldRedirect", () => {
 
 	test("null surface never redirects", () => {
 		expect(fieldRedirect(null, "/acme/deals", "acme")).toBeNull();
+	});
+});
+
+describe("settingsRedirect", () => {
+	test("admin is never redirected out of settings", () => {
+		expect(settingsRedirect(true, "/acme/settings/team", "acme")).toBeNull();
+		expect(settingsRedirect(true, "/acme/settings", "acme")).toBeNull();
+	});
+
+	test("non-admin is redirected out of admin-only settings pages", () => {
+		expect(settingsRedirect(false, "/acme/settings/team", "acme")).toBe(
+			"/acme",
+		);
+		expect(settingsRedirect(false, "/acme/settings", "acme")).toBe("/acme");
+	});
+
+	test("non-admin keeps access to the per-user navigation settings page", () => {
+		expect(
+			settingsRedirect(false, "/acme/settings/navigation", "acme"),
+		).toBeNull();
+		expect(
+			settingsRedirect(false, "/acme/settings/navigation/deep", "acme"),
+		).toBeNull();
+	});
+
+	test("paths outside settings are never touched", () => {
+		expect(settingsRedirect(false, "/acme/deals", "acme")).toBeNull();
 	});
 });

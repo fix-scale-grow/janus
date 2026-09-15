@@ -21,6 +21,7 @@ import { ExcludedDisclosure } from "@/components/reports/excluded-disclosure";
 import { ExportCsvButton } from "@/components/reports/export-csv-button";
 import { KpiRow } from "@/components/reports/kpi-row";
 import { RangeControl } from "@/components/reports/range-control";
+import { useAccess } from "@/lib/access";
 import { effectiveRange, reportRangeParsers } from "@/lib/reports/range";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -66,7 +67,10 @@ export function PipelineReport() {
 	);
 	const byTier = data?.estimatesFunnel.byTier ?? [];
 	const tierRows: TierRow[] = byTier.map((row) => ({ ...row, id: row.tier }));
-	const tierMoneyVisible = byTier.some((row) => row.valueCents !== null);
+	const { mine, money } = useAccess();
+	const pricesHidden = Boolean(mine) && !money("prices");
+	const tierMoneyVisible =
+		pricesHidden || byTier.some((row) => row.valueCents !== null);
 	const hasStages = stageRows.length > 0;
 
 	const stageColumns: DrillTableColumn<StageRow>[] = [
@@ -140,7 +144,12 @@ export function PipelineReport() {
 						header: "Value",
 						align: "right" as const,
 						width: "w-[30%]",
-						render: (row: TierRow) => formatMoney(row.valueCents ?? 0, "USD"),
+						render: (row: TierRow) =>
+							row.valueCents === null ? (
+								<span className="text-muted-foreground">Hidden</span>
+							) : (
+								formatMoney(row.valueCents, "USD")
+							),
 					},
 				]
 			: []),
