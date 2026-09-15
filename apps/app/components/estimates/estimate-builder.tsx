@@ -61,6 +61,7 @@ import {
 } from "@/components/page-shell";
 import { LinkedPhotosSection } from "@/components/photos/linked-photos-section";
 import { StartProjectDialog } from "@/components/projects/start-project-dialog";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -165,6 +166,8 @@ export function EstimateBuilder({
 	const workspaceUrl = useWorkspaceUrl();
 	const router = useRouter();
 	const titleId = useId();
+	const { can } = useAccess();
+	const canEdit = can("estimates", "EDIT");
 
 	const estimate = useQuery({
 		...trpc.estimates.byId.queryOptions({ id: estimateId }),
@@ -369,6 +372,7 @@ export function EstimateBuilder({
 				</PageShellHeading>
 				<PageShellActions>
 					<Select
+						disabled={!canEdit}
 						value={data.status}
 						onValueChange={(status) =>
 							setStatus.mutate({
@@ -399,16 +403,18 @@ export function EstimateBuilder({
 									View drawing
 								</Link>
 							</Button>
-							<Button
-								variant={data.drawingStale ? "default" : "outline"}
-								size="sm"
-								disabled={resync.isPending}
-								onClick={() => resync.mutate({ id: estimateId })}
-							>
-								{data.drawingStale
-									? "Drawing changed — re-sync"
-									: "Re-sync from drawing"}
-							</Button>
+							{canEdit ? (
+								<Button
+									variant={data.drawingStale ? "default" : "outline"}
+									size="sm"
+									disabled={resync.isPending}
+									onClick={() => resync.mutate({ id: estimateId })}
+								>
+									{data.drawingStale
+										? "Drawing changed — re-sync"
+										: "Re-sync from drawing"}
+								</Button>
+							) : null}
 						</>
 					)}
 					<AssignEstimateContact
@@ -440,31 +446,40 @@ export function EstimateBuilder({
 						<Icon icon={Download} data-icon="inline-start" />
 						Download PDF
 					</Button>
-					{mailerConfigured.data ? (
+					{canEdit && mailerConfigured.data ? (
 						<Button size="sm" onClick={() => setSendOpen(true)}>
 							<Icon icon={Send} data-icon="inline-start" />
 							Send
 						</Button>
 					) : null}
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={convertToInvoice.isPending}
-						onClick={() => convertToInvoice.mutate({ estimateId, tier })}
-					>
-						<Icon icon={CurrencyDollar} data-icon="inline-start" />
-						Convert to invoice
-					</Button>
-					{data.dealId ? <EstimateProjectAction dealId={data.dealId} /> : null}
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={data.lineItems.length === 0 || createContract.isPending}
-						onClick={() => createContract.mutate({ estimateId })}
-					>
-						<Icon icon={Document} data-icon="inline-start" />
-						Create contract
-					</Button>
+					{canEdit && can("invoices", "EDIT") ? (
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={convertToInvoice.isPending}
+							onClick={() => convertToInvoice.mutate({ estimateId, tier })}
+						>
+							<Icon icon={CurrencyDollar} data-icon="inline-start" />
+							Convert to invoice
+						</Button>
+					) : null}
+					{data.dealId && can("projects", "VIEW") ? (
+						<EstimateProjectAction
+							dealId={data.dealId}
+							canStart={can("projects", "EDIT")}
+						/>
+					) : null}
+					{canEdit && can("contracts", "EDIT") ? (
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={data.lineItems.length === 0 || createContract.isPending}
+							onClick={() => createContract.mutate({ estimateId })}
+						>
+							<Icon icon={Document} data-icon="inline-start" />
+							Create contract
+						</Button>
+					) : null}
 					<Button variant="outline" size="sm" asChild>
 						<Link href={workspaceUrl("/estimates")}>
 							<Icon icon={ArrowLeft} data-icon="inline-start" />
@@ -634,7 +649,13 @@ export function EstimateBuilder({
 	);
 }
 
-function EstimateProjectAction({ dealId }: { dealId: string }) {
+function EstimateProjectAction({
+	dealId,
+	canStart,
+}: {
+	dealId: string;
+	canStart: boolean;
+}) {
 	const trpc = useTRPC();
 	const workspaceUrl = useWorkspaceUrl();
 
@@ -659,7 +680,7 @@ function EstimateProjectAction({ dealId }: { dealId: string }) {
 		);
 	}
 
-	if (!deal.data) return null;
+	if (!canStart || !deal.data) return null;
 
 	return (
 		<StartProjectDialog

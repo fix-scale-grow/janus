@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { DrawingEditor } from "@/components/drawings/drawing-editor";
 import { PageShellFallback } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { maptilerApiKey } from "@/lib/env";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { nullIfMissing } from "../../(agent-builder)/missing-record";
@@ -27,7 +28,10 @@ async function PrefetchedDrawing({
 }: {
 	params: Promise<{ slug: string; drawingId: string }>;
 }) {
-	const { slug, drawingId } = await params;
+	const [{ slug, drawingId }] = await Promise.all([
+		params,
+		requireModuleView("/drawings"),
+	]);
 	const client = getServerTrpcClient();
 	const row = await client.drawings.byId
 		.query({ id: drawingId })

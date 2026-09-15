@@ -66,6 +66,43 @@ export function canMoney(mine: MyAccess, sw: MoneySwitch): boolean {
 	return hasMoney(toPrincipal(mine), sw);
 }
 
+export type AreaAccess = Pick<MyAccess, "isAdmin" | "areas">;
+
+function areaPrincipal(access: AreaAccess): AccessPrincipal {
+	return {
+		userId: "",
+		isAdmin: access.isAdmin,
+		groupId: null,
+		groupName: null,
+		surface: "FULL",
+		scope: "OWN",
+		policy: { areas: access.areas, actions: [], money: [] },
+	};
+}
+
+export function moduleHidden(
+	access: AreaAccess,
+	href: string,
+	modules: readonly JanusModule[],
+): boolean {
+	const area = modules.find((m) => m.href === href)?.area;
+	if (!area) return false;
+	return !allows(areaPrincipal(access), area, "VIEW");
+}
+
+export function areaRedirect(
+	access: AreaAccess | null,
+	pathname: string,
+	slug: string,
+	modules: readonly JanusModule[],
+): string | null {
+	if (!access) return null;
+	const root = `/${slug}`;
+	if (!pathname.startsWith(`${root}/`)) return null;
+	const href = pathname.slice(root.length);
+	return moduleHidden(access, href, modules) ? root : null;
+}
+
 export function canManageFields(mine: MyAccess): boolean {
 	return mine.isAdmin;
 }

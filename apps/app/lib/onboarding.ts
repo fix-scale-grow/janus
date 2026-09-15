@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import type { AreaAccess } from "@/lib/access-rules";
 import { API_URL } from "@/lib/env";
 
 export const ONBOARDING_PATH = "/onboarding";
@@ -41,6 +42,7 @@ type GateResult = {
 	researchConfigured?: boolean;
 	surface?: "FULL" | "FIELD";
 	isAdmin?: boolean;
+	areas?: AreaAccess["areas"];
 };
 
 const gateCache = new WeakMap<NextRequest, Promise<GateResult | null>>();
@@ -87,6 +89,7 @@ export async function readResearchGate(request: NextRequest): Promise<Gate> {
 export type AccessGate = {
 	surface: "FULL" | "FIELD" | null;
 	isAdmin: boolean;
+	areaAccess: AreaAccess | null;
 };
 
 export async function readAccessGate(
@@ -95,8 +98,14 @@ export async function readAccessGate(
 	const gate = await readGate(request);
 
 	if (!gate || typeof gate.isAdmin !== "boolean" || !gate.surface) {
-		return { surface: null, isAdmin: false };
+		return { surface: null, isAdmin: false, areaAccess: null };
 	}
 
-	return { surface: gate.surface, isAdmin: gate.isAdmin };
+	return {
+		surface: gate.surface,
+		isAdmin: gate.isAdmin,
+		areaAccess: gate.areas
+			? { isAdmin: gate.isAdmin, areas: gate.areas }
+			: null,
+	};
 }

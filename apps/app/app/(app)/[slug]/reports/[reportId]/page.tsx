@@ -10,6 +10,7 @@ import {
 	PageShellLoading,
 	PageShellTitle,
 } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { reportMeta } from "@/lib/reports/report-registry";
 import { requireSession } from "@/lib/session";
 import { getServerTrpcClient } from "@/lib/trpc/server";
@@ -44,7 +45,11 @@ async function ReportDetail({
 }: {
 	params: Promise<{ reportId: string }>;
 }) {
-	const [{ reportId }] = await Promise.all([params, requireSession()]);
+	const [{ reportId }] = await Promise.all([
+		params,
+		requireSession(),
+		requireModuleView("/reports"),
+	]);
 	const meta = reportMeta(reportId);
 	if (!meta) notFound();
 

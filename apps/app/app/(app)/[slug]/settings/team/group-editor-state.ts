@@ -19,6 +19,7 @@ export type GroupDraft = {
 	name: string;
 	surface: AccessSurface;
 	scope: AccessScope;
+	scopeBeforeField: AccessScope | null;
 	policy: AccessPolicy;
 };
 
@@ -45,16 +46,25 @@ export function groupEditorReducer(
 		case "setName":
 			return { ...state, name: action.name };
 		case "setSurface":
+			if (action.surface === state.surface) return state;
+			if (action.surface === "FIELD") {
+				return state.scope === "ALL"
+					? {
+							...state,
+							surface: action.surface,
+							scope: "ASSIGNED",
+							scopeBeforeField: state.scope,
+						}
+					: { ...state, surface: action.surface };
+			}
 			return {
 				...state,
 				surface: action.surface,
-				scope:
-					action.surface === "FIELD" && state.scope === "ALL"
-						? "ASSIGNED"
-						: state.scope,
+				scope: state.scopeBeforeField ?? state.scope,
+				scopeBeforeField: null,
 			};
 		case "setScope":
-			return { ...state, scope: action.scope };
+			return { ...state, scope: action.scope, scopeBeforeField: null };
 		case "setLevel": {
 			const level =
 				ACCESS.viewOnlyAreas.includes(action.area) &&

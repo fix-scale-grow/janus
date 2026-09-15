@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+	areaRedirect,
 	canManageFields,
 	fieldRedirect,
+	moduleHidden,
 	settingsRedirect,
 	visibleModules,
 } from "./access-rules";
@@ -144,5 +146,65 @@ describe("settingsRedirect", () => {
 
 	test("paths outside settings are never touched", () => {
 		expect(settingsRedirect(false, "/acme/deals", "acme")).toBeNull();
+	});
+});
+
+describe("moduleHidden", () => {
+	test("a module whose area the principal cannot view is hidden", () => {
+		expect(moduleHidden(clerkMine, "/invoices", JANUS_LIVE_NAV)).toBe(true);
+		expect(moduleHidden(clerkMine, "/reports", JANUS_LIVE_NAV)).toBe(true);
+		expect(moduleHidden(clerkMine, "/projects", JANUS_LIVE_NAV)).toBe(true);
+	});
+
+	test("a module whose area the principal can view is not hidden", () => {
+		expect(moduleHidden(clerkMine, "/estimates", JANUS_LIVE_NAV)).toBe(false);
+		expect(moduleHidden(clerkMine, "/deals", JANUS_LIVE_NAV)).toBe(false);
+	});
+
+	test("modules with no area and unknown hrefs are never hidden", () => {
+		expect(moduleHidden(clerkMine, "/chat", JANUS_LIVE_NAV)).toBe(false);
+		expect(moduleHidden(clerkMine, "/nowhere", JANUS_LIVE_NAV)).toBe(false);
+	});
+
+	test("admin sees every module", () => {
+		expect(moduleHidden(adminMine, "/invoices", JANUS_LIVE_NAV)).toBe(false);
+	});
+});
+
+describe("areaRedirect", () => {
+	test("hidden area list page redirects to the workspace home", () => {
+		expect(
+			areaRedirect(clerkMine, "/acme/reports", "acme", JANUS_LIVE_NAV),
+		).toBe("/acme");
+		expect(
+			areaRedirect(clerkMine, "/acme/invoices", "acme", JANUS_LIVE_NAV),
+		).toBe("/acme");
+		expect(
+			areaRedirect(clerkMine, "/acme/production", "acme", JANUS_LIVE_NAV),
+		).toBeNull();
+	});
+
+	test("record detail paths are left to the page not-found", () => {
+		expect(
+			areaRedirect(clerkMine, "/acme/invoices/inv_1", "acme", JANUS_LIVE_NAV),
+		).toBeNull();
+	});
+
+	test("visible areas, admins and unknown access never redirect", () => {
+		expect(
+			areaRedirect(clerkMine, "/acme/estimates", "acme", JANUS_LIVE_NAV),
+		).toBeNull();
+		expect(
+			areaRedirect(adminMine, "/acme/invoices", "acme", JANUS_LIVE_NAV),
+		).toBeNull();
+		expect(
+			areaRedirect(null, "/acme/invoices", "acme", JANUS_LIVE_NAV),
+		).toBeNull();
+	});
+
+	test("paths outside the workspace are never touched", () => {
+		expect(
+			areaRedirect(clerkMine, "/other/invoices", "acme", JANUS_LIVE_NAV),
+		).toBeNull();
 	});
 });

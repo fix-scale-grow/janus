@@ -48,6 +48,13 @@ type Role = keyof typeof ROLE_LABEL;
 type MemberRow = RouterOutputs["workspace"]["members"]["rows"][number];
 type AccessGroupRow = RouterOutputs["accessGroups"]["list"][number];
 
+type OwnerDemotion = {
+	memberId: string;
+	name: string;
+	groupId: string;
+	groupName: string;
+};
+
 const ADMIN_VALUE = "admin";
 const OWNER_VALUE = "owner";
 
@@ -58,6 +65,19 @@ function accessValue(row: MemberRow): string {
 
 function firstName(name: string): string {
 	return name.split(" ")[0] ?? name;
+}
+
+function GroupItems({ groups }: { groups: AccessGroupRow[] }) {
+	return (
+		<SelectGroup>
+			<SelectLabel>Groups</SelectLabel>
+			{groups.map((group) => (
+				<SelectItem key={group.id} value={group.id}>
+					{group.name}
+				</SelectItem>
+			))}
+		</SelectGroup>
+	);
 }
 
 function columns(
@@ -132,6 +152,7 @@ function columns(
 							<SelectContent>
 								<SelectItem value={OWNER_VALUE}>Owner</SelectItem>
 								<SelectItem value={ADMIN_VALUE}>Admin</SelectItem>
+								<GroupItems groups={groups} />
 							</SelectContent>
 						</Select>
 					);
@@ -154,14 +175,7 @@ function columns(
 								<SelectItem disabled={!canChangeRoles} value={OWNER_VALUE}>
 									Owner
 								</SelectItem>
-								<SelectGroup>
-									<SelectLabel>Groups</SelectLabel>
-									{groups.map((group) => (
-										<SelectItem key={group.id} value={group.id}>
-											{group.name}
-										</SelectItem>
-									))}
-								</SelectGroup>
+								<GroupItems groups={groups} />
 							</SelectContent>
 						</Select>
 						{ungrouped ? <Badge variant="warning">Needs a group</Badge> : null}
@@ -224,12 +238,57 @@ export function MembersTable() {
 		}),
 	);
 
-	const pending = setAccess.isPending || setRole.isPending;
+	const [pendingDemotion, setPendingDemotion] = useState<OwnerDemotion | null>(
+		null,
+	);
+
+	const demoteRole = useMutation(
+		trpc.workspace.setMemberRole.mutationOptions(),
+	);
+	const joinGroup = useMutation(
+		trpc.accessGroups.setMemberAccess.mutationOptions(),
+	);
+
+	const moveOwnerToGroup = async (demotion: OwnerDemotion) => {
+		try {
+			await demoteRole.mutateAsync({
+				memberId: demotion.memberId,
+				role: "admin",
+			});
+			await joinGroup.mutateAsync({
+				memberId: demotion.memberId,
+				access: { kind: "group", groupId: demotion.groupId },
+			});
+			toast.success(`${demotion.name} is now in ${demotion.groupName}.`);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Could not change access.",
+			);
+		} finally {
+			await Promise.all([cache.workspace(), cache.accessGroups()]);
+		}
+	};
+
+	const pending =
+		setAccess.isPending ||
+		setRole.isPending ||
+		demoteRole.isPending ||
+		joinGroup.isPending;
 
 	const handleChangeAccess = (member: MemberRow, value: string) => {
 		if (member.role === "owner") {
 			if (value === ADMIN_VALUE) {
 				setRole.mutate({ memberId: member.id, role: "admin" });
+				return;
+			}
+			const group = groups.data?.find((g) => g.id === value);
+			if (group) {
+				setPendingDemotion({
+					memberId: member.id,
+					name: firstName(member.name),
+					groupId: group.id,
+					groupName: group.name,
+				});
 			}
 			return;
 		}
@@ -318,6 +377,36 @@ export function MembersTable() {
 							}}
 						>
 							Make owner
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			<AlertDialog
+				onOpenChange={(open) => {
+					if (!open) setPendingDemotion(null);
+				}}
+				open={pendingDemotion !== null}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							Make {pendingDemotion?.name} a member of{" "}
+							{pendingDemotion?.groupName}?
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							They stop being an owner.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								if (pendingDemotion) void moveOwnerToGroup(pendingDemotion);
+								setPendingDemotion(null);
+							}}
+						>
+							Change access
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

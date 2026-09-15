@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageShell, PageShellLoading } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
@@ -25,8 +26,11 @@ export default function ProposalPage({
 async function Proposal({
 	params,
 }: Pick<PageProps<"/[slug]/estimates/[estimateId]/proposal">, "params">) {
-	await requireSession();
-	const { estimateId } = await params;
+	const [, { estimateId }] = await Promise.all([
+		requireSession(),
+		params,
+		requireModuleView("/estimates"),
+	]);
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();

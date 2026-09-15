@@ -126,6 +126,7 @@ export function blankDraft(): GroupDraft {
 		name: "New group",
 		surface: "FULL",
 		scope: "OWN",
+		scopeBeforeField: null,
 		policy: blankPolicy(),
 	};
 }
@@ -136,6 +137,7 @@ export function draftFromRow(row: AccessGroupRow): GroupDraft {
 		name: row.name,
 		surface: row.surface,
 		scope: row.scope,
+		scopeBeforeField: null,
 		policy: row.policy,
 	};
 }
@@ -391,6 +393,12 @@ export function GroupEditor({
 							))}
 						</SelectContent>
 					</Select>
+					{draft.scopeBeforeField ? (
+						<FieldDescription>
+							Field mode switched this to {SCOPE_LABEL.ASSIGNED}. Full app
+							brings back {SCOPE_LABEL[draft.scopeBeforeField]}.
+						</FieldDescription>
+					) : null}
 				</Field>
 			</div>
 

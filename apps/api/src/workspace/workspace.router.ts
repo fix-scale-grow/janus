@@ -49,6 +49,7 @@ export class WorkspaceRouter {
 			researchConfigured: research.configured,
 			surface: ctx.access.surface,
 			isAdmin: ctx.access.isAdmin,
+			areas: ctx.access.policy.areas,
 		};
 	}
 

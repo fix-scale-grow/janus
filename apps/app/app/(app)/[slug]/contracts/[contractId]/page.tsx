@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageShellFallback } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { nullIfMissing } from "../../(agent-builder)/missing-record";
 import { ContractDetail } from "./contract-detail";
@@ -25,7 +26,10 @@ async function PrefetchedContract({
 }: {
 	params: Promise<{ slug: string; contractId: string }>;
 }) {
-	const { contractId } = await params;
+	const [{ contractId }] = await Promise.all([
+		params,
+		requireModuleView("/contracts"),
+	]);
 	const client = getServerTrpcClient();
 	const contract = await client.contracts.byId
 		.query({ id: contractId })

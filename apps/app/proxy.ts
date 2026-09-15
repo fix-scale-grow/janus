@@ -1,8 +1,13 @@
 import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
-import { fieldRedirect, settingsRedirect } from "@/lib/access-rules";
+import {
+	areaRedirect,
+	fieldRedirect,
+	settingsRedirect,
+} from "@/lib/access-rules";
 import { isMarketing } from "@/lib/env";
+import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
 import {
 	ONBOARDING_PATH,
 	RESEARCH_PATH,
@@ -66,7 +71,14 @@ export async function proxy(request: NextRequest) {
 		workspace.slug,
 	);
 
-	return sendTo(settingsTarget ?? target, request);
+	const areaTarget = areaRedirect(
+		access.areaAccess,
+		target,
+		workspace.slug,
+		JANUS_LIVE_NAV,
+	);
+
+	return sendTo(settingsTarget ?? areaTarget ?? target, request);
 }
 
 function appPath(pathname: string, slug: string): string {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { InvoiceDetail } from "@/components/invoices/invoice-detail";
 import { PageShellFallback } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { nullIfMissing } from "../../(agent-builder)/missing-record";
 
@@ -25,7 +26,10 @@ async function PrefetchedInvoice({
 }: {
 	params: Promise<{ slug: string; invoiceId: string }>;
 }) {
-	const { invoiceId } = await params;
+	const [{ invoiceId }] = await Promise.all([
+		params,
+		requireModuleView("/invoices"),
+	]);
 	const client = getServerTrpcClient();
 	const invoice = await client.invoices.byId
 		.query({ id: invoiceId })

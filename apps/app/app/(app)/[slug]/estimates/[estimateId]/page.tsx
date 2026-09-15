@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { EstimateBuilder } from "@/components/estimates/estimate-builder";
 import { PageShellFallback } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { nullIfMissing } from "../../(agent-builder)/missing-record";
 
@@ -25,7 +26,10 @@ async function PrefetchedEstimate({
 }: {
 	params: Promise<{ slug: string; estimateId: string }>;
 }) {
-	const { estimateId } = await params;
+	const [{ estimateId }] = await Promise.all([
+		params,
+		requireModuleView("/estimates"),
+	]);
 	const client = getServerTrpcClient();
 	const estimate = await client.estimates.byId
 		.query({ id: estimateId })

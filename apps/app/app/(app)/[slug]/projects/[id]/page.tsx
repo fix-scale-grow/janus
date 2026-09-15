@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PageShell, PageShellFallback } from "@/components/page-shell";
+import { requireModuleView } from "@/lib/access-page";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
@@ -27,7 +28,11 @@ async function PrefetchedProject({
 }: {
 	params: Promise<{ slug: string; id: string }>;
 }) {
-	const [{ id }] = await Promise.all([params, requireSession()]);
+	const [{ id }] = await Promise.all([
+		params,
+		requireSession(),
+		requireModuleView("/projects"),
+	]);
 
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
