@@ -55,7 +55,11 @@ import { toast } from "sonner";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
-import { type GroupDraft, groupEditorReducer } from "./group-editor-state";
+import {
+	EDITOR_ACTIONS,
+	type GroupDraft,
+	groupEditorReducer,
+} from "./group-editor-state";
 
 export type AccessGroupRow = RouterOutputs["accessGroups"]["list"][number];
 
@@ -474,7 +478,7 @@ export function GroupEditor({
 				<FieldDescription>
 					Work without seeing the list. Still limited to their records.
 				</FieldDescription>
-				{ACCESS.actions.map((action) => {
+				{EDITOR_ACTIONS.map((action) => {
 					const id = `action-${action}`;
 					return (
 						<FieldLabel htmlFor={id} key={action}>

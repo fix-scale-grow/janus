@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { ACCESS } from "@crm/db/access-config";
 import { parseAccessPolicy } from "@crm/db/access-policy";
-import { type GroupDraft, groupEditorReducer } from "./group-editor-state";
+import {
+	EDITOR_ACTIONS,
+	type GroupDraft,
+	groupEditorReducer,
+} from "./group-editor-state";
 
 const office = ACCESS.seedGroups.find((g) => g.key === "office");
 if (!office) throw new Error("office seed missing");
@@ -49,5 +53,13 @@ describe("groupEditorReducer", () => {
 				action: "jobCosts.submit",
 			}).policy.actions,
 		).toEqual(["jobCosts.submit"]);
+	});
+});
+
+describe("editor actions", () => {
+	test("sign on site stays hidden until in-person signing exists", () => {
+		expect(EDITOR_ACTIONS).not.toContain("contracts.signInPerson");
+		expect(EDITOR_ACTIONS).toEqual(["jobCosts.submit", "deals.markComplete"]);
+		expect(ACCESS.actions).toContain("contracts.signInPerson");
 	});
 });

@@ -9,6 +9,11 @@ import type {
 import { ACCESS } from "@crm/db/access-config";
 import type { AccessPolicy } from "@crm/db/access-policy";
 
+const UNBUILT_ACTIONS: readonly StandaloneAction[] = ["contracts.signInPerson"];
+
+export const EDITOR_ACTIONS: readonly StandaloneAction[] =
+	ACCESS.actions.filter((action) => !UNBUILT_ACTIONS.includes(action));
+
 export type GroupDraft = {
 	id: string | null;
 	name: string;
