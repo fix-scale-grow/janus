@@ -37,7 +37,6 @@ Each capability is optional and must degrade, never throw. Test BOTH states wher
 - [ ] ALLOWED_SIGN_IN rejects a non-listed address
 - [ ] First account becomes owner; second becomes member
 - [ ] /onboarding gate: name + website required, cannot skip; slug derived; rename moves URL
-- [ ] /onboarding/research gate: key accepted / declared invalid correctly
 - [ ] /grant-access: appears only when all sign-in providers are mailbox providers w/o grant
 - [ ] /api/dev-login 404s in production build
 - [ ] Session expiry / signed-out redirect on every gated page class (spot 3)
@@ -121,7 +120,7 @@ FLOW E — team + customisation
 
 Public: / (both IS_MARKETING states) · /sign-in · /sign/[token] (+ bad token) ·
 /proposal/[token] (+ bad token) · /f/[form] (+ inactive form) · /t/crm.js · /t/[site]
-Gates: /grant-access · /onboarding · /onboarding/research
+Gates: /grant-access · /onboarding
 App: /[slug] dashboard (all widgets, customise, Ask Janus widget) · /contacts +
 /contacts/[id] · /deals + /deals/[id] (every tab: Overview Contacts Activity Drawings
 Photos Estimates Invoices Costs Projects Contracts Permits Agent) · /drawings +

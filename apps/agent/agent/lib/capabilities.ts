@@ -56,7 +56,7 @@ export function capabilitiesFrom(
 		},
 		{
 			id: CONTEXT_DEV,
-			from: "Settings → General",
+			from: "a stored workspace setting",
 			label: "Workspace brand data",
 			gives:
 				"this workspace's own logo, industry, location and socials from its domain",

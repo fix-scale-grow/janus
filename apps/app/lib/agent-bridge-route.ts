@@ -64,7 +64,7 @@ export async function bridgeEveRequest(
 ): Promise<Response> {
 	if (!bridgeConfigured()) {
 		return Response.json(
-			{ error: "The research agent is not configured for this install." },
+			{ error: "The Janus agent is not set up on this install." },
 			{ status: 503 },
 		);
 	}

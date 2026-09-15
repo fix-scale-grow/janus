@@ -81,8 +81,8 @@ describe("the Context key is a setting, never a variable", () => {
 		delete process.env.CONTEXT_DEV_API_KEY;
 	});
 
-	it("points at the settings page rather than a variable name", () => {
-		expect(contextDev(null)?.from).toBe("Settings → General");
+	it("points at the stored setting rather than a variable name", () => {
+		expect(contextDev(null)?.from).toBe("a stored workspace setting");
 	});
 });
 
