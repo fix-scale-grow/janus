@@ -68,13 +68,13 @@ export function CreateChannelDialog({
 						<Input
 							id="channel-name"
 							onChange={(event) => setName(event.target.value)}
-							placeholder="renewals"
+							placeholder="installs"
 							value={name}
 						/>
 						<p className="text-muted-foreground text-xs">
 							{slug && !valid
 								? "Use lowercase letters, numbers and dashes."
-								: `Slack will call it #${slug || "renewals"}.`}
+								: `Slack will call it #${slug || "installs"}.`}
 						</p>
 					</div>
 

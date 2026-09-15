@@ -138,7 +138,7 @@ export function WorkspaceForm() {
 									id={nameId}
 									value={values.name}
 									onChange={(event) => edit({ name: event.target.value })}
-									placeholder="Acme Inc."
+									placeholder="Acme Roofing"
 									autoComplete="organization"
 									disabled={!canRename || save.isPending}
 									required

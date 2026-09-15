@@ -202,7 +202,7 @@ export function DealsBulkActions({
 								id={reasonId}
 								value={reason}
 								onChange={(event) => setReason(event.target.value)}
-								placeholder="Budget pulled for the quarter"
+								placeholder="Went with a lower bid"
 								rows={3}
 							/>
 						</Field>

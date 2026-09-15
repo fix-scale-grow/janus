@@ -11,9 +11,9 @@ import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AgentComposer, type BuilderComposerPrompt } from "./agent-composer";
 
 const SUGGESTIONS = [
-	"Brief every deal owner before a renewal call",
+	"Brief the rep before every roof inspection",
 	"Flag deals with no activity for 14 days",
-	"Hand new customers from Sales to Onboarding",
+	"Hand signed jobs from Sales to Production",
 ];
 
 export function AgentBuilderHome({ name }: { name: string }) {

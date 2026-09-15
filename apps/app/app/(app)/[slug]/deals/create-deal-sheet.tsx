@@ -159,7 +159,7 @@ function CreateDealForm() {
 								id={nameId}
 								value={name}
 								onChange={(event) => setName(event.target.value)}
-								placeholder="Stripe — Janus"
+								placeholder="Henderson Full Tear-Off"
 								autoComplete="off"
 								required
 							/>

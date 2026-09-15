@@ -26,7 +26,7 @@ export default defineTool({
 			currentRole: z
 				.string()
 				.optional()
-				.describe('e.g. "CEO & Co-founder · Comp AI"'),
+				.describe('e.g. "Property Manager · Oak Ridge HOA"'),
 			tenure: z.string().optional().describe('e.g. "2 yrs 3 mos"'),
 			previousRoles: z.array(z.string()).optional(),
 			seniority: z.string().optional().describe('e.g. "Founder / C-level"'),

@@ -42,7 +42,7 @@ arithmetic this system exists to avoid.
 
 `detail` is read by a rep in a tooltip. Write it for them:
 
-- Good: `their signature on 14 July reads "Head of Security, Acme"`
+- Good: `their signature on 14 July reads "Property Manager, Oak Ridge HOA"`
 - Bad: `signature match confirmed`
 
 ## What happens next, so you can stop guessing about it

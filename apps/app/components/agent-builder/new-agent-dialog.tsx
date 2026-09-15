@@ -119,7 +119,7 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 						<Input
 							id="agent-name"
 							onChange={(event) => setName(event.target.value)}
-							placeholder="Renewal prep brief"
+							placeholder="Inspection prep brief"
 							value={name}
 						/>
 					</div>
@@ -129,7 +129,7 @@ export function NewAgentDialog({ children }: { children: React.ReactNode }) {
 						<Textarea
 							id="agent-job"
 							onChange={(event) => setJob(event.target.value)}
-							placeholder="A week before a renewal, gather the account history and post a short brief for whoever owns the deal."
+							placeholder="The day before a roof inspection, gather the job history and post a short brief for whoever owns the deal."
 							rows={3}
 							value={job}
 						/>

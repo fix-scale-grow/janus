@@ -135,7 +135,7 @@ export function AttachDealContact({
 					id={roleId}
 					value={role}
 					onChange={(event) => setRole(event.target.value)}
-					placeholder="Champion"
+					placeholder="Homeowner"
 					autoComplete="off"
 				/>
 			</Field>

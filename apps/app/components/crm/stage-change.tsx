@@ -217,7 +217,7 @@ export function CloseReasonDialog() {
 							id={reasonId}
 							value={reason}
 							onChange={(event) => setReason(event.target.value)}
-							placeholder="Went with an incumbent vendor"
+							placeholder="Went with a lower bid"
 							rows={3}
 						/>
 					</Field>

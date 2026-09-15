@@ -26,10 +26,10 @@ export default defineTool({
 					"adjectives from the marketing site.",
 			),
 		sells: line(
-			'What we sell, in a few words. e.g. "Compliance automation for SOC 2, ISO 27001 and GDPR"',
+			'What we sell, in a few words. e.g. "Residential and commercial roofing, gutters and storm repair"',
 		),
 		sellsTo: line(
-			'Who we sell it to. e.g. "Series A–C startups that need a framework audit"',
+			'Who we sell it to. e.g. "Homeowners and property managers in the Kansas City metro"',
 		),
 		edge: line(
 			"What customers pick us over the alternatives for, if the site says.",

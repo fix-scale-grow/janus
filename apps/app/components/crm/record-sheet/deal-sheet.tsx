@@ -409,7 +409,7 @@ function DealOverview({ deal }: { deal: Deal }) {
 				<InlineTextArea
 					label="Description"
 					value={deal.description}
-					placeholder="What they are buying, why now, and what stands in the way."
+					placeholder="What the job is, why now, and what stands in the way."
 					saving={isSaving("description")}
 					onSave={(description) => save({ description })}
 				/>
@@ -672,7 +672,7 @@ function DealContacts({
 							<InlineTextCell
 								label={`Role on this deal for ${contactName(contact)}`}
 								value={contact.role}
-								placeholder="Champion"
+								placeholder="Homeowner"
 								saving={
 									setRole.isPending &&
 									setRole.variables?.contactId === contact.id
