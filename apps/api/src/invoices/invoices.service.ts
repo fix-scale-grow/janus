@@ -1,6 +1,11 @@
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
-import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	maskCents,
+	maskLineItems,
+	moneyRefusalMessage,
+} from "@crm/db/access-money";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import {
 	contactScopeWhere,
 	dealChildWhere,
@@ -119,16 +124,21 @@ export class InvoicesService {
 		]);
 
 		return {
-			rows: rows.map(
-				({ contact, deal, lineItems, dueAt, updatedAt, ...row }) => ({
-					...row,
-					contactName: contactName(contact),
-					dealName: deal?.name ?? null,
-					totalCents: lineItemsTotalCents(lineItems),
-					aging: agingBucket(dueAt, row.status, now),
-					dueAt: dueAt?.toISOString() ?? null,
-					updatedAt: updatedAt.toISOString(),
-				}),
+			rows: rows.map(({ contact, deal, lineItems, dueAt, updatedAt, ...row }) =>
+				maskCents(
+					p,
+					"prices",
+					{
+						...row,
+						contactName: contactName(contact),
+						dealName: deal?.name ?? null,
+						totalCents: lineItemsTotalCents(lineItems),
+						aging: agingBucket(dueAt, row.status, now),
+						dueAt: dueAt?.toISOString() ?? null,
+						updatedAt: updatedAt.toISOString(),
+					},
+					["totalCents"],
+				),
 			),
 			total,
 			facetCounts: {},
@@ -147,16 +157,22 @@ export class InvoicesService {
 			throw new NotFoundException(`No invoice with id ${id}.`);
 		}
 
-		return {
-			...row,
-			totalCents: lineItemsTotalCents(row.lineItems),
-			aging: agingBucket(row.dueAt, row.status, new Date()),
-			issuedAt: row.issuedAt?.toISOString() ?? null,
-			dueAt: row.dueAt?.toISOString() ?? null,
-			paidAt: row.paidAt?.toISOString() ?? null,
-			createdAt: row.createdAt.toISOString(),
-			updatedAt: row.updatedAt.toISOString(),
-		};
+		return maskCents(
+			p,
+			"prices",
+			{
+				...row,
+				lineItems: maskLineItems(p, "prices", row.lineItems, ["priceCents"]),
+				totalCents: lineItemsTotalCents(row.lineItems),
+				aging: agingBucket(row.dueAt, row.status, new Date()),
+				issuedAt: row.issuedAt?.toISOString() ?? null,
+				dueAt: row.dueAt?.toISOString() ?? null,
+				paidAt: row.paidAt?.toISOString() ?? null,
+				createdAt: row.createdAt.toISOString(),
+				updatedAt: row.updatedAt.toISOString(),
+			},
+			["totalCents"],
+		);
 	}
 
 	async create(input: InvoiceCreateInput, p: AccessPrincipal) {
@@ -388,6 +404,7 @@ export class InvoicesService {
 		p: AccessPrincipal,
 	): Promise<{ filename: string; base64: string }> {
 		await this.assertInScope(id, p);
+		this.assertCanExportPriced(p);
 		const invoice = await this.loadForPdf(id);
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderInvoicePdf(invoice, workspaceName);
@@ -404,6 +421,7 @@ export class InvoicesService {
 		p: AccessPrincipal,
 	) {
 		await this.assertInScope(input.id, p);
+		this.assertCanExportPriced(p);
 
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
@@ -487,6 +505,13 @@ export class InvoicesService {
 			select: { id: true },
 		});
 		if (!found) throw new NotFoundException(`No invoice with id ${id}.`);
+	}
+
+	private assertCanExportPriced(p: AccessPrincipal): void {
+		if (hasMoney(p, "prices")) return;
+		throw new ForbiddenException(
+			moneyRefusalMessage(p, "see prices, so it can't export a priced PDF."),
+		);
 	}
 
 	private async assertLineItemInScope(

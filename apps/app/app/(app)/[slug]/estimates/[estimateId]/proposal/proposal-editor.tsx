@@ -168,7 +168,11 @@ function ProposalBody({
 	estimateId: string;
 	proposal: ProposalDetail;
 	estimateTitle: string;
-	totals: { goodCents: number; betterCents: number; bestCents: number } | null;
+	totals: {
+		goodCents: number | null;
+		betterCents: number | null;
+		bestCents: number | null;
+	} | null;
 	currency: string;
 	contactId?: string;
 	dealId?: string;
@@ -524,7 +528,11 @@ function ProposalBody({
 												{label}
 											</span>
 											<span className="font-semibold text-lg tabular-nums">
-												{formatMoney(cents, currency)}
+												{cents === null ? (
+													<span className="text-muted-foreground">Hidden</span>
+												) : (
+													formatMoney(cents, currency)
+												)}
 											</span>
 										</div>
 									))}

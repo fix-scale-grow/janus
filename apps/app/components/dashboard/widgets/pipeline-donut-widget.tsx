@@ -94,12 +94,12 @@ export function PipelineDonutWidget() {
 		);
 
 	const stageSlices = chartPipeline.stages.flatMap((stage) =>
-		stage.valueCents > 0
+		(stage.valueCents ?? 0) > 0
 			? [
 					{
 						key: stage.id,
 						label: stage.label,
-						value: stage.valueCents,
+						value: stage.valueCents ?? 0,
 						color: stage.color,
 						count: stage.count,
 					},
@@ -139,7 +139,7 @@ export function PipelineDonutWidget() {
 						<DonutStat
 							data={stageSlices}
 							height={168}
-							centerValue={money(chartPipeline.totalCents)}
+							centerValue={money(chartPipeline.totalCents ?? 0)}
 							centerLabel="open"
 							formatValue={exact}
 						/>

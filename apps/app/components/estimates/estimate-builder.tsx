@@ -492,20 +492,24 @@ export function EstimateBuilder({
 					</Tabs>
 
 					<div className="grid gap-3 sm:grid-cols-3">
-						{TIER_ORDER.map((value) => (
-							<StatCard
-								key={value}
-								label={TIER_LABEL[value]}
-								value={formatMoney(
-									data.totals[TIER_TOTAL_FIELD[value]],
-									data.currency,
-								)}
-								className={cn(
-									"rounded-lg border bg-card",
-									value === tier && "border-primary ring-1 ring-primary/30",
-								)}
-							/>
-						))}
+						{TIER_ORDER.map((value) => {
+							const tierTotalCents = data.totals[TIER_TOTAL_FIELD[value]];
+							return (
+								<StatCard
+									key={value}
+									label={TIER_LABEL[value]}
+									value={
+										tierTotalCents === null
+											? "Hidden"
+											: formatMoney(tierTotalCents, data.currency)
+									}
+									className={cn(
+										"rounded-lg border bg-card",
+										value === tier && "border-primary ring-1 ring-primary/30",
+									)}
+								/>
+							);
+						})}
 					</div>
 
 					{data.lineItems.length === 0 ? (

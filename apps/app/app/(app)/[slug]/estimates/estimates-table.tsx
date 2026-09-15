@@ -148,7 +148,11 @@ function PageEstimatesTable({ savedState }: { savedState?: SavedTableView }) {
 			width: "w-[16%]",
 			cell: (row) => (
 				<span className="tabular-nums">
-					{formatMoney(row.totalBetterCents, row.currency)}
+					{row.totalBetterCents === null ? (
+						<span className="text-muted-foreground">Hidden</span>
+					) : (
+						formatMoney(row.totalBetterCents, row.currency)
+					)}
 				</span>
 			),
 		},
@@ -298,7 +302,11 @@ function EmbeddedEstimatesTable({
 						<StatusBadge status={row.status} />
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right tabular-nums">
-						{formatMoney(row.totalBetterCents, row.currency)}
+						{row.totalBetterCents === null ? (
+							<span className="text-muted-foreground">Hidden</span>
+						) : (
+							formatMoney(row.totalBetterCents, row.currency)
+						)}
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right text-muted-foreground">
 						<LocalRelativeTime date={row.updatedAt} />

@@ -172,7 +172,10 @@ afterAll(async () => {
 
 describe("pipelineBoard", () => {
 	it("returns open stages in board order with counts and top deals", async () => {
-		const board = await dashboard.pipelineBoard({ pipelineId });
+		const board = await dashboard.pipelineBoard(
+			{ pipelineId },
+			adminPrincipal("test"),
+		);
 
 		expect(board.stages).toEqual([
 			{

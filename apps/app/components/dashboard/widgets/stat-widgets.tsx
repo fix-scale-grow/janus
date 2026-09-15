@@ -60,18 +60,24 @@ function StatWonMonthBody() {
 
 	const { wonThisMonth, wonPrevMonth, reportingCurrency } = summary;
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
+	const thisMonthCents = wonThisMonth.valueCents;
+	const prevMonthCents = wonPrevMonth.valueCents;
 
 	return (
 		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
 			<StatCard
 				className="p-0 md:p-0"
-				value={money(wonThisMonth.valueCents)}
-				delta={changeDelta(
-					wonThisMonth.valueCents,
-					wonPrevMonth.valueCents,
-					"vs. last month",
-				)}
-				description={`${formatCount(wonThisMonth.count, "deal")} · ${money(wonPrevMonth.valueCents)} last month`}
+				value={thisMonthCents === null ? "Hidden" : money(thisMonthCents)}
+				delta={
+					thisMonthCents === null || prevMonthCents === null
+						? undefined
+						: changeDelta(thisMonthCents, prevMonthCents, "vs. last month")
+				}
+				description={
+					prevMonthCents === null
+						? `${formatCount(wonThisMonth.count, "deal")}`
+						: `${formatCount(wonThisMonth.count, "deal")} · ${money(prevMonthCents)} last month`
+				}
 			/>
 		</div>
 	);
@@ -100,13 +106,19 @@ function StatOpenPipelineBody() {
 
 	const { pipeline, closingThisMonthTotal, reportingCurrency } = summary;
 	const money = (cents: number) => formatMoneyCompact(cents, reportingCurrency);
+	const totalCents = pipeline.totalCents;
+	const closingCents = closingThisMonthTotal.valueCents;
 
 	return (
 		<div className="flex min-h-0 flex-1 items-center px-4 md:px-6">
 			<StatCard
 				className="p-0 md:p-0"
-				value={money(pipeline.totalCents)}
-				description={`${formatCount(pipeline.totalDeals, "deal")} in progress · ${money(closingThisMonthTotal.valueCents)} due this month`}
+				value={totalCents === null ? "Hidden" : money(totalCents)}
+				description={
+					closingCents === null
+						? `${formatCount(pipeline.totalDeals, "deal")} in progress`
+						: `${formatCount(pipeline.totalDeals, "deal")} in progress · ${money(closingCents)} due this month`
+				}
 			/>
 		</div>
 	);

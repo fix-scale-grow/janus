@@ -314,10 +314,14 @@ afterAll(async () => {
 
 describe("pipeline-by-stage chart", () => {
 	it("returns only the requested pipeline's OPEN stages, with meta", async () => {
-		const summary = await dashboard.summary(ownerId, {
-			scope: "me",
-			pipelineId: pipelineAId,
-		});
+		const summary = await dashboard.summary(
+			ownerId,
+			{
+				scope: "me",
+				pipelineId: pipelineAId,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(summary.pipeline.pipelineId).toBe(pipelineAId);
 		expect(summary.pipeline.stages).toEqual([
@@ -341,16 +345,24 @@ describe("pipeline-by-stage chart", () => {
 	});
 
 	it("defaults to the lowest-position non-archived pipeline", async () => {
-		const summary = await dashboard.summary(ownerId, { scope: "me" });
+		const summary = await dashboard.summary(
+			ownerId,
+			{ scope: "me" },
+			adminPrincipal("test"),
+		);
 
 		expect(summary.pipeline.pipelineId).toBe(pipelineAId);
 	});
 
 	it("excludes another pipeline's open stages when scoped", async () => {
-		const summary = await dashboard.summary(ownerId, {
-			scope: "me",
-			pipelineId: pipelineBId,
-		});
+		const summary = await dashboard.summary(
+			ownerId,
+			{
+				scope: "me",
+				pipelineId: pipelineBId,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(summary.pipeline.pipelineId).toBe(pipelineBId);
 		const ids = summary.pipeline.stages.map((stage) => stage.id);
@@ -360,14 +372,22 @@ describe("pipeline-by-stage chart", () => {
 	});
 
 	it("pipelineStages matches summary's chart for the same pipeline", async () => {
-		const summary = await dashboard.summary(ownerId, {
-			scope: "me",
-			pipelineId: pipelineAId,
-		});
-		const stages = await dashboard.pipelineStages(ownerId, {
-			scope: "me",
-			pipelineId: pipelineAId,
-		});
+		const summary = await dashboard.summary(
+			ownerId,
+			{
+				scope: "me",
+				pipelineId: pipelineAId,
+			},
+			adminPrincipal("test"),
+		);
+		const stages = await dashboard.pipelineStages(
+			ownerId,
+			{
+				scope: "me",
+				pipelineId: pipelineAId,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(stages).toEqual(summary.pipeline);
 	});
@@ -375,10 +395,14 @@ describe("pipeline-by-stage chart", () => {
 
 describe("money aggregates across all pipelines", () => {
 	it("sums closing-this-month and biggest-open across both pipelines", async () => {
-		const summary = await dashboard.summary(ownerId, {
-			scope: "me",
-			pipelineId: pipelineAId,
-		});
+		const summary = await dashboard.summary(
+			ownerId,
+			{
+				scope: "me",
+				pipelineId: pipelineAId,
+			},
+			adminPrincipal("test"),
+		);
 
 		expect(summary.closingThisMonthTotal.count).toBe(3);
 		expect(summary.closingThisMonthTotal.valueCents).toBe(
@@ -394,7 +418,11 @@ describe("money aggregates across all pipelines", () => {
 
 describe("win/lost trend and win rate — outcome parity", () => {
 	it("counts WON as wins, LOST as losses, and excludes DISQUALIFIED entirely", async () => {
-		const summary = await dashboard.summary(ownerId, { scope: "me" });
+		const summary = await dashboard.summary(
+			ownerId,
+			{ scope: "me" },
+			adminPrincipal("test"),
+		);
 
 		expect(summary.performance.wins).toBe(2);
 		expect(summary.performance.losses).toBe(2);

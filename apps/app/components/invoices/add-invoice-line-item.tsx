@@ -99,7 +99,7 @@ export function AddInvoiceLineItem({
 			name: service.name,
 			unit: service.unit,
 			quantity: 1,
-			priceCents: service.unitPriceCents,
+			priceCents: service.unitPriceCents ?? 0,
 		});
 	};
 
@@ -161,7 +161,9 @@ export function AddInvoiceLineItem({
 									>
 										<span className="flex-1 truncate">{service.name}</span>
 										<span className="text-muted-foreground tabular-nums">
-											{formatMoney(service.unitPriceCents, currency)}
+											{service.unitPriceCents === null
+												? "Hidden"
+												: formatMoney(service.unitPriceCents, currency)}
 										</span>
 									</CommandItem>
 								))}

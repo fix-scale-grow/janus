@@ -135,7 +135,11 @@ export function DealCosts({ dealId }: { dealId: string }) {
 					<p className="text-muted-foreground text-xs">
 						Costs ·{" "}
 						{(costs.data?.totalsByCurrency ?? [])
-							.map((entry) => formatMoney(entry.totalCents, entry.currency))
+							.map((entry) =>
+								entry.totalCents === null
+									? "Hidden"
+									: formatMoney(entry.totalCents, entry.currency),
+							)
 							.join(", ") || formatMoney(0)}
 					</p>
 				)}
@@ -384,7 +388,11 @@ function CostRow({ row, dealId }: { row: Cost; dealId: string }) {
 				{row.createdBy.name}
 			</TableCell>
 			<TableCell className="truncate px-3 py-2.5 text-right tabular-nums">
-				{formatMoney(row.amountCents, row.currency)}
+				{row.amountCents === null ? (
+					<span className="text-muted-foreground">Hidden</span>
+				) : (
+					formatMoney(row.amountCents, row.currency)
+				)}
 			</TableCell>
 			<TableCell className="px-3 py-2.5">
 				{row.receiptPath ? (
@@ -485,7 +493,7 @@ function EditCostForm({
 
 	const [date, setDate] = useState<string>(toDay(new Date(row.date)));
 	const [category, setCategory] = useState<Category>(row.category);
-	const [amount, setAmount] = useState(String(row.amountCents / 100));
+	const [amount, setAmount] = useState(String((row.amountCents ?? 0) / 100));
 	const [note, setNote] = useState(row.note ?? "");
 
 	const update = useMutation(

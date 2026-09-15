@@ -45,7 +45,9 @@ function TrendBody() {
 			typeof value === "number" ? value : Number(value),
 			reportingCurrency,
 		);
-	const hasTrend = trend.some((point) => point.won > 0 || point.created > 0);
+	const hasTrend = trend.some(
+		(point) => (point.won ?? 0) > 0 || (point.created ?? 0) > 0,
+	);
 
 	if (!hasTrend) {
 		return (

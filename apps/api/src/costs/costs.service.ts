@@ -1,21 +1,20 @@
 import { type Db, Prisma } from "@crm/db";
-import type { AccessPrincipal } from "@crm/db/access-policy";
+import { maskLineItems, moneyRefusalMessage } from "@crm/db/access-money";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import { dealScopeWhere, requiredDealChildWhere } from "@crm/db/access-scope";
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+	ForbiddenException,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { lineItemsTotalCents } from "../invoices/invoice-logic";
 import { INVOICES } from "../invoices/invoices.config";
-import { PERMISSION_KEYS } from "../permissions/permissions.config";
-import { PermissionsService } from "../permissions/permissions.service";
 import type { CostCreateInput, CostUpdateInput } from "./costs.contracts";
 
 @Injectable()
 export class CostsService {
-	constructor(
-		@InjectDatabase() private readonly db: Db,
-		@Inject(PermissionsService)
-		private readonly permissions: PermissionsService,
-	) {}
+	constructor(@InjectDatabase() private readonly db: Db) {}
 
 	async list(input: { dealId: string }, p: AccessPrincipal) {
 		await this.assertDealInScope(input.dealId, p);
@@ -42,16 +41,26 @@ export class CostsService {
 			);
 		}
 		return {
-			rows,
-			totalsByCurrency: [...totalsByCurrency].map(([currency, totalCents]) => ({
-				currency,
-				totalCents,
-			})),
-			totalsByCategory: byCategory.map((row) => ({
-				category: row.category,
-				currency: row.currency,
-				totalCents: row._sum.amountCents ?? 0,
-			})),
+			rows: maskLineItems(p, "profit", rows, ["amountCents"]),
+			totalsByCurrency: maskLineItems(
+				p,
+				"profit",
+				[...totalsByCurrency].map(([currency, totalCents]) => ({
+					currency,
+					totalCents,
+				})),
+				["totalCents"],
+			),
+			totalsByCategory: maskLineItems(
+				p,
+				"profit",
+				byCategory.map((row) => ({
+					category: row.category,
+					currency: row.currency,
+					totalCents: row._sum.amountCents ?? 0,
+				})),
+				["totalCents"],
+			),
 		};
 	}
 
@@ -84,8 +93,12 @@ export class CostsService {
 		}
 	}
 
-	async profitForDeal(userId: string, dealId: string, p: AccessPrincipal) {
-		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+	async profitForDeal(dealId: string, p: AccessPrincipal) {
+		if (!hasMoney(p, "profit")) {
+			throw new ForbiddenException(
+				moneyRefusalMessage(p, "see job costs and profit."),
+			);
+		}
 		await this.assertDealInScope(dealId, p);
 		const [invoices, costs] = await Promise.all([
 			this.db.invoice.findMany({

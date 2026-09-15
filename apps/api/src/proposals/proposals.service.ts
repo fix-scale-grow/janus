@@ -1,12 +1,18 @@
 import { randomBytes } from "node:crypto";
 import { appUrl, DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import type { Db, EstimateTier, Prisma } from "@crm/db";
-import { type AccessPrincipal, adminPrincipal } from "@crm/db/access-policy";
+import { moneyRefusalMessage } from "@crm/db/access-money";
+import {
+	type AccessPrincipal,
+	adminPrincipal,
+	hasMoney,
+} from "@crm/db/access-policy";
 import { dealChildWhere } from "@crm/db/access-scope";
 import { ActivityType } from "@crm/db/enums";
 import {
 	BadRequestException,
 	ConflictException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -238,6 +244,7 @@ export class ProposalsService {
 		p: AccessPrincipal,
 	) {
 		await this.assertInScope(input.id, p);
+		this.assertCanExportPriced(p);
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
 		}
@@ -342,6 +349,7 @@ export class ProposalsService {
 		p: AccessPrincipal,
 	): Promise<{ filename: string; base64: string }> {
 		await this.assertInScope(id, p);
+		this.assertCanExportPriced(p);
 		const proposal = await this.db.proposal.findUnique({
 			where: { id },
 			select: DETAIL_SELECT,
@@ -767,6 +775,13 @@ export class ProposalsService {
 			select: { id: true },
 		});
 		if (!found) throw new NotFoundException(`No proposal with id ${id}.`);
+	}
+
+	private assertCanExportPriced(p: AccessPrincipal): void {
+		if (hasMoney(p, "prices")) return;
+		throw new ForbiddenException(
+			moneyRefusalMessage(p, "see prices, so it can't export a priced PDF."),
+		);
 	}
 
 	private async assertEstimateInScope(

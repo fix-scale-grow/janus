@@ -1,17 +1,42 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { ACCESS_AREAS } from "@crm/db/access-config";
+import {
+	type AccessPolicy,
+	type AccessPrincipal,
+	adminPrincipal,
+} from "@crm/db/access-policy";
 import { SETTINGS_ID, writeReportingCurrency } from "@crm/db/settings";
 import { ConversionService } from "../src/currency/conversion.service";
-import { PermissionsService } from "../src/permissions/permissions.service";
 import { toDay } from "../src/projects/projects.contracts";
 import { ReportsService } from "../src/reports/reports.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "reports-ops-spec";
 
-const permissions = new PermissionsService(db);
 const conversion = new ConversionService(db);
-const service = new ReportsService(db, permissions, conversion);
+const service = new ReportsService(db, conversion);
+
+function principalWithMoney(
+	userId: string,
+	money: AccessPolicy["money"],
+): AccessPrincipal {
+	return {
+		userId,
+		isAdmin: false,
+		groupId: null,
+		groupName: "Test group",
+		surface: "FULL",
+		scope: "ALL",
+		policy: {
+			areas: Object.fromEntries(
+				ACCESS_AREAS.map((area) => [area, "EDIT"]),
+			) as AccessPolicy["areas"],
+			actions: [],
+			money,
+		},
+	};
+}
 
 let adminUserId: string;
 let memberUserId: string;
@@ -103,11 +128,6 @@ beforeAll(async () => {
 			role: "member",
 			createdAt: new Date(),
 		},
-	});
-
-	await permissions.grant(adminUserId, {
-		userId: memberUserId,
-		key: "profit.view",
 	});
 });
 
@@ -263,7 +283,10 @@ describe("reports.leaderboard", () => {
 			},
 		});
 
-		const asAdmin = await service.leaderboard(adminUserId, { from, to });
+		const asAdmin = await service.leaderboard(adminPrincipal("test"), {
+			from,
+			to,
+		});
 		const adminRow = asAdmin.rows.find((row) => row.userId === adminUserId);
 		if (!adminRow) throw new Error("expected a row for the admin owner");
 
@@ -273,10 +296,13 @@ describe("reports.leaderboard", () => {
 		expect(adminRow.winRatePct).toBeCloseTo(50, 5);
 		expect(adminRow.activitiesLogged).toBe(1);
 
-		const asForbidden = await service.leaderboard(forbiddenUserId, {
-			from,
-			to,
-		});
+		const asForbidden = await service.leaderboard(
+			principalWithMoney(forbiddenUserId, []),
+			{
+				from,
+				to,
+			},
+		);
 		const forbiddenRow = asForbidden.rows.find(
 			(row) => row.userId === adminUserId,
 		);
@@ -387,7 +413,7 @@ describe("reports.pipeline", () => {
 			},
 		});
 
-		const result = await service.pipeline(adminUserId, { from, to });
+		const result = await service.pipeline(adminPrincipal("test"), { from, to });
 		const sales = result.pipelines.find(
 			(pipeline) => pipeline.pipelineName === "Sales",
 		);
@@ -506,7 +532,10 @@ describe("reports.pipeline", () => {
 			priceBetterCents: 1500,
 		});
 
-		const asAdmin = await service.pipeline(adminUserId, { from, to });
+		const asAdmin = await service.pipeline(adminPrincipal("test"), {
+			from,
+			to,
+		});
 		expect(asAdmin.estimatesFunnel.sentCount).toBe(4);
 		expect(asAdmin.estimatesFunnel.acceptedCount).toBe(2);
 		expect(asAdmin.estimatesFunnel.declinedCount).toBe(1);
@@ -521,7 +550,10 @@ describe("reports.pipeline", () => {
 		expect(betterTier.valueCents).toBe(3000);
 		expect(asAdmin.excluded).toBeGreaterThanOrEqual(1);
 
-		const asMember = await service.pipeline(forbiddenUserId, { from, to });
+		const asMember = await service.pipeline(
+			principalWithMoney(forbiddenUserId, []),
+			{ from, to },
+		);
 		const maskedTier = asMember.estimatesFunnel.byTier.find(
 			(row) => row.tier === "BETTER",
 		);
@@ -604,7 +636,10 @@ describe("reports.leadSources", () => {
 			},
 		});
 
-		const asAdmin = await service.leadSources(adminUserId, { from, to });
+		const asAdmin = await service.leadSources(adminPrincipal("test"), {
+			from,
+			to,
+		});
 
 		const googleAdsRow = asAdmin.rows.find(
 			(row) => row.source === "Google Ads",
@@ -623,10 +658,13 @@ describe("reports.leadSources", () => {
 		if (!manualRow) throw new Error("expected a MANUAL row");
 		expect(manualRow.contacts).toBe(1);
 
-		const asForbidden = await service.leadSources(forbiddenUserId, {
-			from,
-			to,
-		});
+		const asForbidden = await service.leadSources(
+			principalWithMoney(forbiddenUserId, []),
+			{
+				from,
+				to,
+			},
+		);
 		const maskedRow = asForbidden.rows.find(
 			(row) => row.source === "Google Ads",
 		);
@@ -676,7 +714,10 @@ describe("reports.leadSources", () => {
 			},
 		});
 
-		const result = await service.leadSources(adminUserId, { from, to });
+		const result = await service.leadSources(adminPrincipal("test"), {
+			from,
+			to,
+		});
 		const bingRow = result.rows.find((row) => row.source === "Bing Ads");
 		if (!bingRow)
 			throw new Error("expected a Bing Ads row from the deal alone");
@@ -729,7 +770,10 @@ describe("reports.leadSources", () => {
 			},
 		});
 
-		const result = await service.leadSources(adminUserId, { from, to });
+		const result = await service.leadSources(adminPrincipal("test"), {
+			from,
+			to,
+		});
 		const directMailRow = result.rows.find(
 			(row) => row.source === "Direct Mail",
 		);
@@ -749,7 +793,10 @@ describe("reports.production", () => {
 		const from = new Date("2032-06-01T00:00:00.000Z");
 		const to = new Date("2032-06-30T00:00:00.000Z");
 
-		const before = await service.production(adminUserId, { from, to });
+		const before = await service.production(adminPrincipal("test"), {
+			from,
+			to,
+		});
 
 		await createDeal({
 			id: `reports-ops-prod-scheduled-${suffix}`,
@@ -864,7 +911,10 @@ describe("reports.production", () => {
 			},
 		});
 
-		const after = await service.production(adminUserId, { from, to });
+		const after = await service.production(adminPrincipal("test"), {
+			from,
+			to,
+		});
 
 		const stageOf = (stage: string) =>
 			after.stageCounts.find((row) => row.stage === stage)?.count ?? 0;
@@ -988,7 +1038,10 @@ describe("reports.production", () => {
 			},
 		});
 
-		const result = await service.production(adminUserId, { from, to });
+		const result = await service.production(adminPrincipal("test"), {
+			from,
+			to,
+		});
 		expect(result.avgScheduledToCompleteDays).toBeCloseTo((3 + 10) / 2, 5);
 	});
 });
@@ -1095,7 +1148,7 @@ describe("reports.permits", () => {
 			},
 		});
 
-		const asAdmin = await service.permits(adminUserId, { from, to });
+		const asAdmin = await service.permits(adminPrincipal("test"), { from, to });
 		const jurisdictionRow = asAdmin.cycleDaysByJurisdiction.find(
 			(row) => row.jurisdictionId === jurisdiction.id,
 		);
@@ -1104,7 +1157,10 @@ describe("reports.permits", () => {
 		expect(asAdmin.inspectionPassRatePct).toBeCloseTo(50, 5);
 		expect(asAdmin.feesCents).toBe(8000);
 
-		const asForbidden = await service.permits(forbiddenUserId, { from, to });
+		const asForbidden = await service.permits(
+			principalWithMoney(forbiddenUserId, []),
+			{ from, to },
+		);
 		expect(asForbidden.feesCents).toBeNull();
 
 		const todayUtc = toDay(new Date());
@@ -1129,7 +1185,10 @@ describe("reports.permits", () => {
 			expiresAt: new Date(todayUtc.getTime() - 5 * dayMs),
 		});
 
-		const withExpiring = await service.permits(adminUserId, { from, to });
+		const withExpiring = await service.permits(adminPrincipal("test"), {
+			from,
+			to,
+		});
 		expect(
 			withExpiring.expiring.some((row) => row.permitId === exactlyAtWindowEdge),
 		).toBe(true);

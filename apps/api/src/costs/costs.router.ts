@@ -63,6 +63,6 @@ export class CostsRouter {
 		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof profitForDealInput>,
 	) {
-		return this.costs.profitForDeal(ctx.user.id, input.dealId, ctx.access);
+		return this.costs.profitForDeal(input.dealId, ctx.access);
 	}
 }

@@ -1,6 +1,11 @@
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
-import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	maskCents,
+	maskLineItems,
+	moneyRefusalMessage,
+} from "@crm/db/access-money";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import {
 	contactScopeWhere,
 	dealChildWhere,
@@ -116,16 +121,23 @@ export class EstimatesService {
 		]);
 
 		return {
-			rows: rows.map(({ deal, lineItems, ...row }) => ({
-				...row,
-				dealName: deal?.name ?? null,
-				totalBetterCents: lineItems.reduce(
-					(sum, item) =>
-						sum + Math.round(Number(item.quantity) * item.priceBetterCents),
-					0,
+			rows: rows.map(({ deal, lineItems, ...row }) =>
+				maskCents(
+					p,
+					"prices",
+					{
+						...row,
+						dealName: deal?.name ?? null,
+						totalBetterCents: lineItems.reduce(
+							(sum, item) =>
+								sum + Math.round(Number(item.quantity) * item.priceBetterCents),
+							0,
+						),
+						lineCount: lineItems.length,
+					},
+					["totalBetterCents"],
 				),
-				lineCount: lineItems.length,
-			})),
+			),
 			total,
 			facetCounts: {},
 		};
@@ -163,7 +175,20 @@ export class EstimatesService {
 			totals.bestCents += Math.round(quantity * item.priceBestCents);
 		}
 
-		return { ...estimate, totals, drawingStale };
+		return {
+			...estimate,
+			lineItems: maskLineItems(p, "prices", estimate.lineItems, [
+				"priceGoodCents",
+				"priceBetterCents",
+				"priceBestCents",
+			]),
+			totals: maskCents(p, "prices", totals, [
+				"goodCents",
+				"betterCents",
+				"bestCents",
+			]),
+			drawingStale,
+		};
 	}
 
 	async create(input: EstimateCreateInput, p: AccessPrincipal) {
@@ -562,6 +587,7 @@ export class EstimatesService {
 		p: AccessPrincipal,
 	): Promise<{ filename: string; base64: string }> {
 		await this.assertInScope(id, p);
+		this.assertCanExportPriced(p);
 		const estimate = await this.loadForPdf(id);
 		const workspaceName = await this.workspaceName();
 		const buffer = await renderEstimatePdf(estimate, workspaceName);
@@ -578,6 +604,7 @@ export class EstimatesService {
 		p: AccessPrincipal,
 	) {
 		await this.assertInScope(input.id, p);
+		this.assertCanExportPriced(p);
 
 		if (!this.mailer.isConfigured()) {
 			throw new BadRequestException("Email is not configured on this install.");
@@ -662,6 +689,13 @@ export class EstimatesService {
 			select: { id: true },
 		});
 		if (!found) throw new NotFoundException(`No estimate with id ${id}.`);
+	}
+
+	private assertCanExportPriced(p: AccessPrincipal): void {
+		if (hasMoney(p, "prices")) return;
+		throw new ForbiddenException(
+			moneyRefusalMessage(p, "see prices, so it can't export a priced PDF."),
+		);
 	}
 
 	private async assertLineItemInScope(

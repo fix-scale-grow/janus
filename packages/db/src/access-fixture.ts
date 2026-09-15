@@ -135,6 +135,19 @@ export async function createAccessFixture(
 			title: `Clerk estimate ${suffix}`,
 			dealId: clerkDeal.id,
 			createdById: users.clerk.id,
+			lineItems: {
+				create: [
+					{
+						name: "Tear-off",
+						unit: "PER_SQUARE",
+						quantity: 10,
+						priceGoodCents: 5000,
+						priceBetterCents: 6000,
+						priceBestCents: 7000,
+						sortOrder: 0,
+					},
+				],
+			},
 		},
 		select: { id: true },
 	});
@@ -164,6 +177,17 @@ export async function createAccessFixture(
 		data: {
 			dealId: clerkDeal.id,
 			createdById: users.clerk.id,
+			lineItems: {
+				create: [
+					{
+						name: "Tear-off",
+						unit: "PER_SQUARE",
+						quantity: 10,
+						priceCents: 6000,
+						sortOrder: 0,
+					},
+				],
+			},
 		},
 		select: { id: true },
 	});

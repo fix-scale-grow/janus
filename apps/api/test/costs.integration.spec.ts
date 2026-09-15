@@ -1,15 +1,39 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
-import { adminPrincipal } from "@crm/db/access-policy";
+import { ACCESS_AREAS } from "@crm/db/access-config";
+import {
+	type AccessPolicy,
+	type AccessPrincipal,
+	adminPrincipal,
+} from "@crm/db/access-policy";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { CostsService } from "../src/costs/costs.service";
-import { PermissionsService } from "../src/permissions/permissions.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "costs-spec";
 
-const permissions = new PermissionsService(db);
-const service = new CostsService(db, permissions);
+const service = new CostsService(db);
+
+function principalWithMoney(
+	userId: string,
+	money: AccessPolicy["money"],
+): AccessPrincipal {
+	return {
+		userId,
+		isAdmin: false,
+		groupId: null,
+		groupName: "Test group",
+		surface: "FULL",
+		scope: "ALL",
+		policy: {
+			areas: Object.fromEntries(
+				ACCESS_AREAS.map((area) => [area, "EDIT"]),
+			) as AccessPolicy["areas"],
+			actions: [],
+			money,
+		},
+	};
+}
 
 let adminUserId: string;
 let memberUserId: string;
@@ -223,6 +247,15 @@ describe("CostsService", () => {
 			{ category: "MATERIALS", currency: "USD", totalCents: 700 },
 		]);
 
+		const masked = await service.list(
+			{ dealId: listDealId },
+			principalWithMoney(memberUserId, []),
+		);
+		expect(masked.rows.every((row) => row.amountCents === null)).toBe(true);
+		expect(masked.totalsByCurrency).toEqual([
+			{ currency: "USD", totalCents: null },
+		]);
+
 		await db.jobCost.deleteMany({ where: { dealId: listDealId } });
 		await db.deal.delete({ where: { id: listDealId } });
 	});
@@ -319,95 +352,45 @@ describe("CostsService", () => {
 			adminPrincipal("test"),
 		);
 
-		await permissions.grant(adminUserId, {
-			userId: memberUserId,
-			key: "profit.view",
-		});
-
-		try {
-			let thrownError: unknown;
-			const forbiddenMember = `costs-forbidden-${suffix}`;
-			const forbiddenUser = await db.user.create({
-				data: {
-					id: forbiddenMember,
-					name: "Forbidden Member",
-					email: `${forbiddenMember}@example.test`,
-				},
-				select: { id: true },
-			});
-			await db.member.create({
-				data: {
-					id: `costs-forbidden-row-${suffix}`,
-					organizationId: WORKSPACE_ID,
-					userId: forbiddenUser.id,
-					role: "member",
-					createdAt: new Date(),
-				},
-			});
-			try {
-				await service.profitForDeal(
-					forbiddenUser.id,
-					dealId,
-					adminPrincipal("test"),
-				);
-			} catch (error) {
-				thrownError = error;
-			}
-			expect(thrownError).toBeInstanceOf(ForbiddenException);
-			await db.member.deleteMany({ where: { userId: forbiddenUser.id } });
-			await db.user.deleteMany({ where: { id: forbiddenUser.id } });
-
-			const result = await service.profitForDeal(
-				memberUserId,
-				dealId,
-				adminPrincipal("test"),
-			);
-
-			expect(result.byCurrency.length).toBe(1);
-			const usd = result.byCurrency[0];
-			if (!usd) throw new Error("expected a USD byCurrency entry");
-			expect(usd.currency).toBe("USD");
-			expect(usd.invoicedCents).toBe(3500);
-			expect(usd.collectedCents).toBe(1500);
-			expect(usd.costsCents).toBe(1200);
-			expect(usd.profitCents).toBe(2300);
-			expect(usd.marginPct).not.toBeNull();
-			expect(usd.marginPct as number).toBeCloseTo(65.7, 1);
-		} finally {
-			await permissions.revoke(adminUserId, {
-				userId: memberUserId,
-				key: "profit.view",
-			});
-		}
-	});
-
-	it("profitForDeal throws ForbiddenException without a grant, then succeeds after one", async () => {
 		let thrownError: unknown;
 		try {
-			await service.profitForDeal(memberUserId, dealId, adminPrincipal("test"));
+			await service.profitForDeal(dealId, principalWithMoney(memberUserId, []));
 		} catch (error) {
 			thrownError = error;
 		}
 		expect(thrownError).toBeInstanceOf(ForbiddenException);
 
-		await db.userPermission.create({
-			data: {
-				userId: memberUserId,
-				key: "profit.view",
-				grantedById: adminUserId,
-			},
-		});
+		const result = await service.profitForDeal(
+			dealId,
+			principalWithMoney(memberUserId, ["profit"]),
+		);
+
+		expect(result.byCurrency.length).toBe(1);
+		const usd = result.byCurrency[0];
+		if (!usd) throw new Error("expected a USD byCurrency entry");
+		expect(usd.currency).toBe("USD");
+		expect(usd.invoicedCents).toBe(3500);
+		expect(usd.collectedCents).toBe(1500);
+		expect(usd.costsCents).toBe(1200);
+		expect(usd.profitCents).toBe(2300);
+		expect(usd.marginPct).not.toBeNull();
+		expect(usd.marginPct as number).toBeCloseTo(65.7, 1);
+	});
+
+	it("profitForDeal throws ForbiddenException without the profit switch, then succeeds with it", async () => {
+		let thrownError: unknown;
+		try {
+			await service.profitForDeal(dealId, principalWithMoney(memberUserId, []));
+		} catch (error) {
+			thrownError = error;
+		}
+		expect(thrownError).toBeInstanceOf(ForbiddenException);
 
 		const result = await service.profitForDeal(
-			memberUserId,
 			dealId,
-			adminPrincipal("test"),
+			principalWithMoney(memberUserId, ["profit"]),
 		);
 		expect(result.byCurrency).toBeDefined();
-
-		await db.userPermission.deleteMany({
-			where: { userId: memberUserId, key: "profit.view" },
-		});
 	});
 
 	it("a cost in a second currency shows up as its own byCurrency entry, never merged", async () => {
@@ -442,18 +425,9 @@ describe("CostsService", () => {
 			adminPrincipal("test"),
 		);
 
-		await db.userPermission.create({
-			data: {
-				userId: memberUserId,
-				key: "profit.view",
-				grantedById: adminUserId,
-			},
-		});
-
 		const result = await service.profitForDeal(
-			memberUserId,
 			secondDealId,
-			adminPrincipal("test"),
+			principalWithMoney(memberUserId, ["profit"]),
 		);
 
 		expect(result.byCurrency.length).toBe(1);
@@ -462,10 +436,6 @@ describe("CostsService", () => {
 		expect(eur.currency).toBe("EUR");
 		expect(eur.invoicedCents).toBe(5000);
 		expect(eur.costsCents).toBe(1000);
-
-		await db.userPermission.deleteMany({
-			where: { userId: memberUserId, key: "profit.view" },
-		});
 	});
 
 	it("profitForDeal marginPct is null when invoiced is 0", async () => {
@@ -491,18 +461,9 @@ describe("CostsService", () => {
 			adminPrincipal("test"),
 		);
 
-		await db.userPermission.create({
-			data: {
-				userId: memberUserId,
-				key: "profit.view",
-				grantedById: adminUserId,
-			},
-		});
-
 		const result = await service.profitForDeal(
-			memberUserId,
 			zeroDealId,
-			adminPrincipal("test"),
+			principalWithMoney(memberUserId, ["profit"]),
 		);
 		expect(result.byCurrency.length).toBe(1);
 		const zero = result.byCurrency[0];
@@ -510,9 +471,6 @@ describe("CostsService", () => {
 		expect(zero.invoicedCents).toBe(0);
 		expect(zero.marginPct).toBeNull();
 
-		await db.userPermission.deleteMany({
-			where: { userId: memberUserId, key: "profit.view" },
-		});
 		await db.jobCost.deleteMany({ where: { dealId: zeroDealId } });
 		await db.deal.delete({ where: { id: zeroDealId } });
 	});

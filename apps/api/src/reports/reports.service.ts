@@ -9,7 +9,10 @@ import {
 	RecordSource,
 	StageOutcome,
 } from "@crm/db";
-import { Inject, Injectable } from "@nestjs/common";
+import { moneyRefusalMessage } from "@crm/db/access-money";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
+import { dealChildWhere, dealScopeWhere } from "@crm/db/access-scope";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
 import { InjectDatabase } from "../database/database.constants";
@@ -17,8 +20,6 @@ import { formatCents } from "../documents/pdf-money";
 import { tierTotals } from "../estimates/estimate-pdf";
 import { lineItemsTotalCents } from "../invoices/invoice-logic";
 import { INVOICES } from "../invoices/invoices.config";
-import { PERMISSION_KEYS } from "../permissions/permissions.config";
-import { PermissionsService } from "../permissions/permissions.service";
 import { spanDays, toDay } from "../projects/projects.contracts";
 import { REPORTS } from "./reports.config";
 import type {
@@ -74,13 +75,18 @@ function monthStart(from: Date, monthsBack: number): Date {
 export class ReportsService {
 	constructor(
 		@InjectDatabase() private readonly db: Db,
-		@Inject(PermissionsService)
-		private readonly permissions: PermissionsService,
 		private readonly conversion: ConversionService,
 	) {}
 
-	async jobProfitability(userId: string, input: ReportRangeInput) {
-		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+	private assertProfit(p: AccessPrincipal): void {
+		if (hasMoney(p, "profit")) return;
+		throw new ForbiddenException(
+			moneyRefusalMessage(p, "see job costs and profit."),
+		);
+	}
+
+	async jobProfitability(p: AccessPrincipal, input: ReportRangeInput) {
+		this.assertProfit(p);
 
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
@@ -90,12 +96,17 @@ export class ReportsService {
 		const [invoices, costs] = await Promise.all([
 			this.db.invoice.findMany({
 				where: {
-					status: { in: [...INVOICES.revenueStatuses] },
-					dealId: { not: null },
-					OR: [
-						{ issuedAt: range },
-						{ issuedAt: null, createdAt: range },
-						{ status: "PAID", paidAt: range },
+					AND: [
+						{
+							status: { in: [...INVOICES.revenueStatuses] },
+							dealId: { not: null },
+							OR: [
+								{ issuedAt: range },
+								{ issuedAt: null, createdAt: range },
+								{ status: "PAID", paidAt: range },
+							],
+						},
+						dealChildWhere(p),
 					],
 				},
 				select: {
@@ -109,7 +120,7 @@ export class ReportsService {
 				},
 			}),
 			this.db.jobCost.findMany({
-				where: { date: range },
+				where: { AND: [{ date: range }, { deal: dealScopeWhere(p) }] },
 				select: { dealId: true, currency: true, amountCents: true },
 			}),
 		]);
@@ -247,8 +258,8 @@ export class ReportsService {
 		return { kpis, series, rows, excluded };
 	}
 
-	async profitOverTime(userId: string, input: ReportRangeInput) {
-		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+	async profitOverTime(p: AccessPrincipal, input: ReportRangeInput) {
+		this.assertProfit(p);
 
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
@@ -258,17 +269,22 @@ export class ReportsService {
 		const [invoices, costs] = await Promise.all([
 			this.db.invoice.findMany({
 				where: {
-					OR: [
+					AND: [
 						{
-							status: { in: [...INVOICES.revenueStatuses] },
-							issuedAt: range,
+							OR: [
+								{
+									status: { in: [...INVOICES.revenueStatuses] },
+									issuedAt: range,
+								},
+								{
+									status: { in: [...INVOICES.revenueStatuses] },
+									issuedAt: null,
+									createdAt: range,
+								},
+								{ status: "PAID", paidAt: range },
+							],
 						},
-						{
-							status: { in: [...INVOICES.revenueStatuses] },
-							issuedAt: null,
-							createdAt: range,
-						},
-						{ status: "PAID", paidAt: range },
+						dealChildWhere(p),
 					],
 				},
 				select: {
@@ -281,7 +297,7 @@ export class ReportsService {
 				},
 			}),
 			this.db.jobCost.findMany({
-				where: { date: range },
+				where: { AND: [{ date: range }, { deal: dealScopeWhere(p) }] },
 				select: { date: true, currency: true, amountCents: true },
 			}),
 		]);
@@ -374,8 +390,8 @@ export class ReportsService {
 		return { kpis, series, rows, excluded };
 	}
 
-	async costBreakdown(userId: string, input: ReportRangeInput) {
-		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+	async costBreakdown(p: AccessPrincipal, input: ReportRangeInput) {
+		this.assertProfit(p);
 
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
@@ -383,7 +399,7 @@ export class ReportsService {
 		const range = resolveRange(from, to);
 
 		const costs = await this.db.jobCost.findMany({
-			where: { date: range },
+			where: { AND: [{ date: range }, { deal: dealScopeWhere(p) }] },
 			select: {
 				currency: true,
 				amountCents: true,
@@ -487,8 +503,8 @@ export class ReportsService {
 		};
 	}
 
-	async arAging(userId: string, input: ReportRangeInput) {
-		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+	async arAging(p: AccessPrincipal, input: ReportRangeInput) {
+		this.assertProfit(p);
 
 		const now = new Date();
 		const from = input.from ?? monthStart(now, REPORTS.trailingMonths - 1);
@@ -497,7 +513,7 @@ export class ReportsService {
 
 		const [sentInvoices, paidInvoices] = await Promise.all([
 			this.db.invoice.findMany({
-				where: { status: "SENT" },
+				where: { AND: [{ status: "SENT" }, dealChildWhere(p)] },
 				select: {
 					id: true,
 					number: true,
@@ -512,9 +528,14 @@ export class ReportsService {
 			}),
 			this.db.invoice.findMany({
 				where: {
-					status: "PAID",
-					paidAt: { not: null },
-					OR: [{ issuedAt: range }, { issuedAt: null, createdAt: range }],
+					AND: [
+						{
+							status: "PAID",
+							paidAt: { not: null },
+							OR: [{ issuedAt: range }, { issuedAt: null, createdAt: range }],
+						},
+						dealChildWhere(p),
+					],
 				},
 				select: {
 					currency: true,
@@ -642,11 +663,8 @@ export class ReportsService {
 		);
 	}
 
-	async leaderboard(userId: string, input: ReportRangeInput) {
-		const hasProfitView = await this.permissions.hasPermission(
-			userId,
-			PERMISSION_KEYS.profitView,
-		);
+	async leaderboard(p: AccessPrincipal, input: ReportRangeInput) {
+		const hasProfitView = hasMoney(p, "profit");
 		const { from, to } = this.defaultRange(input);
 		const range = resolveRange(from, to);
 		const base = await this.conversion.reportingCurrency();
@@ -674,24 +692,39 @@ export class ReportsService {
 			await Promise.all([
 				this.db.deal.findMany({
 					where: {
-						ownerId: { in: ownerIds },
-						stageId: { in: wonStageIds },
-						closedAt: range,
+						AND: [
+							{
+								ownerId: { in: ownerIds },
+								stageId: { in: wonStageIds },
+								closedAt: range,
+							},
+							dealScopeWhere(p),
+						],
 					},
 					select: { ownerId: true, baseAmount: true, baseCurrency: true },
 				}),
 				this.db.deal.groupBy({
 					by: ["ownerId"],
 					where: {
-						ownerId: { in: ownerIds },
-						stageId: { in: lostStageIds },
-						closedAt: range,
+						AND: [
+							{
+								ownerId: { in: ownerIds },
+								stageId: { in: lostStageIds },
+								closedAt: range,
+							},
+							dealScopeWhere(p),
+						],
 					},
 					_count: { _all: true },
 				}),
 				this.db.deal.groupBy({
 					by: ["ownerId"],
-					where: { ownerId: { in: ownerIds }, stageId: { in: openStageIds } },
+					where: {
+						AND: [
+							{ ownerId: { in: ownerIds }, stageId: { in: openStageIds } },
+							dealScopeWhere(p),
+						],
+					},
 					_count: { _all: true },
 				}),
 				this.db.activity.groupBy({
@@ -871,11 +904,8 @@ export class ReportsService {
 		};
 	}
 
-	async pipeline(userId: string, input: ReportRangeInput) {
-		const hasProfitView = await this.permissions.hasPermission(
-			userId,
-			PERMISSION_KEYS.profitView,
-		);
+	async pipeline(p: AccessPrincipal, input: ReportRangeInput) {
+		const hasProfitView = hasMoney(p, "profit");
 		const { from, to } = this.defaultRange(input);
 		const range = resolveRange(from, to);
 
@@ -928,7 +958,7 @@ export class ReportsService {
 		const dealIds = [...new Set(parsed.map((change) => change.dealId))];
 		const deals = dealIds.length
 			? await this.db.deal.findMany({
-					where: { id: { in: dealIds } },
+					where: { AND: [{ id: { in: dealIds } }, dealScopeWhere(p)] },
 					select: { id: true, stage: { select: { pipelineId: true } } },
 				})
 			: [];
@@ -977,8 +1007,10 @@ export class ReportsService {
 			? await this.db.deal.groupBy({
 					by: ["stageId", "closedReason"],
 					where: {
-						stageId: { in: lossStageIds },
-						closedAt: range,
+						AND: [
+							{ stageId: { in: lossStageIds }, closedAt: range },
+							dealScopeWhere(p),
+						],
 					},
 					_count: { _all: true },
 				})
@@ -1082,11 +1114,8 @@ export class ReportsService {
 		};
 	}
 
-	async leadSources(userId: string, input: ReportRangeInput) {
-		const hasProfitView = await this.permissions.hasPermission(
-			userId,
-			PERMISSION_KEYS.profitView,
-		);
+	async leadSources(p: AccessPrincipal, input: ReportRangeInput) {
+		const hasProfitView = hasMoney(p, "profit");
 		const { from, to } = this.defaultRange(input);
 		const range = resolveRange(from, to);
 		const base = await this.conversion.reportingCurrency();
@@ -1097,11 +1126,16 @@ export class ReportsService {
 				select: { id: true, source: true },
 			}),
 			this.db.deal.findMany({
-				where: { createdAt: range },
+				where: { AND: [{ createdAt: range }, dealScopeWhere(p)] },
 				select: { id: true },
 			}),
 			this.db.deal.findMany({
-				where: { stage: { outcome: StageOutcome.WON }, closedAt: range },
+				where: {
+					AND: [
+						{ stage: { outcome: StageOutcome.WON }, closedAt: range },
+						dealScopeWhere(p),
+					],
+				},
 				select: { id: true, baseAmount: true, baseCurrency: true },
 			}),
 		]);
@@ -1313,7 +1347,7 @@ export class ReportsService {
 			: null;
 	}
 
-	async production(_userId: string, input: ReportRangeInput) {
+	async production(p: AccessPrincipal, input: ReportRangeInput) {
 		const { from, to } = this.defaultRange(input);
 		const range = resolveRange(from, to);
 
@@ -1321,15 +1355,22 @@ export class ReportsService {
 			await Promise.all([
 				this.db.deal.groupBy({
 					by: ["productionStage"],
-					where: { productionStage: { not: null } },
+					where: {
+						AND: [{ productionStage: { not: null } }, dealScopeWhere(p)],
+					},
 					_count: { _all: true },
 				}),
 				this.db.deal.findMany({
 					where: {
-						productionStage: {
-							in: [ProductionStage.COMPLETE, ProductionStage.PAID],
-						},
-						productionStageChangedAt: range,
+						AND: [
+							{
+								productionStage: {
+									in: [ProductionStage.COMPLETE, ProductionStage.PAID],
+								},
+								productionStageChangedAt: range,
+							},
+							dealScopeWhere(p),
+						],
 					},
 					select: { productionStageChangedAt: true },
 				}),
@@ -1432,11 +1473,8 @@ export class ReportsService {
 		};
 	}
 
-	async permits(userId: string, input: ReportRangeInput) {
-		const hasProfitView = await this.permissions.hasPermission(
-			userId,
-			PERMISSION_KEYS.profitView,
-		);
+	async permits(p: AccessPrincipal, input: ReportRangeInput) {
+		const hasProfitView = hasMoney(p, "profit");
 		const { from, to } = this.defaultRange(input);
 		const range = resolveRange(from, to);
 		const now = new Date();
@@ -1447,11 +1485,17 @@ export class ReportsService {
 
 		const [statusGroups, cycleRows, inspections, feesRows, expiring] =
 			await Promise.all([
-				this.db.permit.groupBy({ by: ["status"], _count: { _all: true } }),
+				this.db.permit.groupBy({
+					by: ["status"],
+					where: { deal: dealScopeWhere(p) },
+					_count: { _all: true },
+				}),
 				this.db.permit.findMany({
 					where: {
-						submittedAt: { not: null },
-						issuedAt: range,
+						AND: [
+							{ submittedAt: { not: null }, issuedAt: range },
+							{ deal: dealScopeWhere(p) },
+						],
 					},
 					select: {
 						submittedAt: true,
@@ -1461,20 +1505,32 @@ export class ReportsService {
 					},
 				}),
 				this.db.permitInspection.findMany({
-					where: { scheduledFor: range },
+					where: {
+						AND: [
+							{ scheduledFor: range },
+							{ permit: { deal: dealScopeWhere(p) } },
+						],
+					},
 					select: { result: true },
 				}),
 				this.db.permit.findMany({
 					where: {
-						submittedAt: range,
-						feeCents: { not: null },
+						AND: [
+							{ submittedAt: range, feeCents: { not: null } },
+							{ deal: dealScopeWhere(p) },
+						],
 					},
 					select: { feeCents: true },
 				}),
 				this.db.permit.findMany({
 					where: {
-						status: { in: [PermitStatus.ISSUED, PermitStatus.INSPECTIONS] },
-						expiresAt: { gte: todayUtc, lte: expiringScanEnd },
+						AND: [
+							{
+								status: { in: [PermitStatus.ISSUED, PermitStatus.INSPECTIONS] },
+								expiresAt: { gte: todayUtc, lte: expiringScanEnd },
+							},
+							{ deal: dealScopeWhere(p) },
+						],
 					},
 					select: {
 						id: true,

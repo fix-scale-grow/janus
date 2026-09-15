@@ -24,7 +24,6 @@ import {
 } from "../src/invoices/invoices.contracts";
 import { InvoicesService } from "../src/invoices/invoices.service";
 import type { MailerService } from "../src/mailer/mailer.service";
-import { PermissionsService } from "../src/permissions/permissions.service";
 import { PermitPrefillService } from "../src/permits/permit-prefill.service";
 import { permitListInput } from "../src/permits/permits.contracts";
 import { PermitsService } from "../src/permits/permits.service";
@@ -85,8 +84,7 @@ const projects = new ProjectsService(db, noProduction);
 const playbooks = new PlaybooksService(db);
 const permitPrefill = new PermitPrefillService(db);
 const permits = new PermitsService(db, playbooks, permitPrefill);
-const permissions = new PermissionsService(db);
-const costs = new CostsService(db, permissions);
+const costs = new CostsService(db);
 
 const DEFAULT_ESTIMATE_LIST_INPUT = estimateListInput.parse({});
 const DEFAULT_INVOICE_LIST_INPUT = invoiceListInput.parse({});

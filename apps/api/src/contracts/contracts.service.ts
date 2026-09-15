@@ -7,6 +7,7 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
+import { maskCents } from "@crm/db/access-money";
 import type { AccessPrincipal } from "@crm/db/access-policy";
 import {
 	contactScopeWhere,
@@ -237,15 +238,26 @@ export class ContractsService {
 		]);
 
 		return {
-			rows: rows.map(({ contact, estimate, invoice, ...row }) => ({
-				...row,
-				estimate: estimate ? { id: estimate.id, title: estimate.title } : null,
-				invoice: invoice ? { id: invoice.id, number: invoice.number } : null,
-				...contractValue({ estimate, invoice }),
-				contact: contact
-					? { id: contact.id, name: contactName(contact) }
-					: null,
-			})),
+			rows: rows.map(({ contact, estimate, invoice, ...row }) =>
+				maskCents(
+					p,
+					"prices",
+					{
+						...row,
+						estimate: estimate
+							? { id: estimate.id, title: estimate.title }
+							: null,
+						invoice: invoice
+							? { id: invoice.id, number: invoice.number }
+							: null,
+						...contractValue({ estimate, invoice }),
+						contact: contact
+							? { id: contact.id, name: contactName(contact) }
+							: null,
+					},
+					["valueCents"],
+				),
+			),
 			total,
 			facetCounts: {},
 		};

@@ -3,7 +3,7 @@ import { Ctx, Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { reportRangeInput } from "./reports.contracts";
 import { ReportsService } from "./reports.service";
@@ -17,73 +17,73 @@ export class ReportsRouter {
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async jobProfitability(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.jobProfitability(ctx.user.id, input);
+		return this.reports.jobProfitability(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async profitOverTime(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.profitOverTime(ctx.user.id, input);
+		return this.reports.profitOverTime(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async costBreakdown(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.costBreakdown(ctx.user.id, input);
+		return this.reports.costBreakdown(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async arAging(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.arAging(ctx.user.id, input);
+		return this.reports.arAging(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async leaderboard(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.leaderboard(ctx.user.id, input);
+		return this.reports.leaderboard(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async pipeline(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.pipeline(ctx.user.id, input);
+		return this.reports.pipeline(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async leadSources(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.leadSources(ctx.user.id, input);
+		return this.reports.leadSources(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async production(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.production(ctx.user.id, input);
+		return this.reports.production(ctx.access, input);
 	}
 
 	@Query({ input: reportRangeInput, meta: access("reports", "VIEW") })
 	async permits(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof reportRangeInput>,
 	) {
-		return this.reports.permits(ctx.user.id, input);
+		return this.reports.permits(ctx.access, input);
 	}
 }

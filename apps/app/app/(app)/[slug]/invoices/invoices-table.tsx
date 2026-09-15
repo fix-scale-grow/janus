@@ -187,7 +187,11 @@ function PageInvoicesTable({ savedState }: { savedState?: SavedTableView }) {
 			width: "w-[14%]",
 			cell: (row) => (
 				<span className="tabular-nums">
-					{formatMoney(row.totalCents, row.currency)}
+					{row.totalCents === null ? (
+						<span className="text-muted-foreground">Hidden</span>
+					) : (
+						formatMoney(row.totalCents, row.currency)
+					)}
 				</span>
 			),
 		},
@@ -345,7 +349,11 @@ function EmbeddedInvoicesTable({
 						<AgingBadge aging={row.aging} />
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right tabular-nums">
-						{formatMoney(row.totalCents, row.currency)}
+						{row.totalCents === null ? (
+							<span className="text-muted-foreground">Hidden</span>
+						) : (
+							formatMoney(row.totalCents, row.currency)
+						)}
 					</TableCell>
 					<TableCell className="py-2.5 pr-3 text-right text-muted-foreground">
 						<LocalRelativeTime date={row.updatedAt} />

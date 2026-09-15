@@ -375,7 +375,11 @@ export function InvoiceDetail({
 						</Field>
 						<StatCard
 							label="Total"
-							value={formatMoney(data.totalCents, data.currency)}
+							value={
+								data.totalCents === null
+									? "Hidden"
+									: formatMoney(data.totalCents, data.currency)
+							}
 							className="rounded-lg border bg-card"
 						/>
 					</div>
@@ -452,7 +456,12 @@ export function InvoiceDetail({
 
 					<div className="flex justify-end border-t pt-4">
 						<span className="text-lg font-semibold tabular-nums">
-							Total: {formatMoney(data.totalCents, data.currency)}
+							Total:{" "}
+							{data.totalCents === null ? (
+								<span className="text-muted-foreground">Hidden</span>
+							) : (
+								formatMoney(data.totalCents, data.currency)
+							)}
 						</span>
 					</div>
 				</div>

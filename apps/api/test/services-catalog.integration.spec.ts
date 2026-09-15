@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { ROOFING_SEED } from "../src/services-catalog/roofing-seed";
 import { ServicesCatalogService } from "../src/services-catalog/services-catalog.service";
 
 const service = new ServicesCatalogService(db);
+const admin = adminPrincipal("services-catalog-spec");
 
 beforeAll(async () => {
 	await db.service.deleteMany({ where: { trade: "roofing" } });
@@ -15,7 +17,7 @@ afterAll(async () => {
 
 describe("ServicesCatalogService.seedRoofing", () => {
 	it("loads the roofing catalog into an empty workspace", async () => {
-		const result = await service.seedRoofing();
+		const result = await service.seedRoofing(admin);
 
 		expect(result.created).toBe(ROOFING_SEED.length);
 
@@ -28,7 +30,7 @@ describe("ServicesCatalogService.seedRoofing", () => {
 	});
 
 	it("creates nothing on a second run and leaves no duplicate names", async () => {
-		const result = await service.seedRoofing();
+		const result = await service.seedRoofing(admin);
 
 		expect(result.created).toBe(0);
 
@@ -47,8 +49,8 @@ describe("ServicesCatalogService.seedRoofing", () => {
 		await db.service.deleteMany({ where: { trade: "roofing" } });
 
 		const [first, second] = await Promise.all([
-			service.seedRoofing(),
-			service.seedRoofing(),
+			service.seedRoofing(admin),
+			service.seedRoofing(admin),
 		]);
 
 		expect(first.created + second.created).toBe(ROOFING_SEED.length);

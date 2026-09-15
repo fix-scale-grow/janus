@@ -1,7 +1,13 @@
 import { type Db, Prisma as PrismaNamespace } from "@crm/db";
+import { maskCents, moneyRefusalMessage } from "@crm/db/access-money";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { parseServiceModifier, type ServiceModifier } from "@crm/drawings";
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+	ForbiddenException,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { paginate } from "../trpc/list-input";
 import { PITCH_MODIFIED_SERVICE_NAMES, ROOFING_SEED } from "./roofing-seed";
@@ -10,6 +16,13 @@ import type {
 	ServiceListInput,
 	ServiceUpdateInput,
 } from "./services-catalog.contracts";
+
+const PRICE_KEYS = [
+	"unitPriceCents",
+	"costCents",
+	"priceGoodCents",
+	"priceBestCents",
+] as const;
 
 function toJsonModifier(modifier: ServiceModifier | null | undefined) {
 	if (modifier === undefined) return undefined;
@@ -29,7 +42,7 @@ function presentService<T extends ServiceRecord>(
 export class ServicesCatalogService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async list(input: ServiceListInput) {
+	async list(input: ServiceListInput, p: AccessPrincipal) {
 		const where = this.buildWhere(input);
 		const { skip, take } = paginate(input);
 
@@ -43,27 +56,35 @@ export class ServicesCatalogService {
 			this.db.service.count({ where }),
 		]);
 
-		return { rows: rows.map(presentService), total, facetCounts: {} };
+		return {
+			rows: rows.map((row) =>
+				maskCents(p, "prices", presentService(row), PRICE_KEYS),
+			),
+			total,
+			facetCounts: {},
+		};
 	}
 
-	async byId(id: string) {
+	async byId(id: string, p: AccessPrincipal) {
 		const row = await this.db.service.findUnique({ where: { id } });
 
 		if (!row) {
 			throw new NotFoundException(`No service with id ${id}.`);
 		}
 
-		return presentService(row);
+		return maskCents(p, "prices", presentService(row), PRICE_KEYS);
 	}
 
-	async create(input: ServiceCreateInput) {
+	async create(input: ServiceCreateInput, p: AccessPrincipal) {
+		this.assertCanEditPriceBook(p);
 		const row = await this.db.service.create({
 			data: { ...input, modifier: toJsonModifier(input.modifier) },
 		});
 		return presentService(row);
 	}
 
-	async update(input: ServiceUpdateInput) {
+	async update(input: ServiceUpdateInput, p: AccessPrincipal) {
+		this.assertCanEditPriceBook(p);
 		try {
 			const row = await this.db.service.update({
 				where: { id: input.id },
@@ -78,7 +99,8 @@ export class ServicesCatalogService {
 		}
 	}
 
-	async delete(id: string) {
+	async delete(id: string, p: AccessPrincipal) {
+		this.assertCanEditPriceBook(p);
 		try {
 			return await this.db.service.delete({
 				where: { id },
@@ -89,7 +111,8 @@ export class ServicesCatalogService {
 		}
 	}
 
-	async seedRoofing() {
+	async seedRoofing(p: AccessPrincipal) {
+		this.assertCanEditPriceBook(p);
 		return this.db.$transaction(async (tx) => {
 			await lockIdempotencyKey(tx, "services-catalog:seed-roofing");
 
@@ -152,6 +175,13 @@ export class ServicesCatalogService {
 
 			return { created };
 		});
+	}
+
+	private assertCanEditPriceBook(p: AccessPrincipal): void {
+		if (hasMoney(p, "priceBook")) return;
+		throw new ForbiddenException(
+			moneyRefusalMessage(p, "edit the price book."),
+		);
 	}
 
 	private buildWhere(input: ServiceListInput) {

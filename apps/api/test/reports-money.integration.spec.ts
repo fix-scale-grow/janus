@@ -1,17 +1,38 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { ACCESS_AREAS } from "@crm/db/access-config";
+import type { AccessPolicy, AccessPrincipal } from "@crm/db/access-policy";
 import { ForbiddenException } from "@nestjs/common";
 import { ConversionService } from "../src/currency/conversion.service";
-import { PermissionsService } from "../src/permissions/permissions.service";
 import { ReportsService } from "../src/reports/reports.service";
 import { agingBucket, fallbackDueAt } from "../src/reports/reports-logic";
 
 const suffix = process.env.TEST_RUN_ID ?? "reports-money-spec";
 
-const permissions = new PermissionsService(db);
 const conversion = new ConversionService(db);
-const service = new ReportsService(db, permissions, conversion);
+const service = new ReportsService(db, conversion);
+
+function principalWithMoney(
+	userId: string,
+	money: AccessPolicy["money"],
+): AccessPrincipal {
+	return {
+		userId,
+		isAdmin: false,
+		groupId: null,
+		groupName: "Test group",
+		surface: "FULL",
+		scope: "ALL",
+		policy: {
+			areas: Object.fromEntries(
+				ACCESS_AREAS.map((area) => [area, "EDIT"]),
+			) as AccessPolicy["areas"],
+			actions: [],
+			money,
+		},
+	};
+}
 
 let adminUserId: string;
 let memberUserId: string;
@@ -145,11 +166,6 @@ beforeAll(async () => {
 		},
 	});
 
-	await permissions.grant(adminUserId, {
-		userId: memberUserId,
-		key: "profit.view",
-	});
-
 	const seededStage = await db.stage.findFirstOrThrow({
 		where: { key: "DEMO_BOOKED" },
 		select: { id: true },
@@ -245,10 +261,16 @@ describe("money report procs", () => {
 	it("403s without profit.view", async () => {
 		const range = {};
 		for (const call of [
-			() => service.jobProfitability(forbiddenUserId, range),
-			() => service.profitOverTime(forbiddenUserId, range),
-			() => service.costBreakdown(forbiddenUserId, range),
-			() => service.arAging(forbiddenUserId, range),
+			() =>
+				service.jobProfitability(
+					principalWithMoney(forbiddenUserId, []),
+					range,
+				),
+			() =>
+				service.profitOverTime(principalWithMoney(forbiddenUserId, []), range),
+			() =>
+				service.costBreakdown(principalWithMoney(forbiddenUserId, []), range),
+			() => service.arAging(principalWithMoney(forbiddenUserId, []), range),
 		]) {
 			let thrown: unknown;
 			try {
@@ -333,7 +355,10 @@ describe("money report procs", () => {
 				},
 			});
 
-			const result = await service.jobProfitability(memberUserId, range);
+			const result = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 			const matching = result.rows.filter((row) => row.dealId === dealId);
 			expect(matching.length).toBe(1);
 
@@ -392,8 +417,14 @@ describe("money report procs", () => {
 				lineTotalCents: 1000,
 			});
 
-			const first = await service.jobProfitability(memberUserId, range);
-			const second = await service.jobProfitability(memberUserId, range);
+			const first = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
+			const second = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 			const firstRow = first.rows.find((row) => row.dealId === dealId);
 			const secondRow = second.rows.find((row) => row.dealId === dealId);
 			if (!firstRow || !secondRow) throw new Error("expected a row");
@@ -451,7 +482,10 @@ describe("money report procs", () => {
 				lineTotalCents: 8888,
 			});
 
-			const result = await service.jobProfitability(memberUserId, range);
+			const result = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 
 			const sentRow = result.rows.find((row) => row.dealId === sentDealId);
 			if (!sentRow) throw new Error("expected the sent deal to have a row");
@@ -493,14 +527,20 @@ describe("money report procs", () => {
 				},
 			});
 
-			const before = await service.jobProfitability(memberUserId, {
-				from: new Date("2020-01-19T00:00:00.000Z"),
-				to: new Date("2020-01-19T00:00:00.000Z"),
-			});
-			const result = await service.jobProfitability(memberUserId, {
-				from: new Date("2020-01-19T00:00:00.000Z"),
-				to: new Date("2020-01-23T00:00:00.000Z"),
-			});
+			const before = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				{
+					from: new Date("2020-01-19T00:00:00.000Z"),
+					to: new Date("2020-01-19T00:00:00.000Z"),
+				},
+			);
+			const result = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				{
+					from: new Date("2020-01-19T00:00:00.000Z"),
+					to: new Date("2020-01-23T00:00:00.000Z"),
+				},
+			);
 
 			expect(
 				result.rows.find((row) => row.dealId === eurDealId),
@@ -537,7 +577,10 @@ describe("money report procs", () => {
 				lineTotalCents: 5500,
 			});
 
-			const result = await service.jobProfitability(memberUserId, range);
+			const result = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 
 			const issuedInPaidOutRow = result.rows.find(
 				(row) => row.dealId === issuedInPaidOutDealId,
@@ -568,7 +611,10 @@ describe("money report procs", () => {
 				lineTotalCents: 1234,
 			});
 
-			const result = await service.jobProfitability(memberUserId, range);
+			const result = await service.jobProfitability(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 			const row = result.rows.find((row) => row.dealId === dealId);
 			if (!row) throw new Error("expected the late-on-the-to-day row");
 			expect(row.invoicedCents).toBe(1234);
@@ -615,10 +661,13 @@ describe("money report procs", () => {
 				},
 			});
 
-			const result = await service.costBreakdown(memberUserId, {
-				from: new Date("2020-05-01T00:00:00.000Z"),
-				to: new Date("2020-05-03T00:00:00.000Z"),
-			});
+			const result = await service.costBreakdown(
+				principalWithMoney(memberUserId, ["profit"]),
+				{
+					from: new Date("2020-05-01T00:00:00.000Z"),
+					to: new Date("2020-05-03T00:00:00.000Z"),
+				},
+			);
 
 			expect(result.excluded).toBe(1);
 			expect(
@@ -734,7 +783,10 @@ describe("money report procs", () => {
 				lineTotalCents: 2500,
 			});
 
-			const result = await service.arAging(memberUserId, range);
+			const result = await service.arAging(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 
 			const currentRow = result.rows.find(
 				(row) => row.invoiceId === `reports-money-invoice-ar-current-${suffix}`,
@@ -813,7 +865,10 @@ describe("money report procs", () => {
 				lineTotalCents: 6000,
 			});
 
-			const result = await service.arAging(memberUserId, range);
+			const result = await service.arAging(
+				principalWithMoney(memberUserId, ["profit"]),
+				range,
+			);
 			const row = result.rows.find(
 				(row) =>
 					row.invoiceId === `reports-money-invoice-ar-snapshot-${suffix}`,
@@ -865,10 +920,13 @@ describe("money report procs", () => {
 				},
 			});
 
-			const result = await service.profitOverTime(memberUserId, {
-				from: new Date("2020-06-01T00:00:00.000Z"),
-				to: new Date("2020-08-31T00:00:00.000Z"),
-			});
+			const result = await service.profitOverTime(
+				principalWithMoney(memberUserId, ["profit"]),
+				{
+					from: new Date("2020-06-01T00:00:00.000Z"),
+					to: new Date("2020-08-31T00:00:00.000Z"),
+				},
+			);
 
 			expect(result.rows.map((row) => row.month)).toEqual([
 				"2020-06",

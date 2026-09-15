@@ -3,7 +3,7 @@ import { Ctx, Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { z } from "zod";
 import { anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	dashboardPipelineBoardInput,
@@ -20,24 +20,25 @@ export class DashboardRouter {
 
 	@Query({ input: dashboardSummaryInput, meta: anyMember() })
 	async summary(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof dashboardSummaryInput>,
 	) {
-		return this.dashboard.summary(ctx.user.id, input);
+		return this.dashboard.summary(ctx.user.id, input, ctx.access);
 	}
 
 	@Query({ input: dashboardSummaryInput, meta: anyMember() })
 	async pipelineStages(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof dashboardSummaryInput>,
 	) {
-		return this.dashboard.pipelineStages(ctx.user.id, input);
+		return this.dashboard.pipelineStages(ctx.user.id, input, ctx.access);
 	}
 
 	@Query({ input: dashboardPipelineBoardInput, meta: anyMember() })
 	async pipelineBoard(
 		@Input() input: z.infer<typeof dashboardPipelineBoardInput>,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.dashboard.pipelineBoard(input);
+		return this.dashboard.pipelineBoard(input, ctx.access);
 	}
 }

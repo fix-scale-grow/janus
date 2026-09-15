@@ -63,14 +63,18 @@ export function InvoiceLineRow({
 
 	const itemQuantity = Number(item.quantity);
 	const symbol = currencySymbol(currency);
+	const pricesHidden = item.priceCents === null;
 
 	const [name, setName] = useState(item.name);
 	const [quantity, setQuantity] = useState(itemQuantity.toFixed(2));
-	const [price, setPrice] = useState(centsToDollars(item.priceCents));
+	const [price, setPrice] = useState(centsToDollars(item.priceCents ?? 0));
 
 	useEffect(() => setName(item.name), [item.name]);
 	useEffect(() => setQuantity(itemQuantity.toFixed(2)), [itemQuantity]);
-	useEffect(() => setPrice(centsToDollars(item.priceCents)), [item.priceCents]);
+	useEffect(
+		() => setPrice(centsToDollars(item.priceCents ?? 0)),
+		[item.priceCents],
+	);
 
 	const update = useMutation(
 		trpc.invoices.updateLineItem.mutationOptions({
@@ -112,7 +116,7 @@ export function InvoiceLineRow({
 		const parsed = parseCents(price);
 		if (parsed === undefined) {
 			toast.error("Price has to be a number, zero or more.");
-			setPrice(centsToDollars(item.priceCents));
+			setPrice(centsToDollars(item.priceCents ?? 0));
 			return;
 		}
 		setPrice(centsToDollars(parsed));
@@ -120,7 +124,10 @@ export function InvoiceLineRow({
 		update.mutate({ id: item.id, data: { priceCents: parsed } });
 	};
 
-	const lineTotalCents = Math.round(itemQuantity * item.priceCents);
+	const lineTotalCents =
+		item.priceCents === null
+			? null
+			: Math.round(itemQuantity * item.priceCents);
 
 	return (
 		<SimpleTableRow>
@@ -144,21 +151,29 @@ export function InvoiceLineRow({
 				{UNIT_LABELS[item.unit]}
 			</TableCell>
 			<TableCell className="px-3 py-2">
-				<InputGroup>
-					<InputGroupAddon>
-						<InputGroupText>{symbol}</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						inputMode="decimal"
-						value={price}
-						onChange={(event) => setPrice(event.target.value)}
-						onBlur={commitPrice}
-						className="text-right tabular-nums"
-					/>
-				</InputGroup>
+				{pricesHidden ? (
+					<span className="text-muted-foreground">Hidden</span>
+				) : (
+					<InputGroup>
+						<InputGroupAddon>
+							<InputGroupText>{symbol}</InputGroupText>
+						</InputGroupAddon>
+						<InputGroupInput
+							inputMode="decimal"
+							value={price}
+							onChange={(event) => setPrice(event.target.value)}
+							onBlur={commitPrice}
+							className="text-right tabular-nums"
+						/>
+					</InputGroup>
+				)}
 			</TableCell>
 			<TableCell className="px-3 py-2 text-right tabular-nums">
-				{formatMoney(lineTotalCents, currency)}
+				{lineTotalCents === null ? (
+					<span className="text-muted-foreground">Hidden</span>
+				) : (
+					formatMoney(lineTotalCents, currency)
+				)}
 			</TableCell>
 			<TableCell className="px-3 py-2">
 				<Button

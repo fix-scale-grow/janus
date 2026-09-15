@@ -1,4 +1,7 @@
 import { ActivityType, type Db, StageOutcome } from "@crm/db";
+import { maskCents, maskLineItems } from "@crm/db/access-money";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { dealScopeWhere } from "@crm/db/access-scope";
 import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
@@ -58,9 +61,14 @@ export class DashboardService {
 		private readonly conversion: ConversionService,
 	) {}
 
-	async summary(actingUserId: string, input: DashboardSummaryInput) {
+	async summary(
+		actingUserId: string,
+		input: DashboardSummaryInput,
+		p: AccessPrincipal,
+	) {
 		const mine = input.scope === "me";
 		const owned = mine ? { ownerId: actingUserId } : {};
+		const scoped = { AND: [owned, dealScopeWhere(p)] };
 
 		const now = new Date();
 		const startOfMonth = monthStart(now, 0);
@@ -82,13 +90,18 @@ export class DashboardService {
 			recentActivity,
 			unconverted,
 		] = await Promise.all([
-			this.stageChart(owned, base, input.pipelineId),
+			this.stageChart(owned, base, input.pipelineId, p),
 			this.db.deal.findMany({
 				where: {
-					...owned,
-					OR: [
-						{ createdAt: { gte: trendStart } },
-						{ closedAt: { gte: trendStart } },
+					AND: [
+						{
+							...owned,
+							OR: [
+								{ createdAt: { gte: trendStart } },
+								{ closedAt: { gte: trendStart } },
+							],
+						},
+						dealScopeWhere(p),
 					],
 				},
 				select: {
@@ -108,13 +121,16 @@ export class DashboardService {
 							expectedCloseDate: { gte: startOfMonth, lt: startOfNextMonth },
 						},
 						counted,
+						dealScopeWhere(p),
 					],
 				},
 				_count: { _all: true },
 				_sum: { baseAmount: true },
 			}),
 			this.db.deal.findMany({
-				where: { ...owned, stage: openAnyPipeline },
+				where: {
+					AND: [{ ...owned, stage: openAnyPipeline }, dealScopeWhere(p)],
+				},
 				orderBy: [
 					{ baseAmount: { sort: "desc", nulls: "last" } },
 					{ expectedCloseDate: "asc" },
@@ -164,7 +180,7 @@ export class DashboardService {
 					deal: { select: { id: true, name: true } },
 				},
 			}),
-			this.conversion.unconverted(owned),
+			this.conversion.unconverted(scoped),
 		]);
 
 		const firstBucket = monthKey(trendStart);
@@ -227,40 +243,58 @@ export class DashboardService {
 			reportingCurrency: base,
 			unconverted,
 			pipeline,
-			wonThisMonth,
-			wonPrevMonth,
-			performance: {
-				windowDays: RATE_WINDOW_DAYS,
-				wins,
-				losses,
-				winRate: decided === 0 ? null : wins / decided,
-				avgDealCents:
-					valuedWins === 0 ? null : Math.round(wonCents / valuedWins),
-				avgCycleDays: wins === 0 ? null : Math.round(cycleDays / wins),
-			},
-			trend,
-			closingThisMonthTotal: {
-				count: closingThisMonthTotals._count._all,
-				valueCents: toCents(closingThisMonthTotals._sum.baseAmount) ?? 0,
-			},
-			biggestOpen: biggestOpen
-				.map(
-					({
-						amount,
-						baseAmount,
-						baseCurrency,
-						expectedCloseDate,
-						stageChangedAt,
-						...deal
-					}) => ({
-						...deal,
-						amountCents: toCents(amount),
-						baseAmountCents: baseCurrency === base ? toCents(baseAmount) : null,
-						expectedCloseDate: expectedCloseDate?.toISOString() ?? null,
-						stageChangedAt: stageChangedAt.toISOString(),
-					}),
-				)
-				.sort((a, b) => (b.baseAmountCents ?? -1) - (a.baseAmountCents ?? -1)),
+			wonThisMonth: maskCents(p, "prices", wonThisMonth, ["valueCents"]),
+			wonPrevMonth: maskCents(p, "prices", wonPrevMonth, ["valueCents"]),
+			performance: maskCents(
+				p,
+				"prices",
+				{
+					windowDays: RATE_WINDOW_DAYS,
+					wins,
+					losses,
+					winRate: decided === 0 ? null : wins / decided,
+					avgDealCents:
+						valuedWins === 0 ? null : Math.round(wonCents / valuedWins),
+					avgCycleDays: wins === 0 ? null : Math.round(cycleDays / wins),
+				},
+				["avgDealCents"],
+			),
+			trend: maskLineItems(p, "prices", trend, ["won", "created"]),
+			closingThisMonthTotal: maskCents(
+				p,
+				"prices",
+				{
+					count: closingThisMonthTotals._count._all,
+					valueCents: toCents(closingThisMonthTotals._sum.baseAmount) ?? 0,
+				},
+				["valueCents"],
+			),
+			biggestOpen: maskLineItems(
+				p,
+				"prices",
+				biggestOpen
+					.map(
+						({
+							amount,
+							baseAmount,
+							baseCurrency,
+							expectedCloseDate,
+							stageChangedAt,
+							...deal
+						}) => ({
+							...deal,
+							amountCents: toCents(amount),
+							baseAmountCents:
+								baseCurrency === base ? toCents(baseAmount) : null,
+							expectedCloseDate: expectedCloseDate?.toISOString() ?? null,
+							stageChangedAt: stageChangedAt.toISOString(),
+						}),
+					)
+					.sort(
+						(a, b) => (b.baseAmountCents ?? -1) - (a.baseAmountCents ?? -1),
+					),
+				["amountCents", "baseAmountCents"],
+			),
 			overdueTasks: overdueTasks.map(({ dueAt, ...task }) => ({
 				...task,
 				dueAt: dueAt?.toISOString() ?? null,
@@ -273,14 +307,18 @@ export class DashboardService {
 		};
 	}
 
-	async pipelineStages(actingUserId: string, input: DashboardSummaryInput) {
+	async pipelineStages(
+		actingUserId: string,
+		input: DashboardSummaryInput,
+		p: AccessPrincipal,
+	) {
 		const owned =
 			input.scope === "me" ? { ownerId: actingUserId } : ({} as const);
 		const base = await this.conversion.reportingCurrency();
-		return this.stageChart(owned, base, input.pipelineId);
+		return this.stageChart(owned, base, input.pipelineId, p);
 	}
 
-	async pipelineBoard(input: DashboardPipelineBoardInput) {
+	async pipelineBoard(input: DashboardPipelineBoardInput, p: AccessPrincipal) {
 		const openStages = await this.db.stage.findMany({
 			where: {
 				pipelineId: input.pipelineId,
@@ -295,13 +333,13 @@ export class DashboardService {
 		const [openByStage, topDealsByStage] = await Promise.all([
 			this.db.deal.groupBy({
 				by: ["stageId"],
-				where: { stageId: { in: stageIds } },
+				where: { AND: [{ stageId: { in: stageIds } }, dealScopeWhere(p)] },
 				_count: { _all: true },
 			}),
 			Promise.all(
 				stageIds.map((stageId) =>
 					this.db.deal.findMany({
-						where: { stageId },
+						where: { AND: [{ stageId }, dealScopeWhere(p)] },
 						orderBy: [{ amount: { sort: "desc", nulls: "last" } }],
 						take: BOARD.topDealsLimit,
 						select: BOARD_DEAL_SELECT,
@@ -313,12 +351,17 @@ export class DashboardService {
 		return {
 			stages: openStages.map((stage, index) => {
 				const group = openByStage.find((row) => row.stageId === stage.id);
-				const topDeals = (topDealsByStage[index] ?? []).map(
-					({ amount, currency, stageId, ...deal }) => ({
-						...deal,
-						amountCents: toCents(amount),
-						currency,
-					}),
+				const topDeals = maskLineItems(
+					p,
+					"prices",
+					(topDealsByStage[index] ?? []).map(
+						({ amount, currency, stageId, ...deal }) => ({
+							...deal,
+							amountCents: toCents(amount),
+							currency,
+						}),
+					),
+					["amountCents"],
 				);
 
 				return {
@@ -335,7 +378,8 @@ export class DashboardService {
 	private async stageChart(
 		owned: { ownerId?: string },
 		base: string,
-		pipelineId?: string,
+		pipelineId: string | undefined,
+		p: AccessPrincipal,
 	) {
 		const counted = this.conversion.countedWhere(base);
 		const resolvedPipelineId = pipelineId ?? (await this.defaultPipelineId());
@@ -355,17 +399,25 @@ export class DashboardService {
 		const [openByStage, openValueByStage] = await Promise.all([
 			this.db.deal.groupBy({
 				by: ["stageId"],
-				where: { ...owned, stageId: { in: stageIds } },
+				where: {
+					AND: [{ ...owned, stageId: { in: stageIds } }, dealScopeWhere(p)],
+				},
 				_count: { _all: true },
 			}),
 			this.db.deal.groupBy({
 				by: ["stageId"],
-				where: { AND: [{ ...owned, stageId: { in: stageIds } }, counted] },
+				where: {
+					AND: [
+						{ ...owned, stageId: { in: stageIds } },
+						counted,
+						dealScopeWhere(p),
+					],
+				},
 				_sum: { baseAmount: true },
 			}),
 		]);
 
-		const stages = openStages.map((stage) => {
+		const rawStages = openStages.map((stage) => {
 			const group = openByStage.find((row) => row.stageId === stage.id);
 			const value = openValueByStage.find((row) => row.stageId === stage.id);
 			return {
@@ -377,12 +429,17 @@ export class DashboardService {
 			};
 		});
 
-		return {
-			pipelineId: resolvedPipelineId,
-			stages,
-			totalCents: stages.reduce((total, s) => total + s.valueCents, 0),
-			totalDeals: stages.reduce((total, s) => total + s.count, 0),
-		};
+		return maskCents(
+			p,
+			"prices",
+			{
+				pipelineId: resolvedPipelineId,
+				stages: maskLineItems(p, "prices", rawStages, ["valueCents"]),
+				totalCents: rawStages.reduce((total, s) => total + s.valueCents, 0),
+				totalDeals: rawStages.reduce((total, s) => total + s.count, 0),
+			},
+			["totalCents"],
+		);
 	}
 
 	private async defaultPipelineId(): Promise<string | null> {
