@@ -98,6 +98,19 @@ export async function ensureAccessGroups(client: Db): Promise<void> {
 	});
 }
 
+const seeding = new WeakMap<Db, Promise<void>>();
+
+export function ensureAccessGroupsOnce(client: Db): Promise<void> {
+	const pending = seeding.get(client);
+	if (pending) return pending;
+	const run = ensureAccessGroups(client).catch((error) => {
+		seeding.delete(client);
+		throw error;
+	});
+	seeding.set(client, run);
+	return run;
+}
+
 export async function resolvePrincipal(
 	client: Client,
 	userId: string,

@@ -9,7 +9,10 @@ import {
 	hasMoney,
 	refusalMessage,
 } from "@crm/db/access-policy";
-import { resolvePrincipal } from "@crm/db/access-resolve";
+import {
+	ensureAccessGroupsOnce,
+	resolvePrincipal,
+} from "@crm/db/access-resolve";
 import {
 	contactScopeWhere,
 	dealChildWhere,
@@ -133,6 +136,7 @@ export async function automationRequester(
 }
 
 async function memberPrincipal(userId: string): Promise<AccessPrincipal> {
+	await ensureAccessGroupsOnce(db);
 	const p = await resolvePrincipal(db, userId);
 	if (!p) throw new Error(AGENT_ACCESS.notMember);
 	return p;

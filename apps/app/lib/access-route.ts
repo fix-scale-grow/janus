@@ -1,6 +1,9 @@
 import { db } from "@crm/db";
 import { type AccessPrincipal, allows, hasMoney } from "@crm/db/access-policy";
-import { resolvePrincipal } from "@crm/db/access-resolve";
+import {
+	ensureAccessGroupsOnce,
+	resolvePrincipal,
+} from "@crm/db/access-resolve";
 import {
 	contactScopeWhere,
 	dealChildWhere,
@@ -12,6 +15,7 @@ import {
 export async function routePrincipal(
 	userId: string,
 ): Promise<AccessPrincipal | null> {
+	await ensureAccessGroupsOnce(db);
 	return resolvePrincipal(db, userId);
 }
 

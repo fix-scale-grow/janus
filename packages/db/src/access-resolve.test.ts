@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { ACCESS } from "./access-config";
-import { ensureAccessGroups, resolvePrincipal } from "./access-resolve";
+import {
+	ensureAccessGroups,
+	ensureAccessGroupsOnce,
+	resolvePrincipal,
+} from "./access-resolve";
 import { db } from "./client";
 import { WORKSPACE_ID } from "./workspace";
 
@@ -151,6 +155,13 @@ describe("resolvePrincipal", () => {
 		expect(row?.accessGroupsSeededAt).toBeInstanceOf(Date);
 		const waiting = await resolvePrincipal(db, ids.waiting);
 		expect(waiting?.groupId).toBeNull();
+	});
+
+	test("seeding once per process reuses one pending run per client", async () => {
+		const first = ensureAccessGroupsOnce(db);
+		const second = ensureAccessGroupsOnce(db);
+		expect(second).toBe(first);
+		await first;
 	});
 
 	test("non-member resolves null", async () => {
