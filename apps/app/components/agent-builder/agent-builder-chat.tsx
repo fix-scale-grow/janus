@@ -51,6 +51,7 @@ import {
 } from "@/lib/agent-builder";
 import {
 	agentBuilderCallIsActive,
+	agentUnavailable,
 	builderConversationIsWorking,
 	builderSessionStreamKey,
 	completedBuilderSteps,
@@ -58,6 +59,10 @@ import {
 	latestCompletedArtifactVersionId,
 	reviewVersionId,
 } from "@/lib/agent-builder-state";
+import {
+	AGENT_UNAVAILABLE_BODY,
+	AGENT_UNAVAILABLE_TITLE,
+} from "@/lib/agent-copy";
 import { toolLabel } from "@/lib/agent-tool-display";
 import {
 	type AgentTurnFailure,
@@ -137,6 +142,7 @@ export function AgentBuilderChat({
 		events: readonly MessageStreamEvent[];
 	} | null>(null);
 	const [sending, setSending] = useState<PendingSubmission[]>([]);
+	const [streamFailed, setStreamFailed] = useState(false);
 	const conversation = useQuery({
 		...trpc.conversations.builderById.queryOptions({ id: conversationId }),
 		enabled: !sharedChat,
@@ -265,7 +271,9 @@ export function AgentBuilderChat({
 			: null;
 	const failure = latestTurnFailure(transcriptEvents);
 	const creatingAgent = hasCreateAgentCommand(submissions);
-	const working = builderConversationIsWorking(data) && !failure;
+	const unavailable = agentUnavailable(data, streamFailed);
+	const working =
+		builderConversationIsWorking(data) && !failure && !unavailable;
 	const builderCallActive = agentBuilderCallIsActive(transcriptEvents);
 	const currentSubmissionCreatesAgent =
 		submissions.at(-1)?.commandType === "CREATE_AGENT";
@@ -339,6 +347,7 @@ export function AgentBuilderChat({
 							current?.key === streamKey ? null : current,
 						)
 					}
+					onFailed={() => setStreamFailed(true)}
 				/>
 			) : null}
 			<ChatHeader
@@ -398,8 +407,17 @@ export function AgentBuilderChat({
 								</MessageScrollerItem>
 							))}
 
-							{pendingSubmissions.length > 0 ||
-							(working && !builderCallActive) ? (
+							{unavailable ? (
+								<MessageScrollerItem
+									messageId={`agent-unavailable:${conversationId}`}
+								>
+									<AgentUnavailableCard />
+								</MessageScrollerItem>
+							) : null}
+
+							{!unavailable &&
+							(pendingSubmissions.length > 0 ||
+								(working && !builderCallActive)) ? (
 								<MessageScrollerItem messageId={`thinking:${conversationId}`}>
 									<ThinkingIndicator />
 								</MessageScrollerItem>
@@ -495,7 +513,11 @@ export function AgentBuilderChat({
 							}}
 						/>
 					) : (
-						<AgentComposer mode="chat" disabled={working} onSubmit={send} />
+						<AgentComposer
+							mode="chat"
+							disabled={working || unavailable}
+							onSubmit={send}
+						/>
 					)}
 				</div>
 			</div>
@@ -509,12 +531,14 @@ function BuilderEventFollower({
 	onSnapshot,
 	onEvent,
 	onEnded,
+	onFailed,
 }: {
 	conversationId: string;
 	sessionId: string;
 	onSnapshot: (events: readonly MessageStreamEvent[]) => void;
 	onEvent: (event: MessageStreamEvent) => void;
 	onEnded: () => void;
+	onFailed: () => void;
 }) {
 	useMountEffect(() => {
 		const controller = new AbortController();
@@ -540,7 +564,9 @@ function BuilderEventFollower({
 
 		void follow()
 			.catch((error: unknown) => {
-				if (!controller.signal.aborted) console.error(error);
+				if (controller.signal.aborted) return;
+				console.error(error);
+				onFailed();
 			})
 			.finally(() => {
 				if (!controller.signal.aborted) onEnded();
@@ -1121,6 +1147,23 @@ function BuildingAgentCard({
 						</AsyncButtonContent>
 					</Button>
 				</footer>
+			</div>
+		</div>
+	);
+}
+
+function AgentUnavailableCard() {
+	return (
+		<div
+			role="alert"
+			className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-card px-4 py-3"
+		>
+			<Icon icon={WarningAlt} className="mt-0.5 size-4 text-destructive" />
+			<div className="min-w-0 flex-1">
+				<p className="font-medium text-sm">{AGENT_UNAVAILABLE_TITLE}</p>
+				<p className="mt-0.5 text-pretty text-muted-foreground text-xs leading-5">
+					{AGENT_UNAVAILABLE_BODY}
+				</p>
 			</div>
 		</div>
 	);

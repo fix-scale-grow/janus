@@ -20,6 +20,7 @@ import {
 	resetOwnedBy,
 	sessionRecordAnchors,
 } from "./agent-conversation-route";
+import { AGENT_UNAVAILABLE } from "./agent-copy";
 
 export type BridgeUser = { id: string; email: string; name: string };
 
@@ -190,10 +191,7 @@ export async function bridgeEveRequest(
 		console.error("[eve bridge] upstream fetch failed", {
 			reason: error instanceof Error ? error.message : String(error),
 		});
-		return Response.json(
-			{ error: "Janus is unavailable right now. Try again." },
-			{ status: 502 },
-		);
+		return Response.json({ error: AGENT_UNAVAILABLE }, { status: 502 });
 	}
 
 	const createdSession =

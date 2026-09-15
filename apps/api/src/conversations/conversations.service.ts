@@ -21,6 +21,11 @@ import {
 } from "./conversation-attachments";
 import { conversationShareTokenHash } from "./conversation-share-token";
 import {
+	AGENT_UNREACHABLE,
+	AGENT_UNREACHABLE_CODE,
+	CONVERSATIONS,
+} from "./conversations.config";
+import {
 	type BuilderConversationCreateInput,
 	type BuilderConversationSubmitInput,
 	type BuilderQuestionResponseInput,
@@ -258,6 +263,7 @@ export class ConversationsService {
 
 	async builderById(id: string, userId: string) {
 		await this.assertWorkspaceMember(userId);
+		await this.failStalePendingSubmissions(id);
 		const row = await this.db.agentConversation.findFirst({
 			where: { id, userId, kind: "BUILDER" },
 			select: {
@@ -371,6 +377,7 @@ export class ConversationsService {
 
 		return {
 			...conversation,
+			agentReachable: this.agent?.canReachAgent() ?? false,
 			pendingQuestion: pendingBuilderQuestionOf(pendingInputRequest),
 			lastMessageAt: row.lastMessageAt.toISOString(),
 			lastAssistantAt: row.lastAssistantAt?.toISOString() ?? null,
@@ -451,6 +458,35 @@ export class ConversationsService {
 			const winner = await this.requestByClientId(input.clientRequestId);
 			if (!winner) throw error;
 			return this.replayBuilderCreation(winner, userId);
+		}
+	}
+
+	private async failStalePendingSubmissions(
+		conversationId: string,
+	): Promise<void> {
+		const cutoff = new Date(
+			Date.now() - CONVERSATIONS.builder.pendingTimeoutMs,
+		);
+
+		const stale = await this.db.agentConversationSubmission.updateMany({
+			where: {
+				conversationId,
+				status: "PENDING",
+				createdAt: { lt: cutoff },
+			},
+			data: {
+				status: "FAILED",
+				errorCode: AGENT_UNREACHABLE_CODE,
+				errorMessage: AGENT_UNREACHABLE,
+			},
+		});
+
+		if (stale.count > 0) {
+			this.logger.warn({
+				message: "A builder submission timed out before the agent took it",
+				conversationId,
+				count: stale.count,
+			});
 		}
 	}
 

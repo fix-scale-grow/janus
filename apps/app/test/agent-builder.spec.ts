@@ -5,6 +5,10 @@ import {
 	consumeBuilderIntent,
 	hasCreateAgentCommand,
 } from "../lib/agent-builder";
+import {
+	agentUnavailable,
+	builderConversationIsWorking,
+} from "../lib/agent-builder-state";
 
 describe("agent builder commands", () => {
 	it("enters agent creation for slash commands and direct build requests", () => {
@@ -77,5 +81,33 @@ describe("agent builder commands", () => {
 				{ commandType: "CREATE_AGENT" },
 			]),
 		).toBe(true);
+	});
+});
+
+describe("agent availability", () => {
+	const waiting = {
+		sessionId: null,
+		continuationToken: null,
+		submissions: [{ status: "PENDING" }],
+		createdVersions: [],
+		agent: null,
+	};
+
+	it("calls the chat unavailable when no agent answers the workspace", () => {
+		expect(agentUnavailable({ agentReachable: false }, false)).toBe(true);
+	});
+
+	it("calls the chat unavailable when the event stream drops", () => {
+		expect(agentUnavailable({ agentReachable: true }, true)).toBe(true);
+	});
+
+	it("keeps a reachable agent available", () => {
+		expect(agentUnavailable({ agentReachable: true }, false)).toBe(false);
+		expect(agentUnavailable({}, false)).toBe(false);
+	});
+
+	it("stops the thinking indicator when the agent is unavailable", () => {
+		const unavailable = agentUnavailable({ agentReachable: false }, false);
+		expect(builderConversationIsWorking(waiting) && !unavailable).toBe(false);
 	});
 });

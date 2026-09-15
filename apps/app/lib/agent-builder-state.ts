@@ -51,6 +51,13 @@ export function builderConversationIsWorking(
 	);
 }
 
+export function agentUnavailable(
+	conversation: { agentReachable?: boolean },
+	streamFailed: boolean,
+): boolean {
+	return conversation.agentReachable === false || streamFailed;
+}
+
 export function builderSessionStreamKey(
 	sessionId: string | null,
 	submissionId: string | null,

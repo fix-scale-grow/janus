@@ -5,6 +5,10 @@ import { adminPrincipal, noAccessPrincipal } from "@crm/db/access-policy";
 import { workspaceSlug } from "@crm/db/workspace";
 import { NotFoundException } from "@nestjs/common";
 import {
+	AGENT_UNREACHABLE,
+	CONVERSATIONS,
+} from "../src/conversations/conversations.config";
+import {
 	builderConversationCreateInput,
 	conversationListInput,
 	conversationSaveInput,
@@ -706,6 +710,36 @@ describe("ConversationsService", () => {
 		).toMatchObject({ commandType: "CREATE_AGENT" });
 		expect((await service.builderById(chat.id, userId)).title).toBeNull();
 		expect((await service.builderById(creation.id, userId)).title).toBeNull();
+	});
+
+	it("fails a submission the agent never picked up, instead of waiting forever", async () => {
+		const conversation = await service.createBuilder(
+			{
+				clientRequestId: crypto.randomUUID(),
+				commandType: "CHAT",
+				message: "Where does this stand?",
+				resources: [],
+				attachments: [],
+			},
+			userId,
+		);
+
+		const waiting = await service.builderById(conversation.id, userId);
+		expect(waiting.submissions[0]?.status).toBe("PENDING");
+		expect(waiting.agentReachable).toBe(false);
+
+		await db.agentConversationSubmission.updateMany({
+			where: { conversationId: conversation.id },
+			data: {
+				createdAt: new Date(
+					Date.now() - CONVERSATIONS.builder.pendingTimeoutMs - 1000,
+				),
+			},
+		});
+
+		const timedOut = await service.builderById(conversation.id, userId);
+		expect(timedOut.submissions[0]?.status).toBe("FAILED");
+		expect(timedOut.submissions[0]?.errorMessage).toBe(AGENT_UNREACHABLE);
 	});
 
 	it("persists attachment bytes once and returns lightweight transcript metadata", async () => {
