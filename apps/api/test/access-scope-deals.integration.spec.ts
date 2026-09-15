@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { db } from "@crm/db";
+import { db, ProductionStage } from "@crm/db";
 import {
 	type AccessFixture,
 	createAccessFixture,
 } from "@crm/db/access-fixture";
-import { NotFoundException } from "@nestjs/common";
+import { type AccessPrincipal, noAccessPrincipal } from "@crm/db/access-policy";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AgentQueueService } from "../src/agent/agent-queue.service";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import { contactListInput } from "../src/contacts/contacts.contracts";
@@ -66,6 +67,15 @@ async function expectNotFound(run: () => Promise<unknown>) {
 	}
 }
 
+async function expectForbidden(run: () => Promise<unknown>) {
+	try {
+		await run();
+		throw new Error("expected ForbiddenException");
+	} catch (error) {
+		expect(error).toBeInstanceOf(ForbiddenException);
+	}
+}
+
 describe("deals scope", () => {
 	test("clerk lists only their deal", async () => {
 		const result = await deals.list(
@@ -97,6 +107,89 @@ describe("deals scope", () => {
 	test("bulk delete skips out-of-scope ids", async () => {
 		await expectNotFound(() => deals.bulkDelete([f.otherDealId], f.clerk));
 	});
+
+	test("clerk cannot attach a contact outside their scope", async () => {
+		await expectNotFound(() =>
+			deals.attachContact(
+				{ dealId: f.clerkDealId, contactId: f.otherContactId },
+				f.clerk,
+			),
+		);
+	});
+
+	test("clerk's contact options exclude a contact outside their scope", async () => {
+		const options = await deals.contactOptions(f.clerkDealId, f.clerk);
+		expect(options.map((o) => o.id)).not.toContain(f.otherContactId);
+	});
+
+	test("OWN create forces ownerId to the caller", async () => {
+		const created = await deals.create(
+			{ name: `Clerk-forced ${suffix}`, ownerId: f.adminId },
+			f.clerk,
+		);
+		const stored = await db.deal.findUniqueOrThrow({
+			where: { id: created.id },
+			select: { ownerId: true },
+		});
+		expect(stored.ownerId).toBe(f.clerkId);
+		await db.deal.delete({ where: { id: created.id } });
+	});
+
+	test("clerk cannot reassign a deal's owner to someone else", async () => {
+		await expectForbidden(() =>
+			deals.update(f.clerkDealId, { ownerId: f.adminId }, f.clerk),
+		);
+	});
+
+	describe("setProductionStage with only deals.markComplete", () => {
+		const base = noAccessPrincipal(`field-${suffix}`);
+		const markComplete: AccessPrincipal = {
+			...base,
+			scope: "ALL",
+			policy: { ...base.policy, actions: ["deals.markComplete"] },
+		};
+
+		let wonDealId: string;
+
+		beforeAll(async () => {
+			const wonStage = await db.stage.findFirstOrThrow({
+				where: { key: "CLOSED_WON" },
+			});
+			const won = await db.deal.create({
+				data: {
+					name: `Won ${suffix}`,
+					ownerId: f.adminId,
+					stageId: wonStage.id,
+					productionStage: ProductionStage.SCHEDULED,
+				},
+				select: { id: true },
+			});
+			wonDealId = won.id;
+		});
+
+		afterAll(async () => {
+			await db.deal.deleteMany({ where: { id: wonDealId } });
+		});
+
+		test("allowed to move to COMPLETE", async () => {
+			const result = await deals.setProductionStage(
+				{ id: wonDealId, stage: ProductionStage.COMPLETE },
+				f.adminId,
+				markComplete,
+			);
+			expect(result.productionStage).toBe(ProductionStage.COMPLETE);
+		});
+
+		test("refused for any other stage", async () => {
+			await expectForbidden(() =>
+				deals.setProductionStage(
+					{ id: wonDealId, stage: ProductionStage.IN_PROGRESS },
+					f.adminId,
+					markComplete,
+				),
+			);
+		});
+	});
 });
 
 describe("contacts scope", () => {
@@ -110,5 +203,75 @@ describe("contacts scope", () => {
 
 	test("clerk byId on other contact is not found", async () => {
 		await expectNotFound(() => contacts.byId(f.otherContactId, f.clerk));
+	});
+
+	test("byId only shows deals within the caller's scope", async () => {
+		await db.dealContact.create({
+			data: { dealId: f.otherDealId, contactId: f.clerkContactId },
+		});
+
+		const seenByClerk = await contacts.byId(f.clerkContactId, f.clerk);
+		expect(seenByClerk.deals.map((d) => d.id)).toEqual([f.clerkDealId]);
+
+		const seenByAdmin = await contacts.byId(f.clerkContactId, f.admin);
+		expect(seenByAdmin.deals.map((d) => d.id)).toEqual(
+			expect.arrayContaining([f.clerkDealId, f.otherDealId]),
+		);
+
+		await db.dealContact.deleteMany({
+			where: { dealId: f.otherDealId, contactId: f.clerkContactId },
+		});
+	});
+
+	test("OWN create forces ownerId to the caller", async () => {
+		const created = await contacts.create(
+			{ firstName: `Forced ${suffix}`, ownerId: f.adminId },
+			f.clerk,
+		);
+		const stored = await db.contact.findUniqueOrThrow({
+			where: { id: created.id },
+			select: { ownerId: true },
+		});
+		expect(stored.ownerId).toBe(f.clerkId);
+		await db.contact.delete({ where: { id: created.id } });
+	});
+
+	test("clerk cannot reassign a contact's owner to someone else", async () => {
+		await expectForbidden(() =>
+			contacts.update(f.clerkContactId, { ownerId: f.adminId }, f.clerk),
+		);
+	});
+
+	test("clerk cannot reassign a contact's owner to no one", async () => {
+		await expectForbidden(() =>
+			contacts.update(f.clerkContactId, { ownerId: null }, f.clerk),
+		);
+	});
+
+	test("bulk assign owner refuses a scoped user reassigning to someone else", async () => {
+		await expectForbidden(() =>
+			contacts.bulkAssignOwner(
+				{ ids: [f.clerkContactId], ownerId: f.adminId },
+				f.clerk,
+			),
+		);
+	});
+
+	test("bulk delete reports an out-of-scope contact as failed, not a whole-batch refusal", async () => {
+		const created = await contacts.create(
+			{ firstName: `Bulk ${suffix}`, ownerId: f.clerkId },
+			f.admin,
+		);
+		await db.dealContact.create({
+			data: { dealId: f.clerkDealId, contactId: created.id },
+		});
+
+		const result = await contacts.bulkDelete(
+			[created.id, f.otherContactId],
+			f.clerk,
+		);
+		expect(result.succeeded).toBe(1);
+		expect(result.failed).toBe(1);
+		expect(result.message).toMatch(/No contact with id/);
 	});
 });

@@ -10,7 +10,10 @@ import {
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type {
+	AccessTrpcContext,
+	AuthedTrpcContext,
+} from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	estimateAddLineItemInput,
@@ -132,9 +135,10 @@ export class EstimatesRouter {
 		meta: access("estimates", "EDIT"),
 	})
 	async assignContact(
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof estimateAssignContactInput>,
 	) {
-		return this.estimates.assignContact(input);
+		return this.estimates.assignContact(input, ctx.access);
 	}
 
 	@Query({ input: estimateIdInput, meta: access("estimates", "VIEW") })

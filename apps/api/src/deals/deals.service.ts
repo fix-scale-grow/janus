@@ -11,7 +11,11 @@ import {
 	allows,
 	refusalMessage,
 } from "@crm/db/access-policy";
-import { dealScopeWhere, isUnscoped } from "@crm/db/access-scope";
+import {
+	contactScopeWhere,
+	dealScopeWhere,
+	isUnscoped,
+} from "@crm/db/access-scope";
 import { normalizeCurrency } from "@crm/db/currency";
 import {
 	entryStageOf,
@@ -706,7 +710,10 @@ export class DealsService {
 
 		return this.db.contact.findMany({
 			where: {
-				id: { notIn: deal.contacts.map((row) => row.contactId) },
+				AND: [
+					{ id: { notIn: deal.contacts.map((row) => row.contactId) } },
+					contactScopeWhere(p),
+				],
 			},
 			select: CONTACT_SELECT,
 			orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -724,8 +731,8 @@ export class DealsService {
 			throw new NotFoundException(`No deal with id ${input.dealId}.`);
 		}
 
-		const contact = await this.db.contact.findUnique({
-			where: { id: input.contactId },
+		const contact = await this.db.contact.findFirst({
+			where: { AND: [{ id: input.contactId }, contactScopeWhere(p)] },
 			select: { id: true },
 		});
 
@@ -1034,8 +1041,15 @@ export class DealsService {
 		ids: string[],
 		p: AccessPrincipal,
 	): Promise<void> {
-		for (const id of [...new Set(ids)]) {
-			await this.assertInScope(id, p);
+		const unique = [...new Set(ids)];
+		const found = await this.db.deal.findMany({
+			where: { AND: [{ id: { in: unique } }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (found.length !== unique.length) {
+			const visible = new Set(found.map((row) => row.id));
+			const missing = unique.find((id) => !visible.has(id));
+			throw new NotFoundException(`No deal with id ${missing}.`);
 		}
 	}
 

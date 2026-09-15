@@ -8,9 +8,14 @@ import {
 	type RecordSource,
 } from "@crm/db";
 import { type AccessPrincipal } from "@crm/db/access-policy";
-import { contactScopeWhere, isUnscoped } from "@crm/db/access-scope";
+import {
+	contactScopeWhere,
+	dealScopeWhere,
+	isUnscoped,
+} from "@crm/db/access-scope";
 import {
 	ConflictException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -212,6 +217,7 @@ export class ContactsService {
 				},
 				owner: { select: OWNER_SELECT },
 				deals: {
+					where: { deal: dealScopeWhere(p) },
 					select: {
 						role: true,
 						deal: {
@@ -402,6 +408,7 @@ export class ContactsService {
 			data.companyName = blankToNull(input.companyName);
 		}
 		if (input.ownerId !== undefined) {
+			this.assertOwnerAssignable(input.ownerId ?? null, p);
 			data.owner = input.ownerId
 				? { connect: { id: input.ownerId } }
 				: { disconnect: true };
@@ -436,6 +443,7 @@ export class ContactsService {
 	): Promise<BulkResult> {
 		const ownerId = input.ownerId || null;
 
+		this.assertOwnerAssignable(ownerId, p);
 		await requireOwner(this.db, ownerId);
 
 		const ids = [...new Set(input.ids)];
@@ -682,6 +690,21 @@ export class ContactsService {
 			select: { id: true },
 		});
 		if (!found) throw new NotFoundException(`No contact with id ${id}.`);
+	}
+
+	private assertOwnerAssignable(
+		ownerId: string | null,
+		p: AccessPrincipal,
+	): void {
+		if (isUnscoped(p) || ownerId === p.userId) return;
+		if (!p.groupName) {
+			throw new ForbiddenException(
+				"You aren't in a group yet, so you can't give contacts to other people. Ask an admin.",
+			);
+		}
+		throw new ForbiddenException(
+			`Your group (${p.groupName}) can't give contacts to other people. Ask an admin.`,
+		);
 	}
 
 	private translate(error: unknown, id: string): unknown {

@@ -1,6 +1,6 @@
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
-import { adminPrincipal } from "@crm/db/access-policy";
+import type { AccessPrincipal } from "@crm/db/access-policy";
 import {
 	measureSatellite,
 	measureScene,
@@ -491,7 +491,7 @@ export class EstimatesService {
 		return { changed, added };
 	}
 
-	async assignContact(input: EstimateAssignContactInput) {
+	async assignContact(input: EstimateAssignContactInput, p: AccessPrincipal) {
 		const estimate = await this.db.estimate.findUnique({
 			where: { id: input.id },
 			select: { id: true },
@@ -520,7 +520,7 @@ export class EstimatesService {
 					email: input.newContact.email,
 					phone: input.newContact.phone,
 				},
-				adminPrincipal("system"),
+				p,
 			);
 			contactId = created.id;
 		} else {
