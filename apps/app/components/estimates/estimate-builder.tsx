@@ -339,7 +339,7 @@ export function EstimateBuilder({
 			<PageShellHeader>
 				<PageShellHeading>
 					{!canEdit ? (
-						<div className="col-start-1 row-start-1 min-w-0 self-center">
+						<div className="min-w-32 flex-1 self-center">
 							<PageShellTitle className="truncate">{data.title}</PageShellTitle>
 						</div>
 					) : editingTitle ? (
@@ -359,7 +359,7 @@ export function EstimateBuilder({
 									setEditingTitle(false);
 								}
 							}}
-							className="col-start-1 row-start-1 h-auto max-w-md py-1 font-medium text-2xl tracking-tight md:text-3xl"
+							className="h-auto max-w-md min-w-32 flex-1 py-1 font-medium text-2xl tracking-tight md:text-3xl"
 						/>
 					) : (
 						<button
@@ -368,7 +368,7 @@ export function EstimateBuilder({
 								setTitleDraft(data.title);
 								setEditingTitle(true);
 							}}
-							className="col-start-1 row-start-1 min-w-0 self-center text-left"
+							className="min-w-32 flex-1 self-center text-left"
 						>
 							<PageShellTitle className="truncate">{data.title}</PageShellTitle>
 						</button>
@@ -557,7 +557,7 @@ export function EstimateBuilder({
 									<h2 className="font-medium text-sm text-muted-foreground">
 										{areaLabel}
 									</h2>
-									<SimpleTable columns={COLUMNS}>
+									<SimpleTable columns={COLUMNS} className="min-w-[40rem]">
 										{items.map((item) => (
 											<EstimateLineRow
 												key={item.id}

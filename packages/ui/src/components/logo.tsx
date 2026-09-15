@@ -1,4 +1,7 @@
+"use client";
+
 import type * as React from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type LogoProps = React.SVGProps<SVGSVGElement> & {
 	src?: string | null;
@@ -6,8 +9,26 @@ export type LogoProps = React.SVGProps<SVGSVGElement> & {
 };
 
 const Logo = ({ src, alt, className, ...props }: LogoProps) => {
-	if (src) {
-		return <img src={src} alt={alt ?? "Workspace logo"} className={className} />;
+	const [failed, setFailed] = useState(false);
+	const imgRef = useRef<HTMLImageElement>(null);
+
+	useEffect(() => {
+		const img = imgRef.current;
+		if (img?.complete && img.naturalWidth === 0) {
+			setFailed(true);
+		}
+	}, [src]);
+
+	if (src && !failed) {
+		return (
+			<img
+				ref={imgRef}
+				src={src}
+				alt={alt ?? "Workspace logo"}
+				className={className}
+				onError={() => setFailed(true)}
+			/>
+		);
 	}
 
 	return (
@@ -17,7 +38,7 @@ const Logo = ({ src, alt, className, ...props }: LogoProps) => {
 			height={512}
 			viewBox="0 0 512 512"
 			fill="none"
-			aria-label="Janus logo"
+			aria-label={alt ?? "Janus logo"}
 			className={className}
 			{...props}
 		>

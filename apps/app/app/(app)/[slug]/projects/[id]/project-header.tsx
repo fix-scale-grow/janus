@@ -15,7 +15,16 @@ import {
 	AlertDialogTitle,
 } from "@crm/ui/components/alert-dialog";
 import { Button } from "@crm/ui/components/button";
+import { Combobox, type ComboboxOption } from "@crm/ui/components/combobox";
 import { DatePicker } from "@crm/ui/components/date-picker";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@crm/ui/components/dialog";
 import { Icon } from "@crm/ui/components/icon";
 import { Input } from "@crm/ui/components/input";
 import {
@@ -25,6 +34,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@crm/ui/components/select";
+import { Spinner } from "@crm/ui/components/spinner";
+import { useSearchInput } from "@crm/ui/hooks/use-search-input";
 import { fromDay, toDay } from "@crm/ui/lib/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -83,6 +94,7 @@ export function ProjectHeader({ id }: { id: string }) {
 	const [goal, setGoal] = useState("");
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [photosOpen, setPhotosOpen] = useState(false);
+	const [linkDealOpen, setLinkDealOpen] = useState(false);
 
 	const query = useQuery(trpc.projects.byId.queryOptions({ id }));
 	const project = query.data;
@@ -365,7 +377,123 @@ export function ProjectHeader({ id }: { id: string }) {
 				projectId={id}
 				dealId={project.deal?.id ?? null}
 				contactId={project.contact?.id ?? null}
+				onAttachAnchor={
+					project.deal || project.contact
+						? undefined
+						: () => setLinkDealOpen(true)
+				}
+			/>
+
+			<LinkDealDialog
+				projectId={id}
+				open={linkDealOpen}
+				onOpenChange={setLinkDealOpen}
 			/>
 		</div>
+	);
+}
+
+const DEAL_PICKER_BASE = {
+	sort: "",
+	dir: "asc",
+	page: 1,
+	pageSize: 20,
+	status: "all",
+	owner: "all",
+	stage: "all",
+	closing: "all",
+} as const;
+
+function DealPicker({
+	value,
+	onValueChange,
+}: {
+	value: string;
+	onValueChange: (value: string) => void;
+}) {
+	const trpc = useTRPC();
+	const [query, setQuery] = useState("");
+	const [text, setText] = useSearchInput(query, setQuery);
+
+	const deals = useQuery({
+		...trpc.deals.list.queryOptions({ ...DEAL_PICKER_BASE, q: query }),
+		placeholderData: (previous) => previous,
+	});
+
+	const options: ComboboxOption[] = (deals.data?.rows ?? []).map((deal) => ({
+		value: deal.id,
+		label: deal.name,
+	}));
+
+	const stale = deals.isFetching || text.trim() !== query.trim();
+
+	return (
+		<Combobox
+			value={value}
+			onValueChange={onValueChange}
+			options={options}
+			placeholder="Choose a job"
+			searchPlaceholder="Search jobs…"
+			empty={deals.isFetching ? "Searching…" : "No job matches."}
+			search={text}
+			onSearchChange={setText}
+			stale={stale}
+			className="w-full"
+		/>
+	);
+}
+
+function LinkDealDialog({
+	projectId,
+	open,
+	onOpenChange,
+}: {
+	projectId: string;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	const trpc = useTRPC();
+	const cache = useCrmCache();
+	const [selected, setSelected] = useState("");
+
+	const link = useMutation(
+		trpc.projects.update.mutationOptions({
+			onSuccess: () => {
+				void cache.project(projectId, { settle: "record" });
+				onOpenChange(false);
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	return (
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (next) setSelected("");
+				onOpenChange(next);
+			}}
+		>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Link a job</DialogTitle>
+					<DialogDescription>
+						Put this project on a deal so its photo library shows here.
+					</DialogDescription>
+				</DialogHeader>
+
+				<DealPicker value={selected} onValueChange={setSelected} />
+
+				<DialogFooter>
+					<Button
+						disabled={link.isPending || !selected}
+						onClick={() => link.mutate({ id: projectId, dealId: selected })}
+					>
+						{link.isPending ? <Spinner /> : null}
+						Link
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

@@ -77,7 +77,7 @@ export function ImageLightbox({
 						width={image.width}
 						height={image.height}
 						unoptimized={!isOptimizable(image.src)}
-						className="h-auto max-h-[calc(100vh-8rem)] w-auto max-w-[calc(100vw-8rem)] object-contain"
+						className="h-auto min-h-32 max-h-[calc(100vh-8rem)] w-auto min-w-32 max-w-[calc(100vw-8rem)] object-contain"
 					/>
 
 					{hasNext ? (

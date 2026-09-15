@@ -296,7 +296,7 @@ export function CalendarView({
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
-			<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center gap-2">
 				<Tabs value={tab} onValueChange={(next) => setTab(next as typeof tab)}>
 					<TabsList variant="line">
 						<TabsTrigger value="calendar">Calendar</TabsTrigger>
@@ -313,7 +313,7 @@ export function CalendarView({
 						<ToggleGroupItem value="week">Week</ToggleGroupItem>
 					</ToggleGroup>
 				) : null}
-				<div className="ml-auto flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
 					<Button variant="outline" size="sm" onClick={() => shift(-1)}>
 						‹
 					</Button>

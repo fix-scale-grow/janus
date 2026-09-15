@@ -14,6 +14,7 @@ import {
 } from "@crm/ui/components/dialog";
 import {
 	Empty,
+	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
@@ -100,9 +101,25 @@ export function AttachPhotosDialog({
 							</EmptyMedia>
 							<EmptyTitle>No job or contact attached</EmptyTitle>
 							<EmptyDescription>
-								Attach a job or a contact before you can pick from their photos.
+								{onAttachAnchor
+									? "Link a job to pick from its photos, or attach one to a contact."
+									: "This project has no job to attach a photo library to."}
 							</EmptyDescription>
 						</EmptyHeader>
+						{onAttachAnchor ? (
+							<EmptyContent>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => {
+										onOpenChange(false);
+										onAttachAnchor();
+									}}
+								>
+									Link a job
+								</Button>
+							</EmptyContent>
+						) : null}
 					</Empty>
 				) : anchorless ? (
 					<div className="flex flex-col gap-4">

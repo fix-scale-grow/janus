@@ -212,7 +212,7 @@ export function TeamAgentDetail({
 
 	return (
 		<PageShell className="min-h-0" contained>
-			<PageShellHeader className="[&>div]:grid-cols-1 sm:[&>div]:grid-cols-[minmax(0,1fr)_auto]">
+			<PageShellHeader>
 				<PageShellHeading>
 					<PageShellTitle className="wrap-break-word">
 						{displayedName}
@@ -226,7 +226,7 @@ export function TeamAgentDetail({
 						</span>
 					</PageShellDescription>
 				</PageShellHeading>
-				<PageShellActions className="col-start-1 row-start-3 justify-self-start sm:col-start-2 sm:row-start-1 sm:justify-self-end">
+				<PageShellActions>
 					<div className="flex min-w-0 flex-col items-start gap-2 sm:items-end">
 						<span className="text-muted-foreground text-xs">
 							{isDraft ? "Visibility" : "Trigger"}

@@ -230,17 +230,19 @@ function DrawingCard({ row }: { row: DrawingRow }) {
 	const [renaming, setRenaming] = useState(false);
 	const [attaching, setAttaching] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const [thumbnailFailed, setThumbnailFailed] = useState(false);
 
 	return (
 		<div className="group relative flex flex-col gap-2 rounded-lg border bg-card p-2">
 			<div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted">
-				{row.thumbnailUrl ? (
+				{row.thumbnailUrl && !thumbnailFailed ? (
 					<Image
 						src={row.thumbnailUrl}
 						alt={row.title}
 						fill
 						unoptimized={!isOptimizable(row.thumbnailUrl)}
 						className="object-cover"
+						onError={() => setThumbnailFailed(true)}
 					/>
 				) : (
 					<div className="flex h-full w-full items-center justify-center text-muted-foreground">

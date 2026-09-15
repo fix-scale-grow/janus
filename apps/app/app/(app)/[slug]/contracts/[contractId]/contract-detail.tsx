@@ -772,7 +772,7 @@ export function ContractDetail({
 									setEditingTitle(false);
 								}
 							}}
-							className="col-start-1 row-start-1 h-auto max-w-md py-1 font-medium text-2xl tracking-tight md:text-3xl"
+							className="h-auto max-w-md min-w-32 flex-1 py-1 font-medium text-2xl tracking-tight md:text-3xl"
 						/>
 					) : isDraft ? (
 						<button
@@ -781,7 +781,7 @@ export function ContractDetail({
 								setTitleDraft(data.title);
 								setEditingTitle(true);
 							}}
-							className="col-start-1 row-start-1 min-w-0 self-center text-left"
+							className="min-w-32 flex-1 self-center text-left"
 						>
 							<PageShellTitle className="truncate">{data.title}</PageShellTitle>
 						</button>

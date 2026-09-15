@@ -6,17 +6,20 @@ import { DropdownMenuItem } from "@crm/ui/components/dropdown-menu";
 import { Icon } from "@crm/ui/components/icon";
 import { cn } from "@crm/ui/lib/utils";
 import { Slot } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
 
-function NavBar({ className, ...props }: React.ComponentProps<"nav">) {
-	return (
-		<nav
-			data-slot="nav-bar"
-			className={cn("flex items-center gap-1", className)}
-			{...props}
-		/>
-	);
-}
+const NavBar = React.forwardRef<HTMLElement, React.ComponentProps<"nav">>(
+	function NavBar({ className, ...props }, ref) {
+		return (
+			<nav
+				ref={ref}
+				data-slot="nav-bar"
+				className={cn("flex items-center gap-1", className)}
+				{...props}
+			/>
+		);
+	},
+);
 
 function NavBarItem({
 	className,
