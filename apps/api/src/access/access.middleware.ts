@@ -25,7 +25,7 @@ export class AccessMiddleware implements TRPCMiddleware {
 				message: `Procedure ${opts.path} has no access tag.`,
 			});
 		}
-		const principal = await this.access.principal(ctx.user.id);
+		const principal = await this.access.principal(ctx.user.id, ctx.req);
 		if (principal.surface === "FIELD" && !tag.field) {
 			throw new TRPCError({
 				code: "FORBIDDEN",

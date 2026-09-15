@@ -17,10 +17,20 @@ import { InjectDatabase } from "../database/database.constants";
 @Injectable()
 export class AccessService {
 	private seeded: Promise<void> | null = null;
+	private readonly perRequest = new WeakMap<object, Promise<AccessPrincipal>>();
 
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async principal(userId: string): Promise<AccessPrincipal> {
+	async principal(userId: string, req?: object): Promise<AccessPrincipal> {
+		if (!req) return this.resolve(userId);
+		const cached = this.perRequest.get(req);
+		if (cached) return cached;
+		const promise = this.resolve(userId);
+		this.perRequest.set(req, promise);
+		return promise;
+	}
+
+	private async resolve(userId: string): Promise<AccessPrincipal> {
 		this.seeded ??= ensureAccessGroups(this.db).catch((error) => {
 			this.seeded = null;
 			throw error;

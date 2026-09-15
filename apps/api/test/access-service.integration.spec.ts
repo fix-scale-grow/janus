@@ -88,4 +88,27 @@ describe("AccessService", () => {
 			"Only an owner or an admin can do this.",
 		);
 	});
+
+	test("memoizes the principal for one request object", async () => {
+		const req = {};
+		const [first, second] = await Promise.all([
+			service.principal(clerkId, req),
+			service.principal(clerkId, req),
+		]);
+		expect(second).toBe(first);
+	});
+
+	test("resolves separately for different request objects", async () => {
+		const first = await service.principal(clerkId, {});
+		const second = await service.principal(clerkId, {});
+		expect(second).not.toBe(first);
+		expect(second).toEqual(first);
+	});
+
+	test("does not cache when no request object is given", async () => {
+		const first = await service.principal(clerkId);
+		const second = await service.principal(clerkId);
+		expect(second).not.toBe(first);
+		expect(second).toEqual(first);
+	});
 });

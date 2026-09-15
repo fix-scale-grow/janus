@@ -1120,6 +1120,8 @@ const appRouter = t.router({
   workspace: t.router({
     get: publicProcedure
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["get"]>>),
+    gate: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["gate"]>>),
     members: publicProcedure
       .input(memberListInput)
       .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<WorkspaceRouter["members"]>>),

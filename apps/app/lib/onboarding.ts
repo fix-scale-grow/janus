@@ -34,38 +34,54 @@ async function read<T>(
 	}
 }
 
+type GateResult = {
+	onboarded?: boolean;
+	canRename?: boolean;
+	slug?: string;
+	researchConfigured?: boolean;
+	surface?: "FULL" | "FIELD";
+	isAdmin?: boolean;
+};
+
+const gateCache = new WeakMap<NextRequest, Promise<GateResult | null>>();
+
+function readGate(request: NextRequest): Promise<GateResult | null> {
+	const cached = gateCache.get(request);
+
+	if (cached) return cached;
+
+	const promise = read<GateResult>(request, "workspace.gate");
+
+	gateCache.set(request, promise);
+
+	return promise;
+}
+
 export type WorkspaceGate = { gate: Gate; slug: string | null };
 
 export async function readWorkspaceGate(
 	request: NextRequest,
 ): Promise<WorkspaceGate> {
-	const workspace = await read<{
-		onboarded?: boolean;
-		canRename?: boolean;
-		slug?: string;
-	}>(request, "workspace.get");
+	const gate = await readGate(request);
 
-	const slug = workspace?.slug ? workspace.slug : null;
+	const slug = gate?.slug ? gate.slug : null;
 
-	if (typeof workspace?.onboarded !== "boolean") {
+	if (typeof gate?.onboarded !== "boolean") {
 		return { gate: "unknown", slug };
 	}
 
 	return {
-		gate: workspace.onboarded || !workspace.canRename ? "settled" : "required",
+		gate: gate.onboarded || !gate.canRename ? "settled" : "required",
 		slug,
 	};
 }
 
 export async function readResearchGate(request: NextRequest): Promise<Gate> {
-	const key = await read<{ configured?: boolean }>(
-		request,
-		"settings.researchKey",
-	);
+	const gate = await readGate(request);
 
-	if (typeof key?.configured !== "boolean") return "unknown";
+	if (typeof gate?.researchConfigured !== "boolean") return "unknown";
 
-	return key.configured ? "settled" : "required";
+	return gate.researchConfigured ? "settled" : "required";
 }
 
 export type AccessGate = {
@@ -76,14 +92,11 @@ export type AccessGate = {
 export async function readAccessGate(
 	request: NextRequest,
 ): Promise<AccessGate> {
-	const mine = await read<{
-		surface?: "FULL" | "FIELD";
-		isAdmin?: boolean;
-	}>(request, "permissions.mine");
+	const gate = await readGate(request);
 
-	if (!mine || typeof mine.isAdmin !== "boolean" || !mine.surface) {
+	if (!gate || typeof gate.isAdmin !== "boolean" || !gate.surface) {
 		return { surface: null, isAdmin: false };
 	}
 
-	return { surface: mine.surface, isAdmin: mine.isAdmin };
+	return { surface: gate.surface, isAdmin: gate.isAdmin };
 }

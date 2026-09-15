@@ -38,21 +38,25 @@ function answerWith(body: unknown, status = 200) {
 	stub(async () => json(body, status));
 }
 
-const workspace = (data: {
+const gate = (data: {
 	onboarded: boolean;
 	canRename: boolean;
 	slug?: string;
-}) => ({ result: { data: { slug: SLUG, ...data } } });
-
-const researchKey = (configured: boolean) => ({
-	result: { data: { configured, hint: configured ? "••••9876" : null } },
+	researchConfigured?: boolean;
+	surface?: "FULL" | "FIELD";
+	isAdmin?: boolean;
+}) => ({
+	result: {
+		data: {
+			slug: SLUG,
+			researchConfigured: true,
+			surface: "FULL" as const,
+			isAdmin: true,
+			...data,
+		},
+	},
 });
 
-const access = (isAdmin: boolean) => ({
-	result: { data: { surface: "FULL", isAdmin } },
-});
-
-/** Answers all three gate procedures, counting the calls to each. */
 function setup({
 	onboarded = true,
 	canRename = true,
@@ -66,21 +70,20 @@ function setup({
 	slug?: string;
 	isAdmin?: boolean;
 } = {}) {
-	const calls = { workspace: 0, research: 0, access: 0 };
+	const calls = { gate: 0 };
 
 	stub(async (url) => {
-		if (url.includes("workspace.get")) {
-			calls.workspace += 1;
-			return json(workspace({ onboarded, canRename, slug }));
-		}
-
-		if (url.includes("permissions.mine")) {
-			calls.access += 1;
-			return json(access(isAdmin));
-		}
-
-		calls.research += 1;
-		return json(researchKey(configured));
+		expect(url).toContain("workspace.gate");
+		calls.gate += 1;
+		return json(
+			gate({
+				onboarded,
+				canRename,
+				slug,
+				researchConfigured: configured,
+				isAdmin,
+			}),
+		);
 	});
 
 	return calls;
@@ -104,19 +107,19 @@ async function gateOf(pathname: string) {
 
 describe("readWorkspaceGate", () => {
 	it("reads the answer out of a plain tRPC envelope", async () => {
-		answerWith(workspace({ onboarded: false, canRename: true }));
+		answerWith(gate({ onboarded: false, canRename: true }));
 
 		expect(await gateOf("/")).toBe("required");
 	});
 
 	it("settles for someone who could not answer the form anyway", async () => {
-		answerWith(workspace({ onboarded: false, canRename: false }));
+		answerWith(gate({ onboarded: false, canRename: false }));
 
 		expect(await gateOf("/")).toBe("settled");
 	});
 
 	it("carries the slug the app is served under", async () => {
-		answerWith(workspace({ onboarded: true, canRename: true }));
+		answerWith(gate({ onboarded: true, canRename: true }));
 
 		expect(await readWorkspaceGate(request("/", [SESSION_COOKIE]))).toEqual({
 			gate: "settled",
@@ -140,12 +143,16 @@ describe("readWorkspaceGate", () => {
 
 describe("readResearchGate", () => {
 	it("is settled once a key is saved, and required until then", async () => {
-		answerWith(researchKey(true));
+		answerWith(
+			gate({ onboarded: true, canRename: true, researchConfigured: true }),
+		);
 		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
 			"settled",
 		);
 
-		answerWith(researchKey(false));
+		answerWith(
+			gate({ onboarded: true, canRename: true, researchConfigured: false }),
+		);
 		expect(await readResearchGate(request("/", [SESSION_COOKIE]))).toBe(
 			"required",
 		);
@@ -236,17 +243,17 @@ describe("proxy", () => {
 		).toBeNull();
 	});
 
-	it("asks again on every request, and remembers nothing", async () => {
+	it("asks again on every request, and remembers nothing, with one API call per visit", async () => {
 		const calls = setup();
 
 		const first = await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]));
 
 		expect([...first.cookies.getAll()]).toHaveLength(0);
-		expect(calls).toEqual({ workspace: 1, research: 1, access: 1 });
+		expect(calls.gate).toBe(1);
 
 		await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]));
 
-		expect(calls).toEqual({ workspace: 2, research: 2, access: 2 });
+		expect(calls.gate).toBe(2);
 	});
 
 	it("notices when the answer changes underneath it", async () => {
@@ -255,8 +262,6 @@ describe("proxy", () => {
 			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
 		).toBeNull();
 
-		// A reset database, a removed key: the browser is carrying nothing that
-		// could keep saying the gate was satisfied.
 		setup({ onboarded: false });
 		expect(
 			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
@@ -403,16 +408,8 @@ describe("the research key gate", () => {
 		).toBe("/onboarding/research");
 	});
 
-	it("does not treat research as settled when the access read fails", async () => {
-		stub(async (url) => {
-			if (url.includes("workspace.get")) {
-				return json(workspace({ onboarded: true, canRename: true }));
-			}
-			if (url.includes("permissions.mine")) {
-				return json({ error: { message: "UNAUTHORIZED" } }, 401);
-			}
-			return json(researchKey(false));
-		});
+	it("does not treat research as settled when the gate read fails", async () => {
+		answerWith({ error: { message: "UNAUTHORIZED" } }, 401);
 
 		expect(
 			redirectedTo(await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]))),
