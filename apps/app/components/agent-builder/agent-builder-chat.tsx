@@ -1008,10 +1008,13 @@ function BuildingAgentCard({
 	const stop = useAsyncAction({
 		action: async () => {
 			if (!sessionId) return;
-			const response = await fetch(`/eve/v1/session/${sessionId}/cancel`, {
-				method: "POST",
-				headers: { "x-crm-builder-conversation": conversationId },
-			});
+			const response = await fetch(
+				`/eve/v1/session/${encodeURIComponent(sessionId)}/cancel`,
+				{
+					method: "POST",
+					headers: { "x-crm-builder-conversation": conversationId },
+				},
+			);
 			if (!response.ok) throw new Error(await response.text());
 		},
 		onSuccess: () => toast.success("Stop requested."),

@@ -6,14 +6,20 @@ import {
 	JANUS_CHAT_UNAVAILABLE,
 	janusChatAllowed,
 } from "./access-route";
-import { AGENT_URL, bridgeConfigured, mintBridgeToken } from "./agent-bridge";
+import {
+	AGENT_URL,
+	BRIDGE,
+	bridgeConfigured,
+	mintBridgeToken,
+} from "./agent-bridge";
 import {
 	AGENT_SESSION_ROUTE,
+	type BridgeRecord,
 	conversationFiling,
 	fileBridgeConversation,
 	matchEveRoute,
 	resetOwnedBy,
-	sessionOwnedBy,
+	sessionRecordAnchors,
 } from "./agent-conversation-route";
 
 export type BridgeUser = { id: string; email: string; name: string };
@@ -86,8 +92,10 @@ export async function bridgeEveRequest(
 	);
 	const requestedSession = route.kind === "session" ? route.sessionId : null;
 
-	if (requestedSession && !(await sessionOwnedBy(requestedSession, user.id))) {
-		return notFound("Conversation not found.");
+	let filedAnchors: BridgeRecord | null = null;
+	if (requestedSession) {
+		filedAnchors = await sessionRecordAnchors(requestedSession, user.id);
+		if (!filedAnchors) return notFound("Conversation not found.");
 	}
 
 	if (builderConversationId && route.kind !== "session") {
@@ -107,17 +115,31 @@ export async function bridgeEveRequest(
 		}
 	}
 
-	const record = {
+	const headerRecord = {
 		contactId: cuid(contactId),
 		dealId: cuid(dealId),
 		drawingId: cuid(drawingId),
 	};
+	const malformedHeader =
+		(contactId !== null && !headerRecord.contactId) ||
+		(dealId !== null && !headerRecord.dealId) ||
+		(drawingId !== null && !headerRecord.drawingId);
+	if (malformedHeader) {
+		return notFound("Record not found.");
+	}
+
 	if (
-		(contactId && !record.contactId) ||
-		(dealId && !record.dealId) ||
-		(drawingId && !record.drawingId) ||
-		!(await agentRecordsVisible(principal, record))
+		filedAnchors &&
+		((contactId !== null &&
+			headerRecord.contactId !== filedAnchors.contactId) ||
+			(dealId !== null && headerRecord.dealId !== filedAnchors.dealId) ||
+			(drawingId !== null && headerRecord.drawingId !== filedAnchors.drawingId))
 	) {
+		return notFound("Record not found.");
+	}
+
+	const record = filedAnchors ?? headerRecord;
+	if (!(await agentRecordsVisible(principal, record))) {
 		return notFound("Record not found.");
 	}
 	if (route.kind === "create" && !conversationFiling(record)) {
@@ -129,7 +151,17 @@ export async function bridgeEveRequest(
 
 	let body: BodyInit | null = request.body;
 	if (route.kind === "reset") {
-		const text = await request.text();
+		const contentLength = request.headers.get("content-length");
+		if (
+			contentLength !== null &&
+			Number(contentLength) > BRIDGE.reset.maxBodyBytes
+		) {
+			return Response.json({ error: "Request too large." }, { status: 413 });
+		}
+		const text = await readLimited(request, BRIDGE.reset.maxBodyBytes);
+		if (text === null) {
+			return Response.json({ error: "Request too large." }, { status: 413 });
+		}
 		const parsed = resetBody.safeParse(safeJson(text));
 		if (
 			!parsed.success ||
@@ -160,11 +192,11 @@ export async function bridgeEveRequest(
 	try {
 		upstream = await deps.fetch(`${AGENT_URL}${route.path}${url.search}`, init);
 	} catch (error) {
+		console.error("[eve bridge] upstream fetch failed", {
+			reason: error instanceof Error ? error.message : String(error),
+		});
 		return Response.json(
-			{
-				error: "The research agent is not reachable.",
-				detail: error instanceof Error ? error.message : String(error),
-			},
+			{ error: "Janus is unavailable right now. Try again." },
 			{ status: 502 },
 		);
 	}
@@ -229,6 +261,33 @@ async function cancelOrphan(
 			reason: error instanceof Error ? error.message : String(error),
 		});
 	}
+}
+
+async function readLimited(
+	request: Request,
+	limit: number,
+): Promise<string | null> {
+	if (!request.body) return "";
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		total += value.byteLength;
+		if (total > limit) {
+			await reader.cancel().catch(() => {});
+			return null;
+		}
+		chunks.push(value);
+	}
+	const buffer = new Uint8Array(total);
+	let offset = 0;
+	for (const chunk of chunks) {
+		buffer.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return new TextDecoder().decode(buffer);
 }
 
 function safeJson(text: string): unknown {

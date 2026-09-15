@@ -127,6 +127,22 @@ export async function sessionOwnedBy(
 	return conversation?.userId === userId;
 }
 
+export async function sessionRecordAnchors(
+	sessionId: string,
+	userId: string,
+): Promise<BridgeRecord | null> {
+	const conversation = await db.agentConversation.findUnique({
+		where: { sessionId },
+		select: { userId: true, contactId: true, dealId: true, drawingId: true },
+	});
+	if (!conversation || conversation.userId !== userId) return null;
+	return {
+		contactId: conversation.contactId ?? undefined,
+		dealId: conversation.dealId ?? undefined,
+		drawingId: conversation.drawingId ?? undefined,
+	};
+}
+
 export async function resetOwnedBy(
 	continuationToken: string,
 	userId: string,

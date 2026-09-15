@@ -1,7 +1,9 @@
-const ISSUER = "crm-app";
-const AUDIENCE = "crm-agent";
+const KB = 1024;
 
-const TTL_SECONDS = 120;
+export const BRIDGE = {
+	token: { issuer: "crm-app", audience: "crm-agent", ttlSeconds: 120 },
+	reset: { maxBodyBytes: 16 * KB },
+} as const;
 
 export const AGENT_URL = process.env.AGENT_URL ?? "http://127.0.0.1:2000";
 
@@ -24,8 +26,8 @@ export async function mintBridgeToken(
 
 	const header = { alg: "HS256", typ: "JWT" };
 	const payload = {
-		iss: ISSUER,
-		aud: AUDIENCE,
+		iss: BRIDGE.token.issuer,
+		aud: BRIDGE.token.audience,
 		sub: user.id,
 		email: user.email,
 		name: user.name,
@@ -34,7 +36,7 @@ export async function mintBridgeToken(
 		...(record.drawingId ? { drawingId: record.drawingId } : {}),
 		iat: now,
 		nbf: now - 5,
-		exp: now + TTL_SECONDS,
+		exp: now + BRIDGE.token.ttlSeconds,
 	};
 
 	const signingInput = `${base64url(JSON.stringify(header))}.${base64url(

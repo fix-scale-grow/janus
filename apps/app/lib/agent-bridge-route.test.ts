@@ -7,9 +7,11 @@ const suffix = process.env.TEST_RUN_ID ?? "agent-bridge-route";
 const ownerId = `bridge-route-owner-${suffix}`;
 const strangerId = `bridge-route-stranger-${suffix}`;
 const email = `bridge.route.${suffix}@example.test`;
+const email2 = `bridge.route.other.${suffix}@example.test`;
 const ORIGIN = "http://app.test";
 
 let contactId: string;
+let otherContactId: string;
 let previousSecret: string | undefined;
 
 type Call = { url: string; init: RequestInit };
@@ -60,7 +62,7 @@ beforeAll(async () => {
 		where: { userId: { in: [ownerId, strangerId] } },
 	});
 	await db.user.deleteMany({ where: { id: { in: [ownerId, strangerId] } } });
-	await db.contact.deleteMany({ where: { email } });
+	await db.contact.deleteMany({ where: { email: { in: [email, email2] } } });
 	await db.user.createMany({
 		data: [ownerId, strangerId].map((id) => ({
 			id,
@@ -73,13 +75,18 @@ beforeAll(async () => {
 		select: { id: true },
 	});
 	contactId = contact.id;
+	const other = await db.contact.create({
+		data: { firstName: "Bridge", lastName: "Other", email: email2 },
+		select: { id: true },
+	});
+	otherContactId = other.id;
 });
 
 afterAll(async () => {
 	await db.agentConversation.deleteMany({
 		where: { userId: { in: [ownerId, strangerId] } },
 	});
-	await db.contact.deleteMany({ where: { email } });
+	await db.contact.deleteMany({ where: { email: { in: [email, email2] } } });
 	await db.user.deleteMany({ where: { id: { in: [ownerId, strangerId] } } });
 	if (previousSecret === undefined) delete process.env.AGENT_BRIDGE_SECRET;
 	else process.env.AGENT_BRIDGE_SECRET = previousSecret;
@@ -247,6 +254,95 @@ describe("bridgeEveRequest", () => {
 				.status,
 		).toBe(200);
 		expect(owner.calls[0]?.init.body).toBe(body);
+	});
+
+	test("hides the upstream failure detail behind a generic message", async () => {
+		const d = deps(ownerId, () => {
+			throw new Error("connect ECONNREFUSED 127.0.0.1:2000");
+		});
+		const response = await bridgeEveRequest(post("/eve/v1/session"), d);
+
+		expect(response.status).toBe(502);
+		expect(await response.json()).toEqual({
+			error: "Janus is unavailable right now. Try again.",
+		});
+	});
+
+	test("rejects an oversized reset body declared by content-length without calling eve", async () => {
+		const d = deps(ownerId, () => Response.json({ ok: true }));
+		const body = JSON.stringify({ continuationToken: "x".repeat(20_000) });
+		const response = await bridgeEveRequest(
+			post("/eve/v1/session/reset", {}, body),
+			d,
+		);
+
+		expect(response.status).toBe(413);
+		expect(await response.json()).toEqual({ error: "Request too large." });
+		expect(d.calls).toHaveLength(0);
+	});
+
+	test("rejects an oversized chunked reset body with no content-length", async () => {
+		const chunk = new TextEncoder().encode("a".repeat(4096));
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				for (let i = 0; i < 6; i++) controller.enqueue(chunk);
+				controller.close();
+			},
+		});
+		const request = new Request(`${ORIGIN}/eve/v1/session/reset`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: stream,
+			duplex: "half",
+		} as RequestInit & { duplex: "half" });
+		expect(request.headers.get("content-length")).toBeNull();
+
+		const d = deps(ownerId, () => Response.json({ ok: true }));
+		const response = await bridgeEveRequest(request, d);
+
+		expect(response.status).toBe(413);
+		expect(await response.json()).toEqual({ error: "Request too large." });
+		expect(d.calls).toHaveLength(0);
+	});
+
+	test("refuses a session request whose record header names a different record than the filed row", async () => {
+		const sessionId = `wrun_${suffix}_pinned`;
+		await db.agentConversation.create({
+			data: { kind: "RECORD", sessionId, userId: ownerId, contactId },
+		});
+		const d = deps(ownerId, () => new Response("{}"));
+
+		const response = await bridgeEveRequest(
+			post(
+				`/eve/v1/session/${sessionId}`,
+				{ "x-crm-contact": otherContactId },
+				"{}",
+			),
+			d,
+		);
+
+		expect(response.status).toBe(404);
+		expect(d.calls).toHaveLength(0);
+	});
+
+	test("forwards a session request whose record header matches the filed row's anchor", async () => {
+		const sessionId = `wrun_${suffix}_pinned_match`;
+		await db.agentConversation.create({
+			data: { kind: "RECORD", sessionId, userId: ownerId, contactId },
+		});
+		const d = deps(ownerId, () => new Response("{}"));
+
+		const response = await bridgeEveRequest(
+			post(
+				`/eve/v1/session/${sessionId}`,
+				{ "x-crm-contact": contactId },
+				"{}",
+			),
+			d,
+		);
+
+		expect(response.status).toBe(200);
+		expect(d.calls).toHaveLength(1);
 	});
 
 	test("refuses paths outside the allowlist without calling eve", async () => {
