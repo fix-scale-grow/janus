@@ -45,3 +45,16 @@ export function contactScopeWhere(
 		return { OR: [{ ownerId: p.userId }, { deals: { some: { deal } } }] };
 	return { deals: { some: { deal } } };
 }
+
+export function activityScopeWhere(
+	p: AccessPrincipal,
+): Record<string, never> | Prisma.ActivityWhereInput {
+	if (isUnscoped(p)) return {};
+	return {
+		OR: [
+			{ deal: dealScopeWhere(p) },
+			{ dealId: null, contactId: null, createdById: p.userId },
+			{ dealId: null, contact: contactScopeWhere(p) },
+		],
+	};
+}

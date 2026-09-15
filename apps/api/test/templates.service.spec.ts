@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { Db } from "@crm/db";
+import { ACCESS_AREAS } from "@crm/db/access-config";
+import {
+	type AccessPolicy,
+	type AccessPrincipal,
+	adminPrincipal,
+} from "@crm/db/access-policy";
 import { BadRequestException } from "@nestjs/common";
 import type { FieldsService } from "../src/fields/fields.service";
 import type { MailerService } from "../src/mailer/mailer.service";
@@ -55,6 +61,24 @@ function fakeMergeContext(resolved: Record<string, string> = {}) {
 		},
 	} as unknown as MergeContextService;
 	return { service, wasCalled: () => called };
+}
+
+function principalWithMoney(money: AccessPolicy["money"]): AccessPrincipal {
+	return {
+		userId: "templates-spec-user",
+		isAdmin: false,
+		groupId: null,
+		groupName: "Test group",
+		surface: "FULL",
+		scope: "ALL",
+		policy: {
+			areas: Object.fromEntries(
+				ACCESS_AREAS.map((area) => [area, "EDIT"]),
+			) as AccessPolicy["areas"],
+			actions: [],
+			money,
+		},
+	};
 }
 
 function fakeMailer(configured: boolean, delivered = true) {
@@ -119,7 +143,11 @@ describe("TemplatesService.preview", () => {
 			fakeFields,
 		);
 
-		const result = await service.preview({ purpose: "ESTIMATE_SEND" });
+		const result = await service.preview(
+			{ purpose: "ESTIMATE_SEND" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(wasCalled()).toBe(false);
 		expect(result.subject).toContain("Fix Scale Grow Roofing");
@@ -141,13 +169,39 @@ describe("TemplatesService.preview", () => {
 			fakeFields,
 		);
 
-		const result = await service.preview({
-			purpose: "ESTIMATE_SEND",
-			contactId: "c1",
-		});
+		const result = await service.preview(
+			{ purpose: "ESTIMATE_SEND", contactId: "c1" },
+			undefined,
+			adminPrincipal("test"),
+		);
 
 		expect(wasCalled()).toBe(true);
 		expect(result.subject).toContain("Real Co");
+	});
+
+	it("blanks estimate.total and invoice.total when the principal has no prices, instead of refusing", async () => {
+		const { db } = fakeDb();
+		const { service: mergeContext } = fakeMergeContext({
+			"business.name": "Real Co",
+			"contact.first_name": "Bob",
+			"estimate.title": "Roof job",
+			"estimate.total": "$1.00",
+		});
+		const service = new TemplatesService(
+			db,
+			mergeContext,
+			fakeMailer(true),
+			fakeFields,
+		);
+
+		const result = await service.preview(
+			{ purpose: "ESTIMATE_SEND", contactId: "c1" },
+			undefined,
+			principalWithMoney([]),
+		);
+
+		expect(result.subject).toContain("Real Co");
+		expect(result.html).not.toContain("$1.00");
 	});
 });
 

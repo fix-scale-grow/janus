@@ -7,8 +7,8 @@ import {
 	type Prisma,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
-import { maskCents } from "@crm/db/access-money";
-import type { AccessPrincipal } from "@crm/db/access-policy";
+import { maskCents, moneyRefusalMessage } from "@crm/db/access-money";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import {
 	contactScopeWhere,
 	dealChildWhere,
@@ -407,6 +407,8 @@ export class ContractsService {
 			throw new ConflictException("This contract can no longer be sent.");
 		}
 
+		this.assertCanRenderPriced(contract, p);
+
 		const to = input.to ?? contract.contact?.email ?? null;
 		if (!to) {
 			throw new BadRequestException(
@@ -524,6 +526,7 @@ export class ContractsService {
 	): Promise<{ filename: string; base64: string }> {
 		await this.assertInScope(id, p);
 		const contract = await this.loadOrThrow(id);
+		this.assertCanRenderPriced(contract, p);
 		const workspaceName = await this.workspaceName();
 
 		const context = await this.mergeContext.resolve({
@@ -675,6 +678,17 @@ export class ContractsService {
 			select: { id: true },
 		});
 		if (!found) throw new NotFoundException(`No contract with id ${id}.`);
+	}
+
+	private assertCanRenderPriced(
+		contract: { estimateId: string | null; invoiceId: string | null },
+		p: AccessPrincipal,
+	): void {
+		if (!contract.estimateId && !contract.invoiceId) return;
+		if (hasMoney(p, "prices")) return;
+		throw new ForbiddenException(
+			moneyRefusalMessage(p, "see prices, so it can't export a priced PDF."),
+		);
 	}
 
 	private async assertDealInScope(

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { appUrl, DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import type { Db, EstimateTier, Prisma } from "@crm/db";
-import { moneyRefusalMessage } from "@crm/db/access-money";
+import { maskCents, moneyRefusalMessage } from "@crm/db/access-money";
 import {
 	type AccessPrincipal,
 	adminPrincipal,
@@ -126,7 +126,7 @@ export class ProposalsService {
 			select: DETAIL_SELECT,
 		});
 		if (!row) return null;
-		return this.detail(row);
+		return this.detail(row, p);
 	}
 
 	async createFromEstimate(
@@ -148,7 +148,7 @@ export class ProposalsService {
 			orderBy: { revision: "desc" },
 			select: DETAIL_SELECT,
 		});
-		if (existing && existing.status !== "VOID") return this.detail(existing);
+		if (existing && existing.status !== "VOID") return this.detail(existing, p);
 		const revision = existing ? existing.revision + 1 : 1;
 
 		const template = await this.templates.byPurpose({
@@ -166,7 +166,7 @@ export class ProposalsService {
 			},
 			select: DETAIL_SELECT,
 		});
-		return this.detail(row);
+		return this.detail(row, p);
 	}
 
 	async revise(id: string, userId: string, p: AccessPrincipal) {
@@ -211,7 +211,7 @@ export class ProposalsService {
 				data: { status: "VOID", viewToken: null, tokenExpiresAt: null },
 			}),
 		]);
-		return this.detail(row);
+		return this.detail(row, p);
 	}
 
 	async update(input: ProposalUpdateInput, p: AccessPrincipal) {
@@ -232,7 +232,7 @@ export class ProposalsService {
 				data: input.data,
 				select: DETAIL_SELECT,
 			});
-			return this.detail(row);
+			return this.detail(row, p);
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -320,7 +320,7 @@ export class ProposalsService {
 				},
 				select: DETAIL_SELECT,
 			});
-			return this.detail(row);
+			return this.detail(row, p);
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -338,7 +338,7 @@ export class ProposalsService {
 				data: { status: "VOID", viewToken: null, tokenExpiresAt: null },
 				select: DETAIL_SELECT,
 			});
-			return this.detail(row);
+			return this.detail(row, p);
 		} catch (error) {
 			throw this.translate(error, id);
 		}
@@ -754,8 +754,15 @@ export class ProposalsService {
 		}));
 	}
 
-	private detail<T extends { body: Prisma.JsonValue }>(row: T) {
-		return { ...row, body: parseTemplateBlocks(row.body) };
+	private detail<
+		T extends { body: Prisma.JsonValue; viewToken: string | null },
+	>(row: T, p: AccessPrincipal) {
+		return maskCents(
+			p,
+			"prices",
+			{ ...row, body: parseTemplateBlocks(row.body) },
+			["viewToken"],
+		);
 	}
 
 	private async loadOrThrow(id: string) {

@@ -99,7 +99,9 @@ export function AddInvoiceLineItem({
 			name: service.name,
 			unit: service.unit,
 			quantity: 1,
-			priceCents: service.unitPriceCents ?? 0,
+			...(service.unitPriceCents === null
+				? {}
+				: { priceCents: service.unitPriceCents }),
 		});
 	};
 

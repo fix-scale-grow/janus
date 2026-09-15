@@ -1,5 +1,6 @@
 import { WORKSPACE_ID } from "@crm/auth";
 import type { Db, Prisma } from "@crm/db";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import { WORKSHEET_PREFILL_KEYS } from "@crm/db/permits";
 import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
@@ -67,7 +68,10 @@ export type PermitPrefillValues = Record<
 export class PermitPrefillService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async resolve(dealId: string): Promise<PermitPrefillValues> {
+	async resolve(
+		dealId: string,
+		p: AccessPrincipal,
+	): Promise<PermitPrefillValues> {
 		const values: PermitPrefillValues = {
 			job_address: "",
 			job_name: "",
@@ -108,29 +112,31 @@ export class PermitPrefillService {
 			values.owner_phone = primaryContact.phone ?? "";
 		}
 
-		const estimate = deal.estimates[0];
-		if (estimate) {
-			const total = tierTotals(
-				estimate.lineItems.map((item) => ({
-					name: "",
-					unit: "PER_EACH",
-					areaLabel: null,
-					quantity: Number(item.quantity),
-					priceGoodCents: item.priceGoodCents,
-					priceBetterCents: item.priceBetterCents,
-					priceBestCents: item.priceBestCents,
-				})),
-			)[estimate.selectedTier];
-			values.job_valuation = formatCents(total, estimate.currency);
-		} else {
-			const invoice = deal.invoices[0];
-			if (invoice) {
-				const total = invoice.lineItems.reduce(
-					(sum, item) =>
-						sum + Math.round(Number(item.quantity) * item.priceCents),
-					0,
-				);
-				values.job_valuation = formatCents(total, invoice.currency);
+		if (hasMoney(p, "prices")) {
+			const estimate = deal.estimates[0];
+			if (estimate) {
+				const total = tierTotals(
+					estimate.lineItems.map((item) => ({
+						name: "",
+						unit: "PER_EACH",
+						areaLabel: null,
+						quantity: Number(item.quantity),
+						priceGoodCents: item.priceGoodCents,
+						priceBetterCents: item.priceBetterCents,
+						priceBestCents: item.priceBestCents,
+					})),
+				)[estimate.selectedTier];
+				values.job_valuation = formatCents(total, estimate.currency);
+			} else {
+				const invoice = deal.invoices[0];
+				if (invoice) {
+					const total = invoice.lineItems.reduce(
+						(sum, item) =>
+							sum + Math.round(Number(item.quantity) * item.priceCents),
+						0,
+					);
+					values.job_valuation = formatCents(total, invoice.currency);
+				}
 			}
 		}
 

@@ -6,6 +6,7 @@ import {
 	ProductionStage,
 	StageOutcome,
 } from "@crm/db";
+import { maskCents, maskLineItems } from "@crm/db/access-money";
 import {
 	type AccessPrincipal,
 	allows,
@@ -201,30 +202,40 @@ export class DealsService {
 		);
 
 		return {
-			rows: rows.map(
-				({
-					amount,
-					baseAmount,
-					expectedCloseDate,
-					closedAt,
-					lastActivityAt,
-					createdAt,
-					...row
-				}) => ({
-					...row,
-					amountCents: toCents(amount),
-					baseAmountCents: toCents(baseAmount),
-					expectedCloseDate: expectedCloseDate?.toISOString() ?? null,
-					closedAt: closedAt?.toISOString() ?? null,
-					lastActivityAt: lastActivityAt?.toISOString() ?? null,
-					createdAt: createdAt.toISOString(),
-					fields: tableFields.get(row.id) ?? {},
-				}),
+			rows: maskLineItems(
+				p,
+				"prices",
+				rows.map(
+					({
+						amount,
+						baseAmount,
+						expectedCloseDate,
+						closedAt,
+						lastActivityAt,
+						createdAt,
+						...row
+					}) => ({
+						...row,
+						amountCents: toCents(amount),
+						baseAmountCents: toCents(baseAmount),
+						expectedCloseDate: expectedCloseDate?.toISOString() ?? null,
+						closedAt: closedAt?.toISOString() ?? null,
+						lastActivityAt: lastActivityAt?.toISOString() ?? null,
+						createdAt: createdAt.toISOString(),
+						fields: tableFields.get(row.id) ?? {},
+					}),
+				),
+				["amountCents", "baseAmountCents"],
 			),
 			total,
 			facetCounts: facets.counts,
 			stages: facets.stages,
-			openValueCents: toCents(openValue._sum.baseAmount),
+			openValueCents: maskCents(
+				p,
+				"prices",
+				{ openValueCents: toCents(openValue._sum.baseAmount) },
+				["openValueCents"],
+			).openValueCents,
 			reportingCurrency: base,
 			unconverted,
 		} satisfies ListResult<unknown> & {
@@ -269,20 +280,25 @@ export class DealsService {
 
 		const { contacts, amount, baseAmount, fxRate, fxRateAt, ...rest } = deal;
 
-		return {
-			...rest,
-			fields: await this.fields.valuesFor("DEAL", id),
-			amountCents: toCents(amount),
-			baseAmountCents: toCents(baseAmount),
-			reportingCurrency: await this.conversion.reportingCurrency(),
-			fxRate: fxRate?.toNumber() ?? null,
-			fxRateAt: fxRateAt?.toISOString() ?? null,
-			stageChangedAt: deal.stageChangedAt.toISOString(),
-			expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
-			closedAt: deal.closedAt?.toISOString() ?? null,
-			createdAt: deal.createdAt.toISOString(),
-			contacts: contacts.map(({ role, contact }) => ({ ...contact, role })),
-		};
+		return maskCents(
+			p,
+			"prices",
+			{
+				...rest,
+				fields: await this.fields.valuesFor("DEAL", id),
+				amountCents: toCents(amount),
+				baseAmountCents: toCents(baseAmount),
+				reportingCurrency: await this.conversion.reportingCurrency(),
+				fxRate: fxRate?.toNumber() ?? null,
+				fxRateAt: fxRateAt?.toISOString() ?? null,
+				stageChangedAt: deal.stageChangedAt.toISOString(),
+				expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
+				closedAt: deal.closedAt?.toISOString() ?? null,
+				createdAt: deal.createdAt.toISOString(),
+				contacts: contacts.map(({ role, contact }) => ({ ...contact, role })),
+			},
+			["amountCents", "baseAmountCents", "fxRate"],
+		);
 	}
 
 	async create(input: DealCreateInput, p: AccessPrincipal) {
@@ -612,26 +628,29 @@ export class DealsService {
 			},
 		});
 
-		return rows.map(({ amount, contacts, ...row }) => {
-			// First attached contact with a usable phone is the one to call; fall
-			// back to the first contact so a nameless card never ships.
-			const withPhone = contacts.find(
-				(c) => c.contact.phone && c.contact.phone.trim().length > 0,
-			);
-			const reachable = (withPhone ?? contacts[0])?.contact ?? null;
-			return {
-				...row,
-				amountCents: toCents(amount),
-				contact: reachable
-					? {
-							id: reachable.id,
-							firstName: reachable.firstName,
-							lastName: reachable.lastName,
-							phone: reachable.phone,
-						}
-					: null,
-			};
-		});
+		return maskLineItems(
+			p,
+			"prices",
+			rows.map(({ amount, contacts, ...row }) => {
+				const withPhone = contacts.find(
+					(c) => c.contact.phone && c.contact.phone.trim().length > 0,
+				);
+				const reachable = (withPhone ?? contacts[0])?.contact ?? null;
+				return {
+					...row,
+					amountCents: toCents(amount),
+					contact: reachable
+						? {
+								id: reachable.id,
+								firstName: reachable.firstName,
+								lastName: reachable.lastName,
+								phone: reachable.phone,
+							}
+						: null,
+				};
+			}),
+			["amountCents"],
+		);
 	}
 
 	/** Move a WON deal along the production pipeline (or back to Unscheduled with

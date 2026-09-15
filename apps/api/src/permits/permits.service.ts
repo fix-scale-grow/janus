@@ -422,7 +422,7 @@ export class PermitsService {
 		if (!permit.playbookId) return this.byId(input.permitId, p);
 
 		const playbook = await this.playbooks.byId(permit.playbookId);
-		const values = await this.prefill.resolve(permit.dealId);
+		const values = await this.prefill.resolve(permit.dealId, p);
 
 		await this.mutateAnswers(input.permitId, (answers) => {
 			const updated = { ...answers };

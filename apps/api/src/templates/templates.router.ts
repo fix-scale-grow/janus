@@ -10,7 +10,10 @@ import {
 import type { z } from "zod";
 import { adminOnly, anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type {
+	AccessTrpcContext,
+	AuthedTrpcContext,
+} from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	templateByPurposeInput,
@@ -47,10 +50,10 @@ export class TemplatesRouter {
 
 	@Query({ input: templatePreviewInput, meta: anyMember() })
 	async preview(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof templatePreviewInput>,
 	) {
-		return this.templates.preview(input, ctx.user.name);
+		return this.templates.preview(input, ctx.user.name, ctx.access);
 	}
 
 	@Mutation({ input: templateSendTestInput, meta: adminOnly() })

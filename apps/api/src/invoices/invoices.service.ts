@@ -357,12 +357,15 @@ export class InvoicesService {
 
 	async addLineItem(input: InvoiceAddLineItemInput, p: AccessPrincipal) {
 		await this.assertInScope(input.invoiceId, p);
+		this.assertCanWritePrices(p, [
+			input.priceCents === 0 ? undefined : input.priceCents,
+		]);
 
 		const count = await this.db.invoiceLineItem.count({
 			where: { invoiceId: input.invoiceId },
 		});
 
-		return this.db.invoiceLineItem.create({
+		const created = await this.db.invoiceLineItem.create({
 			data: {
 				invoiceId: input.invoiceId,
 				name: input.name,
@@ -373,15 +376,18 @@ export class InvoicesService {
 				sortOrder: count,
 			},
 		});
+		return maskCents(p, "prices", created, ["priceCents"]);
 	}
 
 	async updateLineItem(input: InvoiceUpdateLineItemInput, p: AccessPrincipal) {
 		await this.assertLineItemInScope(input.id, p);
+		this.assertCanWritePrices(p, [input.data.priceCents]);
 		try {
-			return await this.db.invoiceLineItem.update({
+			const updated = await this.db.invoiceLineItem.update({
 				where: { id: input.id },
 				data: input.data,
 			});
+			return maskCents(p, "prices", updated, ["priceCents"]);
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -512,6 +518,16 @@ export class InvoicesService {
 		throw new ForbiddenException(
 			moneyRefusalMessage(p, "see prices, so it can't export a priced PDF."),
 		);
+	}
+
+	private assertCanWritePrices(
+		p: AccessPrincipal,
+		priceFields: readonly (number | undefined)[],
+	): void {
+		if (hasMoney(p, "prices")) return;
+		if (priceFields.some((value) => value !== undefined)) {
+			throw new ForbiddenException(moneyRefusalMessage(p, "set prices."));
+		}
 	}
 
 	private async assertLineItemInScope(

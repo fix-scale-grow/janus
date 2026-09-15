@@ -1,5 +1,6 @@
 import type { Db } from "@crm/db";
 import { Prisma as PrismaNamespace } from "@crm/db";
+import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { FieldsService } from "../fields/fields.service";
@@ -138,7 +139,11 @@ export class TemplatesService {
 		}
 	}
 
-	async preview(input: TemplatePreviewInput, senderName?: string) {
+	async preview(
+		input: TemplatePreviewInput,
+		senderName: string | undefined,
+		p: AccessPrincipal,
+	) {
 		const hasRefs = Boolean(
 			input.contactId || input.dealId || input.estimateId || input.invoiceId,
 		);
@@ -151,7 +156,13 @@ export class TemplatesService {
 					invoiceId: input.invoiceId,
 					senderName,
 				})
-			: SAMPLE_MERGE_CONTEXT;
+			: { ...SAMPLE_MERGE_CONTEXT };
+
+		if (hasRefs && !hasMoney(p, "prices")) {
+			for (const token of ["estimate.total", "invoice.total"]) {
+				if (token in context) context[token] = "";
+			}
+		}
 
 		const template = await this.byPurpose({ purpose: input.purpose });
 		const blocks = parseTemplateBlocks(template.blocks);

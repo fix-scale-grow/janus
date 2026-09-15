@@ -1,7 +1,7 @@
 import { ActivityType, type Db, StageOutcome } from "@crm/db";
 import { maskCents, maskLineItems } from "@crm/db/access-money";
 import type { AccessPrincipal } from "@crm/db/access-policy";
-import { dealScopeWhere } from "@crm/db/access-scope";
+import { activityScopeWhere, dealScopeWhere } from "@crm/db/access-scope";
 import { Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
@@ -166,7 +166,12 @@ export class DashboardService {
 				},
 			}),
 			this.db.activity.findMany({
-				where: mine ? { createdById: actingUserId } : {},
+				where: {
+					AND: [
+						mine ? { createdById: actingUserId } : {},
+						activityScopeWhere(p),
+					],
+				},
 				orderBy: [{ createdAt: "desc" }],
 				take: 12,
 				select: {

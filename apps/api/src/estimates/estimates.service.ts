@@ -307,7 +307,7 @@ export class EstimatesService {
 				where: { estimateId: input.estimateId },
 			});
 
-			return this.db.estimateLineItem.create({
+			const created = await this.db.estimateLineItem.create({
 				data: {
 					estimateId: input.estimateId,
 					serviceId: service.id,
@@ -321,6 +321,11 @@ export class EstimatesService {
 					sortOrder: count,
 				},
 			});
+			return maskCents(p, "prices", created, [
+				"priceGoodCents",
+				"priceBetterCents",
+				"priceBestCents",
+			]);
 		}
 
 		if (!input.name || !input.unit) {
@@ -350,11 +355,21 @@ export class EstimatesService {
 
 	async updateLineItem(input: EstimateUpdateLineItemInput, p: AccessPrincipal) {
 		await this.assertLineItemInScope(input.id, p);
+		this.assertCanWritePrices(p, [
+			input.data.priceGoodCents,
+			input.data.priceBetterCents,
+			input.data.priceBestCents,
+		]);
 		try {
-			return await this.db.estimateLineItem.update({
+			const updated = await this.db.estimateLineItem.update({
 				where: { id: input.id },
 				data: input.data,
 			});
+			return maskCents(p, "prices", updated, [
+				"priceGoodCents",
+				"priceBetterCents",
+				"priceBestCents",
+			]);
 		} catch (error) {
 			throw this.translate(error, input.id);
 		}
@@ -696,6 +711,16 @@ export class EstimatesService {
 		throw new ForbiddenException(
 			moneyRefusalMessage(p, "see prices, so it can't export a priced PDF."),
 		);
+	}
+
+	private assertCanWritePrices(
+		p: AccessPrincipal,
+		priceFields: readonly (number | undefined)[],
+	): void {
+		if (hasMoney(p, "prices")) return;
+		if (priceFields.some((value) => value !== undefined)) {
+			throw new ForbiddenException(moneyRefusalMessage(p, "set prices."));
+		}
 	}
 
 	private async assertLineItemInScope(

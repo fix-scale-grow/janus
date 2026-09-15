@@ -11,7 +11,12 @@ import {
 } from "@crm/db";
 import { moneyRefusalMessage } from "@crm/db/access-money";
 import { type AccessPrincipal, hasMoney } from "@crm/db/access-policy";
-import { dealChildWhere, dealScopeWhere } from "@crm/db/access-scope";
+import {
+	activityScopeWhere,
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { toCents } from "../crm/values";
 import { ConversionService } from "../currency/conversion.service";
@@ -730,8 +735,10 @@ export class ReportsService {
 				this.db.activity.groupBy({
 					by: ["createdById"],
 					where: {
-						createdById: { in: ownerIds },
-						occurredAt: range,
+						AND: [
+							{ createdById: { in: ownerIds }, occurredAt: range },
+							activityScopeWhere(p),
+						],
 					},
 					_count: { _all: true },
 				}),
@@ -820,11 +827,14 @@ export class ReportsService {
 	private async estimatesFunnelSection(
 		range: ReturnType<typeof resolveRange>,
 		hasProfitView: boolean,
+		p: AccessPrincipal,
 	): Promise<{ estimatesFunnel: EstimatesFunnel; excluded: number }> {
 		const estimates = await this.db.estimate.findMany({
 			where: {
-				status: { not: "DRAFT" },
-				createdAt: range,
+				AND: [
+					{ status: { not: "DRAFT" }, createdAt: range },
+					dealChildWhere(p),
+				],
 			},
 			select: {
 				status: true,
@@ -934,8 +944,14 @@ export class ReportsService {
 
 		const activities = await this.db.activity.findMany({
 			where: {
-				type: ActivityType.STAGE_CHANGE,
-				occurredAt: range,
+				AND: [
+					{
+						type: ActivityType.STAGE_CHANGE,
+						occurredAt: range,
+						dealId: { not: null },
+					},
+					{ deal: dealScopeWhere(p) },
+				],
 			},
 			orderBy: [{ dealId: "asc" }, { occurredAt: "asc" }],
 			take: REPORTS.maxVelocityActivities,
@@ -1072,6 +1088,7 @@ export class ReportsService {
 		const { estimatesFunnel, excluded } = await this.estimatesFunnelSection(
 			range,
 			hasProfitView,
+			p,
 		);
 
 		const kpis: ReportKpi[] = [
@@ -1122,7 +1139,7 @@ export class ReportsService {
 
 		const [contactsInRange, dealsInRange, wonDeals] = await Promise.all([
 			this.db.contact.findMany({
-				where: { createdAt: range },
+				where: { AND: [{ createdAt: range }, contactScopeWhere(p)] },
 				select: { id: true, source: true },
 			}),
 			this.db.deal.findMany({
@@ -1303,9 +1320,19 @@ export class ReportsService {
 
 	private async avgScheduledToCompleteDays(
 		range: ReturnType<typeof resolveRange>,
+		p: AccessPrincipal,
 	): Promise<number | null> {
 		const activities = await this.db.activity.findMany({
-			where: { type: ActivityType.STAGE_CHANGE, occurredAt: { lt: range.lt } },
+			where: {
+				AND: [
+					{
+						type: ActivityType.STAGE_CHANGE,
+						occurredAt: { lt: range.lt },
+						dealId: { not: null },
+					},
+					{ deal: dealScopeWhere(p) },
+				],
+			},
 			orderBy: [{ dealId: "asc" }, { occurredAt: "asc" }],
 			take: REPORTS.maxVelocityActivities,
 			select: { dealId: true, occurredAt: true, meta: true },
@@ -1378,7 +1405,7 @@ export class ReportsService {
 					where: { archived: false },
 					select: { id: true, name: true, color: true },
 				}),
-				this.avgScheduledToCompleteDays(range),
+				this.avgScheduledToCompleteDays(range, p),
 			]);
 
 		const throughputByMonth = new Map<string, number>();
@@ -1397,9 +1424,14 @@ export class ReportsService {
 		const tasks = crewIds.length
 			? await this.db.projectTask.findMany({
 					where: {
-						crewId: { in: crewIds },
-						startDay: { not: null, lte: to },
-						OR: [{ endDay: null }, { endDay: { gte: from } }],
+						AND: [
+							{
+								crewId: { in: crewIds },
+								startDay: { not: null, lte: to },
+								OR: [{ endDay: null }, { endDay: { gte: from } }],
+							},
+							{ project: dealChildWhere(p) },
+						],
 					},
 					select: {
 						crewId: true,

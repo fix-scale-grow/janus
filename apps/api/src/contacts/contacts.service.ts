@@ -7,6 +7,7 @@ import {
 	Prisma as PrismaNamespace,
 	type RecordSource,
 } from "@crm/db";
+import { maskLineItems } from "@crm/db/access-money";
 import { type AccessPrincipal } from "@crm/db/access-policy";
 import {
 	contactScopeWhere,
@@ -262,13 +263,18 @@ export class ContactsService {
 				observedAt: fact.observedAt.toISOString(),
 			})),
 			relationship,
-			deals: deals.map(({ role, deal }) => ({
-				...deal,
-				role,
-				amount: undefined,
-				amountCents: toCents(deal.amount),
-				expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
-			})),
+			deals: maskLineItems(
+				p,
+				"prices",
+				deals.map(({ role, deal }) => ({
+					...deal,
+					role,
+					amount: undefined,
+					amountCents: toCents(deal.amount),
+					expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
+				})),
+				["amountCents"],
+			),
 		};
 	}
 

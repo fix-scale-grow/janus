@@ -1,11 +1,36 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { ACCESS_AREAS } from "@crm/db/access-config";
+import {
+	type AccessPolicy,
+	type AccessPrincipal,
+	adminPrincipal,
+} from "@crm/db/access-policy";
 import { PermitPrefillService } from "../src/permits/permit-prefill.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "permit-prefill-spec";
 
 const prefill = new PermitPrefillService(db);
+const admin = adminPrincipal("permit-prefill-spec");
+
+function principalWithMoney(money: AccessPolicy["money"]): AccessPrincipal {
+	return {
+		userId: "permit-prefill-spec-user",
+		isAdmin: false,
+		groupId: null,
+		groupName: "Test group",
+		surface: "FULL",
+		scope: "ALL",
+		policy: {
+			areas: Object.fromEntries(
+				ACCESS_AREAS.map((area) => [area, "EDIT"]),
+			) as AccessPolicy["areas"],
+			actions: [],
+			money,
+		},
+	};
+}
 
 let userId: string;
 let stageId: string;
@@ -58,7 +83,7 @@ describe("PermitPrefillService.resolve", () => {
 		const dealName = `Blank ${suffix}`;
 		const deal = await makeDeal(dealName);
 
-		const values = await prefill.resolve(deal.id);
+		const values = await prefill.resolve(deal.id, admin);
 
 		expect(values.job_address).toBe("");
 		expect(values.job_valuation).toBe("");
@@ -118,7 +143,7 @@ describe("PermitPrefillService.resolve", () => {
 			select: { id: true },
 		});
 
-		const values = await prefill.resolve(deal.id);
+		const values = await prefill.resolve(deal.id, admin);
 		expect(values.job_valuation).toBe("$240.00");
 
 		await db.estimate.deleteMany({ where: { id: estimate.id } });
@@ -192,7 +217,7 @@ describe("PermitPrefillService.resolve", () => {
 			select: { id: true },
 		});
 
-		const values = await prefill.resolve(deal.id);
+		const values = await prefill.resolve(deal.id, admin);
 		expect(values.job_valuation).toBe("$60.00");
 
 		await db.estimate.deleteMany({ where: { id: draftEstimate.id } });
@@ -217,7 +242,7 @@ describe("PermitPrefillService.resolve", () => {
 			data: { dealId: deal.id, contactId: contact.id },
 		});
 
-		const values = await prefill.resolve(deal.id);
+		const values = await prefill.resolve(deal.id, admin);
 		expect(values.owner_name).toBe("Priya Patel");
 		expect(values.owner_email).toBe(`priya-${suffix}@example.test`);
 		expect(values.owner_phone).toBe("555-0199");
@@ -240,10 +265,50 @@ describe("PermitPrefillService.resolve", () => {
 			select: { id: true },
 		});
 
-		const values = await prefill.resolve(deal.id);
+		const values = await prefill.resolve(deal.id, admin);
 		expect(values.job_address).toBe("123 Main St, Denver, CO 80202");
 
 		await db.drawing.deleteMany({ where: { id: drawing.id } });
+		await db.deal.deleteMany({ where: { id: deal.id } });
+	});
+
+	it("skips job_valuation for a principal without money.prices", async () => {
+		const deal = await makeDeal(`No Prices ${suffix}`);
+
+		const estimate = await db.estimate.create({
+			data: {
+				status: "SENT",
+				currency: "USD",
+				selectedTier: "BETTER",
+				dealId: deal.id,
+				createdById: userId,
+				lineItems: {
+					create: [
+						{
+							name: "Estimate item",
+							unit: "PER_EACH",
+							quantity: 2,
+							priceGoodCents: 10_000,
+							priceBetterCents: 12_000,
+							priceBestCents: 15_000,
+						},
+					],
+				},
+			},
+			select: { id: true },
+		});
+
+		const withPrices = await prefill.resolve(deal.id, admin);
+		expect(withPrices.job_valuation).toBe("$240.00");
+
+		const withoutPrices = await prefill.resolve(
+			deal.id,
+			principalWithMoney([]),
+		);
+		expect(withoutPrices.job_valuation).toBe("");
+		expect(withoutPrices.job_name).toBe(withPrices.job_name);
+
+		await db.estimate.deleteMany({ where: { id: estimate.id } });
 		await db.deal.deleteMany({ where: { id: deal.id } });
 	});
 });
