@@ -22,6 +22,7 @@ export type AccessFixture = {
 	otherInvoiceId: string;
 	clerkContractId: string;
 	otherContractId: string;
+	otherDrawingId: string;
 	cleanup(): Promise<void>;
 };
 
@@ -179,6 +180,15 @@ export async function createAccessFixture(
 		},
 		select: { id: true },
 	});
+	const otherDrawing = await db.drawing.create({
+		data: {
+			title: `Other drawing ${suffix}`,
+			scene: {},
+			dealId: otherDeal.id,
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
 	const resolve = async (id: string) => {
 		const p = await resolvePrincipal(db, id);
 		if (!p) throw new Error(`principal ${id} missing`);
@@ -203,6 +213,7 @@ export async function createAccessFixture(
 		otherInvoiceId: otherInvoice.id,
 		clerkContractId: clerkContract.id,
 		otherContractId: otherContract.id,
+		otherDrawingId: otherDrawing.id,
 		async cleanup() {
 			const userIds = Object.values(users).map((u) => u.id);
 			await db.contract.deleteMany({
@@ -212,6 +223,9 @@ export async function createAccessFixture(
 			});
 			await db.invoice.deleteMany({
 				where: { id: { in: [clerkInvoice.id, otherInvoice.id] } },
+			});
+			await db.drawing.deleteMany({
+				where: { id: otherDrawing.id },
 			});
 			await db.estimate.deleteMany({
 				where: {

@@ -12,10 +12,12 @@ import {
 	contactScopeWhere,
 	dealChildWhere,
 	dealScopeWhere,
+	isUnscoped,
 } from "@crm/db/access-scope";
 import {
 	BadRequestException,
 	ConflictException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -296,6 +298,8 @@ export class ContractsService {
 	async create(input: ContractCreateInput, p: AccessPrincipal) {
 		if (input.dealId) {
 			await this.assertDealInScope(input.dealId, p);
+		} else {
+			this.assertDeallessCreateAllowed(p);
 		}
 		if (input.contactId) {
 			await this.assertContactInScope(input.contactId, p);
@@ -318,8 +322,14 @@ export class ContractsService {
 
 	async update(input: ContractUpdateInput, p: AccessPrincipal) {
 		await this.assertInScope(input.id, p);
-		if (input.data.contactId) {
+		if (typeof input.data.contactId === "string") {
 			await this.assertContactInScope(input.data.contactId, p);
+		}
+		if (typeof input.data.estimateId === "string") {
+			await this.assertEstimateInScope(input.data.estimateId, p);
+		}
+		if (typeof input.data.invoiceId === "string") {
+			await this.assertInvoiceInScope(input.data.invoiceId, p);
 		}
 		const existing = await this.loadOrThrow(input.id);
 
@@ -666,6 +676,32 @@ export class ContractsService {
 		if (!found) throw new NotFoundException(`No deal with id ${dealId}.`);
 	}
 
+	private async assertEstimateInScope(
+		estimateId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.estimate.findFirst({
+			where: { AND: [{ id: estimateId }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No estimate with id ${estimateId}.`);
+		}
+	}
+
+	private async assertInvoiceInScope(
+		invoiceId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.invoice.findFirst({
+			where: { AND: [{ id: invoiceId }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No invoice with id ${invoiceId}.`);
+		}
+	}
+
 	private async assertContactInScope(
 		contactId: string,
 		p: AccessPrincipal,
@@ -677,6 +713,13 @@ export class ContractsService {
 		if (!found) {
 			throw new NotFoundException(`No contact with id ${contactId}.`);
 		}
+	}
+
+	private assertDeallessCreateAllowed(p: AccessPrincipal): void {
+		if (isUnscoped(p) || p.scope !== "ASSIGNED") return;
+		throw new ForbiddenException(
+			`Your group (${p.groupName}) can only create these on a job assigned to you. Ask an admin.`,
+		);
 	}
 
 	private async pdfChrome(): Promise<{

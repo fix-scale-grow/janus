@@ -141,6 +141,13 @@ function fakeDb(
 				where: { AND: [{ id: string }, unknown] };
 			}) => estimates.get(where.AND[0].id) ?? null,
 		},
+		invoice: {
+			findFirst: async ({
+				where,
+			}: {
+				where: { AND: [{ id: string }, unknown] };
+			}) => ({ id: where.AND[0].id }),
+		},
 		contract: {
 			findUnique: async (args: { select?: Record<string, unknown> } = {}) =>
 				applySelect(row, args.select),

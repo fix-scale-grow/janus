@@ -4,7 +4,7 @@ import {
 	type AccessFixture,
 	createAccessFixture,
 } from "@crm/db/access-fixture";
-import { NotFoundException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import type { ContactsService } from "../src/contacts/contacts.service";
 import {
@@ -94,6 +94,15 @@ async function expectNotFound(run: () => Promise<unknown>) {
 	}
 }
 
+async function expectForbidden(run: () => Promise<unknown>) {
+	try {
+		await run();
+		throw new Error("expected ForbiddenException");
+	} catch (error) {
+		expect(error).toBeInstanceOf(ForbiddenException);
+	}
+}
+
 describe("children scope", () => {
 	describe("estimates", () => {
 		test("clerk lists only their estimate", async () => {
@@ -150,6 +159,41 @@ describe("children scope", () => {
 				),
 			);
 		});
+
+		test("clerk cannot generate an estimate from another deal's drawing", async () => {
+			await expectNotFound(() =>
+				estimates.generateFromDrawing({ drawingId: f.otherDrawingId }, f.clerk),
+			);
+		});
+
+		test("ASSIGNED scope cannot create a deal-less estimate", async () => {
+			await expectForbidden(() => estimates.create({}, f.crew));
+		});
+
+		test("clerk cannot update a line item on another deal's estimate", async () => {
+			const lineItem = await db.estimateLineItem.create({
+				data: {
+					estimateId: f.otherEstimateId,
+					name: "Tear-off",
+					unit: "PER_SQUARE",
+					quantity: 1,
+					priceGoodCents: 0,
+					priceBetterCents: 0,
+					priceBestCents: 0,
+					sortOrder: 0,
+				},
+				select: { id: true },
+			});
+
+			await expectNotFound(() =>
+				estimates.updateLineItem(
+					{ id: lineItem.id, data: { quantity: 2 } },
+					f.clerk,
+				),
+			);
+
+			await db.estimateLineItem.delete({ where: { id: lineItem.id } });
+		});
 	});
 
 	describe("invoices", () => {
@@ -191,6 +235,12 @@ describe("children scope", () => {
 				),
 			);
 		});
+
+		test("clerk cannot mark another deal's invoice paid", async () => {
+			await expectNotFound(() =>
+				invoices.markPaid(f.otherInvoiceId, f.clerkId, f.clerk),
+			);
+		});
 	});
 
 	describe("contracts", () => {
@@ -229,6 +279,30 @@ describe("children scope", () => {
 				),
 			);
 		});
+
+		test("clerk cannot link another deal's estimate onto their own contract", async () => {
+			await expectNotFound(() =>
+				contracts.update(
+					{
+						id: f.clerkContractId,
+						data: { estimateId: f.otherEstimateId },
+					},
+					f.clerk,
+				),
+			);
+		});
+
+		test("clerk cannot link another deal's invoice onto their own contract", async () => {
+			await expectNotFound(() =>
+				contracts.update(
+					{
+						id: f.clerkContractId,
+						data: { invoiceId: f.otherInvoiceId },
+					},
+					f.clerk,
+				),
+			);
+		});
 	});
 
 	describe("proposals", () => {
@@ -242,6 +316,22 @@ describe("children scope", () => {
 			await expectNotFound(() =>
 				proposals.createFromEstimate(f.otherEstimateId, f.clerkId, f.clerk),
 			);
+		});
+
+		test("clerk cannot generate a proposal PDF on another deal's estimate", async () => {
+			const proposal = await db.proposal.create({
+				data: {
+					title: "Other proposal",
+					estimateId: f.otherEstimateId,
+					body: [],
+					createdById: f.adminId,
+				},
+				select: { id: true },
+			});
+
+			await expectNotFound(() => proposals.document(proposal.id, f.clerk));
+
+			await db.proposal.delete({ where: { id: proposal.id } });
 		});
 	});
 });

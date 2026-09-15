@@ -5,6 +5,7 @@ import {
 	contactScopeWhere,
 	dealChildWhere,
 	dealScopeWhere,
+	isUnscoped,
 } from "@crm/db/access-scope";
 import {
 	measureSatellite,
@@ -15,6 +16,7 @@ import {
 } from "@crm/drawings";
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
@@ -167,6 +169,8 @@ export class EstimatesService {
 	async create(input: EstimateCreateInput, p: AccessPrincipal) {
 		if (input.dealId) {
 			await this.assertDealInScope(input.dealId, p);
+		} else {
+			this.assertDeallessCreateAllowed(p);
 		}
 		if (input.contactId) {
 			await this.assertContactInScope(input.contactId, p);
@@ -693,6 +697,13 @@ export class EstimatesService {
 		if (!found) {
 			throw new NotFoundException(`No contact with id ${contactId}.`);
 		}
+	}
+
+	private assertDeallessCreateAllowed(p: AccessPrincipal): void {
+		if (isUnscoped(p) || p.scope !== "ASSIGNED") return;
+		throw new ForbiddenException(
+			`Your group (${p.groupName}) can only create these on a job assigned to you. Ask an admin.`,
+		);
 	}
 
 	private async loadForPdf(id: string) {
