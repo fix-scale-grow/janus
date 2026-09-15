@@ -14,7 +14,8 @@ import {
 	photoVisible,
 } from "./access-route";
 
-const suffix = process.env.TEST_RUN_ID ?? "access-route";
+const suffix =
+	process.env.TEST_RUN_ID ?? `access-route-${crypto.randomUUID().slice(0, 8)}`;
 
 let f: AccessFixture;
 
