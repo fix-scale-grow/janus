@@ -2,8 +2,17 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import Location from "@carbon/icons-react/es/Location";
 import type { DrawingScene } from "@crm/drawings";
 import { Button } from "@crm/ui/components/button";
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "@crm/ui/components/empty";
+import { Icon } from "@crm/ui/components/icon";
 import { useEffect } from "react";
 import type { ScopeShapeUpdate } from "./scope-panel";
 import { useSatelliteFeatures } from "./use-satellite-features";
@@ -36,14 +45,19 @@ export function SatelliteCanvas(props: SatelliteCanvasProps) {
 
 	if (workerMissing) {
 		return (
-			<div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<p className="font-medium text-foreground">
-					The satellite map cannot start here.
-				</p>
-				<p className="text-muted-foreground text-sm">
-					Run <code>bun run setup:maplibre</code> at the repo root, then reload
-					this page.
-				</p>
+			<div className="flex h-full min-h-0 flex-1 items-center justify-center p-8">
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<Icon icon={Location} />
+						</EmptyMedia>
+						<EmptyTitle>The satellite map cannot start here</EmptyTitle>
+						<EmptyDescription>
+							Run <code>bun run setup:maplibre</code> at the repo root, then
+							reload this page.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
 			</div>
 		);
 	}

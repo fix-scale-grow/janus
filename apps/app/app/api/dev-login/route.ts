@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
 		return new NextResponse("BETTER_AUTH_SECRET is not set.", { status: 500 });
 	}
 
-	const email =
+	const rawEmail =
 		request.nextUrl.searchParams.get("email")?.trim() || DEFAULT_EMAIL;
+	const email = rawEmail.toLowerCase();
 	const name = email.split("@")[0] ?? "Developer";
 	const requestedRole = request.nextUrl.searchParams.get("role")?.trim();
 	const requestedGroup = request.nextUrl.searchParams.get("group")?.trim();

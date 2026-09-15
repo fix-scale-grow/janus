@@ -39,6 +39,17 @@ export type UseSatelliteFeaturesResult = {
 
 const WORKER_URL = "/vendor/maplibre-gl/maplibre-gl-worker.mjs";
 
+let workerAvailability: Promise<boolean> | null = null;
+
+function checkWorkerAvailability(): Promise<boolean> {
+	if (!workerAvailability) {
+		workerAvailability = fetch(WORKER_URL, { method: "HEAD" })
+			.then((response) => response.ok)
+			.catch(() => false);
+	}
+	return workerAvailability;
+}
+
 function closedRing(coordinates: [number, number][]): [number, number][] {
 	const first = coordinates[0];
 	const last = coordinates[coordinates.length - 1];
@@ -174,11 +185,9 @@ export function useSatelliteFeatures(
 			let cancelled = false;
 
 			(async () => {
-				const workerCheck = await fetch(WORKER_URL, { method: "HEAD" }).catch(
-					() => null,
-				);
+				const available = await checkWorkerAvailability();
 				if (cancelled) return;
-				if (!workerCheck?.ok) {
+				if (!available) {
 					setWorkerMissing(true);
 					return;
 				}
