@@ -6,10 +6,15 @@ import {
 	parseAccessPolicy,
 } from "@crm/db/access-policy";
 import { WORKSPACE_ID } from "@crm/db/workspace";
-import { ConflictException, Injectable, Logger } from "@nestjs/common";
+import {
+	BadRequestException,
+	ConflictException,
+	ForbiddenException,
+	Injectable,
+	Logger,
+} from "@nestjs/common";
 import { AccessService } from "../access/access.service";
 import { InjectDatabase } from "../database/database.constants";
-import { lockOwnersAndCheck } from "../workspace/workspace.service";
 import type {
 	AccessGroupIdInput,
 	AccessGroupInput,
@@ -27,11 +32,14 @@ export interface AccessGroupRow {
 	seedKey: string | null;
 }
 
+function prismaCode(error: unknown): string | null {
+	return error instanceof PrismaNamespace.PrismaClientKnownRequestError
+		? error.code
+		: null;
+}
+
 function isUniqueNameConflict(error: unknown): boolean {
-	return (
-		error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
-		error.code === "P2002"
-	);
+	return prismaCode(error) === "P2002";
 }
 
 @Injectable()
@@ -109,7 +117,11 @@ export class AccessGroupsService {
 	): Promise<{ id: string; affected: number }> {
 		this.access.assertAdmin(p);
 
-		const policy = accessPolicySchema.parse(input.policy);
+		const parsedPolicy = accessPolicySchema.safeParse(input.policy);
+		if (!parsedPolicy.success) {
+			throw new BadRequestException("That access policy is not valid.");
+		}
+		const policy = parsedPolicy.data;
 
 		try {
 			const affected = await this.db.$transaction(async (tx) => {
@@ -166,7 +178,18 @@ export class AccessGroupsService {
 			);
 		}
 
-		await this.db.accessGroup.delete({ where: { id: input.id } });
+		try {
+			await this.db.accessGroup.delete({ where: { id: input.id } });
+		} catch (error) {
+			const code = prismaCode(error);
+			if (code === "P2025") this.access.notFound("access group");
+			if (code === "P2003") {
+				throw new ConflictException(
+					"Move this group's people to another group first.",
+				);
+			}
+			throw error;
+		}
 
 		this.logger.log({
 			message: "Access group changed",
@@ -191,16 +214,18 @@ export class AccessGroupsService {
 			});
 			if (!target) this.access.notFound("member");
 
+			if (target.role === "owner") {
+				throw new ForbiddenException(
+					"Change an owner's role first, then choose their access.",
+				);
+			}
+
 			if (input.access.kind === "group") {
 				const group = await tx.accessGroup.findUnique({
 					where: { id: input.access.groupId },
 					select: { id: true },
 				});
 				if (!group) this.access.notFound("access group");
-			}
-
-			if (target.role === "owner") {
-				await lockOwnersAndCheck(tx);
 			}
 
 			await tx.member.update({

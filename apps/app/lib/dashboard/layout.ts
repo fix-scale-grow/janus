@@ -1,3 +1,4 @@
+import type { MoneySwitch } from "@crm/db/access-config";
 import type { DashboardLayoutEntry } from "@crm/db/user-views";
 import { DASHBOARD } from "./dashboard-config";
 
@@ -9,7 +10,7 @@ export interface WidgetMeta {
 	minH: number;
 	defaultW: number;
 	defaultH: number;
-	money?: "profit";
+	money?: MoneySwitch;
 	instanceOf?: string;
 	pipelineId?: string;
 }

@@ -1,3 +1,4 @@
+import type { MoneySwitch } from "@crm/db/access-config";
 import type { WidgetMeta } from "./layout";
 
 export const WIDGET_META: WidgetMeta[] = [
@@ -117,7 +118,7 @@ export const WIDGET_META: WidgetMeta[] = [
 	},
 ];
 
-export type WidgetAccess = { isAdmin: boolean; money: string[] };
+export type WidgetAccess = { isAdmin: boolean; money: MoneySwitch[] };
 
 export function visibleWidgets<T extends WidgetMeta>(
 	widgets: T[],

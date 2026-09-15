@@ -113,18 +113,20 @@ function columns(
 						</DropdownMenuTrigger>
 
 						<DropdownMenuContent align="end">
-							{(Object.keys(ROLE_LABEL) as Role[]).map((role) => (
-								<DropdownMenuItem
-									key={role}
-									data-checked={row.role === role}
-									onSelect={() => {
-										if (row.role === role) return;
-										onChangeRole(row, role);
-									}}
-								>
-									{ROLE_LABEL[role]}
-								</DropdownMenuItem>
-							))}
+							{(Object.keys(ROLE_LABEL) as Role[])
+								.filter((role) => role !== "member" || row.groupId !== null)
+								.map((role) => (
+									<DropdownMenuItem
+										key={role}
+										data-checked={row.role === role}
+										onSelect={() => {
+											if (row.role === role) return;
+											onChangeRole(row, role);
+										}}
+									>
+										{ROLE_LABEL[role]}
+									</DropdownMenuItem>
+								))}
 						</DropdownMenuContent>
 					</DropdownMenu>
 				) : null,

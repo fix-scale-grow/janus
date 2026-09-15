@@ -184,7 +184,7 @@ function NavMenuCard() {
 		);
 	};
 
-	const money = permissions.data?.money as string[] | undefined;
+	const money = permissions.data?.money;
 	const visible = useMemo(
 		() =>
 			JANUS_LIVE_NAV.filter(

@@ -54,6 +54,7 @@ export interface WorkspaceMember {
 	email: string;
 	image: string | null;
 	role: WorkspaceRole;
+	groupId: string | null;
 	joinedAt: string;
 	isViewer: boolean;
 }
@@ -61,6 +62,7 @@ export interface WorkspaceMember {
 const MEMBER_SELECT = {
 	id: true,
 	role: true,
+	groupId: true,
 	createdAt: true,
 	userId: true,
 	user: { select: { name: true, email: true, image: true } },
@@ -263,7 +265,10 @@ export class WorkspaceService {
 
 			return tx.member.update({
 				where: { id: target.id },
-				data: { role: input.role },
+				data: {
+					role: input.role,
+					...(input.role === "member" ? {} : { groupId: null }),
+				},
 				select: MEMBER_SELECT,
 			});
 		});
@@ -286,6 +291,7 @@ export class WorkspaceService {
 			email: row.user.email,
 			image: row.user.image,
 			role: toRole(row.role),
+			groupId: row.groupId,
 			joinedAt: row.createdAt.toISOString(),
 			isViewer: row.userId === userId,
 		};

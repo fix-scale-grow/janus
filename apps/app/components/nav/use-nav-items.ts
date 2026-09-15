@@ -56,7 +56,7 @@ function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
 		...(initialData ? { initialData } : {}),
 	});
 	const isAdmin = permissions.data?.isAdmin ?? false;
-	const money = permissions.data?.money as string[] | undefined;
+	const money = permissions.data?.money;
 	const permitsEnabled = seed?.permitsEnabled ?? false;
 
 	return useMemo(

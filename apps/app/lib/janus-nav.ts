@@ -13,6 +13,7 @@ import Receipt from "@carbon/icons-react/es/Receipt";
 import Settings from "@carbon/icons-react/es/Settings";
 import Tools from "@carbon/icons-react/es/Tools";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
+import type { MoneySwitch } from "@crm/db/access-config";
 
 /**
  * Janus product IA — the single source of truth for the app shell navigation.
@@ -43,7 +44,7 @@ export type JanusModule = {
 	related?: string[];
 	/** v0-suite source route this module ports from (design contract). */
 	source?: string;
-	permission?: string;
+	permission?: MoneySwitch;
 	children?: NavChild[];
 };
 
