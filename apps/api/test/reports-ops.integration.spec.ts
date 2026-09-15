@@ -155,9 +155,6 @@ afterAll(async () => {
 	await db.contact.deleteMany({ where: { id: { in: contactIds } } });
 	await db.stage.deleteMany({ where: { pipelineId: { in: pipelineIds } } });
 	await db.pipeline.deleteMany({ where: { id: { in: pipelineIds } } });
-	await db.userPermission.deleteMany({
-		where: { userId: { in: [adminUserId, memberUserId, forbiddenUserId] } },
-	});
 	await db.member.deleteMany({
 		where: { userId: { in: [adminUserId, memberUserId, forbiddenUserId] } },
 	});
@@ -215,7 +212,7 @@ describe("reports.leaderboard", () => {
 	const from = new Date("2024-01-01T00:00:00.000Z");
 	const to = new Date("2024-01-31T00:00:00.000Z");
 
-	it("attributes wonCents by closedAt (matching dashboard's won definition), masks money without profit.view, and computes winRatePct/openCount/activitiesLogged", async () => {
+	it("attributes wonCents by closedAt (matching dashboard's won definition), masks money without money.profit, and computes winRatePct/openCount/activitiesLogged", async () => {
 		const wonStage = await db.stage.findFirstOrThrow({
 			where: { key: "CLOSED_WON" },
 			select: { id: true },
@@ -446,7 +443,7 @@ describe("reports.pipeline", () => {
 		expect(sales.lossReasons).toContainEqual({ reason: "Price", count: 1 });
 	});
 
-	it("computes the estimates funnel (sent/accepted/declined, byTier value masked without profit.view, excluded non-USD, avgDaysToAccept)", async () => {
+	it("computes the estimates funnel (sent/accepted/declined, byTier value masked without money.profit, excluded non-USD, avgDaysToAccept)", async () => {
 		const from = new Date("2031-03-01T00:00:00.000Z");
 		const to = new Date("2031-03-31T00:00:00.000Z");
 
@@ -1050,7 +1047,7 @@ describe("reports.permits", () => {
 	const from = new Date("2033-01-01T00:00:00.000Z");
 	const to = new Date("2033-12-31T00:00:00.000Z");
 
-	it("computes avg submitted-to-issued days per jurisdiction, inspection pass rate, fees total (masked without profit.view), and the expiring window", async () => {
+	it("computes avg submitted-to-issued days per jurisdiction, inspection pass rate, fees total (masked without money.profit), and the expiring window", async () => {
 		const openStage = await db.stage.findFirstOrThrow({
 			where: { key: "DEMO_BOOKED" },
 			select: { id: true },

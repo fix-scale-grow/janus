@@ -134,9 +134,6 @@ afterAll(async () => {
 	await db.invoice.deleteMany({
 		where: { dealId: { in: [dealId, secondDealId] } },
 	});
-	await db.userPermission.deleteMany({
-		where: { userId: { in: [adminUserId, memberUserId] } },
-	});
 	await db.deal.deleteMany({ where: { id: { in: [dealId, secondDealId] } } });
 	await db.member.deleteMany({
 		where: { userId: { in: [adminUserId, memberUserId] } },

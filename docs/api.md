@@ -242,6 +242,44 @@ rates, the supported currencies, the keyless feed, and why the fetcher is the on
 documented exception to *no intelligence in the API* — are in **`docs/currency.md`**.
 Read it before touching any amount, total, chart or rate.
 
+## Access groups
+
+Every tRPC procedure carries an access tag in its `meta`: `access(area, need)`
+for an area-scoped read or write, `adminOnly()` for admin-only procedures, or
+`anyMember()` for anything any signed-in member may call. `apps/api/test/
+access-tags.spec.ts` scans every router and fails the build on an untagged
+procedure, so a new procedure without a tag never ships.
+
+`ctx.access` is the caller's `AccessPrincipal` — group, scope (`ALL`/`OWN`/
+`ASSIGNED`), surface (`FULL`/`FIELD`), and the resolved policy of areas,
+actions and money switches. A service method takes that principal as its last
+argument and scopes its query with the matching helper from
+`@crm/db/access-scope` (`dealScopeWhere`, `contactScopeWhere`,
+`photoScopeWhere`, `activityScopeWhere`, and the `*ChildWhere` variants for
+records that hang off a deal). A record outside the caller's scope is excluded
+from the query, so reading it returns not found, never forbidden.
+
+Money is never gated by returning less data than the schema promises; a
+service always returns the shape and nulls the money fields instead, via
+`maskCents`/`maskLineItems` in `@crm/db/access-money`. Tests build principals
+and fixtures with `@crm/db/access-fixture` rather than hand-rolling access
+rows.
+
+Areas, needs, scopes, surfaces and money switches are all defined once in
+`@crm/db/access-config`, under the `ACCESS` object. A new area or a new action
+on an existing area is added there and nowhere else; every reader —
+`access-policy`, the scope helpers, the app's nav and field gates, the agent's
+tool guards — derives from that one config.
+
+`apps/app/lib/access-rules.ts` turns the same principal into what the app
+shows: which nav modules are visible, which buttons render, and whether money
+is masked in the UI. Next.js file routes (uploads, exports, anything outside
+tRPC) resolve and check the principal through `apps/app/lib/access-route.ts`
+rather than re-deriving it. In `apps/agent`, `sessionPrincipal` in
+`apps/agent/agent/lib/access.ts` resolves the principal for a tool call, and
+`writeGuard` wraps any tool that performs a sensitive write so it is checked
+against that principal before it runs.
+
 ## Freshness: invalidate the query, don't disable the cache
 
 - **Invalidate in `onSuccess` through `useCrmCache()`** (`lib/trpc/cache.ts`), never by

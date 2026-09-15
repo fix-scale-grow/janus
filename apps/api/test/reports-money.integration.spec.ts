@@ -184,9 +184,6 @@ afterAll(async () => {
 	await db.contact.deleteMany({
 		where: { id: { startsWith: `reports-money-contact-${suffix}` } },
 	});
-	await db.userPermission.deleteMany({
-		where: { userId: { in: [adminUserId, memberUserId, forbiddenUserId] } },
-	});
 	await db.member.deleteMany({
 		where: { userId: { in: [adminUserId, memberUserId, forbiddenUserId] } },
 	});
@@ -258,7 +255,7 @@ describe("fallbackDueAt", () => {
 });
 
 describe("money report procs", () => {
-	it("403s without profit.view", async () => {
+	it("403s without money.profit", async () => {
 		const range = {};
 		for (const call of [
 			() =>

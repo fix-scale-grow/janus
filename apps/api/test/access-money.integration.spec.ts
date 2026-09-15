@@ -254,7 +254,7 @@ describe("money masking", () => {
 		expect(updated.unitPriceCents).toBe(1234);
 	});
 
-	it("reports use money.profit, not profit.view", async () => {
+	it("reports gate on money.profit", async () => {
 		const range = {};
 		await expectForbidden(() => reports.jobProfitability(f.clerk, range));
 		await expectForbidden(() => reports.costBreakdown(f.clerk, range));
