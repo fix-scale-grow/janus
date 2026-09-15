@@ -1,7 +1,15 @@
 import type { Db } from "@crm/db";
-import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	type AccessPrincipal,
+	allows,
+	refusalMessage,
+} from "@crm/db/access-policy";
 import { activityScopeWhere } from "@crm/db/access-scope";
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+	ForbiddenException,
+	Injectable,
+	NotFoundException,
+} from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
 @Injectable()
@@ -147,6 +155,9 @@ export class ConversationService {
 		anchor: { emailThreadId: string } | { calendarEventId: string },
 		p: AccessPrincipal,
 	): Promise<void> {
+		if (!allows(p, "contacts", "VIEW") && !allows(p, "deals", "VIEW")) {
+			throw new ForbiddenException(refusalMessage(p, "contacts", "VIEW"));
+		}
 		const activity = await this.db.activity.findFirst({
 			where: { AND: [anchor, activityScopeWhere(p)] },
 			select: { id: true },

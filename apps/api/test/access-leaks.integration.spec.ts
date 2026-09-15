@@ -4,7 +4,8 @@ import {
 	type AccessFixture,
 	createAccessFixture,
 } from "@crm/db/access-fixture";
-import { NotFoundException } from "@nestjs/common";
+import { noAccessPrincipal } from "@crm/db/access-policy";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { ActivitiesService } from "../src/activities/activities.service";
 import { ConversationsService } from "../src/conversations/conversations.service";
 import { ActivityStampService } from "../src/crm/activity-stamp.service";
@@ -245,6 +246,72 @@ describe("leak paths", () => {
 
 			await db.activity.deleteMany({ where: { calendarEventId: event.id } });
 			await db.calendarEvent.delete({ where: { id: event.id } });
+		});
+	});
+
+	describe("google area gate", () => {
+		test("thread and event need contacts or deals view", async () => {
+			const now = new Date();
+			const thread = await db.emailThread.create({
+				data: {
+					rootMessageId: `root-gate-${suffix}`,
+					firstMessageAt: now,
+					lastMessageAt: now,
+				},
+				select: { id: true },
+			});
+			const event = await db.calendarEvent.create({
+				data: {
+					iCalUid: `ical-gate-${suffix}`,
+					originalStartTime: now,
+					startsAt: now,
+					endsAt: now,
+					status: "confirmed",
+				},
+				select: { id: true },
+			});
+			await db.activity.createMany({
+				data: [
+					{
+						type: "EMAIL",
+						dealId: f.clerkDealId,
+						createdById: f.adminId,
+						emailThreadId: thread.id,
+					},
+					{
+						type: "MEETING",
+						dealId: f.clerkDealId,
+						createdById: f.adminId,
+						calendarEventId: event.id,
+					},
+				],
+			});
+			const blind = {
+				...noAccessPrincipal(`google-gate-${suffix}`),
+				scope: "ALL" as const,
+			};
+
+			const threadError = await google.thread(thread.id, blind).then(
+				() => null,
+				(error: unknown) => error,
+			);
+			const eventError = await google.event(event.id, blind).then(
+				() => null,
+				(error: unknown) => error,
+			);
+			const allowedThread = await google.thread(thread.id, f.clerk);
+
+			await db.activity.deleteMany({
+				where: {
+					OR: [{ emailThreadId: thread.id }, { calendarEventId: event.id }],
+				},
+			});
+			await db.emailThread.delete({ where: { id: thread.id } });
+			await db.calendarEvent.delete({ where: { id: event.id } });
+
+			expect(threadError).toBeInstanceOf(ForbiddenException);
+			expect(eventError).toBeInstanceOf(ForbiddenException);
+			expect(allowedThread).toBeDefined();
 		});
 	});
 
