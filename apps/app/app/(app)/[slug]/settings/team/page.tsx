@@ -13,8 +13,10 @@ import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
 import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
 import { CrewsTable } from "./crews-table";
+import { GroupsPanel } from "./groups-panel";
 import { membersSearchParams } from "./members-search-params";
 import { MembersTable } from "./members-table";
+import { TeamTabs } from "./team-tabs";
 
 export const metadata: Metadata = {
 	title: "Team",
@@ -60,32 +62,37 @@ async function Team({
 			trpc.workspace.members.queryOptions(membersSearchParams.toInput(values)),
 		),
 		queryClient.prefetchQuery(trpc.crews.list.queryOptions()),
+		queryClient.prefetchQuery(trpc.accessGroups.list.queryOptions()),
 	]);
 
 	return (
 		<HydrateClient>
-			<div className="flex flex-col gap-10">
-				<section className="flex flex-col gap-4">
-					<div className="flex flex-col gap-1">
-						<h2 className="font-semibold text-base">Members</h2>
-						<p className="text-muted-foreground text-sm">
-							Everyone who has access to your CRM.
-						</p>
-					</div>
-					<MembersTable />
-				</section>
-
-				<section className="flex max-w-4xl flex-col gap-4">
-					<div className="flex flex-col gap-1">
-						<h2 className="font-semibold text-base">Crews</h2>
-						<p className="text-muted-foreground text-sm">
-							Name your crews and give each a colour. Tasks on the project
-							calendar take their crew's colour.
-						</p>
-					</div>
-					<CrewsTable />
-				</section>
-			</div>
+			<TeamTabs
+				crews={
+					<section className="flex max-w-4xl flex-col gap-4">
+						<div className="flex flex-col gap-1">
+							<h2 className="font-semibold text-base">Crews</h2>
+							<p className="text-muted-foreground text-sm">
+								Name your crews and give each a colour. Tasks on the project
+								calendar take their crew's colour.
+							</p>
+						</div>
+						<CrewsTable />
+					</section>
+				}
+				groups={<GroupsPanel />}
+				members={
+					<section className="flex flex-col gap-4">
+						<div className="flex flex-col gap-1">
+							<h2 className="font-semibold text-base">Members</h2>
+							<p className="text-muted-foreground text-sm">
+								Everyone who has access to your CRM.
+							</p>
+						</div>
+						<MembersTable />
+					</section>
+				}
+			/>
 		</HydrateClient>
 	);
 }

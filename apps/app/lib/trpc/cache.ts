@@ -18,6 +18,7 @@ type RemovedRecord = { kind: RecordKind; id: string };
 type RemovedRecords = { kind: RecordKind; ids: string[] };
 
 export type CrmCache = {
+	accessGroups(options?: Options): Promise<void>;
 	contact(id?: string, options?: Options): Promise<void>;
 	crews(options?: Options): Promise<void>;
 	deal(id?: string, options?: Options): Promise<void>;
@@ -130,6 +131,17 @@ export function useCrmCache(): CrmCache {
 	} as const;
 
 	return {
+		accessGroups: (options) =>
+			run(
+				[
+					trpc.accessGroups.list.queryKey(),
+					trpc.permissions.mine.queryKey(),
+					trpc.workspace.members.queryKey(),
+				],
+				[],
+				options,
+			),
+
 		fields: (entity, options) =>
 			run(
 				[trpc.fields.list.queryKey()],

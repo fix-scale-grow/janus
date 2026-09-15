@@ -1,20 +1,21 @@
 "use client";
 
-import OverflowMenuHorizontal from "@carbon/icons-react/es/OverflowMenuHorizontal";
-import { Button } from "@crm/ui/components/button";
+import { Badge } from "@crm/ui/components/badge";
 import {
 	DataTable,
 	type DataTableColumn,
 	type DataTableFacet,
 } from "@crm/ui/components/data-table";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@crm/ui/components/dropdown-menu";
-import { Icon } from "@crm/ui/components/icon";
 import { PersonAvatar } from "@crm/ui/components/person-avatar";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "@crm/ui/components/select";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ListSearch } from "@/components/data-table/list-search";
@@ -34,13 +35,25 @@ const ROLE_LABEL = {
 type Role = keyof typeof ROLE_LABEL;
 
 type MemberRow = RouterOutputs["workspace"]["members"]["rows"][number];
+type AccessGroupRow = RouterOutputs["accessGroups"]["list"][number];
+
+const ADMIN_VALUE = "admin";
+
+function accessValue(row: MemberRow): string {
+	if (row.role === "admin") return ADMIN_VALUE;
+	return row.groupId ?? "";
+}
+
+function firstName(name: string): string {
+	return name.split(" ")[0] ?? name;
+}
 
 function columns(
-	canChangeRoles: boolean,
-	onChangeRole: (member: MemberRow, role: Role) => void,
+	groups: AccessGroupRow[],
+	onChangeAccess: (member: MemberRow, value: string) => void,
 	pending: boolean,
 ): DataTableColumn<MemberRow>[] {
-	const base: DataTableColumn<MemberRow>[] = [
+	return [
 		{
 			id: "name",
 			header: "Name",
@@ -66,19 +79,10 @@ function columns(
 			id: "email",
 			header: "Email",
 			sortable: true,
-			width: "w-[32%]",
+			width: "w-[28%]",
 			hideBelow: "md",
 			cell: (row) => (
 				<span className="truncate text-muted-foreground">{row.email}</span>
-			),
-		},
-		{
-			id: "role",
-			header: "Role",
-			sortable: true,
-			width: "w-[14%]",
-			cell: (row) => (
-				<span className="text-muted-foreground">{ROLE_LABEL[row.role]}</span>
 			),
 		},
 		{
@@ -96,44 +100,46 @@ function columns(
 			),
 		},
 		{
-			id: "actions",
-			header: <span className="sr-only">Actions</span>,
-			label: "Actions",
+			id: "access",
+			header: "Access",
+			label: "Access",
 			hideable: false,
-			align: "right",
-			width: "w-[6%]",
-			cell: (row) =>
-				canChangeRoles ? (
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon" disabled={pending}>
-								<Icon icon={OverflowMenuHorizontal} />
-								<span className="sr-only">Change {row.name}'s role</span>
-							</Button>
-						</DropdownMenuTrigger>
+			width: "w-[24%]",
+			cell: (row) => {
+				if (row.role === "owner") {
+					return <Badge variant="outline">Owner</Badge>;
+				}
 
-						<DropdownMenuContent align="end">
-							{(Object.keys(ROLE_LABEL) as Role[])
-								.filter((role) => role !== "member" || row.groupId !== null)
-								.map((role) => (
-									<DropdownMenuItem
-										key={role}
-										data-checked={row.role === role}
-										onSelect={() => {
-											if (row.role === role) return;
-											onChangeRole(row, role);
-										}}
-									>
-										{ROLE_LABEL[role]}
-									</DropdownMenuItem>
-								))}
-						</DropdownMenuContent>
-					</DropdownMenu>
-				) : null,
+				const ungrouped = row.role === "member" && !row.groupId;
+
+				return (
+					<span className="flex items-center gap-2">
+						<Select
+							disabled={pending}
+							onValueChange={(value) => onChangeAccess(row, value)}
+							value={accessValue(row)}
+						>
+							<SelectTrigger aria-label={`Access for ${row.name}`}>
+								<SelectValue placeholder="Choose a group" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={ADMIN_VALUE}>Admin</SelectItem>
+								<SelectGroup>
+									<SelectLabel>Groups</SelectLabel>
+									{groups.map((group) => (
+										<SelectItem key={group.id} value={group.id}>
+											{group.name}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+						{ungrouped ? <Badge variant="warning">Needs a group</Badge> : null}
+					</span>
+				);
+			},
 		},
 	];
-
-	return base;
 }
 
 export function MembersTable() {
@@ -141,21 +147,27 @@ export function MembersTable() {
 	const cache = useCrmCache();
 	const { query, input } = useTableQuery(membersSearchParams);
 
-	const workspace = useQuery(trpc.workspace.get.queryOptions());
+	const groups = useQuery(trpc.accessGroups.list.queryOptions());
 	const members = useQuery({
 		...trpc.workspace.members.queryOptions(input),
 		placeholderData: (previous) => previous,
 	});
 
-	const viewerIsAdmin =
-		workspace.data?.viewerRole === "admin" ||
-		workspace.data?.viewerRole === "owner";
-
-	const setRole = useMutation(
-		trpc.workspace.setMemberRole.mutationOptions({
-			onSuccess: async () => {
-				await cache.workspace();
-				toast.success("Role changed.");
+	const setAccess = useMutation(
+		trpc.accessGroups.setMemberAccess.mutationOptions({
+			onSuccess: async (_result, variables) => {
+				await cache.accessGroups();
+				const member = members.data?.rows.find(
+					(row) => row.id === variables.memberId,
+				);
+				const name = member ? firstName(member.name) : "They";
+				const access = variables.access;
+				if (access.kind === "admin") {
+					toast.success(`${name} is now an Admin.`);
+					return;
+				}
+				const group = groups.data?.find((g) => g.id === access.groupId);
+				toast.success(`${name} is now in ${group?.name ?? "the group"}.`);
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -177,19 +189,20 @@ export function MembersTable() {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-2">
-			{viewerIsAdmin ? (
-				<p className="text-muted-foreground text-xs">
-					Per-user access controls will grow here.
-				</p>
-			) : null}
-
 			<DataTable
 				query={query}
 				search={<ListSearch placeholder="Search by name or email…" />}
 				columns={columns(
-					workspace.data?.canChangeRoles ?? false,
-					(member, role) => setRole.mutate({ memberId: member.id, role }),
-					setRole.isPending,
+					groups.data ?? [],
+					(member, value) =>
+						setAccess.mutate({
+							memberId: member.id,
+							access:
+								value === ADMIN_VALUE
+									? { kind: "admin" }
+									: { kind: "group", groupId: value },
+						}),
+					setAccess.isPending,
 				)}
 				rows={members.data?.rows ?? []}
 				total={members.data?.total ?? 0}
