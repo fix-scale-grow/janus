@@ -66,8 +66,15 @@ Per group, one value for all areas:
 - `OWN` — deal.ownerId = me OR deal assigned to me OR deal assigned to a crew I belong to.
 - `ASSIGNED` — deal assigned to me OR to a crew I belong to.
 
-Contacts in scope = contacts linked (DealContact) to an in-scope deal, or contacts with
-`ownerId` = me. Contacts under `ALL` are unrestricted.
+Contacts in scope: `ALL` unrestricted; `OWN` = `ownerId` = me OR linked (DealContact) to
+an in-scope deal; `ASSIGNED` = linked to an in-scope deal.
+
+Records with no deal (Drawing, Estimate, Invoice, Project, Contract where `dealId` is
+null): `ALL` sees them; `OWN` sees them when `createdById` = me; `ASSIGNED` never does.
+
+New members after first seeding have no group and no access. They see "Waiting for
+access" until an admin picks their group. This replaces an earlier "defaults to the
+most restricted group" idea: a new sign-up never lands in Field mode by accident.
 
 ### Money switches
 
