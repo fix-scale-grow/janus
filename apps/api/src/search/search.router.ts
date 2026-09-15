@@ -1,8 +1,9 @@
 import { Inject } from "@nestjs/common";
-import { Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
+import { Ctx, Input, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import { z } from "zod";
 import { anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { SearchService } from "./search.service";
 
@@ -14,7 +15,7 @@ export class SearchRouter {
 	constructor(@Inject(SearchService) private readonly search: SearchService) {}
 
 	@Query({ input: quickInput, meta: anyMember() })
-	async quick(@Input("q") q: string) {
-		return this.search.quick(q);
+	async quick(@Ctx() ctx: AccessTrpcContext, @Input("q") q: string) {
+		return this.search.quick(q, ctx.access);
 	}
 }

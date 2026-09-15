@@ -46,6 +46,16 @@ export function contactScopeWhere(
 	return { deals: { some: { deal } } };
 }
 
+export function photoScopeWhere(p: AccessPrincipal): Prisma.PhotoWhereInput {
+	if (isUnscoped(p)) return {};
+	return {
+		OR: [
+			{ deal: dealScopeWhere(p) },
+			{ dealId: null, contact: contactScopeWhere(p) },
+		],
+	};
+}
+
 export function activityScopeWhere(
 	p: AccessPrincipal,
 ): Prisma.ActivityWhereInput {

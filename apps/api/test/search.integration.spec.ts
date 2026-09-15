@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { SearchService } from "../src/search/search.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "search-spec";
@@ -283,12 +284,15 @@ afterAll(async () => {
 
 describe("SearchService.quick", () => {
 	it("returns nothing below the minimum length", async () => {
-		const result = await search.quick("a");
+		const result = await search.quick("a", adminPrincipal(ownerId));
 		expect(result.hits).toEqual([]);
 	});
 
 	it("finds a contact by company name", async () => {
-		const result = await search.quick(`${prefix} Roofing`);
+		const result = await search.quick(
+			`${prefix} Roofing`,
+			adminPrincipal(ownerId),
+		);
 		const hit = result.hits.find((row) => row.id === companyContactId);
 		expect(hit).toBeDefined();
 		expect(hit?.kind).toBe("contact");
@@ -296,14 +300,14 @@ describe("SearchService.quick", () => {
 	});
 
 	it("finds a contact by a full first-and-last-name query", async () => {
-		const result = await search.quick("Rory Fenwick");
+		const result = await search.quick("Rory Fenwick", adminPrincipal(ownerId));
 		const hit = result.hits.find((row) => row.id === companyContactId);
 		expect(hit).toBeDefined();
 		expect(hit?.kind).toBe("contact");
 	});
 
 	it("does not cross-match tokens from two different contacts", async () => {
-		const result = await search.quick("Rory Okafor");
+		const result = await search.quick("Rory Okafor", adminPrincipal(ownerId));
 		const matches = result.hits.filter(
 			(row) => row.id === companyContactId || row.id === secondContactId,
 		);
@@ -311,14 +315,20 @@ describe("SearchService.quick", () => {
 	});
 
 	it("finds a deal by name", async () => {
-		const result = await search.quick(`${prefix} Numbered Deal`);
+		const result = await search.quick(
+			`${prefix} Numbered Deal`,
+			adminPrincipal(ownerId),
+		);
 		const hit = result.hits.find((row) => row.id === dealNumberedId);
 		expect(hit).toBeDefined();
 		expect(hit?.kind).toBe("deal");
 	});
 
 	it("ranks an exact deal-number hit before a name-contains hit on the digit query", async () => {
-		const result = await search.quick(String(dealNumberedNumber));
+		const result = await search.quick(
+			String(dealNumberedNumber),
+			adminPrincipal(ownerId),
+		);
 		const dealHits = result.hits.filter((row) => row.kind === "deal");
 		const numberedIndex = dealHits.findIndex(
 			(row) => row.id === dealNumberedId,
@@ -333,7 +343,10 @@ describe("SearchService.quick", () => {
 	});
 
 	it("finds an invoice by number", async () => {
-		const result = await search.quick(String(invoiceNumber));
+		const result = await search.quick(
+			String(invoiceNumber),
+			adminPrincipal(ownerId),
+		);
 		const hit = result.hits.find(
 			(row) => row.kind === "invoice" && row.id === invoiceId,
 		);
@@ -342,7 +355,7 @@ describe("SearchService.quick", () => {
 	});
 
 	it("finds a drawing by an address fragment", async () => {
-		const result = await search.quick("Testable Ave");
+		const result = await search.quick("Testable Ave", adminPrincipal(ownerId));
 		const hit = result.hits.find((row) => row.id === drawingId);
 		expect(hit).toBeDefined();
 		expect(hit?.kind).toBe("drawing");
@@ -350,7 +363,10 @@ describe("SearchService.quick", () => {
 	});
 
 	it("finds an estimate by title", async () => {
-		const result = await search.quick(`${prefix} Roof Replacement`);
+		const result = await search.quick(
+			`${prefix} Roof Replacement`,
+			adminPrincipal(ownerId),
+		);
 		const hit = result.hits.find(
 			(row) => row.kind === "estimate" && row.id === estimateId,
 		);
@@ -360,7 +376,7 @@ describe("SearchService.quick", () => {
 	});
 
 	it("surfaces a TEXT field value hit as its parent deal", async () => {
-		const result = await search.quick("PERMIT-9981");
+		const result = await search.quick("PERMIT-9981", adminPrincipal(ownerId));
 		const hit = result.hits.find(
 			(row) => row.kind === "deal" && row.id === fieldDealId,
 		);
@@ -369,13 +385,16 @@ describe("SearchService.quick", () => {
 	});
 
 	it("dedupes a deal matched both by name and by a field value", async () => {
-		const result = await search.quick(`${prefix} Dedupe Alpha`);
+		const result = await search.quick(
+			`${prefix} Dedupe Alpha`,
+			adminPrincipal(ownerId),
+		);
 		const matches = result.hits.filter((row) => row.id === dedupeDealId);
 		expect(matches.length).toBe(1);
 	});
 
 	it("does not throw on a 10-digit phone-number query and matches a TEXT field value", async () => {
-		const result = await search.quick(PHONE_NUMBER);
+		const result = await search.quick(PHONE_NUMBER, adminPrincipal(ownerId));
 		const hit = result.hits.find(
 			(row) => row.kind === "deal" && row.id === phoneDealId,
 		);
@@ -383,7 +402,10 @@ describe("SearchService.quick", () => {
 	});
 
 	it("ranks the exact number match first across kinds on a digit query", async () => {
-		const result = await search.quick(String(dealNumberedNumber));
+		const result = await search.quick(
+			String(dealNumberedNumber),
+			adminPrincipal(ownerId),
+		);
 		const contactMatch = result.hits.find((row) => row.id === rankContactId);
 		expect(contactMatch).toBeDefined();
 

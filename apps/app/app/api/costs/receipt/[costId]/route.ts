@@ -1,5 +1,6 @@
 import { db } from "@crm/db";
 import { NextResponse } from "next/server";
+import { costVisible, routePrincipal } from "@/lib/access-route";
 import {
 	COST_ID_PATTERN,
 	contentTypeFor,
@@ -21,6 +22,11 @@ export async function GET(
 	const { costId } = await params;
 	if (!COST_ID_PATTERN.test(costId)) {
 		return NextResponse.json({ error: "Invalid costId." }, { status: 400 });
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !(await costVisible(p, costId, "view"))) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const cost = await db.jobCost.findUnique({
@@ -56,6 +62,11 @@ export async function DELETE(
 	const { costId } = await params;
 	if (!COST_ID_PATTERN.test(costId)) {
 		return NextResponse.json({ error: "Invalid costId." }, { status: 400 });
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !(await costVisible(p, costId, "delete"))) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const cost = await db.jobCost.findUnique({

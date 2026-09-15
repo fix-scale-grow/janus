@@ -1,5 +1,7 @@
 import { db } from "@crm/db";
+import { allows } from "@crm/db/access-policy";
 import { NextResponse } from "next/server";
+import { routePrincipal } from "@/lib/access-route";
 import { COST_ID_PATTERN } from "@/lib/cost-receipts";
 import {
 	contentTypeFor,
@@ -20,6 +22,11 @@ export async function GET(
 	const { docId } = await params;
 	if (!COST_ID_PATTERN.test(docId)) {
 		return NextResponse.json({ error: "Invalid docId." }, { status: 400 });
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !allows(p, "permits", "VIEW")) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const locker = await db.lockerDocument.findUnique({
@@ -55,6 +62,11 @@ export async function DELETE(
 	const { docId } = await params;
 	if (!COST_ID_PATTERN.test(docId)) {
 		return NextResponse.json({ error: "Invalid docId." }, { status: 400 });
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !allows(p, "permits", "EDIT")) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const locker = await db.lockerDocument.findUnique({

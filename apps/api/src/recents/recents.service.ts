@@ -1,4 +1,10 @@
 import type { Db } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { RECENTS } from "./recents.config";
@@ -22,7 +28,10 @@ function contactLabel(contact: {
 export class RecentsService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async list(userId: string): Promise<{ rows: RecentRow[] }> {
+	async list(
+		userId: string,
+		p: AccessPrincipal,
+	): Promise<{ rows: RecentRow[] }> {
 		const recents = await this.db.recentRecord.findMany({
 			where: { userId },
 			orderBy: { touchedAt: "desc" },
@@ -41,12 +50,19 @@ export class RecentsService {
 		}
 
 		const labelByKey = new Map<string, string>();
+		const existingByKey = new Set<string>();
 
 		await Promise.all(
 			Array.from(idsByKind.entries()).map(async ([kind, ids]) => {
-				const labels = await this.labelsFor(kind, ids);
+				const [labels, existingIds] = await Promise.all([
+					this.labelsFor(kind, ids, p),
+					this.existingIds(kind, ids),
+				]);
 				for (const [id, label] of labels) {
 					labelByKey.set(`${kind}:${id}`, label);
+				}
+				for (const id of existingIds) {
+					existingByKey.add(`${kind}:${id}`);
 				}
 			}),
 		);
@@ -56,17 +72,20 @@ export class RecentsService {
 
 		for (const entry of recents) {
 			const kind = entry.kind as RecentKind;
-			const label = labelByKey.get(`${kind}:${entry.recordId}`);
-			if (label === undefined) {
-				gone.push({ kind, recordId: entry.recordId });
+			const key = `${kind}:${entry.recordId}`;
+			const label = labelByKey.get(key);
+			if (label !== undefined) {
+				rows.push({
+					kind,
+					recordId: entry.recordId,
+					touchedAt: entry.touchedAt,
+					label,
+				});
 				continue;
 			}
-			rows.push({
-				kind,
-				recordId: entry.recordId,
-				touchedAt: entry.touchedAt,
-				label,
-			});
+			if (!existingByKey.has(key)) {
+				gone.push({ kind, recordId: entry.recordId });
+			}
 		}
 
 		if (gone.length > 0) {
@@ -82,7 +101,12 @@ export class RecentsService {
 		return { rows };
 	}
 
-	async touch(input: RecentTouchInput, userId: string): Promise<void> {
+	async touch(input: RecentTouchInput, p: AccessPrincipal): Promise<void> {
+		const inScope = await this.isInScope(input.kind, input.recordId, p);
+		if (!inScope) return;
+
+		const userId = p.userId;
+
 		await this.db.recentRecord.upsert({
 			where: {
 				userId_kind_recordId: {
@@ -108,16 +132,132 @@ export class RecentsService {
 		});
 	}
 
+	private async isInScope(
+		kind: RecentKind,
+		id: string,
+		p: AccessPrincipal,
+	): Promise<boolean> {
+		switch (kind) {
+			case "contact": {
+				const row = await this.db.contact.findFirst({
+					where: { AND: [{ id }, contactScopeWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+			case "deal": {
+				const row = await this.db.deal.findFirst({
+					where: { AND: [{ id }, dealScopeWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+			case "drawing": {
+				const row = await this.db.drawing.findFirst({
+					where: { AND: [{ id }, dealChildWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+			case "estimate": {
+				const row = await this.db.estimate.findFirst({
+					where: { AND: [{ id }, dealChildWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+			case "invoice": {
+				const row = await this.db.invoice.findFirst({
+					where: { AND: [{ id }, dealChildWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+			case "contract": {
+				const row = await this.db.contract.findFirst({
+					where: { AND: [{ id }, dealChildWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+			case "project": {
+				const row = await this.db.project.findFirst({
+					where: { AND: [{ id }, dealChildWhere(p)] },
+					select: { id: true },
+				});
+				return row !== null;
+			}
+		}
+	}
+
+	private async existingIds(
+		kind: RecentKind,
+		ids: string[],
+	): Promise<string[]> {
+		switch (kind) {
+			case "contact": {
+				const rows = await this.db.contact.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+			case "deal": {
+				const rows = await this.db.deal.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+			case "drawing": {
+				const rows = await this.db.drawing.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+			case "estimate": {
+				const rows = await this.db.estimate.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+			case "invoice": {
+				const rows = await this.db.invoice.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+			case "contract": {
+				const rows = await this.db.contract.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+			case "project": {
+				const rows = await this.db.project.findMany({
+					where: { id: { in: ids } },
+					select: { id: true },
+				});
+				return rows.map((row) => row.id);
+			}
+		}
+	}
+
 	private async labelsFor(
 		kind: RecentKind,
 		ids: string[],
+		p: AccessPrincipal,
 	): Promise<Map<string, string>> {
 		const labels = new Map<string, string>();
 
 		switch (kind) {
 			case "contact": {
 				const rows = await this.db.contact.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, contactScopeWhere(p)] },
 					select: { id: true, firstName: true, lastName: true },
 				});
 				for (const row of rows) labels.set(row.id, contactLabel(row));
@@ -125,7 +265,7 @@ export class RecentsService {
 			}
 			case "deal": {
 				const rows = await this.db.deal.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, dealScopeWhere(p)] },
 					select: { id: true, name: true, number: true },
 				});
 				for (const row of rows) {
@@ -135,7 +275,7 @@ export class RecentsService {
 			}
 			case "drawing": {
 				const rows = await this.db.drawing.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, dealChildWhere(p)] },
 					select: { id: true, title: true },
 				});
 				for (const row of rows) labels.set(row.id, row.title);
@@ -143,7 +283,7 @@ export class RecentsService {
 			}
 			case "estimate": {
 				const rows = await this.db.estimate.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, dealChildWhere(p)] },
 					select: { id: true, title: true },
 				});
 				for (const row of rows) labels.set(row.id, row.title);
@@ -151,7 +291,7 @@ export class RecentsService {
 			}
 			case "invoice": {
 				const rows = await this.db.invoice.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, dealChildWhere(p)] },
 					select: { id: true, number: true },
 				});
 				for (const row of rows) labels.set(row.id, `Invoice #${row.number}`);
@@ -159,7 +299,7 @@ export class RecentsService {
 			}
 			case "contract": {
 				const rows = await this.db.contract.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, dealChildWhere(p)] },
 					select: { id: true, number: true, title: true },
 				});
 				for (const row of rows) {
@@ -169,7 +309,7 @@ export class RecentsService {
 			}
 			case "project": {
 				const rows = await this.db.project.findMany({
-					where: { id: { in: ids } },
+					where: { AND: [{ id: { in: ids } }, dealChildWhere(p)] },
 					select: { id: true, name: true },
 				});
 				for (const row of rows) labels.set(row.id, row.name);

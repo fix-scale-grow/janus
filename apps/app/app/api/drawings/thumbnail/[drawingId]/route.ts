@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { drawingVisible, routePrincipal } from "@/lib/access-route";
 import { COST_ID_PATTERN } from "@/lib/cost-receipts";
 import { readThumbnail } from "@/lib/drawing-thumbnails";
 import { getSession } from "@/lib/session";
@@ -15,6 +16,10 @@ export async function GET(
 	const { drawingId } = await params;
 	if (!COST_ID_PATTERN.test(drawingId)) {
 		return NextResponse.json({ error: "Invalid drawingId." }, { status: 400 });
+	}
+	const p = await routePrincipal(session.user.id);
+	if (!p || !(await drawingVisible(p, drawingId, "VIEW"))) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 	const bytes = await readThumbnail(drawingId);
 	if (!bytes) {

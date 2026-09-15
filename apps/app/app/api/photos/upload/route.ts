@@ -1,4 +1,10 @@
 import { db } from "@crm/db";
+import { allows } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import {
 	PHOTO_MAX_BYTES,
 	PHOTO_THUMB_MAX_BYTES,
@@ -7,6 +13,7 @@ import {
 	savePhotoFiles,
 } from "@crm/db/photo-files";
 import { type NextRequest, NextResponse } from "next/server";
+import { routePrincipal } from "@/lib/access-route";
 import { getSession } from "@/lib/session";
 import { matchesDeclaredType } from "@/lib/workspace-logo";
 
@@ -63,9 +70,14 @@ export async function POST(request: NextRequest) {
 		);
 	}
 
+	const p = await routePrincipal(session.user.id);
+	if (!p || !allows(p, "photos", "EDIT")) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
+	}
+
 	if (typeof dealId === "string") {
-		const deal = await db.deal.findUnique({
-			where: { id: dealId },
+		const deal = await db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
 			select: { id: true },
 		});
 		if (!deal)
@@ -75,8 +87,8 @@ export async function POST(request: NextRequest) {
 			);
 	}
 	if (typeof contactId === "string") {
-		const contact = await db.contact.findUnique({
-			where: { id: contactId },
+		const contact = await db.contact.findFirst({
+			where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
 			select: { id: true },
 		});
 		if (!contact)
@@ -86,8 +98,8 @@ export async function POST(request: NextRequest) {
 			);
 	}
 	if (typeof estimateId === "string") {
-		const estimate = await db.estimate.findUnique({
-			where: { id: estimateId },
+		const estimate = await db.estimate.findFirst({
+			where: { AND: [{ id: estimateId }, dealChildWhere(p)] },
 			select: { id: true },
 		});
 		if (!estimate)
@@ -97,8 +109,8 @@ export async function POST(request: NextRequest) {
 			);
 	}
 	if (typeof invoiceId === "string") {
-		const invoice = await db.invoice.findUnique({
-			where: { id: invoiceId },
+		const invoice = await db.invoice.findFirst({
+			where: { AND: [{ id: invoiceId }, dealChildWhere(p)] },
 			select: { id: true },
 		});
 		if (!invoice)

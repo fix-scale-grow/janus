@@ -1,6 +1,8 @@
 import { db } from "@crm/db";
+import { allows } from "@crm/db/access-policy";
 import { LOCKER_KINDS } from "@crm/db/permits";
 import { NextResponse } from "next/server";
+import { routePrincipal } from "@/lib/access-route";
 import {
 	PERMIT_FILE_TYPES,
 	removeLockerFile,
@@ -14,6 +16,11 @@ export async function POST(request: Request): Promise<Response> {
 	const session = await getSession();
 	if (!session) {
 		return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !allows(p, "permits", "EDIT")) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const formData = await request.formData();

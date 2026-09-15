@@ -1,4 +1,3 @@
-import { db } from "@crm/db";
 import {
 	PHOTO_ID_PATTERN,
 	PHOTO_VARIANTS,
@@ -6,6 +5,7 @@ import {
 	readPhotoFile,
 } from "@crm/db/photo-files";
 import { NextResponse } from "next/server";
+import { photoVisible, routePrincipal } from "@/lib/access-route";
 import { getSession } from "@/lib/session";
 
 export async function GET(
@@ -23,15 +23,9 @@ export async function GET(
 	if (!PHOTO_VARIANTS.includes(variant as PhotoVariant)) {
 		return NextResponse.json({ error: "Invalid variant." }, { status: 400 });
 	}
-	const photo = await db.photo.findUnique({
-		where: { id: photoId },
-		select: { id: true },
-	});
-	if (!photo) {
-		return NextResponse.json(
-			{ error: "The photo was not found." },
-			{ status: 404 },
-		);
+	const p = await routePrincipal(session.user.id);
+	if (!p || !(await photoVisible(p, photoId))) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 	const bytes = await readPhotoFile(photoId, variant as PhotoVariant);
 	if (!bytes) {

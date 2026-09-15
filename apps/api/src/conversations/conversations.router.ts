@@ -10,7 +10,10 @@ import {
 import type { z } from "zod";
 import { anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type {
+	AccessTrpcContext,
+	AuthedTrpcContext,
+} from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { ConversationSharingService } from "./conversation-sharing.service";
 import {
@@ -39,10 +42,10 @@ export class ConversationsRouter {
 
 	@Query({ input: conversationListInput, meta: anyMember() })
 	async list(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof conversationListInput>,
 	) {
-		return this.conversations.list(input, ctx.user.id);
+		return this.conversations.list(input, ctx.user.id, ctx.access);
 	}
 
 	@Query({ meta: anyMember() })

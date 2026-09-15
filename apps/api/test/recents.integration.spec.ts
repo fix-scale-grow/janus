@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { RecentsService } from "../src/recents/recents.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "recents-spec";
@@ -157,7 +158,10 @@ afterAll(async () => {
 
 describe("RecentsService", () => {
 	it("creates a recent on the first touch, then bumps rather than duplicates", async () => {
-		await recents.touch({ kind: "deal", recordId: dealId }, ownerId);
+		await recents.touch(
+			{ kind: "deal", recordId: dealId },
+			adminPrincipal(ownerId),
+		);
 		const firstTouch = await db.recentRecord.findUniqueOrThrow({
 			where: {
 				userId_kind_recordId: {
@@ -170,7 +174,10 @@ describe("RecentsService", () => {
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 5));
-		await recents.touch({ kind: "deal", recordId: dealId }, ownerId);
+		await recents.touch(
+			{ kind: "deal", recordId: dealId },
+			adminPrincipal(ownerId),
+		);
 
 		const rows = await db.recentRecord.findMany({
 			where: { userId: ownerId, kind: "deal", recordId: dealId },
@@ -200,7 +207,10 @@ describe("RecentsService", () => {
 		pruneDealIds = deals.map((deal) => deal.id);
 
 		for (const deal of deals) {
-			await recents.touch({ kind: "deal", recordId: deal.id }, ownerId);
+			await recents.touch(
+				{ kind: "deal", recordId: deal.id },
+				adminPrincipal(ownerId),
+			);
 			await new Promise((resolve) => setTimeout(resolve, 3));
 		}
 
@@ -221,15 +231,36 @@ describe("RecentsService", () => {
 	});
 
 	it("joins labels correctly per kind", async () => {
-		await recents.touch({ kind: "contact", recordId: contactId }, ownerId);
-		await recents.touch({ kind: "deal", recordId: dealId }, ownerId);
-		await recents.touch({ kind: "drawing", recordId: drawingId }, ownerId);
-		await recents.touch({ kind: "estimate", recordId: estimateId }, ownerId);
-		await recents.touch({ kind: "invoice", recordId: invoiceId }, ownerId);
-		await recents.touch({ kind: "contract", recordId: contractId }, ownerId);
-		await recents.touch({ kind: "project", recordId: projectId }, ownerId);
+		await recents.touch(
+			{ kind: "contact", recordId: contactId },
+			adminPrincipal(ownerId),
+		);
+		await recents.touch(
+			{ kind: "deal", recordId: dealId },
+			adminPrincipal(ownerId),
+		);
+		await recents.touch(
+			{ kind: "drawing", recordId: drawingId },
+			adminPrincipal(ownerId),
+		);
+		await recents.touch(
+			{ kind: "estimate", recordId: estimateId },
+			adminPrincipal(ownerId),
+		);
+		await recents.touch(
+			{ kind: "invoice", recordId: invoiceId },
+			adminPrincipal(ownerId),
+		);
+		await recents.touch(
+			{ kind: "contract", recordId: contractId },
+			adminPrincipal(ownerId),
+		);
+		await recents.touch(
+			{ kind: "project", recordId: projectId },
+			adminPrincipal(ownerId),
+		);
 
-		const { rows } = await recents.list(ownerId);
+		const { rows } = await recents.list(ownerId, adminPrincipal(ownerId));
 		const byKind = Object.fromEntries(rows.map((row) => [row.kind, row]));
 
 		expect(byKind.contact?.label).toBe(`${prefix} Fenwick`);
@@ -256,10 +287,13 @@ describe("RecentsService", () => {
 			select: { id: true },
 		});
 
-		await recents.touch({ kind: "deal", recordId: goneDeal.id }, ownerId);
+		await recents.touch(
+			{ kind: "deal", recordId: goneDeal.id },
+			adminPrincipal(ownerId),
+		);
 		await db.deal.delete({ where: { id: goneDeal.id } });
 
-		const { rows } = await recents.list(ownerId);
+		const { rows } = await recents.list(ownerId, adminPrincipal(ownerId));
 		expect(rows.some((row) => row.recordId === goneDeal.id)).toBe(false);
 
 		const stillThere = await db.recentRecord.findUnique({
@@ -279,13 +313,22 @@ describe("RecentsService", () => {
 			where: { userId: { in: [ownerId, otherUserId] } },
 		});
 
-		await recents.touch({ kind: "deal", recordId: dealId }, ownerId);
+		await recents.touch(
+			{ kind: "deal", recordId: dealId },
+			adminPrincipal(ownerId),
+		);
 
-		const otherList = await recents.list(otherUserId);
+		const otherList = await recents.list(
+			otherUserId,
+			adminPrincipal(otherUserId),
+		);
 		expect(otherList.rows).toEqual([]);
 
-		await recents.touch({ kind: "contact", recordId: contactId }, otherUserId);
-		const ownerList = await recents.list(ownerId);
+		await recents.touch(
+			{ kind: "contact", recordId: contactId },
+			adminPrincipal(otherUserId),
+		);
+		const ownerList = await recents.list(ownerId, adminPrincipal(ownerId));
 		expect(ownerList.rows.some((row) => row.kind === "contact")).toBe(false);
 
 		await db.recentRecord.deleteMany({

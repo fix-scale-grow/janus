@@ -1,4 +1,10 @@
 import { ActivityType, type Db, type Prisma } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	activityScopeWhere,
+	contactScopeWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import {
 	BadRequestException,
 	Injectable,
@@ -72,7 +78,8 @@ export class ActivitiesService {
 		private readonly stamp: ActivityStampService,
 	) {}
 
-	async timeline(input: TimelineInput) {
+	async timeline(input: TimelineInput, p: AccessPrincipal) {
+		await this.assertAnchorInScope(input, p);
 		const where = this.anchor(input);
 		Object.assign(where, filterClause(input.filter));
 
@@ -96,7 +103,11 @@ export class ActivitiesService {
 		};
 	}
 
-	async timelineCounts(input: Pick<TimelineInput, "contactId" | "dealId">) {
+	async timelineCounts(
+		input: Pick<TimelineInput, "contactId" | "dealId">,
+		p: AccessPrincipal,
+	) {
+		await this.assertAnchorInScope(input, p);
 		const anchor = this.anchor(input);
 
 		const [all, notes, upcoming, done, email, meetings] = await Promise.all([
@@ -119,8 +130,17 @@ export class ActivitiesService {
 		return { all, notes, upcoming, done, email, meetings };
 	}
 
-	async create(input: ActivityCreateInput, actingUserId: string) {
+	async create(
+		input: ActivityCreateInput,
+		actingUserId: string,
+		p: AccessPrincipal,
+	) {
 		const isTask = input.type === ActivityType.TASK;
+
+		await this.assertAnchorInScope(
+			{ dealId: input.dealId, contactId: input.contactId },
+			p,
+		);
 
 		const activity = await this.db.activity.create({
 			data: {
@@ -150,9 +170,9 @@ export class ActivitiesService {
 		return serializeEntry(activity);
 	}
 
-	async complete(id: string, completed: boolean) {
-		const activity = await this.db.activity.findUnique({
-			where: { id },
+	async complete(id: string, completed: boolean, p: AccessPrincipal) {
+		const activity = await this.db.activity.findFirst({
+			where: { AND: [{ id }, activityScopeWhere(p)] },
 			select: { type: true },
 		});
 
@@ -173,16 +193,20 @@ export class ActivitiesService {
 		return serializeEntry(updated);
 	}
 
-	async myTasks(input: MyTasksInput, actingUserId: string) {
+	async myTasks(input: MyTasksInput, actingUserId: string, p: AccessPrincipal) {
 		const now = new Date();
-		const where: Prisma.ActivityWhereInput = {
+		const own: Prisma.ActivityWhereInput = {
 			type: ActivityType.TASK,
 			completedAt: null,
 			createdById: actingUserId,
 		};
 
-		if (input.window === "overdue") where.dueAt = { lt: now };
-		if (input.window === "upcoming") where.dueAt = { gte: now };
+		if (input.window === "overdue") own.dueAt = { lt: now };
+		if (input.window === "upcoming") own.dueAt = { gte: now };
+
+		const where: Prisma.ActivityWhereInput = {
+			AND: [own, activityScopeWhere(p)],
+		};
 
 		const tasks = await this.db.activity.findMany({
 			where,
@@ -202,6 +226,32 @@ export class ActivitiesService {
 	): Prisma.ActivityWhereInput {
 		if (input.dealId) return { dealId: input.dealId };
 		if (input.contactId) return { contactId: input.contactId };
+		throw new BadRequestException("A timeline needs a contact or a deal.");
+	}
+
+	private async assertAnchorInScope(
+		input: Pick<TimelineInput, "contactId" | "dealId">,
+		p: AccessPrincipal,
+	): Promise<void> {
+		if (input.dealId) {
+			const deal = await this.db.deal.findFirst({
+				where: { AND: [{ id: input.dealId }, dealScopeWhere(p)] },
+				select: { id: true },
+			});
+			if (!deal)
+				throw new NotFoundException(`No deal with id ${input.dealId}.`);
+			return;
+		}
+		if (input.contactId) {
+			const contact = await this.db.contact.findFirst({
+				where: { AND: [{ id: input.contactId }, contactScopeWhere(p)] },
+				select: { id: true },
+			});
+			if (!contact) {
+				throw new NotFoundException(`No contact with id ${input.contactId}.`);
+			}
+			return;
+		}
 		throw new BadRequestException("A timeline needs a contact or a deal.");
 	}
 }

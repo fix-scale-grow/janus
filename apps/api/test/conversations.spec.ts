@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { workspaceSlug } from "@crm/db/workspace";
 import {
 	builderConversationCreateInput,
@@ -79,7 +80,9 @@ afterAll(async () => {
 
 describe("ConversationsService", () => {
 	it("starts a record with no history", async () => {
-		expect(await service.list({ contactId }, userId)).toEqual([]);
+		expect(
+			await service.list({ contactId }, userId, adminPrincipal(userId)),
+		).toEqual([]);
 	});
 
 	it("saves a cursor and titles the thread from the opening question", async () => {
@@ -95,7 +98,11 @@ describe("ConversationsService", () => {
 			userId,
 		);
 
-		const [conversation] = await service.list({ contactId }, userId);
+		const [conversation] = await service.list(
+			{ contactId },
+			userId,
+			adminPrincipal(userId),
+		);
 
 		expect(conversation).toMatchObject({
 			sessionId: `ses_${suffix}_1`,
@@ -118,7 +125,11 @@ describe("ConversationsService", () => {
 			userId,
 		);
 
-		const [conversation] = await service.list({ contactId }, userId);
+		const [conversation] = await service.list(
+			{ contactId },
+			userId,
+			adminPrincipal(userId),
+		);
 
 		expect(conversation).toMatchObject({
 			continuationToken: "eve:token-2",
@@ -129,23 +140,37 @@ describe("ConversationsService", () => {
 	});
 
 	it("reflects newly saved conversations immediately", async () => {
-		const before = await service.list({ contactId }, userId);
+		const before = await service.list(
+			{ contactId },
+			userId,
+			adminPrincipal(userId),
+		);
 		await service.save(
 			{ contactId, sessionId: `ses_${suffix}_2`, messageCount: 1 },
 			userId,
 		);
-		expect(await service.list({ contactId }, userId)).toHaveLength(
-			before.length + 1,
-		);
+		expect(
+			await service.list({ contactId }, userId, adminPrincipal(userId)),
+		).toHaveLength(before.length + 1);
 	});
 
 	it("newest first, so reopening lands on the last thing you asked", async () => {
-		const [first] = await service.list({ contactId }, userId);
+		const [first] = await service.list(
+			{ contactId },
+			userId,
+			adminPrincipal(userId),
+		);
 		expect(first?.sessionId).toBe(`ses_${suffix}_2`);
 	});
 
 	it("keeps one rep's conversations out of another's", async () => {
-		expect(await service.list({ contactId }, "somebody-else")).toEqual([]);
+		expect(
+			await service.list(
+				{ contactId },
+				"somebody-else",
+				adminPrincipal("somebody-else"),
+			),
+		).toEqual([]);
 	});
 
 	it("refuses a conversation that belongs to a record of neither kind", async () => {
@@ -198,7 +223,11 @@ describe("ConversationsService", () => {
 			drawingId: null,
 		});
 
-		const [conversation] = await service.list({ kind: "WORKSPACE" }, userId);
+		const [conversation] = await service.list(
+			{ kind: "WORKSPACE" },
+			userId,
+			adminPrincipal(userId),
+		);
 		expect(conversation).toMatchObject({
 			sessionId,
 			continuationToken: "eve:workspace-1",
@@ -213,9 +242,13 @@ describe("ConversationsService", () => {
 			userId,
 		);
 
-		expect(await service.list({ kind: "WORKSPACE" }, "somebody-else")).toEqual(
-			[],
-		);
+		expect(
+			await service.list(
+				{ kind: "WORKSPACE" },
+				"somebody-else",
+				adminPrincipal("somebody-else"),
+			),
+		).toEqual([]);
 	});
 
 	it("keeps workspace threads out of a record's history", async () => {
@@ -223,7 +256,11 @@ describe("ConversationsService", () => {
 			{ kind: "WORKSPACE", sessionId: `ses_${suffix}_workspace_scope` },
 			userId,
 		);
-		const recordThreads = await service.list({ contactId }, userId);
+		const recordThreads = await service.list(
+			{ contactId },
+			userId,
+			adminPrincipal(userId),
+		);
 
 		expect(recordThreads.map((thread) => thread.sessionId)).not.toContain(
 			`ses_${suffix}_workspace_scope`,

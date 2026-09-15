@@ -10,7 +10,7 @@ import {
 import type { z } from "zod";
 import { anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { recentTouchInput } from "./recents.contracts";
 import { RecentsService } from "./recents.service";
@@ -23,15 +23,15 @@ export class RecentsRouter {
 	) {}
 
 	@Query({ meta: anyMember() })
-	async list(@Ctx() ctx: AuthedTrpcContext) {
-		return this.recents.list(ctx.user.id);
+	async list(@Ctx() ctx: AccessTrpcContext) {
+		return this.recents.list(ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: recentTouchInput, meta: anyMember() })
 	async touch(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof recentTouchInput>,
 	) {
-		return this.recents.touch(input, ctx.user.id);
+		return this.recents.touch(input, ctx.access);
 	}
 }

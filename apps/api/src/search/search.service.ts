@@ -1,4 +1,10 @@
-import type { Db } from "@crm/db";
+import type { Db, Prisma } from "@crm/db";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { parseNumberQuery, SEARCH } from "./search.config";
@@ -170,9 +176,18 @@ function dedupeHits(hits: SearchHit[]): SearchHit[] {
 export class SearchService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async quick(q: string): Promise<{ hits: SearchHit[] }> {
+	async quick(q: string, p: AccessPrincipal): Promise<{ hits: SearchHit[] }> {
 		const term = q.trim();
 		if (term.length < SEARCH.minLength) return { hits: [] };
+
+		const canView = {
+			contacts: allows(p, "contacts", "VIEW"),
+			deals: allows(p, "deals", "VIEW"),
+			drawings: allows(p, "drawings", "VIEW"),
+			estimates: allows(p, "estimates", "VIEW"),
+			invoices: allows(p, "invoices", "VIEW"),
+			contracts: allows(p, "contracts", "VIEW"),
+		};
 
 		const asNumber = parseNumberQuery(term);
 		const isDigitQuery = asNumber !== null;
@@ -187,20 +202,20 @@ export class SearchService {
 			invoiceNumberRow,
 			contractNumberRow,
 		] = await Promise.all([
-			this.searchContacts(term),
-			this.searchDeals(term),
-			this.searchDrawings(term),
-			this.searchEstimates(term),
-			this.searchFieldValues(term),
-			asNumber === null
+			canView.contacts ? this.searchContacts(term, p) : Promise.resolve([]),
+			canView.deals ? this.searchDeals(term, p) : Promise.resolve([]),
+			canView.drawings ? this.searchDrawings(term, p) : Promise.resolve([]),
+			canView.estimates ? this.searchEstimates(term, p) : Promise.resolve([]),
+			this.searchFieldValues(term, p, canView),
+			asNumber === null || !canView.deals
 				? Promise.resolve(null)
-				: this.findDealByNumber(asNumber),
-			asNumber === null
+				: this.findDealByNumber(asNumber, p),
+			asNumber === null || !canView.invoices
 				? Promise.resolve(null)
-				: this.findInvoiceByNumber(asNumber),
-			asNumber === null
+				: this.findInvoiceByNumber(asNumber, p),
+			asNumber === null || !canView.contracts
 				? Promise.resolve(null)
-				: this.findContractByNumber(asNumber),
+				: this.findContractByNumber(asNumber, p),
 		]);
 
 		const fieldContactHits = fieldValueHits.filter(
@@ -254,19 +269,24 @@ export class SearchService {
 		};
 	}
 
-	private async searchContacts(term: string): Promise<ContactRow[]> {
+	private async searchContacts(
+		term: string,
+		p: AccessPrincipal,
+	): Promise<ContactRow[]> {
 		const tokens = term.split(/\s+/).filter(Boolean).slice(0, SEARCH.maxTokens);
+
+		const tokenClauses: Prisma.ContactWhereInput[] = tokens.map((token) => ({
+			OR: [
+				{ firstName: { contains: token, mode: "insensitive" } },
+				{ lastName: { contains: token, mode: "insensitive" } },
+				{ email: { contains: token, mode: "insensitive" } },
+				{ companyName: { contains: token, mode: "insensitive" } },
+			],
+		}));
 
 		return this.db.contact.findMany({
 			where: {
-				AND: tokens.map((token) => ({
-					OR: [
-						{ firstName: { contains: token, mode: "insensitive" } },
-						{ lastName: { contains: token, mode: "insensitive" } },
-						{ email: { contains: token, mode: "insensitive" } },
-						{ companyName: { contains: token, mode: "insensitive" } },
-					],
-				})),
+				AND: [...tokenClauses, contactScopeWhere(p)],
 			},
 			take: SEARCH.perKind,
 			orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -274,63 +294,110 @@ export class SearchService {
 		});
 	}
 
-	private async searchDeals(term: string): Promise<DealRow[]> {
+	private async searchDeals(
+		term: string,
+		p: AccessPrincipal,
+	): Promise<DealRow[]> {
 		return this.db.deal.findMany({
-			where: { name: { contains: term, mode: "insensitive" } },
+			where: {
+				AND: [
+					{ name: { contains: term, mode: "insensitive" } },
+					dealScopeWhere(p),
+				],
+			},
 			take: SEARCH.perKind,
 			orderBy: [{ stage: { position: "asc" } }, { name: "asc" }],
 			select: DEAL_SELECT,
 		});
 	}
 
-	private async searchDrawings(term: string): Promise<DrawingRow[]> {
+	private async searchDrawings(
+		term: string,
+		p: AccessPrincipal,
+	): Promise<DrawingRow[]> {
 		return this.db.drawing.findMany({
-			where: { address: { contains: term, mode: "insensitive" } },
+			where: {
+				AND: [
+					{ address: { contains: term, mode: "insensitive" } },
+					dealChildWhere(p),
+				],
+			},
 			take: SEARCH.perKind,
 			orderBy: { updatedAt: "desc" },
 			select: { id: true, title: true, address: true },
 		});
 	}
 
-	private async searchEstimates(term: string): Promise<EstimateRow[]> {
+	private async searchEstimates(
+		term: string,
+		p: AccessPrincipal,
+	): Promise<EstimateRow[]> {
 		return this.db.estimate.findMany({
-			where: { title: { contains: term, mode: "insensitive" } },
+			where: {
+				AND: [
+					{ title: { contains: term, mode: "insensitive" } },
+					dealChildWhere(p),
+				],
+			},
 			take: SEARCH.perKind,
 			orderBy: { updatedAt: "desc" },
 			select: { id: true, title: true, status: true },
 		});
 	}
 
-	private async findDealByNumber(number: number): Promise<DealRow | null> {
-		return this.db.deal.findUnique({
-			where: { number },
+	private async findDealByNumber(
+		number: number,
+		p: AccessPrincipal,
+	): Promise<DealRow | null> {
+		return this.db.deal.findFirst({
+			where: { AND: [{ number }, dealScopeWhere(p)] },
 			select: DEAL_SELECT,
 		});
 	}
 
 	private async findInvoiceByNumber(
 		number: number,
+		p: AccessPrincipal,
 	): Promise<{ id: string; number: number } | null> {
-		return this.db.invoice.findUnique({
-			where: { number },
+		return this.db.invoice.findFirst({
+			where: { AND: [{ number }, dealChildWhere(p)] },
 			select: { id: true, number: true },
 		});
 	}
 
 	private async findContractByNumber(
 		number: number,
+		p: AccessPrincipal,
 	): Promise<{ id: string; number: number; title: string } | null> {
-		return this.db.contract.findUnique({
-			where: { number },
+		return this.db.contract.findFirst({
+			where: { AND: [{ number }, dealChildWhere(p)] },
 			select: { id: true, number: true, title: true },
 		});
 	}
 
-	private async searchFieldValues(term: string): Promise<SearchHit[]> {
+	private async searchFieldValues(
+		term: string,
+		p: AccessPrincipal,
+		canView: { contacts: boolean; deals: boolean },
+	): Promise<SearchHit[]> {
+		if (!canView.contacts && !canView.deals) return [];
+
+		const orClauses: Prisma.FieldValueWhereInput[] = [];
+		if (canView.deals) {
+			orClauses.push({ dealId: { not: null }, deal: dealScopeWhere(p) });
+		}
+		if (canView.contacts) {
+			orClauses.push({
+				contactId: { not: null },
+				contact: contactScopeWhere(p),
+			});
+		}
+
 		const rows = await this.db.fieldValue.findMany({
 			where: {
 				text: { contains: term, mode: "insensitive" },
 				field: { type: "TEXT", archivedAt: null },
+				OR: orClauses,
 			},
 			take: SEARCH.perKind * 4,
 			select: {
@@ -340,12 +407,13 @@ export class SearchService {
 				contact: { select: CONTACT_SELECT },
 			},
 		});
-
 		return rows.flatMap((row) => {
 			if (row.text === null) return [];
 			const detail = `${row.field.label}: ${row.text}`;
-			if (row.deal) return [{ ...dealHit(row.deal), detail }];
-			if (row.contact) return [contactHit(row.contact, detail)];
+			if (row.deal && canView.deals) return [{ ...dealHit(row.deal), detail }];
+			if (row.contact && canView.contacts) {
+				return [contactHit(row.contact, detail)];
+			}
 			return [];
 		});
 	}

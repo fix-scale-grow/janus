@@ -1,5 +1,11 @@
 import { WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+} from "@crm/db/access-scope";
 import {
 	BadRequestException,
 	Injectable,
@@ -71,10 +77,15 @@ export class ConversationsService {
 	async list(
 		input: ConversationListInput,
 		userId: string,
+		p: AccessPrincipal,
 	): Promise<ConversationSummary[]> {
 		const kind = conversationKindOf(input);
 		const recordId = kind === "RECORD" ? this.recordId(input) : null;
 		this.logger.debug({ message: "Conversation list read", kind, recordId });
+
+		if (kind === "RECORD") {
+			await this.assertAnchorInScope(input, p);
+		}
 
 		const rows = await this.db.agentConversation.findMany({
 			where: {
@@ -926,6 +937,40 @@ export class ConversationsService {
 		this.logger.log({ message: "Conversation removed", conversationId: id });
 
 		return { id };
+	}
+
+	private async assertAnchorInScope(
+		input: { contactId?: string; dealId?: string; drawingId?: string },
+		p: AccessPrincipal,
+	): Promise<void> {
+		if (input.dealId) {
+			const deal = await this.db.deal.findFirst({
+				where: { AND: [{ id: input.dealId }, dealScopeWhere(p)] },
+				select: { id: true },
+			});
+			if (!deal)
+				throw new NotFoundException(`No deal with id ${input.dealId}.`);
+			return;
+		}
+		if (input.contactId) {
+			const contact = await this.db.contact.findFirst({
+				where: { AND: [{ id: input.contactId }, contactScopeWhere(p)] },
+				select: { id: true },
+			});
+			if (!contact) {
+				throw new NotFoundException(`No contact with id ${input.contactId}.`);
+			}
+			return;
+		}
+		if (input.drawingId) {
+			const drawing = await this.db.drawing.findFirst({
+				where: { AND: [{ id: input.drawingId }, dealChildWhere(p)] },
+				select: { id: true },
+			});
+			if (!drawing) {
+				throw new NotFoundException(`No drawing with id ${input.drawingId}.`);
+			}
+		}
 	}
 
 	private recordId(input: {

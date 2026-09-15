@@ -1,5 +1,6 @@
 import { DRAWINGS } from "@crm/drawings";
 import { NextResponse } from "next/server";
+import { drawingVisible, routePrincipal } from "@/lib/access-route";
 import { saveThumbnail } from "@/lib/drawing-thumbnails";
 import { getSession } from "@/lib/session";
 
@@ -18,6 +19,11 @@ export async function POST(request: Request): Promise<Response> {
 			{ error: "A file and drawingId are required." },
 			{ status: 400 },
 		);
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !(await drawingVisible(p, drawingId, "EDIT"))) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	if (file.type !== "image/png") {

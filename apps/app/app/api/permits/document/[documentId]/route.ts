@@ -1,5 +1,6 @@
 import { db } from "@crm/db";
 import { NextResponse } from "next/server";
+import { permitDocumentVisible, routePrincipal } from "@/lib/access-route";
 import { COST_ID_PATTERN } from "@/lib/cost-receipts";
 import { contentTypeFor, readPermitFile } from "@/lib/permit-files";
 import { getSession } from "@/lib/session";
@@ -21,6 +22,11 @@ export async function GET(
 				status: 400,
 			},
 		);
+	}
+
+	const p = await routePrincipal(session.user.id);
+	if (!p || !(await permitDocumentVisible(p, documentId, "VIEW"))) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 
 	const document = await db.permitDocument.findUnique({

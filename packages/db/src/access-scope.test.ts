@@ -9,6 +9,7 @@ import {
 	dealChildWhere,
 	dealScopeWhere,
 	isUnscoped,
+	photoScopeWhere,
 	requiredDealChildWhere,
 } from "./access-scope";
 
@@ -71,6 +72,42 @@ describe("contactScopeWhere", () => {
 	test("ASSIGNED", () => {
 		expect(contactScopeWhere(withScope("ASSIGNED"))).toEqual({
 			deals: { some: { deal: { id: { in: [] } } } },
+		});
+	});
+});
+
+describe("photoScopeWhere", () => {
+	test("admin and ALL are unscoped", () => {
+		expect(photoScopeWhere(adminPrincipal("a"))).toEqual({});
+		expect(photoScopeWhere(withScope("ALL"))).toEqual({});
+	});
+
+	test("OWN matches the owner's deal or deal-less contact scope", () => {
+		expect(photoScopeWhere(withScope("OWN"))).toEqual({
+			OR: [
+				{ deal: { OR: [{ ownerId: "me" }] } },
+				{
+					dealId: null,
+					contact: {
+						OR: [
+							{ ownerId: "me" },
+							{ deals: { some: { deal: { OR: [{ ownerId: "me" }] } } } },
+						],
+					},
+				},
+			],
+		});
+	});
+
+	test("ASSIGNED matches nothing before assignments exist", () => {
+		expect(photoScopeWhere(withScope("ASSIGNED"))).toEqual({
+			OR: [
+				{ deal: { id: { in: [] } } },
+				{
+					dealId: null,
+					contact: { deals: { some: { deal: { id: { in: [] } } } } },
+				},
+			],
 		});
 	});
 });

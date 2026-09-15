@@ -1,4 +1,6 @@
 import type { Db } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { activityScopeWhere } from "@crm/db/access-scope";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 
@@ -6,7 +8,8 @@ import { InjectDatabase } from "../database/database.constants";
 export class ConversationService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async thread(threadId: string) {
+	async thread(threadId: string, p: AccessPrincipal) {
+		await this.assertAnchorInScope({ emailThreadId: threadId }, p);
 		const thread = await this.db.emailThread.findUnique({
 			where: { id: threadId },
 			select: {
@@ -94,7 +97,8 @@ export class ConversationService {
 		return faces;
 	}
 
-	async event(eventId: string) {
+	async event(eventId: string, p: AccessPrincipal) {
+		await this.assertAnchorInScope({ calendarEventId: eventId }, p);
 		const event = await this.db.calendarEvent.findUnique({
 			where: { id: eventId },
 			select: {
@@ -137,6 +141,23 @@ export class ConversationService {
 				imageUrl: contact?.imageUrl ?? null,
 			})),
 		};
+	}
+
+	private async assertAnchorInScope(
+		anchor: { emailThreadId: string } | { calendarEventId: string },
+		p: AccessPrincipal,
+	): Promise<void> {
+		const activity = await this.db.activity.findFirst({
+			where: { AND: [anchor, activityScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!activity) {
+			throw new NotFoundException(
+				"emailThreadId" in anchor
+					? `No email thread with id ${anchor.emailThreadId}.`
+					: `No calendar event with id ${anchor.calendarEventId}.`,
+			);
+		}
 	}
 }
 

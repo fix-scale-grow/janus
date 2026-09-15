@@ -10,7 +10,10 @@ import {
 import type { z } from "zod";
 import { anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type {
+	AccessTrpcContext,
+	AuthedTrpcContext,
+} from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { ConversationService } from "./conversation.service";
 import {
@@ -76,12 +79,18 @@ export class GoogleRouter {
 	}
 
 	@Query({ input: threadInput, meta: anyMember() })
-	async thread(@Input("threadId") threadId: string) {
-		return this.conversations.thread(threadId);
+	async thread(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input("threadId") threadId: string,
+	) {
+		return this.conversations.thread(threadId, ctx.access);
 	}
 
 	@Query({ input: calendarEventInput, meta: anyMember() })
-	async event(@Input("eventId") eventId: string) {
-		return this.conversations.event(eventId);
+	async event(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input("eventId") eventId: string,
+	) {
+		return this.conversations.event(eventId, ctx.access);
 	}
 }

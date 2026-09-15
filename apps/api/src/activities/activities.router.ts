@@ -10,7 +10,7 @@ import {
 import type { z } from "zod";
 import { anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type { AccessTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	activityCreateInput,
@@ -29,33 +29,42 @@ export class ActivitiesRouter {
 	) {}
 
 	@Query({ input: timelineInput, meta: anyMember() })
-	async timeline(@Input() input: z.infer<typeof timelineInput>) {
-		return this.activities.timeline(input);
+	async timeline(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof timelineInput>,
+	) {
+		return this.activities.timeline(input, ctx.access);
 	}
 
 	@Query({ input: timelineCountsInput, meta: anyMember() })
-	async timelineCounts(@Input() input: z.infer<typeof timelineCountsInput>) {
-		return this.activities.timelineCounts(input);
+	async timelineCounts(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof timelineCountsInput>,
+	) {
+		return this.activities.timelineCounts(input, ctx.access);
 	}
 
 	@Query({ input: myTasksInput, meta: anyMember() })
 	async myTasks(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof myTasksInput>,
 	) {
-		return this.activities.myTasks(input, ctx.user.id);
+		return this.activities.myTasks(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: activityCreateInput, meta: anyMember() })
 	async create(
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 		@Input() input: z.infer<typeof activityCreateInput>,
 	) {
-		return this.activities.create(input, ctx.user.id);
+		return this.activities.create(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: completeInput, meta: anyMember() })
-	async complete(@Input() input: z.infer<typeof completeInput>) {
-		return this.activities.complete(input.id, input.completed);
+	async complete(
+		@Ctx() ctx: AccessTrpcContext,
+		@Input() input: z.infer<typeof completeInput>,
+	) {
+		return this.activities.complete(input.id, input.completed, ctx.access);
 	}
 }

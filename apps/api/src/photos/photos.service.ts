@@ -1,11 +1,6 @@
 import { type Db, type Prisma } from "@crm/db";
 import type { AccessPrincipal } from "@crm/db/access-policy";
-import {
-	contactScopeWhere,
-	dealChildWhere,
-	dealScopeWhere,
-	isUnscoped,
-} from "@crm/db/access-scope";
+import { dealChildWhere, photoScopeWhere } from "@crm/db/access-scope";
 import { readPhotoFile } from "@crm/db/photo-files";
 import {
 	BadRequestException,
@@ -40,16 +35,6 @@ const PHOTO_SELECT = {
 	createdAt: true,
 	uploadedBy: { select: { id: true, name: true } },
 } as const satisfies Prisma.PhotoSelect;
-
-function photoScopeWhere(p: AccessPrincipal): Prisma.PhotoWhereInput {
-	if (isUnscoped(p)) return {};
-	return {
-		OR: [
-			{ deal: dealScopeWhere(p) },
-			{ dealId: null, contact: contactScopeWhere(p) },
-		],
-	};
-}
 
 function sameIdSet(linked: { photoId: string }[], ids: string[]): boolean {
 	const linkedIds = new Set(linked.map((row) => row.photoId));
