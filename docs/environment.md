@@ -68,6 +68,10 @@ list fails closed.** Parsed on demand. `packages/auth/src/workspace.ts`.
   resolves its tsconfig paths from the current directory and then cannot build
   its dependency graph. There is no fix in the dev script today.
 - **`APP_URL`** (`:3000`) is also the trusted-origin and `callbackURL` allow-list.
+  **It is required when `NODE_ENV=production`** and the API refuses to boot
+  without it. Every link and every logo in an email, a signing page and a PDF is
+  built from it, so an unset `APP_URL` in production sends customers to
+  `localhost`. In development the `:3000` default stands.
 - **Every OAuth `redirect_uri` is built from `API_URL`, never `APP_URL`.** Better
   Auth serves `/api/auth/*` at `baseURL`, and `baseURL` is `apiUrl`. A redirect
   built from `APP_URL` points at the web app, where `/api/auth/callback` does not

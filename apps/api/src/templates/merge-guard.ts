@@ -17,14 +17,7 @@ function scanTokens(text: string, tokens: Set<string>): void {
 	}
 }
 
-export function collectTokens(
-	subject: string,
-	blocks: TemplateBlocks,
-): string[] {
-	const tokens = new Set<string>();
-
-	scanTokens(subject, tokens);
-
+function scanBlocks(blocks: TemplateBlocks, tokens: Set<string>): void {
 	for (const block of blocks) {
 		switch (block.kind) {
 			case "heading":
@@ -36,12 +29,23 @@ export function collectTokens(
 			case "button":
 				scanTokens(block.label, tokens);
 				break;
-			case "divider":
-			case "spacer":
-			case "logo":
+			case "columns":
+				for (const column of block.columns) scanBlocks(column, tokens);
+				break;
+			default:
 				break;
 		}
 	}
+}
+
+export function collectTokens(
+	subject: string,
+	blocks: TemplateBlocks,
+): string[] {
+	const tokens = new Set<string>();
+
+	scanTokens(subject, tokens);
+	scanBlocks(blocks, tokens);
 
 	return [...tokens];
 }

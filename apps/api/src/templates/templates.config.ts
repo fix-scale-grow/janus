@@ -18,6 +18,7 @@ export const EMAIL_RENDER = {
 	cellPadding: "24px 32px",
 	brandGreen: "#006b4f",
 	logoSize: 44,
+	buttonLinkTokens: ["signing_link", "proposal_link"],
 } as const;
 
 export const MERGE_FIELDS = {

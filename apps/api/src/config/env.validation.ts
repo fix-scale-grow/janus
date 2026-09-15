@@ -8,6 +8,7 @@ import {
 	Max,
 	Min,
 	MinLength,
+	ValidateIf,
 	validateSync,
 } from "class-validator";
 
@@ -85,8 +86,15 @@ export class EnvironmentVariables {
 	@IsUrl({ require_tld: false })
 	API_URL?: string;
 
-	@IsOptional()
+	@ValidateIf(
+		(env: EnvironmentVariables) =>
+			env.NODE_ENV === NodeEnv.Production || env.APP_URL !== undefined,
+	)
 	@IsString()
+	@MinLength(1, {
+		message:
+			"APP_URL is required in production. It is the address the app is served from, and every link in an email or a PDF is built from it.",
+	})
 	APP_URL?: string;
 
 	@IsOptional()

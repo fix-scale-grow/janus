@@ -38,6 +38,7 @@ function fakeTemplates() {
 			new Map([
 				["contract.title", "Contract title"],
 				["contact.full_name", "Full name"],
+				["deal.address", "Job address"],
 				["signing_link", "Signing link"],
 				["sender.name", "Sender name"],
 			]),
@@ -48,6 +49,8 @@ function fakeMergeContext() {
 	return {
 		resolve: async (refs: { senderName?: string }) => ({
 			"contract.title": "A contract",
+			"contact.full_name": "Jane Homeowner",
+			"deal.address": "",
 			signing_link: "https://app.example.com/sign/abc123",
 			...(refs.senderName ? { "sender.name": refs.senderName } : {}),
 		}),
@@ -402,6 +405,30 @@ describe("ContractsService.send", () => {
 		await expect(
 			service.send({ id: "contract1" }, undefined, adminPrincipal("test")),
 		).rejects.toBeInstanceOf(BadRequestException);
+	});
+
+	it("refuses to send a contract whose body has an empty merge field", async () => {
+		const { db } = fakeDb(
+			baseContract({
+				body: [
+					{ kind: "heading", text: "Roofing Services Agreement" },
+					{
+						kind: "text",
+						html: "For the property at {{deal.address}}, covering the work.",
+					},
+				],
+			}),
+		);
+		const service = new ContractsService(
+			db,
+			fakeTemplates(),
+			fakeMergeContext(),
+			fakeMailer(true),
+		);
+
+		await expect(
+			service.send({ id: "contract1" }, "Alex Rivera", adminPrincipal("test")),
+		).rejects.toThrow(/Job address/);
 	});
 
 	it("flips DRAFT to SENT and stores a 43-char signing token", async () => {

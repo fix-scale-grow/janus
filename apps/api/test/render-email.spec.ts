@@ -198,6 +198,52 @@ describe("renderEmailHtml", () => {
 		expect(html).toContain('href="&quot;>');
 	});
 
+	it("links the button at the proposal when there is no signing link", () => {
+		const blocks: TemplateBlocks = [
+			{ kind: "button", label: "View your proposal" },
+		];
+		const context = {
+			proposal_link: "https://crm.example.com/proposal/abc123",
+		};
+
+		const { html, text } = renderEmailHtml(blocks, context);
+
+		expect(html).toContain('href="https://crm.example.com/proposal/abc123"');
+		expect(html).not.toContain('href="#"');
+		expect(text).toContain("https://crm.example.com/proposal/abc123");
+	});
+
+	it("prefers the signing link when a message carries both links", () => {
+		const blocks: TemplateBlocks = [{ kind: "button", label: "Sign" }];
+		const context = {
+			signing_link: "https://crm.example.com/sign/abc123",
+			proposal_link: "https://crm.example.com/proposal/abc123",
+		};
+
+		const { html } = renderEmailHtml(blocks, context);
+
+		expect(html).toContain('href="https://crm.example.com/sign/abc123"');
+	});
+
+	it("keeps the page inside a narrow screen in both modes", () => {
+		const document = renderEmailHtml(
+			[{ kind: "text", html: "A long contract paragraph." }],
+			CONTEXT,
+			"document",
+		).html;
+		const email = renderEmailHtml(
+			[{ kind: "text", html: "A long email paragraph." }],
+			CONTEXT,
+		).html;
+
+		expect(document).toContain("max-width:640px");
+		expect(document).toContain("width:100%");
+		expect(document).not.toContain('style="width:640px');
+		expect(email).toContain("max-width:600px");
+		expect(email).toContain("width:100%");
+		expect(email).not.toContain('style="width:600px');
+	});
+
 	it("renders a plain white 640px page in document mode, with no grey email shell", () => {
 		const blocks: TemplateBlocks = [
 			{ kind: "heading", text: "Roofing Services Agreement" },

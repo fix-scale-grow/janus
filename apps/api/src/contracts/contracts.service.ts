@@ -438,7 +438,12 @@ export class ContractsService {
 		const blocks = parseTemplateBlocks(template.blocks);
 
 		const registry = await this.templates.mergeRegistry();
-		const tokens = collectTokens(template.subject ?? "", blocks);
+		const tokens = [
+			...new Set([
+				...collectTokens(template.subject ?? "", blocks),
+				...collectTokens("", parseTemplateBlocks(contract.body)),
+			]),
+		];
 		assertMergeComplete("contract", missingMerges(tokens, context, registry));
 
 		const subject =
