@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	canManageFields,
 	fieldRedirect,
 	settingsRedirect,
 	visibleModules,
@@ -106,6 +107,16 @@ describe("fieldRedirect", () => {
 
 	test("null surface never redirects", () => {
 		expect(fieldRedirect(null, "/acme/deals", "acme")).toBeNull();
+	});
+});
+
+describe("canManageFields", () => {
+	test("non-admin cannot manage fields", () => {
+		expect(canManageFields(clerkMine)).toBe(false);
+	});
+
+	test("admin can manage fields", () => {
+		expect(canManageFields(adminMine)).toBe(true);
 	});
 });
 

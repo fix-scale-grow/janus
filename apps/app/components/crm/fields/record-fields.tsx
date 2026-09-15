@@ -22,6 +22,8 @@ import {
 	useFieldsSheet,
 } from "@/components/crm/record-sheet/record-stack";
 import { DetailSheetProperty } from "@/components/detail-sheet";
+import { useAccess } from "@/lib/access";
+import { canManageFields } from "@/lib/access-rules";
 import { useTRPC } from "@/lib/trpc/client";
 
 type RecordFieldOption = { id: string; label: string };
@@ -44,6 +46,9 @@ const FORMER_MEMBER = "Former member";
 
 export function FieldsCog({ kind }: { kind: RecordKind }) {
 	const { open } = useFieldsSheet();
+	const { mine } = useAccess();
+
+	if (!mine || !canManageFields(mine)) return null;
 
 	return (
 		<Tooltip>

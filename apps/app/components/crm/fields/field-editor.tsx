@@ -42,6 +42,7 @@ import { Textarea } from "@crm/ui/components/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -128,9 +129,11 @@ function draftFrom(field: FieldRecord | undefined): Draft {
 function Coverage({ field }: { field: FieldRecord }) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
-	const coverage = useQuery(
-		trpc.fields.coverage.queryOptions({ id: field.id }),
-	);
+	const { isAdmin } = useAccess();
+	const coverage = useQuery({
+		...trpc.fields.coverage.queryOptions({ id: field.id }),
+		enabled: isAdmin,
+	});
 
 	const backfill = useMutation(
 		trpc.fields.backfill.mutationOptions({

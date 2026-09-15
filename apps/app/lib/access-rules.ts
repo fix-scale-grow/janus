@@ -66,6 +66,10 @@ export function canMoney(mine: MyAccess, sw: MoneySwitch): boolean {
 	return hasMoney(toPrincipal(mine), sw);
 }
 
+export function canManageFields(mine: MyAccess): boolean {
+	return mine.isAdmin;
+}
+
 export function fieldRedirect(
 	surface: AccessSurface | null,
 	pathname: string,

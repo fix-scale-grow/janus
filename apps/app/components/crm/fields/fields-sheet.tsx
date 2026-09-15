@@ -8,6 +8,7 @@ import {
 	useFieldsSheet,
 } from "@/components/crm/record-sheet/record-stack";
 import { DetailSheet, DetailSheetHeader } from "@/components/detail-sheet";
+import { useAccess } from "@/lib/access";
 import { useTRPC } from "@/lib/trpc/client";
 import { FieldEditor } from "./field-editor";
 import {
@@ -81,6 +82,7 @@ function FieldsSheetBody({
 	onClose: () => void;
 }) {
 	const trpc = useTRPC();
+	const { isAdmin } = useAccess();
 	const entity = entityOf(kind);
 
 	const query = useQuery(
@@ -94,7 +96,7 @@ function FieldsSheetBody({
 
 	const coverage = useQuery({
 		...trpc.fields.coverage.queryOptions({ id: editing?.id ?? "" }),
-		enabled: Boolean(editing?.agentFilled),
+		enabled: isAdmin && Boolean(editing?.agentFilled),
 	});
 
 	if (field) {
