@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { access } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -25,23 +27,23 @@ import {
 import { InvoicesService } from "./invoices.service";
 
 @Router({ alias: "invoices" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class InvoicesRouter {
 	constructor(
 		@Inject(InvoicesService) private readonly invoices: InvoicesService,
 	) {}
 
-	@Query({ input: invoiceListInput })
+	@Query({ input: invoiceListInput, meta: access("invoices", "VIEW") })
 	async list(@Input() input: z.infer<typeof invoiceListInput>) {
 		return this.invoices.list(input);
 	}
 
-	@Query({ input: invoiceIdInput })
+	@Query({ input: invoiceIdInput, meta: access("invoices", "VIEW") })
 	async byId(@Input("id") id: string) {
 		return this.invoices.byId(id);
 	}
 
-	@Mutation({ input: invoiceCreateInput })
+	@Mutation({ input: invoiceCreateInput, meta: access("invoices", "EDIT") })
 	async create(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof invoiceCreateInput>,
@@ -49,7 +51,10 @@ export class InvoicesRouter {
 		return this.invoices.create(input, ctx.user.id);
 	}
 
-	@Mutation({ input: invoiceCreateFromEstimateInput })
+	@Mutation({
+		input: invoiceCreateFromEstimateInput,
+		meta: access("invoices", "EDIT"),
+	})
 	async createFromEstimate(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof invoiceCreateFromEstimateInput>,
@@ -57,7 +62,7 @@ export class InvoicesRouter {
 		return this.invoices.createFromEstimate(input, ctx.user.id);
 	}
 
-	@Mutation({ input: invoiceSetStatusInput })
+	@Mutation({ input: invoiceSetStatusInput, meta: access("invoices", "EDIT") })
 	async setStatus(
 		@Input() input: z.infer<typeof invoiceSetStatusInput>,
 		@Ctx() ctx: AuthedTrpcContext,
@@ -65,44 +70,53 @@ export class InvoicesRouter {
 		return this.invoices.setStatus(input, ctx.user.id);
 	}
 
-	@Mutation({ input: invoiceIdInput })
+	@Mutation({ input: invoiceIdInput, meta: access("invoices", "EDIT") })
 	async markPaid(@Input("id") id: string, @Ctx() ctx: AuthedTrpcContext) {
 		return this.invoices.markPaid(id, ctx.user.id);
 	}
 
-	@Mutation({ input: invoiceUpdateInput })
+	@Mutation({ input: invoiceUpdateInput, meta: access("invoices", "EDIT") })
 	async update(@Input() input: z.infer<typeof invoiceUpdateInput>) {
 		return this.invoices.update(input);
 	}
 
-	@Mutation({ input: invoiceIdInput })
+	@Mutation({ input: invoiceIdInput, meta: access("invoices", "DELETE") })
 	async delete(@Input("id") id: string) {
 		return this.invoices.delete(id);
 	}
 
-	@Mutation({ input: invoiceAddLineItemInput })
+	@Mutation({
+		input: invoiceAddLineItemInput,
+		meta: access("invoices", "EDIT"),
+	})
 	async addLineItem(@Input() input: z.infer<typeof invoiceAddLineItemInput>) {
 		return this.invoices.addLineItem(input);
 	}
 
-	@Mutation({ input: invoiceUpdateLineItemInput })
+	@Mutation({
+		input: invoiceUpdateLineItemInput,
+		meta: access("invoices", "EDIT"),
+	})
 	async updateLineItem(
 		@Input() input: z.infer<typeof invoiceUpdateLineItemInput>,
 	) {
 		return this.invoices.updateLineItem(input);
 	}
 
-	@Mutation({ input: invoiceLineItemIdInput })
+	@Mutation({
+		input: invoiceLineItemIdInput,
+		meta: access("invoices", "DELETE"),
+	})
 	async removeLineItem(@Input("id") id: string) {
 		return this.invoices.removeLineItem(id);
 	}
 
-	@Query({ input: invoiceIdInput })
+	@Query({ input: invoiceIdInput, meta: access("invoices", "VIEW") })
 	async document(@Input("id") id: string) {
 		return this.invoices.document(id);
 	}
 
-	@Mutation({ input: invoiceSendInput })
+	@Mutation({ input: invoiceSendInput, meta: access("invoices", "EDIT") })
 	async send(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof invoiceSendInput>,

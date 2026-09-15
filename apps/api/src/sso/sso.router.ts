@@ -9,6 +9,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { adminOnly } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext, BaseTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -31,20 +33,20 @@ export class SsoRouter {
 		return this.sso.signInOptions();
 	}
 
-	@Query()
-	@UseMiddlewares(AuthMiddleware)
+	@Query({ meta: adminOnly() })
+	@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 	async settings(@Ctx() ctx: AuthedTrpcContext) {
 		return this.sso.settings(ctx.user.id);
 	}
 
-	@Query({ input: ssoProviderListInput })
-	@UseMiddlewares(AuthMiddleware)
+	@Query({ input: ssoProviderListInput, meta: adminOnly() })
+	@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 	async list(@Input() input: z.infer<typeof ssoProviderListInput>) {
 		return this.sso.list(input);
 	}
 
-	@Mutation({ input: registerSsoProviderInput })
-	@UseMiddlewares(AuthMiddleware)
+	@Mutation({ input: registerSsoProviderInput, meta: adminOnly() })
+	@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 	async register(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof registerSsoProviderInput>,
@@ -52,8 +54,8 @@ export class SsoRouter {
 		return this.sso.register(ctx.user.id, headersOf(ctx), input);
 	}
 
-	@Mutation({ input: deleteSsoProviderInput })
-	@UseMiddlewares(AuthMiddleware)
+	@Mutation({ input: deleteSsoProviderInput, meta: adminOnly() })
+	@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 	async remove(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof deleteSsoProviderInput>,

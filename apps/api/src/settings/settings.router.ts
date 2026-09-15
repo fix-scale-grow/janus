@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { adminOnly, anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -21,43 +23,43 @@ import {
 import { SettingsService } from "./settings.service";
 
 @Router({ alias: "settings" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class SettingsRouter {
 	constructor(
 		@Inject(SettingsService) private readonly settings: SettingsService,
 	) {}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async agentModel() {
 		return this.settings.agentModel();
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async modelCatalog() {
 		return this.settings.modelCatalog();
 	}
 
-	@Mutation({ input: setAgentModelInput })
+	@Mutation({ input: setAgentModelInput, meta: anyMember() })
 	async setAgentModel(@Input() input: z.infer<typeof setAgentModelInput>) {
 		return this.settings.setAgentModel(input.modelId);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async researchKey() {
 		return this.settings.researchKey();
 	}
 
-	@Mutation({ input: setResearchKeyInput })
+	@Mutation({ input: setResearchKeyInput, meta: anyMember() })
 	async setResearchKey(@Input() input: z.infer<typeof setResearchKeyInput>) {
 		return this.settings.setResearchKey(input.apiKey);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async documentChrome() {
 		return this.settings.documentChrome();
 	}
 
-	@Mutation({ input: setDocumentChromeInput })
+	@Mutation({ input: setDocumentChromeInput, meta: adminOnly() })
 	async setDocumentChrome(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setDocumentChromeInput>,
@@ -65,12 +67,12 @@ export class SettingsRouter {
 		return this.settings.setDocumentChrome(ctx.user.id, input);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async navLayout() {
 		return this.settings.navLayout();
 	}
 
-	@Mutation({ input: setNavLayoutInput })
+	@Mutation({ input: setNavLayoutInput, meta: adminOnly() })
 	async setNavLayout(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setNavLayoutInput>,
@@ -78,12 +80,12 @@ export class SettingsRouter {
 		return this.settings.setNavLayout(ctx.user.id, input.layout);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async dealNumbering() {
 		return this.settings.dealNumbering();
 	}
 
-	@Mutation({ input: setDealNumberStartInput })
+	@Mutation({ input: setDealNumberStartInput, meta: adminOnly() })
 	async setDealNumberStart(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setDealNumberStartInput>,
@@ -91,12 +93,12 @@ export class SettingsRouter {
 		return this.settings.setDealNumberStart(ctx.user.id, input.start);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async permits() {
 		return this.settings.permits();
 	}
 
-	@Mutation({ input: setPermitsInput })
+	@Mutation({ input: setPermitsInput, meta: adminOnly() })
 	async setPermits(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setPermitsInput>,
@@ -108,7 +110,7 @@ export class SettingsRouter {
 		});
 	}
 
-	@Mutation()
+	@Mutation({ meta: anyMember() })
 	async acceptPermitDisclaimer(@Ctx() ctx: AuthedTrpcContext) {
 		return this.settings.acceptPermitDisclaimer(ctx.user.id);
 	}

@@ -1,6 +1,8 @@
 import { Inject } from "@nestjs/common";
 import { Input, Mutation, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { z } from "zod";
+import { access } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	estimateLinkInput,
@@ -19,87 +21,102 @@ import {
 import { PhotosService } from "./photos.service";
 
 @Router({ alias: "photos" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class PhotosRouter {
 	constructor(@Inject(PhotosService) private readonly photos: PhotosService) {}
 
-	@Query({ input: photoListInput })
+	@Query({
+		input: photoListInput,
+		meta: access("photos", "VIEW", { field: true }),
+	})
 	async list(@Input() input: z.infer<typeof photoListInput>) {
 		return this.photos.list(input);
 	}
 
-	@Query({ input: estimatePhotosInput })
+	@Query({ input: estimatePhotosInput, meta: access("photos", "VIEW") })
 	async forEstimate(@Input("estimateId") estimateId: string) {
 		return this.photos.forEstimate(estimateId);
 	}
 
-	@Mutation({ input: estimateLinkInput })
+	@Mutation({ input: estimateLinkInput, meta: access("photos", "EDIT") })
 	async linkEstimate(@Input() input: z.infer<typeof estimateLinkInput>) {
 		return this.photos.linkEstimate(input);
 	}
 
-	@Mutation({ input: estimateLinkInput })
+	@Mutation({ input: estimateLinkInput, meta: access("photos", "EDIT") })
 	async unlinkEstimate(@Input() input: z.infer<typeof estimateLinkInput>) {
 		return this.photos.unlinkEstimate(input);
 	}
 
-	@Mutation({ input: estimatePdfFlagInput })
+	@Mutation({ input: estimatePdfFlagInput, meta: access("photos", "EDIT") })
 	async setEstimatePdfFlag(
 		@Input() input: z.infer<typeof estimatePdfFlagInput>,
 	) {
 		return this.photos.setEstimatePdfFlag(input);
 	}
 
-	@Mutation({ input: estimateReorderInput })
+	@Mutation({ input: estimateReorderInput, meta: access("photos", "EDIT") })
 	async reorderEstimatePhotos(
 		@Input() input: z.infer<typeof estimateReorderInput>,
 	) {
 		return this.photos.reorderEstimatePhotos(input);
 	}
 
-	@Query({ input: invoicePhotosInput })
+	@Query({ input: invoicePhotosInput, meta: access("photos", "VIEW") })
 	async forInvoice(@Input("invoiceId") invoiceId: string) {
 		return this.photos.forInvoice(invoiceId);
 	}
 
-	@Mutation({ input: invoiceLinkInput })
+	@Mutation({ input: invoiceLinkInput, meta: access("photos", "EDIT") })
 	async linkInvoice(@Input() input: z.infer<typeof invoiceLinkInput>) {
 		return this.photos.linkInvoice(input);
 	}
 
-	@Mutation({ input: invoiceLinkInput })
+	@Mutation({ input: invoiceLinkInput, meta: access("photos", "EDIT") })
 	async unlinkInvoice(@Input() input: z.infer<typeof invoiceLinkInput>) {
 		return this.photos.unlinkInvoice(input);
 	}
 
-	@Mutation({ input: invoicePdfFlagInput })
+	@Mutation({ input: invoicePdfFlagInput, meta: access("photos", "EDIT") })
 	async setInvoicePdfFlag(@Input() input: z.infer<typeof invoicePdfFlagInput>) {
 		return this.photos.setInvoicePdfFlag(input);
 	}
 
-	@Mutation({ input: invoiceReorderInput })
+	@Mutation({ input: invoiceReorderInput, meta: access("photos", "EDIT") })
 	async reorderInvoicePhotos(
 		@Input() input: z.infer<typeof invoiceReorderInput>,
 	) {
 		return this.photos.reorderInvoicePhotos(input);
 	}
 
-	@Query({ input: projectPhotosInput })
+	@Query({
+		input: projectPhotosInput,
+		meta: access("photos", "VIEW", { field: true }),
+	})
 	async forProject(@Input("projectId") projectId: string) {
 		return this.photos.forProject(projectId);
 	}
 
-	@Mutation({ input: projectLinkInput })
+	@Mutation({
+		input: projectLinkInput,
+		meta: access("photos", "EDIT", { field: true }),
+	})
 	async linkProject(@Input() input: z.infer<typeof projectLinkInput>) {
 		return this.photos.linkProject(input);
 	}
 
-	@Mutation({ input: projectLinkInput })
+	@Mutation({
+		input: projectLinkInput,
+		meta: access("photos", "EDIT", { field: true }),
+	})
 	async unlinkProject(@Input() input: z.infer<typeof projectLinkInput>) {
 		return this.photos.unlinkProject(input);
 	}
 
-	@Mutation({ input: projectStageInput })
+	@Mutation({
+		input: projectStageInput,
+		meta: access("photos", "EDIT", { field: true }),
+	})
 	async setProjectStage(@Input() input: z.infer<typeof projectStageInput>) {
 		return this.photos.setProjectStage(input);
 	}

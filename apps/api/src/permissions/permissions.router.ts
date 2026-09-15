@@ -7,6 +7,8 @@ import {
 	Router,
 	UseMiddlewares,
 } from "nestjs-trpc";
+import { adminOnly, anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -16,24 +18,24 @@ import {
 import { PermissionsService } from "./permissions.service";
 
 @Router({ alias: "permissions" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class PermissionsRouter {
 	constructor(
 		@Inject(PermissionsService)
 		private readonly permissions: PermissionsService,
 	) {}
 
-	@Query()
+	@Query({ meta: anyMember({ field: true }) })
 	async mine(@Ctx() ctx: AuthedTrpcContext) {
 		return this.permissions.mine(ctx.user.id);
 	}
 
-	@Query()
+	@Query({ meta: adminOnly() })
 	async listUsers(@Ctx() ctx: AuthedTrpcContext) {
 		return this.permissions.listUsers(ctx.user.id);
 	}
 
-	@Mutation({ input: permissionGrantInput })
+	@Mutation({ input: permissionGrantInput, meta: adminOnly() })
 	async grant(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: PermissionGrantInput,
@@ -41,7 +43,7 @@ export class PermissionsRouter {
 		return this.permissions.grant(ctx.user.id, input);
 	}
 
-	@Mutation({ input: permissionGrantInput })
+	@Mutation({ input: permissionGrantInput, meta: adminOnly() })
 	async revoke(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: PermissionGrantInput,

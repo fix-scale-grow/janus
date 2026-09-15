@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { access } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -26,23 +28,23 @@ import {
 import { DrawingsService } from "./drawings.service";
 
 @Router({ alias: "drawings" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class DrawingsRouter {
 	constructor(
 		@Inject(DrawingsService) private readonly drawings: DrawingsService,
 	) {}
 
-	@Query({ input: drawingListInput })
+	@Query({ input: drawingListInput, meta: access("drawings", "VIEW") })
 	async list(@Input() input: z.infer<typeof drawingListInput>) {
 		return this.drawings.list(input);
 	}
 
-	@Query({ input: drawingIdInput })
+	@Query({ input: drawingIdInput, meta: access("drawings", "VIEW") })
 	async byId(@Input("id") id: string) {
 		return this.drawings.byId(id);
 	}
 
-	@Mutation({ input: drawingCreateInput })
+	@Mutation({ input: drawingCreateInput, meta: access("drawings", "EDIT") })
 	async create(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof drawingCreateInput>,
@@ -50,64 +52,70 @@ export class DrawingsRouter {
 		return this.drawings.create(input, ctx.user.id);
 	}
 
-	@Mutation({ input: drawingSaveSceneInput })
+	@Mutation({ input: drawingSaveSceneInput, meta: access("drawings", "EDIT") })
 	async saveScene(@Input() input: z.infer<typeof drawingSaveSceneInput>) {
 		return this.drawings.saveScene(input);
 	}
 
-	@Mutation({ input: drawingRenameInput })
+	@Mutation({ input: drawingRenameInput, meta: access("drawings", "EDIT") })
 	async rename(@Input() input: z.infer<typeof drawingRenameInput>) {
 		return this.drawings.rename(input);
 	}
 
-	@Mutation({ input: drawingAttachInput })
+	@Mutation({ input: drawingAttachInput, meta: access("drawings", "EDIT") })
 	async attach(@Input() input: z.infer<typeof drawingAttachInput>) {
 		return this.drawings.attach(input);
 	}
 
-	@Mutation({ input: drawingIdInput })
+	@Mutation({ input: drawingIdInput, meta: access("drawings", "DELETE") })
 	async delete(@Input("id") id: string) {
 		return this.drawings.delete(id);
 	}
 
-	@Query()
+	@Query({ meta: access("drawings", "VIEW") })
 	async folders() {
 		return this.drawings.folders();
 	}
 
-	@Mutation({ input: folderCreateInput })
+	@Mutation({ input: folderCreateInput, meta: access("drawings", "EDIT") })
 	async createFolder(@Input() input: z.infer<typeof folderCreateInput>) {
 		return this.drawings.createFolder(input);
 	}
 
-	@Mutation({ input: folderRenameInput })
+	@Mutation({ input: folderRenameInput, meta: access("drawings", "EDIT") })
 	async renameFolder(@Input() input: z.infer<typeof folderRenameInput>) {
 		return this.drawings.renameFolder(input);
 	}
 
-	@Mutation({ input: drawingIdInput })
+	@Mutation({ input: drawingIdInput, meta: access("drawings", "DELETE") })
 	async deleteFolder(@Input("id") id: string) {
 		return this.drawings.deleteFolder(id);
 	}
 
-	@Mutation({ input: drawingMoveInput })
+	@Mutation({ input: drawingMoveInput, meta: access("drawings", "EDIT") })
 	async move(@Input() input: z.infer<typeof drawingMoveInput>) {
 		return this.drawings.move(input);
 	}
 
-	@Query({ input: drawingIdInput })
+	@Query({ input: drawingIdInput, meta: access("drawings", "VIEW") })
 	async versions(@Input("id") id: string) {
 		return this.drawings.versions(id);
 	}
 
-	@Mutation({ input: drawingRestoreVersionInput })
+	@Mutation({
+		input: drawingRestoreVersionInput,
+		meta: access("drawings", "EDIT"),
+	})
 	async restoreVersion(
 		@Input() input: z.infer<typeof drawingRestoreVersionInput>,
 	) {
 		return this.drawings.restoreVersion(input);
 	}
 
-	@Mutation({ input: drawingSetThumbnailInput })
+	@Mutation({
+		input: drawingSetThumbnailInput,
+		meta: access("drawings", "EDIT"),
+	})
 	async setThumbnail(@Input() input: z.infer<typeof drawingSetThumbnailInput>) {
 		return this.drawings.setThumbnail(input);
 	}

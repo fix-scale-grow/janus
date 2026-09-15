@@ -1,6 +1,8 @@
 import { Inject } from "@nestjs/common";
 import { Input, Mutation, Query, Router, UseMiddlewares } from "nestjs-trpc";
 import type { z } from "zod";
+import { adminOnly, anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	fieldByKeyInput,
@@ -13,56 +15,56 @@ import {
 import { FieldsService } from "./fields.service";
 
 @Router({ alias: "fields" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class FieldsRouter {
 	constructor(@Inject(FieldsService) private readonly fields: FieldsService) {}
 
-	@Query({ input: fieldListInput })
+	@Query({ input: fieldListInput, meta: anyMember() })
 	async list(@Input() input: z.infer<typeof fieldListInput>) {
 		return this.fields.list(input.entity, input.includeArchived);
 	}
 
-	@Query({ input: fieldByKeyInput })
+	@Query({ input: fieldByKeyInput, meta: anyMember() })
 	async byKey(@Input() input: z.infer<typeof fieldByKeyInput>) {
 		return this.fields.byKey(input.entity, input.key);
 	}
 
-	@Query({ input: fieldIdInput })
+	@Query({ input: fieldIdInput, meta: anyMember() })
 	async coverage(@Input("id") id: string) {
 		return this.fields.coverage(id);
 	}
 
-	@Mutation({ input: fieldCreateInput })
+	@Mutation({ input: fieldCreateInput, meta: adminOnly() })
 	async create(@Input() input: z.infer<typeof fieldCreateInput>) {
 		return this.fields.create(input);
 	}
 
-	@Mutation({ input: fieldUpdateArgs })
+	@Mutation({ input: fieldUpdateArgs, meta: adminOnly() })
 	async update(@Input() input: z.infer<typeof fieldUpdateArgs>) {
 		return this.fields.update(input.id, input.data);
 	}
 
-	@Mutation({ input: fieldReorderInput })
+	@Mutation({ input: fieldReorderInput, meta: adminOnly() })
 	async reorder(@Input() input: z.infer<typeof fieldReorderInput>) {
 		return this.fields.reorder(input);
 	}
 
-	@Mutation({ input: fieldIdInput })
+	@Mutation({ input: fieldIdInput, meta: adminOnly() })
 	async archive(@Input("id") id: string) {
 		return this.fields.archive(id);
 	}
 
-	@Mutation({ input: fieldIdInput })
+	@Mutation({ input: fieldIdInput, meta: adminOnly() })
 	async restore(@Input("id") id: string) {
 		return this.fields.restore(id);
 	}
 
-	@Mutation({ input: fieldIdInput })
+	@Mutation({ input: fieldIdInput, meta: adminOnly() })
 	async delete(@Input("id") id: string) {
 		return this.fields.delete(id);
 	}
 
-	@Mutation({ input: fieldIdInput })
+	@Mutation({ input: fieldIdInput, meta: adminOnly() })
 	async backfill(@Input("id") id: string) {
 		return this.fields.backfill(id);
 	}

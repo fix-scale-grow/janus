@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { AgentDefinitionsService } from "./agent-definitions.service";
@@ -25,7 +27,7 @@ import {
 } from "./agents.contracts";
 
 @Router({ alias: "agents" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class AgentsRouter {
 	constructor(
 		@Inject(AgentDefinitionsService)
@@ -34,12 +36,12 @@ export class AgentsRouter {
 		private readonly runs: AgentRunsService,
 	) {}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async list(@Ctx() ctx: AuthedTrpcContext) {
 		return this.agents.list(ctx.user.id);
 	}
 
-	@Mutation({ input: agentReviseInput })
+	@Mutation({ input: agentReviseInput, meta: anyMember() })
 	async revise(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentReviseInput>,
@@ -47,12 +49,12 @@ export class AgentsRouter {
 		return this.agents.revise(input, ctx.user.id);
 	}
 
-	@Query({ input: agentIdInput })
+	@Query({ input: agentIdInput, meta: anyMember() })
 	async files(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.files(id, ctx.user.id);
 	}
 
-	@Mutation({ input: agentSaveFileInput })
+	@Mutation({ input: agentSaveFileInput, meta: anyMember() })
 	async saveFile(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentSaveFileInput>,
@@ -60,12 +62,12 @@ export class AgentsRouter {
 		return this.agents.saveFile(input, ctx.user.id);
 	}
 
-	@Query({ input: agentIdInput })
+	@Query({ input: agentIdInput, meta: anyMember() })
 	async byId(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.byId(id, ctx.user.id);
 	}
 
-	@Query({ input: agentHistoryInput })
+	@Query({ input: agentHistoryInput, meta: anyMember() })
 	async history(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentHistoryInput>,
@@ -73,7 +75,7 @@ export class AgentsRouter {
 		return this.runs.list(input.id, input.limit, ctx.user.id);
 	}
 
-	@Query({ input: agentHistoryInput })
+	@Query({ input: agentHistoryInput, meta: anyMember() })
 	async activity(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentHistoryInput>,
@@ -81,7 +83,7 @@ export class AgentsRouter {
 		return this.runs.activity(input.id, input.limit, ctx.user.id);
 	}
 
-	@Mutation({ input: agentUpdateInput })
+	@Mutation({ input: agentUpdateInput, meta: anyMember() })
 	async update(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentUpdateInput>,
@@ -89,7 +91,7 @@ export class AgentsRouter {
 		return this.agents.update(input, ctx.user.id);
 	}
 
-	@Mutation({ input: agentDeployInput })
+	@Mutation({ input: agentDeployInput, meta: anyMember() })
 	async deploy(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentDeployInput>,
@@ -97,32 +99,32 @@ export class AgentsRouter {
 		return this.agents.deploy(input, ctx.user.id);
 	}
 
-	@Mutation({ input: agentIdInput })
+	@Mutation({ input: agentIdInput, meta: anyMember() })
 	async pause(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.pause(id, ctx.user.id);
 	}
 
-	@Mutation({ input: agentIdInput })
+	@Mutation({ input: agentIdInput, meta: anyMember() })
 	async resume(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.resume(id, ctx.user.id);
 	}
 
-	@Mutation({ input: agentIdInput })
+	@Mutation({ input: agentIdInput, meta: anyMember() })
 	async archive(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.archive(id, ctx.user.id);
 	}
 
-	@Mutation({ input: agentIdInput })
+	@Mutation({ input: agentIdInput, meta: anyMember() })
 	async restore(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.restore(id, ctx.user.id);
 	}
 
-	@Mutation({ input: agentIdInput })
+	@Mutation({ input: agentIdInput, meta: anyMember() })
 	async remove(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.agents.remove(id, ctx.user.id);
 	}
 
-	@Mutation({ input: agentRunNowInput })
+	@Mutation({ input: agentRunNowInput, meta: anyMember() })
 	async runNow(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentRunNowInput>,
@@ -130,7 +132,7 @@ export class AgentsRouter {
 		return this.runs.runNow(input, ctx.user.id);
 	}
 
-	@Mutation({ input: agentRetryRunInput })
+	@Mutation({ input: agentRetryRunInput, meta: anyMember() })
 	async retryRun(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentRetryRunInput>,
@@ -138,7 +140,7 @@ export class AgentsRouter {
 		return this.runs.retryRun(input, ctx.user.id);
 	}
 
-	@Mutation({ input: agentCancelRunInput })
+	@Mutation({ input: agentCancelRunInput, meta: anyMember() })
 	async cancelRun(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof agentCancelRunInput>,

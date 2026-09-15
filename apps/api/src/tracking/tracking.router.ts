@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { adminOnly } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -21,18 +23,18 @@ import {
 import { TrackingService } from "./tracking.service";
 
 @Router({ alias: "tracking" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class TrackingRouter {
 	constructor(
 		@Inject(TrackingService) private readonly tracking: TrackingService,
 	) {}
 
-	@Query()
+	@Query({ meta: adminOnly() })
 	async settings(@Ctx() ctx: AuthedTrpcContext) {
 		return this.tracking.settings(ctx.user.id);
 	}
 
-	@Mutation({ input: trackingFlagInput })
+	@Mutation({ input: trackingFlagInput, meta: adminOnly() })
 	async setFlag(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof trackingFlagInput>,
@@ -40,7 +42,7 @@ export class TrackingRouter {
 		return this.tracking.setFlag(ctx.user.id, input.flag, input.enabled);
 	}
 
-	@Mutation({ input: cookieLifetimeInput })
+	@Mutation({ input: cookieLifetimeInput, meta: adminOnly() })
 	async setCookieLifetime(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof cookieLifetimeInput>,
@@ -48,7 +50,7 @@ export class TrackingRouter {
 		return this.tracking.setCookieDays(ctx.user.id, input.days);
 	}
 
-	@Mutation({ input: addDomainInput })
+	@Mutation({ input: addDomainInput, meta: adminOnly() })
 	async addDomain(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof addDomainInput>,
@@ -56,7 +58,7 @@ export class TrackingRouter {
 		return this.tracking.addDomain(ctx.user.id, input);
 	}
 
-	@Mutation({ input: removeDomainInput })
+	@Mutation({ input: removeDomainInput, meta: adminOnly() })
 	async removeDomain(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof removeDomainInput>,
@@ -64,12 +66,12 @@ export class TrackingRouter {
 		return this.tracking.removeDomain(ctx.user.id, input.id);
 	}
 
-	@Mutation()
+	@Mutation({ meta: adminOnly() })
 	async rotateSiteId(@Ctx() ctx: AuthedTrpcContext) {
 		return this.tracking.rotateSiteId(ctx.user.id);
 	}
 
-	@Mutation({ input: verifyInput })
+	@Mutation({ input: verifyInput, meta: adminOnly() })
 	async verify(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof verifyInput>,
@@ -77,12 +79,12 @@ export class TrackingRouter {
 		return this.tracking.verify(ctx.user.id, input.url);
 	}
 
-	@Query()
+	@Query({ meta: adminOnly() })
 	async sources(@Ctx() ctx: AuthedTrpcContext) {
 		return this.tracking.sources(ctx.user.id);
 	}
 
-	@Query({ input: contactActivityInput })
+	@Query({ input: contactActivityInput, meta: adminOnly() })
 	async contactActivity(@Input() input: z.infer<typeof contactActivityInput>) {
 		return this.tracking.activityForContact(input.contactId);
 	}

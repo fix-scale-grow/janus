@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { adminOnly, anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -19,23 +21,23 @@ import {
 import { TemplatesService } from "./templates.service";
 
 @Router({ alias: "templates" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class TemplatesRouter {
 	constructor(
 		@Inject(TemplatesService) private readonly templates: TemplatesService,
 	) {}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async list() {
 		return this.templates.list();
 	}
 
-	@Query({ input: templateByPurposeInput })
+	@Query({ input: templateByPurposeInput, meta: anyMember() })
 	async byPurpose(@Input() input: z.infer<typeof templateByPurposeInput>) {
 		return this.templates.byPurpose(input);
 	}
 
-	@Mutation({ input: templateUpdateInput })
+	@Mutation({ input: templateUpdateInput, meta: adminOnly() })
 	async update(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof templateUpdateInput>,
@@ -43,7 +45,7 @@ export class TemplatesRouter {
 		return this.templates.update(input, ctx.user.id);
 	}
 
-	@Query({ input: templatePreviewInput })
+	@Query({ input: templatePreviewInput, meta: anyMember() })
 	async preview(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof templatePreviewInput>,
@@ -51,17 +53,17 @@ export class TemplatesRouter {
 		return this.templates.preview(input, ctx.user.name);
 	}
 
-	@Mutation({ input: templateSendTestInput })
+	@Mutation({ input: templateSendTestInput, meta: adminOnly() })
 	async sendTest(@Input() input: z.infer<typeof templateSendTestInput>) {
 		return this.templates.sendTest(input);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async mailerConfigured() {
 		return this.templates.mailerConfigured();
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async mergeFields() {
 		return this.templates.mergeFields();
 	}

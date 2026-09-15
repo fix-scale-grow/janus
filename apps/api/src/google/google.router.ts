@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { ConversationService } from "./conversation.service";
@@ -21,7 +23,7 @@ import { GoogleConnectionService } from "./google-connection.service";
 import { GoogleSyncService } from "./google-sync.service";
 
 @Router({ alias: "google" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class GoogleRouter {
 	constructor(
 		@Inject(GoogleConnectionService)
@@ -31,28 +33,28 @@ export class GoogleRouter {
 		private readonly conversations: ConversationService,
 	) {}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async status(@Ctx() ctx: AuthedTrpcContext) {
 		return this.connection.status(ctx.user.id);
 	}
 
-	@Mutation()
+	@Mutation({ meta: anyMember() })
 	async purgeSyncedData(@Ctx() ctx: AuthedTrpcContext) {
 		return this.connection.purgeSyncedData(ctx.user.id);
 	}
 
-	@Mutation()
+	@Mutation({ meta: anyMember() })
 	async revokeAccess(@Ctx() ctx: AuthedTrpcContext) {
 		return this.connection.revoke(ctx.user.id);
 	}
 
-	@Mutation()
+	@Mutation({ meta: anyMember() })
 	async syncNow(@Ctx() ctx: AuthedTrpcContext) {
 		await this.sync.runForUser(ctx.user.id);
 		return this.connection.status(ctx.user.id);
 	}
 
-	@Mutation({ input: setAutoCreateInput })
+	@Mutation({ input: setAutoCreateInput, meta: anyMember() })
 	async setAutoCreate(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setAutoCreateInput>,
@@ -65,7 +67,7 @@ export class GoogleRouter {
 		return this.connection.status(ctx.user.id);
 	}
 
-	@Mutation({ input: suppressDomainInput })
+	@Mutation({ input: suppressDomainInput, meta: anyMember() })
 	async suppressDomain(@Input() input: z.infer<typeof suppressDomainInput>) {
 		return this.connection.suppressDomain(input.domain, {
 			reason: input.reason,
@@ -73,12 +75,12 @@ export class GoogleRouter {
 		});
 	}
 
-	@Query({ input: threadInput })
+	@Query({ input: threadInput, meta: anyMember() })
 	async thread(@Input("threadId") threadId: string) {
 		return this.conversations.thread(threadId);
 	}
 
-	@Query({ input: calendarEventInput })
+	@Query({ input: calendarEventInput, meta: anyMember() })
 	async event(@Input("eventId") eventId: string) {
 		return this.conversations.event(eventId);
 	}

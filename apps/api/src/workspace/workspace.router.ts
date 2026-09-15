@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { adminOnly, anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -18,18 +20,18 @@ import {
 import { WorkspaceService } from "./workspace.service";
 
 @Router({ alias: "workspace" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class WorkspaceRouter {
 	constructor(
 		@Inject(WorkspaceService) private readonly workspace: WorkspaceService,
 	) {}
 
-	@Query()
+	@Query({ meta: anyMember({ field: true }) })
 	async get(@Ctx() ctx: AuthedTrpcContext) {
 		return this.workspace.get(ctx.user.id);
 	}
 
-	@Query({ input: memberListInput })
+	@Query({ input: memberListInput, meta: anyMember({ field: true }) })
 	async members(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof memberListInput>,
@@ -37,7 +39,7 @@ export class WorkspaceRouter {
 		return this.workspace.members(ctx.user.id, input);
 	}
 
-	@Mutation({ input: updateWorkspaceInput })
+	@Mutation({ input: updateWorkspaceInput, meta: adminOnly() })
 	async update(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof updateWorkspaceInput>,
@@ -45,7 +47,7 @@ export class WorkspaceRouter {
 		return this.workspace.update(ctx.user.id, input);
 	}
 
-	@Mutation({ input: setMemberRoleInput })
+	@Mutation({ input: setMemberRoleInput, meta: adminOnly() })
 	async setMemberRole(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof setMemberRoleInput>,

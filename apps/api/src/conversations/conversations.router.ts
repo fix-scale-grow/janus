@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import { ConversationSharingService } from "./conversation-sharing.service";
@@ -26,7 +28,7 @@ import {
 import { ConversationsService } from "./conversations.service";
 
 @Router({ alias: "conversations" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class ConversationsRouter {
 	constructor(
 		@Inject(ConversationsService)
@@ -35,7 +37,7 @@ export class ConversationsRouter {
 		private readonly sharing: ConversationSharingService,
 	) {}
 
-	@Query({ input: conversationListInput })
+	@Query({ input: conversationListInput, meta: anyMember() })
 	async list(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof conversationListInput>,
@@ -43,22 +45,22 @@ export class ConversationsRouter {
 		return this.conversations.list(input, ctx.user.id);
 	}
 
-	@Query()
+	@Query({ meta: anyMember() })
 	async builderList(@Ctx() ctx: AuthedTrpcContext) {
 		return this.conversations.listBuilder(ctx.user.id);
 	}
 
-	@Query({ input: builderResourceSearchInput })
+	@Query({ input: builderResourceSearchInput, meta: anyMember() })
 	async builderResources(@Ctx() ctx: AuthedTrpcContext, @Input("q") q: string) {
 		return this.conversations.builderResources(q, ctx.user.id);
 	}
 
-	@Query({ input: conversationIdInput })
+	@Query({ input: conversationIdInput, meta: anyMember() })
 	async builderById(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.conversations.builderById(id, ctx.user.id);
 	}
 
-	@Query({ input: conversationEventsInput })
+	@Query({ input: conversationEventsInput, meta: anyMember() })
 	async events(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof conversationEventsInput>,
@@ -66,7 +68,7 @@ export class ConversationsRouter {
 		return this.conversations.events(input, ctx.user.id);
 	}
 
-	@Mutation({ input: conversationSaveInput })
+	@Mutation({ input: conversationSaveInput, meta: anyMember() })
 	async save(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof conversationSaveInput>,
@@ -74,7 +76,7 @@ export class ConversationsRouter {
 		return this.conversations.save(input, ctx.user.id);
 	}
 
-	@Mutation({ input: builderConversationCreateInput })
+	@Mutation({ input: builderConversationCreateInput, meta: anyMember() })
 	async createBuilder(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof builderConversationCreateInput>,
@@ -82,7 +84,7 @@ export class ConversationsRouter {
 		return this.conversations.createBuilder(input, ctx.user.id);
 	}
 
-	@Mutation({ input: builderConversationSubmitInput })
+	@Mutation({ input: builderConversationSubmitInput, meta: anyMember() })
 	async submitBuilder(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof builderConversationSubmitInput>,
@@ -90,7 +92,7 @@ export class ConversationsRouter {
 		return this.conversations.submitBuilder(input, ctx.user.id);
 	}
 
-	@Mutation({ input: builderQuestionResponseInput })
+	@Mutation({ input: builderQuestionResponseInput, meta: anyMember() })
 	async answerBuilderQuestion(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof builderQuestionResponseInput>,
@@ -98,7 +100,7 @@ export class ConversationsRouter {
 		return this.conversations.answerBuilderQuestion(input, ctx.user.id);
 	}
 
-	@Mutation({ input: builderResponseRatingInput })
+	@Mutation({ input: builderResponseRatingInput, meta: anyMember() })
 	async rateBuilderResponse(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof builderResponseRatingInput>,
@@ -106,32 +108,32 @@ export class ConversationsRouter {
 		return this.conversations.rateBuilderResponse(input, ctx.user.id);
 	}
 
-	@Mutation({ input: conversationIdInput })
+	@Mutation({ input: conversationIdInput, meta: anyMember() })
 	async markRead(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.conversations.markRead(id, ctx.user.id);
 	}
 
-	@Query({ input: conversationIdInput })
+	@Query({ input: conversationIdInput, meta: anyMember() })
 	async shareStatus(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.sharing.status(id, ctx.user.id);
 	}
 
-	@Mutation({ input: conversationIdInput })
+	@Mutation({ input: conversationIdInput, meta: anyMember() })
 	async createShare(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.sharing.create(id, ctx.user.id);
 	}
 
-	@Mutation({ input: conversationIdInput })
+	@Mutation({ input: conversationIdInput, meta: anyMember() })
 	async revokeShare(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.sharing.revoke(id, ctx.user.id);
 	}
 
-	@Query({ input: sharedConversationInput })
+	@Query({ input: sharedConversationInput, meta: anyMember() })
 	async shared(@Ctx() ctx: AuthedTrpcContext, @Input("token") token: string) {
 		return this.sharing.resolve(token, ctx.user.id);
 	}
 
-	@Mutation({ input: conversationIdInput })
+	@Mutation({ input: conversationIdInput, meta: anyMember() })
 	async remove(@Ctx() ctx: AuthedTrpcContext, @Input("id") id: string) {
 		return this.conversations.remove(id, ctx.user.id);
 	}

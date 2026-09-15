@@ -8,6 +8,8 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
+import { anyMember } from "../access/access.meta";
+import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
@@ -20,23 +22,23 @@ import {
 import { ActivitiesService } from "./activities.service";
 
 @Router({ alias: "activities" })
-@UseMiddlewares(AuthMiddleware)
+@UseMiddlewares(AuthMiddleware, AccessMiddleware)
 export class ActivitiesRouter {
 	constructor(
 		@Inject(ActivitiesService) private readonly activities: ActivitiesService,
 	) {}
 
-	@Query({ input: timelineInput })
+	@Query({ input: timelineInput, meta: anyMember() })
 	async timeline(@Input() input: z.infer<typeof timelineInput>) {
 		return this.activities.timeline(input);
 	}
 
-	@Query({ input: timelineCountsInput })
+	@Query({ input: timelineCountsInput, meta: anyMember() })
 	async timelineCounts(@Input() input: z.infer<typeof timelineCountsInput>) {
 		return this.activities.timelineCounts(input);
 	}
 
-	@Query({ input: myTasksInput })
+	@Query({ input: myTasksInput, meta: anyMember() })
 	async myTasks(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof myTasksInput>,
@@ -44,7 +46,7 @@ export class ActivitiesRouter {
 		return this.activities.myTasks(input, ctx.user.id);
 	}
 
-	@Mutation({ input: activityCreateInput })
+	@Mutation({ input: activityCreateInput, meta: anyMember() })
 	async create(
 		@Ctx() ctx: AuthedTrpcContext,
 		@Input() input: z.infer<typeof activityCreateInput>,
@@ -52,7 +54,7 @@ export class ActivitiesRouter {
 		return this.activities.create(input, ctx.user.id);
 	}
 
-	@Mutation({ input: completeInput })
+	@Mutation({ input: completeInput, meta: anyMember() })
 	async complete(@Input() input: z.infer<typeof completeInput>) {
 		return this.activities.complete(input.id, input.completed);
 	}
