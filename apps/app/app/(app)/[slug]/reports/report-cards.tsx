@@ -15,12 +15,12 @@ import { REPORT_REGISTRY } from "@/lib/reports/report-registry";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 
-const PROFIT_VIEW_KEY = "profit.view";
-
 export function ReportCards() {
 	const trpc = useTRPC();
 	const { data } = useQuery(trpc.permissions.mine.queryOptions());
-	const canViewMoney = data?.keys.includes(PROFIT_VIEW_KEY) ?? false;
+	const canViewMoney = data
+		? data.isAdmin || data.money.includes("profit")
+		: false;
 	const workspaceUrl = useWorkspaceUrl();
 
 	const reports = REPORT_REGISTRY.filter(

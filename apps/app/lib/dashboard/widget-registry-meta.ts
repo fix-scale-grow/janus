@@ -85,7 +85,7 @@ export const WIDGET_META: WidgetMeta[] = [
 		minH: 5,
 		defaultW: 6,
 		defaultH: 9,
-		permission: "profit.view",
+		money: "profit",
 	},
 	{
 		id: "costs-by-category",
@@ -95,7 +95,7 @@ export const WIDGET_META: WidgetMeta[] = [
 		minH: 5,
 		defaultW: 6,
 		defaultH: 9,
-		permission: "profit.view",
+		money: "profit",
 	},
 	{
 		id: "tasks-upcoming",
@@ -117,13 +117,15 @@ export const WIDGET_META: WidgetMeta[] = [
 	},
 ];
 
+export type WidgetAccess = { isAdmin: boolean; money: string[] };
+
 export function visibleWidgets<T extends WidgetMeta>(
 	widgets: T[],
-	keys: string[],
+	access: WidgetAccess,
 ): T[] {
-	const granted = new Set(keys);
 	return widgets.filter(
-		(widget) => !widget.permission || granted.has(widget.permission),
+		(widget) =>
+			!widget.money || access.isAdmin || access.money.includes(widget.money),
 	);
 }
 

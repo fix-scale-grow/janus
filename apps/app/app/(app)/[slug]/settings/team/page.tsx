@@ -53,18 +53,13 @@ async function Team({
 	const trpc = getServerTrpc();
 	const queryClient = getServerQueryClient();
 
-	const workspace = await queryClient.fetchQuery(
-		trpc.workspace.get.queryOptions(),
-	);
+	await queryClient.fetchQuery(trpc.workspace.get.queryOptions());
 
 	await Promise.all([
 		queryClient.prefetchQuery(
 			trpc.workspace.members.queryOptions(membersSearchParams.toInput(values)),
 		),
 		queryClient.prefetchQuery(trpc.crews.list.queryOptions()),
-		workspace.viewerRole === "admin" || workspace.viewerRole === "owner"
-			? queryClient.prefetchQuery(trpc.permissions.listUsers.queryOptions())
-			: Promise.resolve(),
 	]);
 
 	return (

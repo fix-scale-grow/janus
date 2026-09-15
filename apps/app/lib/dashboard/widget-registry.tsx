@@ -26,6 +26,7 @@ import {
 	pipelineBoardMeta,
 	visibleWidgets,
 	WIDGET_META,
+	type WidgetAccess,
 } from "./widget-registry-meta";
 
 const WIDGET_COMPONENTS: Record<string, ComponentType> = {
@@ -68,7 +69,7 @@ function boardComponentFor(pipelineId: string, title: string): ComponentType {
 }
 
 export function widgetsFor(
-	keys: string[],
+	access: WidgetAccess,
 	pipelines: { id: string; name: string }[],
 ): (WidgetMeta & { component: ComponentType })[] {
 	const boardWidgets = pipelines.map((pipeline) => {
@@ -79,8 +80,8 @@ export function widgetsFor(
 		};
 	});
 	return [
-		...visibleWidgets(DASHBOARD_WIDGETS, keys),
-		...visibleWidgets(boardWidgets, keys),
+		...visibleWidgets(DASHBOARD_WIDGETS, access),
+		...visibleWidgets(boardWidgets, access),
 	];
 }
 
@@ -92,10 +93,11 @@ export function useVisibleWidgets(): (WidgetMeta & {
 	const pipelines = useQuery(
 		trpc.pipelines.list.queryOptions({ includeArchived: false }),
 	);
-	const keys = permissions.data?.keys;
+	const isAdmin = permissions.data?.isAdmin ?? false;
+	const money = permissions.data?.money;
 	const pipelineRows = pipelines.data;
 	return useMemo(
-		() => widgetsFor(keys ?? [], pipelineRows ?? []),
-		[keys, pipelineRows],
+		() => widgetsFor({ isAdmin, money: money ?? [] }, pipelineRows ?? []),
+		[isAdmin, money, pipelineRows],
 	);
 }

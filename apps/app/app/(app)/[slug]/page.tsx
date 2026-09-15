@@ -78,7 +78,7 @@ async function Summary({
 				initial={{
 					dashboardLayout: view?.dashboardLayout,
 					dashboardLayoutVersion: view?.dashboardLayoutVersion,
-					permissionKeys: permissions.keys,
+					access: { isAdmin: permissions.isAdmin, money: permissions.money },
 					pipelines: pipelines.map(({ id, name }) => ({ id, name })),
 				}}
 			/>

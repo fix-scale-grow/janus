@@ -82,6 +82,22 @@ function toRole(value: string): WorkspaceRole {
 	return isWorkspaceRole(value) ? value : "member";
 }
 
+export async function lockOwnersAndCheck(
+	tx: Prisma.TransactionClient,
+): Promise<void> {
+	const owners = await tx.$queryRaw<{ id: string }[]>`
+		SELECT id FROM "member"
+		WHERE "organizationId" = ${WORKSPACE_ID} AND role = 'owner'
+		FOR UPDATE
+	`;
+
+	if (owners.length <= 1) {
+		throw new ForbiddenException(
+			"The workspace needs an owner. Make someone else an owner first.",
+		);
+	}
+}
+
 @Injectable()
 export class WorkspaceService {
 	private readonly logger = new Logger(WorkspaceService.name);
@@ -230,7 +246,7 @@ export class WorkspaceService {
 		const updated = await this.db.$transaction(async (tx) => {
 			const target = await tx.member.findFirst({
 				where: { id: input.memberId, organizationId: WORKSPACE_ID },
-				select: { id: true, role: true },
+				select: { id: true, role: true, groupId: true },
 			});
 
 			if (!target) {
@@ -238,17 +254,11 @@ export class WorkspaceService {
 			}
 
 			if (target.role === "owner" && input.role !== "owner") {
-				const owners = await tx.$queryRaw<{ id: string }[]>`
-					SELECT id FROM "member"
-					WHERE "organizationId" = ${WORKSPACE_ID} AND role = 'owner'
-					FOR UPDATE
-				`;
+				await lockOwnersAndCheck(tx);
+			}
 
-				if (owners.length <= 1) {
-					throw new ForbiddenException(
-						"The workspace needs an owner. Make someone else an owner first.",
-					);
-				}
+			if (input.role === "member" && !target.groupId) {
+				throw new BadRequestException("Choose a group for this person.");
 			}
 
 			return tx.member.update({

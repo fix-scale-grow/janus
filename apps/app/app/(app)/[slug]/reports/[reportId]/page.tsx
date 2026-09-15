@@ -15,8 +15,6 @@ import { requireSession } from "@/lib/session";
 import { getServerTrpcClient } from "@/lib/trpc/server";
 import { ReportPage } from "./report-page";
 
-const PROFIT_VIEW_KEY = "profit.view";
-
 export async function generateMetadata({
 	params,
 }: {
@@ -53,7 +51,7 @@ async function ReportDetail({
 	if (meta.money) {
 		const client = getServerTrpcClient();
 		const mine = await client.permissions.mine.query();
-		if (!mine.keys.includes(PROFIT_VIEW_KEY)) notFound();
+		if (!mine.isAdmin && !mine.money.includes("profit")) notFound();
 	}
 
 	return (

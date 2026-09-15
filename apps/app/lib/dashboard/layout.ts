@@ -9,7 +9,7 @@ export interface WidgetMeta {
 	minH: number;
 	defaultW: number;
 	defaultH: number;
-	permission?: "profit.view";
+	money?: "profit";
 	instanceOf?: string;
 	pipelineId?: string;
 }

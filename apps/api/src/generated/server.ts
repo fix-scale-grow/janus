@@ -13,6 +13,7 @@ import { z } from "zod";
 
 const t = initTRPC.create();
 const publicProcedure = t.procedure;
+import { accessGroupInput, accessGroupUpdateInput, accessGroupIdInput, setMemberAccessInput } from "../access-groups/access-groups.contracts";
 import { timelineInput, timelineCountsInput, myTasksInput, activityCreateInput, completeInput } from "../activities/activities.contracts";
 import { agentReviseInput, agentIdInput, agentSaveFileInput, agentHistoryInput, agentUpdateInput, agentDeployInput, agentRunNowInput, agentRetryRunInput, agentCancelRunInput } from "../agent/agents.contracts";
 import { contactListInput, contactIdInput, contactOptionsInput, contactCreateInput, contactUpdateArgs, contactBulkOwnerInput, contactBulkInput, factDecisionInput } from "../contacts/contacts.contracts";
@@ -30,7 +31,6 @@ import { formListInput, formIdInput, formCreateInput, formUpdateArgs, formUpdate
 import { setAutoCreateInput, suppressDomainInput, threadInput, calendarEventInput } from "../google/google.contracts";
 import { invoiceListInput, invoiceIdInput, invoiceCreateInput, invoiceCreateFromEstimateInput, invoiceSetStatusInput, invoiceUpdateInput, invoiceAddLineItemInput, invoiceUpdateLineItemInput, invoiceLineItemIdInput, invoiceSendInput } from "../invoices/invoices.contracts";
 import { setOutlookAutoCreateInput } from "../microsoft/microsoft.contracts";
-import { permissionGrantInput } from "../permissions/permissions.contracts";
 import { resolveJurisdictionInput, playbookInput, playbookIdInput, setPlaybookFactInput, playbookFactPathInput, setPlaybookDocumentsInput, setPlaybookInspectionsInput, verifyPlaybookDocumentInput, verifyPlaybookInspectionInput, setWorksheetTemplateInput, permitDealIdInput, permitListInput, permitIdInput, createPermitInput, setPermitStatusInput, updatePermitInput, setPermitAnswerInput, approvePermitAnswerInput, clearPermitAnswerInput, attachChecklistDocumentInput, lockerRenameInput, setInspectionInput, inspectionIdInput } from "../permits/permits.contracts";
 import { photoListInput, estimatePhotosInput, estimateLinkInput, estimatePdfFlagInput, estimateReorderInput, invoicePhotosInput, invoiceLinkInput, invoicePdfFlagInput, invoiceReorderInput, projectPhotosInput, projectLinkInput, projectStageInput } from "../photos/photos.contracts";
 import { pipelineListInput, pipelineCreateInput, pipelineUpdateArgs, pipelineReorderInput, pipelineIdInput, stageCreateInput, stageUpdateArgs, stageReorderInput, stageIdInput } from "../pipelines/pipelines.contracts";
@@ -47,6 +47,7 @@ import { templateByPurposeInput, templateUpdateInput, templatePreviewInput, temp
 import { trackingFlagInput, cookieLifetimeInput, addDomainInput, removeDomainInput, verifyInput, contactActivityInput } from "../tracking/tracking.contracts";
 import { viewGetInput, viewSaveInput, viewResetInput } from "../views/views.contracts";
 import { memberListInput, updateWorkspaceInput, setMemberRoleInput } from "../workspace/workspace.contracts";
+import type { AccessGroupsRouter } from "../access-groups/access-groups.router";
 import type { ActivitiesRouter } from "../activities/activities.router";
 import type { AgentsRouter } from "../agent/agents.router";
 import type { ContactsRouter } from "../contacts/contacts.router";
@@ -87,6 +88,22 @@ import type { ViewsRouter } from "../views/views.router";
 import type { WorkspaceRouter } from "../workspace/workspace.router";
 
 const appRouter = t.router({
+  accessGroups: t.router({
+    list: publicProcedure
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AccessGroupsRouter["list"]>>),
+    create: publicProcedure
+      .input(accessGroupInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AccessGroupsRouter["create"]>>),
+    update: publicProcedure
+      .input(accessGroupUpdateInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AccessGroupsRouter["update"]>>),
+    delete: publicProcedure
+      .input(accessGroupIdInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AccessGroupsRouter["delete"]>>),
+    setMemberAccess: publicProcedure
+      .input(setMemberAccessInput)
+      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<AccessGroupsRouter["setMemberAccess"]>>)
+    }),
   activities: t.router({
     timeline: publicProcedure
       .input(timelineInput)
@@ -615,15 +632,7 @@ const appRouter = t.router({
     }),
   permissions: t.router({
     mine: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["mine"]>>),
-    listUsers: publicProcedure
-      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["listUsers"]>>),
-    grant: publicProcedure
-      .input(permissionGrantInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["grant"]>>),
-    revoke: publicProcedure
-      .input(permissionGrantInput)
-      .mutation(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["revoke"]>>)
+      .query(async () => "PLACEHOLDER_DO_NOT_REMOVE" as unknown as Awaited<ReturnType<PermissionsRouter["mine"]>>)
     }),
   permits: t.router({
     resolveJurisdiction: publicProcedure

@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AuthModule as BetterAuthModule } from "@thallesp/nestjs-better-auth";
 import { AccessModule } from "./access/access.module";
+import { AccessGroupsModule } from "./access-groups/access-groups.module";
 import { ActivitiesModule } from "./activities/activities.module";
 import { AgentModule } from "./agent/agent.module";
 import { AuthModule } from "./auth/auth.module";
@@ -65,6 +66,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
 		AppCacheModule,
 		DatabaseModule,
 		AccessModule,
+		AccessGroupsModule,
 		CrmModule,
 		BetterAuthModule.forRoot({
 			auth,

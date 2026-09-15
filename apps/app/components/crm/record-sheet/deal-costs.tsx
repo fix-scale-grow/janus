@@ -53,8 +53,6 @@ type Cost = RouterOutputs["costs"]["list"]["rows"][number];
 type Category = Cost["category"];
 type ProfitLine = RouterOutputs["costs"]["profitForDeal"]["byCurrency"][number];
 
-const PROFIT_VIEW_KEY = "profit.view";
-
 const CATEGORY_OPTIONS: { value: Category; label: string }[] = [
 	{ value: "MATERIALS", label: "Materials" },
 	{ value: "LABOR", label: "Labor" },
@@ -116,8 +114,9 @@ export function DealCosts({ dealId }: { dealId: string }) {
 
 	const costs = useQuery(trpc.costs.list.queryOptions({ dealId }));
 	const permissions = useQuery(trpc.permissions.mine.queryOptions());
-	const canViewProfit =
-		permissions.data?.keys.includes(PROFIT_VIEW_KEY) ?? false;
+	const canViewProfit = permissions.data
+		? permissions.data.isAdmin || permissions.data.money.includes("profit")
+		: false;
 
 	const profit = useQuery({
 		...trpc.costs.profitForDeal.queryOptions({ dealId }),

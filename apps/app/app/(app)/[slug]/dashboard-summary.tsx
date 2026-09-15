@@ -8,13 +8,14 @@ import { SummaryProvider } from "@/components/dashboard/summary-context";
 import { useDashboardEdit } from "@/lib/dashboard/dashboard-edit-context";
 import { resolveLayout } from "@/lib/dashboard/layout";
 import { widgetsFor } from "@/lib/dashboard/widget-registry";
+import type { WidgetAccess } from "@/lib/dashboard/widget-registry-meta";
 import { useMounted } from "@/lib/use-mounted";
 import { overviewParsers } from "./overview-search-params";
 
 export type DashboardInitial = {
 	dashboardLayout?: DashboardLayoutEntry[];
 	dashboardLayoutVersion?: number;
-	permissionKeys: string[];
+	access: WidgetAccess;
 	pipelines: { id: string; name: string }[];
 };
 
@@ -24,8 +25,8 @@ export function DashboardSummary({ initial }: { initial: DashboardInitial }) {
 	const edit = useDashboardEdit();
 
 	const initialWidgets = useMemo(
-		() => widgetsFor(initial.permissionKeys, initial.pipelines),
-		[initial.permissionKeys, initial.pipelines],
+		() => widgetsFor(initial.access, initial.pipelines),
+		[initial.access, initial.pipelines],
 	);
 	const initialLayout = useMemo(
 		() =>

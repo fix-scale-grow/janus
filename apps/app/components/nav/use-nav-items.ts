@@ -55,7 +55,8 @@ function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
 		...trpc.permissions.mine.queryOptions(),
 		...(initialData ? { initialData } : {}),
 	});
-	const keys = permissions.data?.keys;
+	const isAdmin = permissions.data?.isAdmin ?? false;
+	const money = permissions.data?.money as string[] | undefined;
 	const permitsEnabled = seed?.permitsEnabled ?? false;
 
 	return useMemo(
@@ -63,11 +64,13 @@ function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
 			applyPermitsGate(
 				JANUS_LIVE_NAV.filter(
 					(item) =>
-						!item.permission || (keys?.includes(item.permission) ?? false),
+						!item.permission ||
+						isAdmin ||
+						(money?.includes(item.permission) ?? false),
 				),
 				permitsEnabled,
 			),
-		[keys, permitsEnabled],
+		[isAdmin, money, permitsEnabled],
 	);
 }
 

@@ -184,14 +184,16 @@ function NavMenuCard() {
 		);
 	};
 
+	const money = permissions.data?.money as string[] | undefined;
 	const visible = useMemo(
 		() =>
 			JANUS_LIVE_NAV.filter(
 				(item) =>
 					!item.permission ||
-					(permissions.data?.keys.includes(item.permission) ?? false),
+					permissions.data?.isAdmin ||
+					(money?.includes(item.permission) ?? false),
 			),
-		[permissions.data],
+		[permissions.data, money],
 	);
 
 	const items = useMemo(

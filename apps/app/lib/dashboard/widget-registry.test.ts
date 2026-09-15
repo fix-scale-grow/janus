@@ -7,17 +7,29 @@ test("every default layout id exists in the registry", () => {
 	for (const entry of DEFAULT_LAYOUT) expect(ids.has(entry.id)).toBe(true);
 });
 
-test("profit widgets are hidden without the permission", () => {
-	const ids = visibleWidgets(DASHBOARD_WIDGETS, []).map((w) => w.id);
+test("profit widgets are hidden without the money switch", () => {
+	const ids = visibleWidgets(DASHBOARD_WIDGETS, {
+		isAdmin: false,
+		money: [],
+	}).map((w) => w.id);
 	expect(ids).not.toContain("profit-by-month");
 	expect(ids).not.toContain("costs-by-category");
 	expect(ids).toContain("trend");
 });
 
-test("profit widgets show with the permission", () => {
-	const ids = visibleWidgets(DASHBOARD_WIDGETS, ["profit.view"]).map(
-		(w) => w.id,
-	);
+test("profit widgets show with the money switch", () => {
+	const ids = visibleWidgets(DASHBOARD_WIDGETS, {
+		isAdmin: false,
+		money: ["profit"],
+	}).map((w) => w.id);
+	expect(ids).toContain("profit-by-month");
+});
+
+test("profit widgets show for an admin with no money switches", () => {
+	const ids = visibleWidgets(DASHBOARD_WIDGETS, {
+		isAdmin: true,
+		money: [],
+	}).map((w) => w.id);
 	expect(ids).toContain("profit-by-month");
 });
 
