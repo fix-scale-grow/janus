@@ -8,6 +8,7 @@
 		"./access-config": "./src/access-config.ts",
 		"./access-policy": "./src/access-policy.ts",
 		"./access-resolve": "./src/access-resolve.ts",
+		"./access-scope": "./src/access-scope.ts",
 		"./agent-tasks": "./src/agent-tasks.ts",
 		"./attribution": "./src/attribution.ts",
 		"./blob": "./src/blob.ts",
