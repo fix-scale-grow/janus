@@ -1,10 +1,21 @@
 import { db, Prisma } from "@crm/db";
 
 export const AGENT_SESSION_ROUTE = {
-	createPath: "/eve/v1/session",
+	prefix: ["eve", "v1", "session"],
 	sessionHeader: "x-eve-session-id",
-	reservedSegments: ["reset"],
+	resetSegment: "reset",
+	actionMethods: { stream: "GET", cancel: "POST" },
 } as const;
+
+export type EveRoute =
+	| { kind: "create"; path: string }
+	| { kind: "reset"; path: string }
+	| {
+			kind: "session";
+			action: "continue" | "stream" | "cancel";
+			sessionId: string;
+			path: string;
+	  };
 
 export type BridgeRecord = {
 	contactId?: string;
@@ -19,19 +30,75 @@ export type ConversationFiling = {
 	drawingId: string | null;
 };
 
-export function requestedSessionId(pathname: string): string | null {
-	const match = pathname.match(/\/eve\/v1\/session\/([^/]+)/);
-	const segment = match?.[1] ? decodeURIComponent(match[1]) : null;
-	if (!segment) return null;
-	return (AGENT_SESSION_ROUTE.reservedSegments as readonly string[]).includes(
-		segment,
-	)
-		? null
-		: segment;
+export function matchEveRoute(
+	method: string,
+	pathname: string,
+): EveRoute | null {
+	const segments = decodedSegments(pathname);
+	if (!segments) return null;
+
+	const { prefix, resetSegment, actionMethods } = AGENT_SESSION_ROUTE;
+	if (
+		segments.length < prefix.length ||
+		prefix.some((part, index) => segments[index] !== part)
+	) {
+		return null;
+	}
+
+	const base = `/${prefix.join("/")}`;
+	const [id, action, ...rest] = segments.slice(prefix.length);
+	if (rest.length > 0) return null;
+
+	if (id === undefined) {
+		return method === "POST" ? { kind: "create", path: base } : null;
+	}
+
+	if (id === resetSegment && action === undefined) {
+		return method === "POST"
+			? { kind: "reset", path: `${base}/${resetSegment}` }
+			: null;
+	}
+
+	const path = `${base}/${encodeURIComponent(id)}`;
+	if (action === undefined) {
+		return method === "POST"
+			? { kind: "session", action: "continue", sessionId: id, path }
+			: null;
+	}
+
+	if (action !== "stream" && action !== "cancel") return null;
+	if (method !== actionMethods[action]) return null;
+	return {
+		kind: "session",
+		action,
+		sessionId: id,
+		path: `${path}/${action}`,
+	};
 }
 
-export function isSessionCreate(method: string, pathname: string): boolean {
-	return method === "POST" && pathname === AGENT_SESSION_ROUTE.createPath;
+function decodedSegments(pathname: string): string[] | null {
+	if (!pathname.startsWith("/")) return null;
+	const segments: string[] = [];
+	for (const raw of pathname.slice(1).split("/")) {
+		let segment: string;
+		try {
+			segment = decodeURIComponent(raw);
+		} catch {
+			return null;
+		}
+		if (
+			segment === "" ||
+			segment === "." ||
+			segment === ".." ||
+			segment.includes("/") ||
+			segment.includes("\\") ||
+			[...segment].some((character) => character.charCodeAt(0) < 32)
+		) {
+			return null;
+		}
+		segments.push(segment);
+	}
+	return segments;
 }
 
 export function conversationFiling(
@@ -58,6 +125,18 @@ export async function sessionOwnedBy(
 		select: { userId: true },
 	});
 	return conversation?.userId === userId;
+}
+
+export async function resetOwnedBy(
+	continuationToken: string,
+	userId: string,
+): Promise<boolean> {
+	if (!continuationToken) return false;
+	const conversation = await db.agentConversation.findFirst({
+		where: { continuationToken, userId },
+		select: { id: true },
+	});
+	return conversation !== null;
 }
 
 export async function fileBridgeConversation(input: {

@@ -310,6 +310,12 @@ before the existing approval or unattended denial.
   learns the id (`lib/agent-conversation-route.ts`). `conversations.save` only
   updates a row the caller owns; it never files an unknown session id. A child
   session from `subagent.called` has no row, so its stream path returns 404.
+- **The bridge forwards an allowlist, not a prefix.** `matchEveRoute` decodes the
+  path and accepts only `POST session`, `POST session/reset`, `POST session/:id`,
+  `GET session/:id/stream` and `POST session/:id/cancel`. It forwards the
+  canonical path it built, never the raw one. Every other shape returns 404 and
+  never reaches eve. A reset needs a row of the caller that holds the posted
+  `continuationToken`. `lib/agent-bridge-route.ts` holds the handler.
 
 ## Sandbox
 

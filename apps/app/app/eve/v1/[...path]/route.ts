@@ -1,209 +1,24 @@
-import { db } from "@crm/db";
 import { connection } from "next/server";
-import {
-	agentRecordsVisible,
-	JANUS_CHAT_UNAVAILABLE,
-	janusChatAllowed,
-	routePrincipal,
-} from "@/lib/access-route";
-import {
-	AGENT_URL,
-	bridgeConfigured,
-	mintBridgeToken,
-} from "@/lib/agent-bridge";
-import {
-	AGENT_SESSION_ROUTE,
-	conversationFiling,
-	fileBridgeConversation,
-	isSessionCreate,
-	requestedSessionId,
-	sessionOwnedBy,
-} from "@/lib/agent-conversation-route";
+import { routePrincipal } from "@/lib/access-route";
+import { bridgeEveRequest } from "@/lib/agent-bridge-route";
 import { getSession } from "@/lib/session";
 
 async function handler(request: Request): Promise<Response> {
 	await connection();
 
-	if (!bridgeConfigured()) {
-		return Response.json(
-			{ error: "The research agent is not configured for this install." },
-			{ status: 503 },
-		);
-	}
-
-	const session = await getSession();
-	if (!session) {
-		return Response.json({ error: "Not signed in." }, { status: 401 });
-	}
-
-	const principal = await routePrincipal(session.user.id);
-	if (!janusChatAllowed(principal)) {
-		return Response.json({ error: JANUS_CHAT_UNAVAILABLE }, { status: 403 });
-	}
-
-	const url = new URL(request.url);
-	const target = `${AGENT_URL}${url.pathname}${url.search}`;
-
-	const headers = new Headers(request.headers);
-
-	for (const header of [
-		"host",
-		"cookie",
-		"x-forwarded-host",
-		"x-forwarded-proto",
-		"x-forwarded-for",
-		"forwarded",
-		"transfer-encoding",
-		"connection",
-		"keep-alive",
-		"content-length",
-		"expect",
-	]) {
-		headers.delete(header);
-	}
-
-	const contactId = request.headers.get("x-crm-contact");
-	const dealId = request.headers.get("x-crm-deal");
-	const drawingId = request.headers.get("x-crm-drawing");
-	const builderConversationId = request.headers.get(
-		"x-crm-builder-conversation",
-	);
-	const requestedSession = requestedSessionId(url.pathname);
-	const creatingSession = isSessionCreate(request.method, url.pathname);
-	headers.delete("x-crm-contact");
-	headers.delete("x-crm-deal");
-	headers.delete("x-crm-drawing");
-	headers.delete("x-crm-builder-conversation");
-
-	if (requestedSession) {
-		if (!(await sessionOwnedBy(requestedSession, session.user.id))) {
-			return Response.json(
-				{ error: "Conversation not found." },
-				{ status: 404 },
-			);
-		}
-	}
-
-	if (builderConversationId && creatingSession) {
-		return Response.json(
-			{ error: "A builder conversation starts on the server." },
-			{ status: 400 },
-		);
-	}
-
-	if (builderConversationId) {
-		const conversation = await db.agentConversation.findFirst({
-			where: {
-				id: builderConversationId,
-				userId: session.user.id,
-				kind: "BUILDER",
-			},
-			select: { sessionId: true },
-		});
-		if (
-			!conversation ||
-			(requestedSession && conversation.sessionId !== requestedSession)
-		) {
-			return Response.json(
-				{ error: "Conversation not found." },
-				{ status: 404 },
-			);
-		}
-	}
-
-	const record = {
-		contactId: cuid(contactId),
-		dealId: cuid(dealId),
-		drawingId: cuid(drawingId),
-	};
-	if (
-		(contactId && !record.contactId) ||
-		(dealId && !record.dealId) ||
-		(drawingId && !record.drawingId) ||
-		!(await agentRecordsVisible(principal, record))
-	) {
-		return Response.json({ error: "Record not found." }, { status: 404 });
-	}
-	if (creatingSession && !conversationFiling(record)) {
-		return Response.json(
-			{ error: "Choose exactly one contact, deal or drawing." },
-			{ status: 400 },
-		);
-	}
-
-	headers.set(
-		"authorization",
-		`Bearer ${await mintBridgeToken(
-			{
-				id: session.user.id,
-				email: session.user.email,
-				name: session.user.name,
-			},
-			record,
-		)}`,
-	);
-
-	const init: RequestInit & { duplex?: "half" } = {
-		method: request.method,
-		headers,
-		redirect: "manual",
-		signal: request.signal,
-	};
-
-	if (request.method !== "GET" && request.method !== "HEAD") {
-		init.body = request.body;
-		init.duplex = "half";
-	}
-
-	let upstream: Response;
-	try {
-		upstream = await fetch(target, init);
-	} catch (error) {
-		return Response.json(
-			{
-				error: "The research agent is not reachable.",
-				detail: error instanceof Error ? error.message : String(error),
-			},
-			{ status: 502 },
-		);
-	}
-
-	const responseHeaders = new Headers(upstream.headers);
-	for (const header of [
-		"transfer-encoding",
-		"connection",
-		"content-encoding",
-		"content-length",
-	]) {
-		responseHeaders.delete(header);
-	}
-
-	const createdSession = creatingSession
-		? upstream.headers.get(AGENT_SESSION_ROUTE.sessionHeader)
-		: null;
-	if (upstream.ok && createdSession) {
-		try {
-			await fileBridgeConversation({
-				sessionId: createdSession,
-				userId: session.user.id,
-				record,
-			});
-		} catch (error) {
-			await upstream.body?.cancel();
-			return Response.json(
-				{
-					error: "The conversation could not be filed.",
-					detail: error instanceof Error ? error.message : String(error),
-				},
-				{ status: 500 },
-			);
-		}
-	}
-
-	return new Response(upstream.body, {
-		status: upstream.status,
-		statusText: upstream.statusText,
-		headers: responseHeaders,
+	return bridgeEveRequest(request, {
+		user: async () => {
+			const session = await getSession();
+			return session
+				? {
+						id: session.user.id,
+						email: session.user.email,
+						name: session.user.name,
+					}
+				: null;
+		},
+		principal: routePrincipal,
+		fetch: (url, init) => fetch(url, init),
 	});
 }
 
@@ -216,7 +31,3 @@ export {
 	handler as POST,
 	handler as PUT,
 };
-
-function cuid(value: string | null): string | undefined {
-	return value && /^[a-z0-9]{20,32}$/.test(value) ? value : undefined;
-}

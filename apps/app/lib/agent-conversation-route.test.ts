@@ -3,8 +3,8 @@ import { db } from "@crm/db";
 import {
 	conversationFiling,
 	fileBridgeConversation,
-	isSessionCreate,
-	requestedSessionId,
+	matchEveRoute,
+	resetOwnedBy,
 	sessionOwnedBy,
 } from "./agent-conversation-route";
 
@@ -50,19 +50,91 @@ afterAll(async () => {
 	await db.user.deleteMany({ where: { id: { in: [ownerId, strangerId] } } });
 });
 
-describe("session paths", () => {
-	test("reads the session id from stream, continue and cancel paths", () => {
-		expect(requestedSessionId("/eve/v1/session/ses_1/stream")).toBe("ses_1");
-		expect(requestedSessionId("/eve/v1/session/ses_1")).toBe("ses_1");
-		expect(requestedSessionId("/eve/v1/session/ses_1/cancel")).toBe("ses_1");
+describe("matchEveRoute", () => {
+	test("matches the shapes the panel and builder call", () => {
+		expect(matchEveRoute("POST", "/eve/v1/session")).toEqual({
+			kind: "create",
+			path: "/eve/v1/session",
+		});
+		expect(matchEveRoute("POST", "/eve/v1/session/reset")).toEqual({
+			kind: "reset",
+			path: "/eve/v1/session/reset",
+		});
+		expect(matchEveRoute("POST", "/eve/v1/session/ses_1")).toEqual({
+			kind: "session",
+			action: "continue",
+			sessionId: "ses_1",
+			path: "/eve/v1/session/ses_1",
+		});
+		expect(matchEveRoute("GET", "/eve/v1/session/ses_1/stream")).toEqual({
+			kind: "session",
+			action: "stream",
+			sessionId: "ses_1",
+			path: "/eve/v1/session/ses_1/stream",
+		});
+		expect(matchEveRoute("POST", "/eve/v1/session/ses_1/cancel")).toEqual({
+			kind: "session",
+			action: "cancel",
+			sessionId: "ses_1",
+			path: "/eve/v1/session/ses_1/cancel",
+		});
 	});
 
-	test("names no session when a new chat starts or a session resets", () => {
-		expect(requestedSessionId("/eve/v1/session")).toBeNull();
-		expect(requestedSessionId("/eve/v1/session/reset")).toBeNull();
-		expect(isSessionCreate("POST", "/eve/v1/session")).toBe(true);
-		expect(isSessionCreate("GET", "/eve/v1/session")).toBe(false);
-		expect(isSessionCreate("POST", "/eve/v1/session/ses_1")).toBe(false);
+	test("decodes a percent-encoded session id and re-encodes the forwarded path", () => {
+		expect(matchEveRoute("GET", "/eve/v1/session/ses%3A1/stream")).toEqual({
+			kind: "session",
+			action: "stream",
+			sessionId: "ses:1",
+			path: "/eve/v1/session/ses%3A1/stream",
+		});
+		expect(matchEveRoute("GET", "/eve/v1/%73ession/ses_1/stream")).toEqual({
+			kind: "session",
+			action: "stream",
+			sessionId: "ses_1",
+			path: "/eve/v1/session/ses_1/stream",
+		});
+	});
+
+	test("refuses every shape that used to skip the session check", () => {
+		for (const [method, pathname] of [
+			["GET", "/eve/v1/session//ses_1/stream"],
+			["POST", "/eve/v1/session/"],
+			["GET", "/eve/v1/session/ses_1/stream/"],
+			["GET", "/eve/v1/session/ses%2F1/stream"],
+			["GET", "/eve/v1/session/ses%5C1/stream"],
+			["GET", "/eve/v1/session/%2E%2E/stream"],
+			["GET", "/eve/v1/session/./ses_1/stream"],
+			["GET", "/eve/v1//session/ses_1/stream"],
+			["GET", "/eve/v1/session/%E0%A4%A/stream"],
+			["GET", "/eve/v1/info"],
+			["GET", "/eve/v1/health"],
+			["POST", "/eve/v1/dev/runtime-artifacts/rebuild"],
+			["GET", "/eve/v1/session"],
+			["GET", "/eve/v1/session/ses_1"],
+			["POST", "/eve/v1/session/ses_1/stream"],
+			["GET", "/eve/v1/session/ses_1/cancel"],
+			["DELETE", "/eve/v1/session/ses_1"],
+			["GET", "/eve/v1/session/ses_1/other"],
+			["POST", "/eve/v1/session/ses_1/cancel/extra"],
+		] as const) {
+			expect(matchEveRoute(method, pathname)).toBeNull();
+		}
+	});
+});
+
+describe("resetOwnedBy", () => {
+	test("allows a reset only for a continuation token the caller's row holds", async () => {
+		const sessionId = `ses_${suffix}_reset`;
+		await fileBridgeConversation({ sessionId, userId: ownerId, record: {} });
+		await db.agentConversation.update({
+			where: { sessionId },
+			data: { continuationToken: `eve:${suffix}-reset` },
+		});
+
+		expect(await resetOwnedBy(`eve:${suffix}-reset`, ownerId)).toBe(true);
+		expect(await resetOwnedBy(`eve:${suffix}-reset`, strangerId)).toBe(false);
+		expect(await resetOwnedBy(`eve:${suffix}-other`, ownerId)).toBe(false);
+		expect(await resetOwnedBy("", ownerId)).toBe(false);
 	});
 });
 
