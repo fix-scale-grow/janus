@@ -201,6 +201,7 @@ const CLEANUP = {
 		"form",
 	],
 	steps: {
+		junkFieldEntity: "CONTACT",
 		junkFieldLabels: ["Are you poor?", "Do you need credit?", "Consent?"],
 		duplicatePipelineName: "Insurance",
 		estimateTemplatePurpose: "ESTIMATE_SEND",
@@ -230,6 +231,26 @@ const steps = {
 };
 const stepMode = Object.values(steps).some(Boolean);
 
+const USAGE = [
+	"Usage: bun scripts/replace-demo-data.ts [flags] [--apply]",
+	"Dry run by default. Run in this order, each dry run first, then --apply:",
+	"  1. (no flags)                               replace the upstream SaaS demo with the roofing demo",
+	"  2. --rename-linked                          rename demo records that hold real test work",
+	"  3. --rename-placeholder-users               rename the placeholder seed users",
+	"  4. data fix steps, alone or together, after 1 to 3:",
+	"     --archive-junk-fields",
+	"     --archive-duplicate-insurance-pipeline",
+	"     --reset-garbled-estimate-template",
+	"     --replace-saas-roles",
+	"     --retire-test-services",
+	"Step flags cannot be combined with --rename-linked or --rename-placeholder-users.",
+].join("\n");
+
+if (args.has("--help")) {
+	console.log(USAGE);
+	process.exit(0);
+}
+
 function urlDatabaseName(url: string): string {
 	try {
 		return new URL(url).pathname.replace(/^\//, "");
@@ -257,6 +278,7 @@ const { db } = await import("../src/client");
 const { DEMO_DEAL_ID_PREFIX, OWNERS, demoContactRole, seedDemo, slug } =
 	await import("../prisma/demo-data");
 const { ActivityType } = await import("../src/generated/prisma/enums");
+const { TEMPLATE_DEFAULTS } = await import("../src/templates-defaults");
 
 type Client = Omit<
 	typeof db,
@@ -1125,10 +1147,13 @@ async function execute(expected: Plan): Promise<void> {
 type StepPlan = {
 	fields: { id: string; entity: string; label: string }[];
 	pipelines: { id: string; name: string; createdAt: string }[];
+	pipelinesSkipped: { id: string; name: string; permitStageIds: string[] }[];
 	template: {
 		id: string;
 		name: string;
 		subject: string | null;
+		savedName: string;
+		savedSubject: string | null;
 		blocks: unknown;
 		changedBlocks: { index: number; saved: string; fallback: string }[];
 	} | null;
@@ -1157,6 +1182,7 @@ async function junkFields(client: Client): Promise<StepPlan["fields"]> {
 	if (!steps.archiveJunkFields) return [];
 	return client.fieldDefinition.findMany({
 		where: {
+			entity: CLEANUP.steps.junkFieldEntity,
 			label: { in: [...CLEANUP.steps.junkFieldLabels] },
 			archivedAt: null,
 		},
@@ -1165,13 +1191,16 @@ async function junkFields(client: Client): Promise<StepPlan["fields"]> {
 	});
 }
 
-async function duplicatePipelines(
-	client: Client,
-): Promise<StepPlan["pipelines"]> {
+async function emptyDuplicatePipelines(client: Client) {
 	if (!steps.archiveDuplicateInsurancePipeline) return [];
 	const rows = await client.pipeline.findMany({
 		where: { name: CLEANUP.steps.duplicatePipelineName, archivedAt: null },
-		select: { id: true, name: true, createdAt: true },
+		select: {
+			id: true,
+			name: true,
+			createdAt: true,
+			stages: { select: { id: true } },
+		},
 		orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 	});
 	if (rows.length < 2) return [];
@@ -1184,25 +1213,49 @@ async function duplicatePipelines(
 		})),
 	);
 	const empties = counted.filter((row) => row.deals === 0);
-	const archive =
-		empties.length === counted.length ? empties.slice(1) : empties;
-	return archive.map((row) => ({
-		id: row.id,
-		name: row.name,
-		createdAt: row.createdAt.toISOString(),
-	}));
+	return empties.length === counted.length ? empties.slice(1) : empties;
+}
+
+async function duplicatePipelines(
+	client: Client,
+): Promise<Pick<StepPlan, "pipelines" | "pipelinesSkipped">> {
+	const candidates = await emptyDuplicatePipelines(client);
+	const setting = await client.appSetting.findFirst({
+		select: { permitTriggerStageIds: true },
+	});
+	const triggers: readonly string[] = setting?.permitTriggerStageIds ?? [];
+	const plan: Pick<StepPlan, "pipelines" | "pipelinesSkipped"> = {
+		pipelines: [],
+		pipelinesSkipped: [],
+	};
+	for (const row of candidates) {
+		const permitStageIds = row.stages
+			.map((stage) => stage.id)
+			.filter((id) => triggers.includes(id));
+		if (permitStageIds.length > 0) {
+			plan.pipelinesSkipped.push({
+				id: row.id,
+				name: row.name,
+				permitStageIds,
+			});
+		} else {
+			plan.pipelines.push({
+				id: row.id,
+				name: row.name,
+				createdAt: row.createdAt.toISOString(),
+			});
+		}
+	}
+	return plan;
 }
 
 async function garbledTemplate(client: Client): Promise<StepPlan["template"]> {
 	if (!steps.resetGarbledEstimateTemplate) return null;
-	const { DEFAULT_TEMPLATES } = await import(
-		"../../../apps/api/src/templates/templates.config"
-	);
 	const purpose = CLEANUP.steps.estimateTemplatePurpose;
-	const fallback = DEFAULT_TEMPLATES[purpose];
+	const fallback = TEMPLATE_DEFAULTS[purpose];
 	const row = await client.template.findUnique({
 		where: { purpose },
-		select: { id: true, blocks: true },
+		select: { id: true, name: true, subject: true, blocks: true },
 	});
 	if (!row || canonical(row.blocks) === canonical(fallback.blocks)) return null;
 	const saved: unknown[] = Array.isArray(row.blocks)
@@ -1214,6 +1267,8 @@ async function garbledTemplate(client: Client): Promise<StepPlan["template"]> {
 		id: row.id,
 		name: fallback.name,
 		subject: fallback.subject,
+		savedName: row.name,
+		savedSubject: row.subject,
 		blocks: fallback.blocks,
 		changedBlocks: Array.from({ length }, (_, index) => index)
 			.filter((index) => canonical(saved[index]) !== canonical(defaults[index]))
@@ -1275,7 +1330,7 @@ async function testServices(client: Client): Promise<StepPlan["services"]> {
 async function buildStepPlan(client: Client): Promise<StepPlan> {
 	return {
 		fields: await junkFields(client),
-		pipelines: await duplicatePipelines(client),
+		...(await duplicatePipelines(client)),
 		template: await garbledTemplate(client),
 		roles: await saasRoles(client),
 		services: await testServices(client),
@@ -1298,6 +1353,11 @@ function printStepPlan(plan: StepPlan): void {
 				`  archive pipeline ${row.id}  "${row.name}"  created ${row.createdAt}, 0 deals`,
 			);
 		}
+		for (const row of plan.pipelinesSkipped) {
+			console.log(
+				`  skip pipeline ${row.id}  "${row.name}": permit trigger stages ${row.permitStageIds.join(", ")}`,
+			);
+		}
 	}
 	if (steps.resetGarbledEstimateTemplate) {
 		if (plan.template === null) {
@@ -1307,6 +1367,17 @@ function printStepPlan(plan: StepPlan): void {
 		} else {
 			console.log(
 				`\nReset estimate email template ${plan.template.id}: ${plan.template.changedBlocks.length} blocks differ from the default.`,
+			);
+			const { name, savedName, subject, savedSubject } = plan.template;
+			console.log(
+				name === savedName
+					? `  name: same ("${name}")`
+					: `  name: "${savedName}" -> "${name}"`,
+			);
+			console.log(
+				subject === savedSubject
+					? `  subject: same (${JSON.stringify(subject)})`
+					: `  subject: ${JSON.stringify(savedSubject)} -> ${JSON.stringify(subject)}`,
 			);
 			for (const block of plan.template.changedBlocks) {
 				console.log(`  block ${block.index}`);
@@ -1428,8 +1499,9 @@ async function main() {
 			.filter(([, on]) => on)
 			.map(([name]) => name),
 	].filter(Boolean);
+	console.log(USAGE);
 	console.log(
-		`Database ${urlName}. Mode: ${apply ? "APPLY" : "DRY RUN"}${flags.length ? `, ${flags.join(", ")}` : ""}.`,
+		`\nDatabase ${urlName}. Mode: ${apply ? "APPLY" : "DRY RUN"}${flags.length ? `, ${flags.join(", ")}` : ""}.`,
 	);
 
 	if (stepMode) {

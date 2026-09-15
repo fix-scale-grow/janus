@@ -732,61 +732,88 @@ async function resolvePipelineId(
 	return created.id;
 }
 
-async function resolveStage(
-	pipelineId: string,
+type ExistingStage = {
+	id: string;
+	key: string;
+	label: string;
+	outcome: StageOutcome;
+	isEntry: boolean;
+};
+
+function mapToExistingStage(
+	existing: ExistingStage[],
 	def: SeedStageDef,
-): Promise<{ id: string; key: string; isEntry: boolean }> {
-	const select = { id: true, key: true, isEntry: true } as const;
-
-	const seeded = await db.stage.findUnique({ where: { id: def.id }, select });
-	if (seeded) return seeded;
-
-	const sameLabel = await db.stage.findFirst({
-		where: {
-			pipelineId,
-			archivedAt: null,
-			outcome: def.outcome,
-			label: { equals: def.label, mode: "insensitive" },
-		},
-		orderBy: { position: "asc" },
-		select,
-	});
+): ExistingStage {
+	const sameLabel = existing.find(
+		(stage) =>
+			stage.outcome === def.outcome &&
+			stage.label.toLowerCase() === def.label.toLowerCase(),
+	);
 	if (sameLabel) return sameLabel;
 
-	const entry = await db.stage.findFirst({
-		where: { pipelineId, isEntry: true, archivedAt: null },
-		select: { id: true },
-	});
+	const open =
+		existing.find((stage) => stage.isEntry) ??
+		existing.find((stage) => stage.outcome === StageOutcome.OPEN);
 
-	return db.stage.create({
-		data: {
-			id: def.id,
-			pipelineId,
-			key: def.key,
-			label: def.label,
-			color: def.color,
-			position: def.position,
-			outcome: def.outcome,
-			isEntry: def.isEntry && entry === null,
-		},
-		select,
-	});
+	if (def.outcome === StageOutcome.OPEN) {
+		if (open) return open;
+	} else {
+		const closed =
+			existing.find((stage) => stage.outcome === def.outcome) ??
+			existing.find((stage) => stage.outcome === StageOutcome.LOST) ??
+			existing.find((stage) => stage.outcome === StageOutcome.WON);
+		if (closed) return closed;
+		if (open) return open;
+	}
+
+	const first = existing[0];
+	if (!first) throw new Error("mapToExistingStage needs at least one stage");
+	return first;
 }
 
 export async function seedPipelines(): Promise<SeededPipelines> {
 	const stages: SeededStage[] = [];
 	const entryKeyByPipelineId: Record<string, string> = {};
+	const select = {
+		id: true,
+		key: true,
+		label: true,
+		outcome: true,
+		isEntry: true,
+	} as const;
 
 	for (const pipeline of SEED_PIPELINES) {
 		const pipelineId = await resolvePipelineId(pipeline);
+		const existing = await db.stage.findMany({
+			where: { pipelineId, archivedAt: null },
+			orderBy: [{ position: "asc" }, { id: "asc" }],
+			select,
+		});
 
 		for (const def of pipeline.stages) {
-			const stage = await resolveStage(pipelineId, def);
+			const own = existing.find((stage) => stage.id === def.id);
+			const stage =
+				own ??
+				(existing.length > 0
+					? mapToExistingStage(existing, def)
+					: await db.stage.create({
+							data: {
+								id: def.id,
+								pipelineId,
+								key: def.key,
+								label: def.label,
+								color: def.color,
+								position: def.position,
+								outcome: def.outcome,
+								isEntry: def.isEntry,
+							},
+							select,
+						}));
 			stages.push({
 				id: stage.id,
 				key: stage.key,
 				seedKey: def.key,
-				outcome: def.outcome,
+				outcome: stage.outcome,
 				pipelineId,
 				seedPipelineId: pipeline.id,
 			});
