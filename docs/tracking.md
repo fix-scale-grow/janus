@@ -151,6 +151,14 @@ deleted* comes to be true of email and not of forms.
 
 - **Every submission is stored; filing is separate and may decline.** `skipReason`
   says why, and the row stays for a rep to look at.
+- **A fast submission is flagged, never dropped.** A form sent in under
+  `FORMS.submit.minSeconds` sets `possibleSpam` on the row, and the submission
+  files, makes the contact and makes the lead like any other. The submissions
+  table shows a "Possible spam" badge and the lead note carries the same words,
+  so a rep judges it. A real person with an autofilled browser is faster than
+  three seconds, and a dropped lead is worse than a flagged one. **The honeypot
+  is the only silent drop**: a hidden field a person never sees is filled by a
+  bot alone.
 - **A refusal is a `skipReason`, never a lost row**, and `CONTACT_CAP_REASON` is a
   shared constant because `rollup.service.ts` matches on it. Telemetry that
   substring-matches prose breaks the first time somebody improves the wording.

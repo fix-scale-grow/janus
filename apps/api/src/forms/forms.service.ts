@@ -48,6 +48,8 @@ import {
 	FORMS_SUBMIT_PER_MINUTE,
 	formSubmitWindowKey,
 	NOTIFY_ROLES,
+	POSSIBLE_SPAM_LABEL,
+	POSSIBLE_SPAM_NOTE,
 	RATE_LIMITED_REASON,
 } from "./forms.config";
 import type {
@@ -305,6 +307,7 @@ export class FormsService {
 					dealId: true,
 					filedAt: true,
 					skipReason: true,
+					possibleSpam: true,
 					createdAt: true,
 				},
 			}),
@@ -357,12 +360,9 @@ export class FormsService {
 		if (input.honeypot.length > 0) return { ok: true };
 
 		const elapsedSeconds = (Date.now() - input.renderedAt) / 1000;
-		if (
+		const possibleSpam =
 			!Number.isFinite(elapsedSeconds) ||
-			elapsedSeconds < FORMS.submit.minSeconds
-		) {
-			return { ok: true };
-		}
+			elapsedSeconds < FORMS.submit.minSeconds;
 
 		const withinRate = await this.counters.take(
 			formSubmitWindowKey(),
@@ -405,6 +405,7 @@ export class FormsService {
 					firstTouch: firstTouch ? touchColumns(firstTouch) : undefined,
 					lastTouch: lastTouch ? touchColumns(lastTouch) : undefined,
 					dedupeKey: key,
+					possibleSpam,
 				},
 			],
 			skipDuplicates: true,
@@ -412,7 +413,12 @@ export class FormsService {
 
 		const submission = await this.db.formSubmission.findUnique({
 			where: { dedupeKey: key },
-			select: { id: true, filedAt: true, skipReason: true },
+			select: {
+				id: true,
+				filedAt: true,
+				skipReason: true,
+				possibleSpam: true,
+			},
 		});
 
 		if (!submission) return { ok: true };
@@ -442,6 +448,7 @@ export class FormsService {
 						submission.id,
 						outcome.contactId,
 						answers,
+						submission.possibleSpam,
 					).catch((error: unknown) => {
 						this.logger.error(
 							{ message: "Could not create or attach the lead" },
@@ -545,6 +552,7 @@ export class FormsService {
 		submissionId: string,
 		contactId: string,
 		answers: FormSubmissionAnswer[],
+		possibleSpam: boolean,
 	): Promise<void> {
 		const windowStart = new Date(
 			Date.now() - FORMS.dedupeLeadWindowDays * 86_400_000,
@@ -570,7 +578,11 @@ export class FormsService {
 			orderBy: { deal: { createdAt: "desc" } },
 		});
 
-		const body = answersBody(answers);
+		const body = possibleSpam
+			? `${POSSIBLE_SPAM_NOTE}
+
+${answersBody(answers)}`
+			: answersBody(answers);
 		const ownerId = await this.author(contactId);
 		if (!ownerId) return;
 		const now = new Date();
@@ -579,13 +591,16 @@ export class FormsService {
 			const activity = await this.db.activity.create({
 				data: {
 					type: ActivityType.NOTE,
-					subject: `Resubmitted the ${form.name} form`,
+					subject: subjectFor(
+						`Resubmitted the ${form.name} form`,
+						possibleSpam,
+					),
 					body,
 					contactId,
 					dealId: duplicate.dealId,
 					occurredAt: now,
 					createdById: ownerId,
-					meta: { source: "form", formId: form.id },
+					meta: { source: "form", formId: form.id, possibleSpam },
 				},
 				select: { createdAt: true },
 			});
@@ -624,13 +639,16 @@ export class FormsService {
 		const activity = await this.db.activity.create({
 			data: {
 				type: ActivityType.NOTE,
-				subject: `New lead from the ${form.name} form`,
+				subject: subjectFor(
+					`New lead from the ${form.name} form`,
+					possibleSpam,
+				),
 				body,
 				contactId,
 				dealId: deal.id,
 				occurredAt: now,
 				createdById: ownerId,
-				meta: { source: "form", formId: form.id },
+				meta: { source: "form", formId: form.id, possibleSpam },
 			},
 			select: { createdAt: true },
 		});
@@ -776,6 +794,10 @@ export class FormsService {
 			);
 		}
 	}
+}
+
+function subjectFor(subject: string, possibleSpam: boolean): string {
+	return possibleSpam ? `${POSSIBLE_SPAM_LABEL}: ${subject}` : subject;
 }
 
 function requireExactlyOneEmailField(fields: FormFieldInput[]): void {

@@ -343,7 +343,7 @@ describe("submitting a website form", () => {
 		expect(submission?.skipReason).toBeTruthy();
 	});
 
-	it("stays silent on a honeypot fill and a too-fast submit", async () => {
+	it("drops a honeypot fill and stores nothing", async () => {
 		const form = await createForm(`Bot contact ${suffix}`);
 
 		const honeypotted = await forms.submit({
@@ -356,20 +356,70 @@ describe("submitting a website form", () => {
 		});
 		expect(honeypotted).toEqual({ ok: true });
 
-		const tooFast = await forms.submit({
-			formId: form.id,
-			answers: { [fieldId(form, "Email")]: `bot2-${suffix}@${domain}` },
-			honeypot: "",
-			renderedAt: Date.now(),
-			host,
-			path: "/bot",
-		});
-		expect(tooFast).toEqual({ ok: true });
-
 		const stored = await db.formSubmission.count({
 			where: { formId: form.id },
 		});
 		expect(stored).toBe(0);
+	});
+
+	it("keeps a too-fast submit, flags it as possible spam, and still makes the lead", async () => {
+		const form = await createForm(`Fast contact ${suffix}`);
+		const email = `fast-${suffix}@${domain}`;
+
+		const tooFast = await forms.submit({
+			formId: form.id,
+			answers: { [fieldId(form, "Email")]: email },
+			honeypot: "",
+			renderedAt: Date.now(),
+			host,
+			path: "/fast",
+		});
+		expect(tooFast).toEqual({ ok: true });
+
+		const submission = await db.formSubmission.findFirst({
+			where: { formId: form.id },
+			select: {
+				possibleSpam: true,
+				filedAt: true,
+				contactId: true,
+				dealId: true,
+			},
+		});
+		expect(submission?.possibleSpam).toBe(true);
+		expect(submission?.filedAt).not.toBeNull();
+		expect(submission?.contactId).toBeTruthy();
+		expect(submission?.dealId).toBeTruthy();
+
+		const contact = await db.contact.findFirst({ where: { email } });
+		expect(contact).not.toBeNull();
+
+		const note = await db.activity.findFirst({
+			where: { dealId: submission?.dealId ?? undefined },
+			select: { subject: true, meta: true },
+		});
+		expect(note?.subject).toContain("Possible spam");
+		expect(
+			(note?.meta as { possibleSpam?: boolean } | null)?.possibleSpam,
+		).toBe(true);
+	});
+
+	it("leaves a submission that took long enough unflagged", async () => {
+		const form = await createForm(`Slow contact ${suffix}`);
+
+		await forms.submit({
+			formId: form.id,
+			answers: { [fieldId(form, "Email")]: `slow-${suffix}@${domain}` },
+			honeypot: "",
+			renderedAt: Date.now() - 5_000,
+			host,
+			path: "/slow",
+		});
+
+		const submission = await db.formSubmission.findFirst({
+			where: { formId: form.id },
+			select: { possibleSpam: true },
+		});
+		expect(submission?.possibleSpam).toBe(false);
 	});
 
 	it("refuses once the per-minute submit cap is reached", async () => {

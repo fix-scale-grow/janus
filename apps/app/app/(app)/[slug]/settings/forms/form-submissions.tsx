@@ -2,6 +2,7 @@
 
 import DocumentBlank from "@carbon/icons-react/es/DocumentBlank";
 import { formSubmissionAnswers } from "@crm/db/forms";
+import { Badge } from "@crm/ui/components/badge";
 import { CardTableEmpty } from "@crm/ui/components/card-table";
 import {
 	Empty,
@@ -23,7 +24,7 @@ import Link from "next/link";
 import { LocalRelativeDate } from "@/components/local-date-time";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
-import { SUBMISSIONS_EMPTY, statusLabel } from "./forms-copy";
+import { POSSIBLE_SPAM, SUBMISSIONS_EMPTY, statusLabel } from "./forms-copy";
 
 type SubmissionRow = {
 	id: string;
@@ -33,6 +34,7 @@ type SubmissionRow = {
 	dealId: string | null;
 	filedAt: string | null;
 	skipReason: string | null;
+	possibleSpam: boolean;
 	createdAt: string;
 };
 
@@ -47,7 +49,7 @@ const LIST_INPUT = {
 const COLUMNS: SimpleTableColumn[] = [
 	{ id: "when", header: "When", width: "w-40" },
 	{ id: "answers", header: "Answers" },
-	{ id: "status", header: "Status", width: "w-24" },
+	{ id: "status", header: "Status", width: "w-32" },
 	{ id: "contact", header: "Contact", width: "w-24" },
 	{ id: "deal", header: "Deal", width: "w-24" },
 ];
@@ -109,7 +111,12 @@ export function FormSubmissions({ formId }: { formId: string }) {
 						{answersSummary(row.fields)}
 					</TableCell>
 					<TableCell className={CELL}>
-						{statusLabel(row.filedAt, row.skipReason)}
+						<span className="flex flex-col items-start gap-1">
+							<span>{statusLabel(row.filedAt, row.skipReason)}</span>
+							{row.possibleSpam ? (
+								<Badge variant="warning">{POSSIBLE_SPAM}</Badge>
+							) : null}
+						</span>
 					</TableCell>
 					<TableCell className={CELL}>
 						{row.contactId ? (

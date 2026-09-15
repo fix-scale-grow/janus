@@ -1800,9 +1800,10 @@ model FormSubmission {
   firstTouch Json?
   lastTouch  Json?
 
-  dedupeKey  String    @unique
-  filedAt    DateTime?
-  skipReason String?
+  dedupeKey    String    @unique
+  filedAt      DateTime?
+  skipReason   String?
+  possibleSpam Boolean   @default(false)
 
   createdAt DateTime @default(now())
 

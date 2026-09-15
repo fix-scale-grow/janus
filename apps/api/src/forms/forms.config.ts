@@ -10,6 +10,11 @@ export function formSubmitWindowKey(at: Date = new Date()): string {
 
 export const FORMS_SUBMIT_PER_MINUTE = FORMS.submit.perMinute;
 
+export const POSSIBLE_SPAM_LABEL = "Possible spam";
+
+export const POSSIBLE_SPAM_NOTE =
+	"Possible spam: this form came in faster than a person fills one in.";
+
 export const RATE_LIMITED_REASON =
 	"Too many submissions right now — try again in a minute.";
 

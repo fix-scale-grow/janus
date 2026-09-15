@@ -83,6 +83,8 @@ export const OPEN = "Open";
 export const TEST_IT_NOTE =
 	"Submit the form yourself once — the answer becomes a real contact, so use an address you can delete later.";
 
+export const POSSIBLE_SPAM = "Possible spam";
+
 export const SUBMISSIONS_TITLE = "Recent submissions";
 export const SUBMISSIONS_EMPTY = "No submissions yet.";
 
