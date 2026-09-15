@@ -1,6 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { db } from "@crm/db";
-import { adminPrincipal } from "@crm/db/access-policy";
+import {
+	type AccessPrincipal,
+	adminPrincipal,
+	noAccessPrincipal,
+} from "@crm/db/access-policy";
+import { BRIDGE } from "./agent-bridge";
 import { type BridgeDeps, bridgeEveRequest } from "./agent-bridge-route";
 
 const suffix = process.env.TEST_RUN_ID ?? "agent-bridge-route";
@@ -53,6 +58,13 @@ function post(path: string, headers: Record<string, string> = {}, body = "{}") {
 		headers: { "content-type": "application/json", ...headers },
 		body,
 	});
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> {
+	const payload = token.split(".")[1] ?? "";
+	const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+	const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+	return JSON.parse(atob(padded));
 }
 
 beforeAll(async () => {
@@ -270,11 +282,17 @@ describe("bridgeEveRequest", () => {
 
 	test("rejects an oversized reset body declared by content-length without calling eve", async () => {
 		const d = deps(ownerId, () => Response.json({ ok: true }));
-		const body = JSON.stringify({ continuationToken: "x".repeat(20_000) });
-		const response = await bridgeEveRequest(
-			post("/eve/v1/session/reset", {}, body),
-			d,
+		const body = JSON.stringify({ continuationToken: "short" });
+		const request = post(
+			"/eve/v1/session/reset",
+			{ "content-length": String(BRIDGE.reset.maxBodyBytes + 1) },
+			body,
 		);
+		expect(request.headers.get("content-length")).toBe(
+			String(BRIDGE.reset.maxBodyBytes + 1),
+		);
+
+		const response = await bridgeEveRequest(request, d);
 
 		expect(response.status).toBe(413);
 		expect(await response.json()).toEqual({ error: "Request too large." });
@@ -343,6 +361,126 @@ describe("bridgeEveRequest", () => {
 
 		expect(response.status).toBe(200);
 		expect(d.calls).toHaveLength(1);
+	});
+
+	test("forwards a RECORD session with no record header, minting a token pinned to the row's own contact", async () => {
+		const sessionId = `wrun_${suffix}_pinned_no_header`;
+		await db.agentConversation.create({
+			data: { kind: "RECORD", sessionId, userId: ownerId, contactId },
+		});
+		const d = deps(ownerId, () => new Response("{}"));
+
+		const response = await bridgeEveRequest(
+			post(`/eve/v1/session/${sessionId}`, {}, "{}"),
+			d,
+		);
+
+		expect(response.status).toBe(200);
+		expect(d.calls).toHaveLength(1);
+		const authorization = new Headers(d.calls[0]?.init.headers).get(
+			"authorization",
+		);
+		const token = authorization?.replace(/^Bearer /, "") ?? "";
+		const payload = decodeJwtPayload(token);
+		expect(payload.contactId).toBe(contactId);
+		expect(payload.dealId).toBeUndefined();
+		expect(payload.drawingId).toBeUndefined();
+	});
+
+	test("refuses a WORKSPACE session request that carries a record header", async () => {
+		const sessionId = `wrun_${suffix}_workspace_header`;
+		await db.agentConversation.create({
+			data: { kind: "WORKSPACE", sessionId, userId: ownerId },
+		});
+		const d = deps(ownerId, () => new Response("{}"));
+
+		const response = await bridgeEveRequest(
+			post(
+				`/eve/v1/session/${sessionId}`,
+				{ "x-crm-contact": contactId },
+				"{}",
+			),
+			d,
+		);
+
+		expect(response.status).toBe(404);
+		expect(d.calls).toHaveLength(0);
+	});
+
+	test("refuses a session once its filed record moves out of the caller's scope", async () => {
+		const sessionId = `wrun_${suffix}_out_of_scope`;
+		await db.agentConversation.create({
+			data: { kind: "RECORD", sessionId, userId: ownerId, contactId },
+		});
+		const scoped: AccessPrincipal = {
+			userId: ownerId,
+			isAdmin: false,
+			groupId: `group-${suffix}`,
+			groupName: "Test Group",
+			surface: "FULL",
+			scope: "OWN",
+			policy: {
+				...noAccessPrincipal(ownerId).policy,
+				areas: { ...noAccessPrincipal(ownerId).policy.areas, contacts: "VIEW" },
+			},
+		};
+		const calls: Call[] = [];
+		const d: BridgeDeps = {
+			user: async () => ({
+				id: ownerId,
+				email: `${ownerId}@example.test`,
+				name: ownerId,
+			}),
+			principal: async () => scoped,
+			fetch: async (url, init) => {
+				calls.push({ url, init });
+				return new Response("{}");
+			},
+		};
+
+		await db.contact.update({ where: { id: contactId }, data: { ownerId } });
+		try {
+			const inScope = await bridgeEveRequest(
+				post(`/eve/v1/session/${sessionId}`, {}, "{}"),
+				d,
+			);
+			expect(inScope.status).toBe(200);
+			expect(calls).toHaveLength(1);
+
+			await db.contact.update({
+				where: { id: contactId },
+				data: { ownerId: strangerId },
+			});
+
+			const response = await bridgeEveRequest(
+				post(`/eve/v1/session/${sessionId}`, {}, "{}"),
+				d,
+			);
+			expect(response.status).toBe(404);
+			expect(calls).toHaveLength(1);
+		} finally {
+			await db.contact.update({
+				where: { id: contactId },
+				data: { ownerId: null },
+			});
+		}
+	});
+
+	test("treats an empty record header as absent, not malformed", async () => {
+		const sessionId = `wrun_${suffix}_empty_header`;
+		const d = deps(ownerId, () => created(sessionId));
+		const response = await bridgeEveRequest(
+			post("/eve/v1/session", { "x-crm-contact": "" }),
+			d,
+		);
+
+		expect(response.status).toBe(202);
+		expect(
+			await db.agentConversation.findUnique({
+				where: { sessionId },
+				select: { kind: true, contactId: true },
+			}),
+		).toEqual({ kind: "WORKSPACE", contactId: null });
 	});
 
 	test("refuses paths outside the allowlist without calling eve", async () => {

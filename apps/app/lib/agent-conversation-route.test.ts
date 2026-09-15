@@ -5,7 +5,7 @@ import {
 	fileBridgeConversation,
 	matchEveRoute,
 	resetOwnedBy,
-	sessionOwnedBy,
+	sessionRecordAnchors,
 } from "./agent-conversation-route";
 
 const suffix = process.env.TEST_RUN_ID ?? "agent-conversation-route";
@@ -162,7 +162,7 @@ describe("conversationFiling", () => {
 	});
 });
 
-describe("fileBridgeConversation and sessionOwnedBy", () => {
+describe("fileBridgeConversation and sessionRecordAnchors", () => {
 	test("files a new session for its creator and nobody else", async () => {
 		const sessionId = `ses_${suffix}_record`;
 		const filed = await fileBridgeConversation({
@@ -177,8 +177,14 @@ describe("fileBridgeConversation and sessionOwnedBy", () => {
 				select: { userId: true, kind: true, contactId: true, sessionId: true },
 			}),
 		).toEqual({ userId: ownerId, kind: "RECORD", contactId, sessionId });
-		expect(await sessionOwnedBy(sessionId, ownerId)).toBe(true);
-		expect(await sessionOwnedBy(sessionId, strangerId)).toBe(false);
+		expect(await sessionRecordAnchors(sessionId, ownerId)).toEqual({
+			id: filed.id,
+			kind: "RECORD",
+			contactId,
+			dealId: undefined,
+			drawingId: undefined,
+		});
+		expect(await sessionRecordAnchors(sessionId, strangerId)).toBeNull();
 	});
 
 	test("files a workspace session with no record", async () => {
@@ -251,6 +257,8 @@ describe("fileBridgeConversation and sessionOwnedBy", () => {
 	});
 
 	test("names no owner for a session nobody filed", async () => {
-		expect(await sessionOwnedBy(`ses_${suffix}_unknown`, ownerId)).toBe(false);
+		expect(
+			await sessionRecordAnchors(`ses_${suffix}_unknown`, ownerId),
+		).toBeNull();
 	});
 });

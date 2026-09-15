@@ -116,27 +116,30 @@ export function conversationFiling(
 	};
 }
 
-export async function sessionOwnedBy(
-	sessionId: string,
-	userId: string,
-): Promise<boolean> {
-	const conversation = await db.agentConversation.findUnique({
-		where: { sessionId },
-		select: { userId: true },
-	});
-	return conversation?.userId === userId;
-}
+export type FiledSession = BridgeRecord & {
+	id: string;
+	kind: "RECORD" | "BUILDER" | "WORKSPACE";
+};
 
 export async function sessionRecordAnchors(
 	sessionId: string,
 	userId: string,
-): Promise<BridgeRecord | null> {
+): Promise<FiledSession | null> {
 	const conversation = await db.agentConversation.findUnique({
 		where: { sessionId },
-		select: { userId: true, contactId: true, dealId: true, drawingId: true },
+		select: {
+			id: true,
+			kind: true,
+			userId: true,
+			contactId: true,
+			dealId: true,
+			drawingId: true,
+		},
 	});
 	if (!conversation || conversation.userId !== userId) return null;
 	return {
+		id: conversation.id,
+		kind: conversation.kind,
 		contactId: conversation.contactId ?? undefined,
 		dealId: conversation.dealId ?? undefined,
 		drawingId: conversation.drawingId ?? undefined,

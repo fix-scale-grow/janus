@@ -1,4 +1,3 @@
-import { db } from "@crm/db";
 import type { AccessPrincipal } from "@crm/db/access-policy";
 import { z } from "zod";
 import {
@@ -14,8 +13,8 @@ import {
 } from "./agent-bridge";
 import {
 	AGENT_SESSION_ROUTE,
-	type BridgeRecord,
 	conversationFiling,
+	type FiledSession,
 	fileBridgeConversation,
 	matchEveRoute,
 	resetOwnedBy,
@@ -84,15 +83,13 @@ export async function bridgeEveRequest(
 	const route = matchEveRoute(request.method, url.pathname);
 	if (!route) return notFound("Not found.");
 
-	const contactId = request.headers.get("x-crm-contact");
-	const dealId = request.headers.get("x-crm-deal");
-	const drawingId = request.headers.get("x-crm-drawing");
-	const builderConversationId = request.headers.get(
-		"x-crm-builder-conversation",
-	);
+	const contactId = header(request, "x-crm-contact");
+	const dealId = header(request, "x-crm-deal");
+	const drawingId = header(request, "x-crm-drawing");
+	const builderConversationId = header(request, "x-crm-builder-conversation");
 	const requestedSession = route.kind === "session" ? route.sessionId : null;
 
-	let filedAnchors: BridgeRecord | null = null;
+	let filedAnchors: FiledSession | null = null;
 	if (requestedSession) {
 		filedAnchors = await sessionRecordAnchors(requestedSession, user.id);
 		if (!filedAnchors) return notFound("Conversation not found.");
@@ -105,14 +102,12 @@ export async function bridgeEveRequest(
 		);
 	}
 
-	if (builderConversationId) {
-		const conversation = await db.agentConversation.findFirst({
-			where: { id: builderConversationId, userId: user.id, kind: "BUILDER" },
-			select: { sessionId: true },
-		});
-		if (!conversation || conversation.sessionId !== requestedSession) {
-			return notFound("Conversation not found.");
-		}
+	if (
+		builderConversationId &&
+		(filedAnchors?.kind !== "BUILDER" ||
+			filedAnchors.id !== builderConversationId)
+	) {
+		return notFound("Conversation not found.");
 	}
 
 	const headerRecord = {
@@ -173,7 +168,7 @@ export async function bridgeEveRequest(
 	}
 
 	const headers = new Headers(request.headers);
-	for (const header of STRIPPED_REQUEST_HEADERS) headers.delete(header);
+	for (const name of STRIPPED_REQUEST_HEADERS) headers.delete(name);
 	const authorization = `Bearer ${await mintBridgeToken(user, record)}`;
 	headers.set("authorization", authorization);
 
@@ -228,8 +223,7 @@ export async function bridgeEveRequest(
 	}
 
 	const responseHeaders = new Headers(upstream.headers);
-	for (const header of STRIPPED_RESPONSE_HEADERS)
-		responseHeaders.delete(header);
+	for (const name of STRIPPED_RESPONSE_HEADERS) responseHeaders.delete(name);
 
 	return new Response(upstream.body, {
 		status: upstream.status,
@@ -300,4 +294,9 @@ function safeJson(text: string): unknown {
 
 function cuid(value: string | null): string | undefined {
 	return value && /^[a-z0-9]{20,32}$/.test(value) ? value : undefined;
+}
+
+function header(request: Request, name: string): string | null {
+	const value = request.headers.get(name);
+	return value === "" ? null : value;
 }
