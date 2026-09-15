@@ -1,5 +1,6 @@
 import type { Db } from "@crm/db";
-import type { AccessPrincipal } from "@crm/db/access-policy";
+import type { AccessArea } from "@crm/db/access-config";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
 import {
 	contactScopeWhere,
 	dealChildWhere,
@@ -9,6 +10,16 @@ import { Injectable } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { RECENTS } from "./recents.config";
 import type { RecentKind, RecentTouchInput } from "./recents.contracts";
+
+const KIND_AREA: Record<RecentKind, AccessArea> = {
+	contact: "contacts",
+	deal: "deals",
+	drawing: "drawings",
+	estimate: "estimates",
+	invoice: "invoices",
+	contract: "contracts",
+	project: "projects",
+};
 
 export type RecentRow = {
 	kind: RecentKind;
@@ -253,6 +264,8 @@ export class RecentsService {
 		p: AccessPrincipal,
 	): Promise<Map<string, string>> {
 		const labels = new Map<string, string>();
+
+		if (!allows(p, KIND_AREA[kind], "VIEW")) return labels;
 
 		switch (kind) {
 			case "contact": {

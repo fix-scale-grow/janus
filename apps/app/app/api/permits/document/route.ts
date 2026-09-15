@@ -1,6 +1,8 @@
 import { db } from "@crm/db";
+import { allows } from "@crm/db/access-policy";
+import { requiredDealChildWhere } from "@crm/db/access-scope";
 import { NextResponse } from "next/server";
-import { permitDocumentVisible, routePrincipal } from "@/lib/access-route";
+import { routePrincipal } from "@/lib/access-route";
 import { COST_ID_PATTERN } from "@/lib/cost-receipts";
 import {
 	PERMIT_FILE_TYPES,
@@ -56,21 +58,24 @@ export async function POST(request: Request): Promise<Response> {
 		);
 	}
 
+	const p = await routePrincipal(session.user.id);
+	if (!p || !allows(p, "permits", "EDIT")) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
+	}
+
+	const permit = await db.permit.findFirst({
+		where: { AND: [{ id: permitId }, requiredDealChildWhere(p)] },
+		select: { id: true },
+	});
+	if (!permit) {
+		return NextResponse.json({ error: "Not found" }, { status: 404 });
+	}
+
 	const slot = await db.permitDocument.findUnique({
 		where: { permitId_slotKey: { permitId, slotKey } },
 		select: { id: true, filePath: true },
 	});
 	if (!slot) {
-		return NextResponse.json(
-			{ error: "No checklist slot found." },
-			{
-				status: 404,
-			},
-		);
-	}
-
-	const p = await routePrincipal(session.user.id);
-	if (!p || !(await permitDocumentVisible(p, slot.id, "EDIT"))) {
 		return NextResponse.json({ error: "Not found" }, { status: 404 });
 	}
 

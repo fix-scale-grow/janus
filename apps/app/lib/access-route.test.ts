@@ -4,6 +4,7 @@ import {
 	type AccessFixture,
 	createAccessFixture,
 } from "@crm/db/access-fixture";
+import { noAccessPrincipal } from "@crm/db/access-policy";
 import {
 	costVisible,
 	drawingVisible,
@@ -50,6 +51,20 @@ describe("costVisible", () => {
 
 	test("admin can view any in-scope cost", async () => {
 		expect(await costVisible(f.admin, f.otherCostId, "view")).toBe(true);
+	});
+
+	test("a jobCosts.submit-only principal can submit but not view", async () => {
+		const submitOnly = {
+			...noAccessPrincipal(f.clerkId),
+			scope: "ALL" as const,
+			policy: {
+				...noAccessPrincipal(f.clerkId).policy,
+				actions: ["jobCosts.submit" as const],
+			},
+		};
+
+		expect(await costVisible(submitOnly, f.clerkCostId, "submit")).toBe(true);
+		expect(await costVisible(submitOnly, f.clerkCostId, "view")).toBe(false);
 	});
 });
 

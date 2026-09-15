@@ -233,14 +233,17 @@ export class ActivitiesService {
 		input: Pick<TimelineInput, "contactId" | "dealId">,
 		p: AccessPrincipal,
 	): Promise<void> {
+		if (!input.dealId && !input.contactId) {
+			throw new BadRequestException("A timeline needs a contact or a deal.");
+		}
 		if (input.dealId) {
 			const deal = await this.db.deal.findFirst({
 				where: { AND: [{ id: input.dealId }, dealScopeWhere(p)] },
 				select: { id: true },
 			});
-			if (!deal)
+			if (!deal) {
 				throw new NotFoundException(`No deal with id ${input.dealId}.`);
-			return;
+			}
 		}
 		if (input.contactId) {
 			const contact = await this.db.contact.findFirst({
@@ -250,9 +253,7 @@ export class ActivitiesService {
 			if (!contact) {
 				throw new NotFoundException(`No contact with id ${input.contactId}.`);
 			}
-			return;
 		}
-		throw new BadRequestException("A timeline needs a contact or a deal.");
 	}
 }
 

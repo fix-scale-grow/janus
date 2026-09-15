@@ -62,13 +62,20 @@ describe("leak paths", () => {
 			expect(JSON.stringify(result)).toContain(f.clerkDealId);
 		});
 
-		test("hides areas the group cannot view", async () => {
+		test("hides areas the group cannot view, but not areas it can", async () => {
 			const invoice = await db.invoice.findUniqueOrThrow({
 				where: { id: f.clerkInvoiceId },
 				select: { number: true },
 			});
-			const result = await search.quick(String(invoice.number), f.crew);
-			expect(JSON.stringify(result)).not.toContain(f.clerkInvoiceId);
+			const invoiceResult = await search.quick(String(invoice.number), f.clerk);
+			expect(JSON.stringify(invoiceResult)).not.toContain(f.clerkInvoiceId);
+
+			const deal = await db.deal.findUniqueOrThrow({
+				where: { id: f.clerkDealId },
+				select: { number: true },
+			});
+			const dealResult = await search.quick(String(deal.number), f.clerk);
+			expect(JSON.stringify(dealResult)).toContain(f.clerkDealId);
 		});
 	});
 
@@ -116,6 +123,21 @@ describe("leak paths", () => {
 			await expectNotFound(() =>
 				activities.create(
 					{ type: "NOTE", dealId: f.otherDealId, subject: "hi" },
+					f.clerkId,
+					f.clerk,
+				),
+			);
+		});
+
+		test("creating an activity on the clerk's own deal paired with an out-of-scope contact is not found", async () => {
+			await expectNotFound(() =>
+				activities.create(
+					{
+						type: "NOTE",
+						dealId: f.clerkDealId,
+						contactId: f.otherContactId,
+						subject: "hi",
+					},
 					f.clerkId,
 					f.clerk,
 				),
