@@ -162,13 +162,11 @@ async function main() {
 
 	console.log("Minted 4 owner-role users via dev-login.");
 
-	// ---- Setup: assign groups via UI as owner ----
 	await setAccess(owner, USERNAME.clerk, EMAIL.clerk, "Sales clerk");
 	await setAccess(owner, USERNAME.office, EMAIL.office, "Office");
 	await setAccess(owner, USERNAME.crew, EMAIL.crew, "Crew lead");
 	console.log("Assigned clerk/office/crew into their groups via Settings > Team > Members UI.");
 
-	// ---- Setup: DB rows for the clerk's deal + estimate, and an "other" deal + photo ----
 	const clerkUserId = psql(
 		`select id from "user" where email = '${EMAIL.clerk}';`,
 	);
@@ -183,6 +181,7 @@ async function main() {
 	const dealOfficeId = `qa15dealoffice${RUN}`;
 	const estimateId = `qa15est${RUN}`;
 	const photoId = `qa15photo${RUN}00000`;
+	const jobCostId = `qa15cost${RUN}`;
 
 	psql(
 		`insert into deal (id, name, "ownerId", "stageId", "createdAt", "updatedAt", "stageChangedAt") ` +
@@ -200,11 +199,14 @@ async function main() {
 		`insert into photo (id, "dealId", "uploadedById", filename, "mimeType", "sizeBytes", width, height, "createdAt", "updatedAt") ` +
 			`values ('${photoId}', '${dealOfficeId}', '${officeUserId}', 'qa15.jpg', 'image/jpeg', 1000, 100, 100, now(), now());`,
 	);
+	psql(
+		`insert into job_cost (id, "dealId", date, "amountCents", currency, category, "createdById", "createdAt", "updatedAt") ` +
+			`values ('${jobCostId}', '${dealOfficeId}', now(), 50000, 'USD', 'MATERIALS', '${officeUserId}', now(), now());`,
+	);
 	console.log(
-		`Created deal (clerk-owned) ${dealClerkId} + estimate ${estimateId}; deal (office-owned) ${dealOfficeId} + photo ${photoId}.`,
+		`Created deal (clerk-owned) ${dealClerkId} + estimate ${estimateId}; deal (office-owned) ${dealOfficeId} + photo ${photoId} + job cost ${jobCostId}.`,
 	);
 
-	// ================= Step 1: groups list =================
 	await owner.goto(`${APP}/${SLUG}/settings/team?tab=groups`);
 	await owner.waitForSelector("text=Sales clerk", { timeout: 15000 });
 	const groupsBodyText = await owner.locator("body").innerText();
@@ -220,7 +222,6 @@ async function main() {
 		`Sales clerk/Office/Crew lead present: ${hasThree}; "Office + profit" legacy present: ${legacy}. Screenshot task15-01-groups-list.png`,
 	);
 
-	// ================= Step 2: edit Sales clerk photos -> Hidden =================
 	await owner
 		.locator('button:has-text("Sales clerk")')
 		.first()
@@ -249,7 +250,6 @@ async function main() {
 		`Original Photos level was "${originalPhotosPressed?.trim()}". Toast starting with "Saved." seen: ${savedToastSeen}. Screenshot task15-02-sales-clerk-photos-hidden.png`,
 	);
 
-	// ================= Step 3: clerk rail =================
 	await clerk.goto(`${APP}/${SLUG}`);
 	const clerkNav = await navTexts(clerk);
 	const clerkExpectedPresent = ["Contacts", "Sales", "Drawings", "Estimates"];
@@ -263,7 +263,6 @@ async function main() {
 		`Rail items: ${JSON.stringify(clerkNav)}. Screenshot task15-03-clerk-rail.png`,
 	);
 
-	// ================= Step 4: clerk deals board shows only their deal =================
 	await clerk.goto(`${APP}/${SLUG}/deals`);
 	await clerk.waitForTimeout(1500);
 	const dealsBodyText = await clerk.locator("body").innerText();
@@ -276,21 +275,26 @@ async function main() {
 		`Sees own deal: ${seesOwn}; sees other deal: ${seesOther}. Screenshot task15-04-clerk-deals-board.png`,
 	);
 
-	// ================= Step 5: clerk /invoices no leak =================
 	await clerk.goto(`${APP}/${SLUG}/invoices`);
-	await clerk.waitForTimeout(1500);
+	await clerk.waitForTimeout(3500);
 	const invoicesText = await clerk.locator("body").innerText();
 	const hasStackTrace =
 		/Unhandled Runtime Error|at Object\.|node_modules\//.test(invoicesText);
-	const looksClean = !hasStackTrace;
+	const noSeededDataLeaked =
+		!invoicesText.includes(dealClerkId) &&
+		!invoicesText.includes(dealOfficeId) &&
+		!invoicesText.includes(estimateId) &&
+		!invoicesText.includes(`QA15 Clerk Deal ${RUN}`) &&
+		!invoicesText.includes(`QA15 Office Deal ${RUN}`);
+	const hasEmptyOrNotFoundMarker =
+		invoicesText.includes("No invoices") || invoicesText.includes("not found");
 	await shot(clerk, "05-clerk-invoices");
 	record(
 		"5. Clerk visiting /invoices shows no invoices and no error-page leak",
-		looksClean,
-		`Body length ${invoicesText.length} chars, stack-trace-like content detected: ${hasStackTrace}. Screenshot task15-05-clerk-invoices.png`,
+		!hasStackTrace && noSeededDataLeaked && hasEmptyOrNotFoundMarker,
+		`Body length ${invoicesText.length} chars, stack-trace-like content detected: ${hasStackTrace}, seeded deal/estimate identifiers leaked: ${!noSeededDataLeaked}, empty/not-found marker present: ${hasEmptyOrNotFoundMarker}. Screenshot task15-05-clerk-invoices.png`,
 	);
 
-	// ================= Step 6: clerk global search for other deal =================
 	await clerk.goto(`${APP}/${SLUG}`);
 	const searchResp = await trpcQuery(clerk, "search.quick", {
 		q: `QA15 Office Deal ${RUN}`,
@@ -304,7 +308,6 @@ async function main() {
 		`search.quick status ${searchResp.status}, result: ${searchHits.slice(0, 300)}`,
 	);
 
-	// ================= Step 7: clerk opens other deal's photo thumb =================
 	const photoResp = await clerk.request.get(
 		`${APP}/api/photos/${photoId}/thumb`,
 	);
@@ -314,7 +317,6 @@ async function main() {
 		`GET /api/photos/${photoId}/thumb -> ${photoResp.status()}`,
 	);
 
-	// ================= Step 8: office sees both deals, no Delete, job cost hidden =================
 	await office.goto(`${APP}/${SLUG}/deals`);
 	await office.waitForTimeout(1500);
 	const officeDealsText = await office.locator("body").innerText();
@@ -324,15 +326,20 @@ async function main() {
 	const officeDeleteButtons = await office
 		.getByRole("button", { name: /^Delete$/i })
 		.count();
-	const hasHiddenMoney = officeDealsText.includes("Hidden");
+
+	await office.goto(
+		`${APP}/${SLUG}/deals?record=${encodeURIComponent(`deal:${dealOfficeId}`)}&tab=costs`,
+	);
+	await office.waitForTimeout(2500);
+	const officeCostsTabText = await office.locator("body").innerText();
+	const hasHiddenMoney = officeCostsTabText.includes("Hidden");
 	await shot(office, "08-office-deals-board");
 	record(
 		"8. Office sees both deals, no Delete buttons visible, profit shows Hidden",
-		officeSeesBoth && officeDeleteButtons === 0,
-		`Sees both deals: ${officeSeesBoth}; visible "Delete" buttons on deals page: ${officeDeleteButtons}; "Hidden" text present: ${hasHiddenMoney}. Screenshot task15-08-office-deals-board.png`,
+		officeSeesBoth && officeDeleteButtons === 0 && hasHiddenMoney,
+		`Sees both deals: ${officeSeesBoth}; visible "Delete" buttons on deals page: ${officeDeleteButtons}; "Hidden" text present on the deal's Job costs tab (a $500 job cost was seeded so the mask has something to hide): ${hasHiddenMoney}. Screenshot task15-08-office-deals-board.png`,
 	);
 
-	// ================= Step 9: crew field redirect + deals.list FORBIDDEN =================
 	await crew.goto(`${APP}/${SLUG}/deals`);
 	await crew.waitForURL(new RegExp(`/${SLUG}/field$`), { timeout: 15000 });
 	const crewRedirectedDeals = crew.url().endsWith(`/${SLUG}/field`);
@@ -353,7 +360,6 @@ async function main() {
 		)}. Screenshot task15-09-crew-field.png`,
 	);
 
-	// ================= Step 10: owner moves clerk to Office, clerk reload sees both without re-login =================
 	await setAccess(owner, USERNAME.clerk, EMAIL.clerk, "Office");
 	await clerk.goto(`${APP}/${SLUG}/deals`);
 	await clerk.waitForTimeout(1500);
@@ -370,7 +376,6 @@ async function main() {
 	await setAccess(owner, USERNAME.clerk, EMAIL.clerk, "Sales clerk");
 	console.log("Restored clerk to Sales clerk group.");
 
-	// ================= Step 11: delete Office group disabled with tooltip =================
 	await owner.goto(`${APP}/${SLUG}/settings/team?tab=groups`);
 	await owner.locator('button:has-text("Office")').first().click();
 	await owner.waitForSelector('button:has-text("Delete group")', {
@@ -395,7 +400,6 @@ async function main() {
 		`aria-disabled attr: ${ariaDisabled}; tooltip text: "${tooltipText}". Screenshot task15-11-office-delete-disabled.png`,
 	);
 
-	// ================= Step 12: owner transfer + last-owner guard =================
 	await owner.goto(`${APP}/${SLUG}/settings/team?tab=members`);
 	await owner.waitForSelector(`[aria-label="Access for ${USERNAME.office}"]`, {
 		timeout: 15000,
@@ -456,7 +460,6 @@ async function main() {
 				: `Guard fired as expected: ${JSON.stringify(lastOwnerErr)}`),
 	);
 
-	// ================= Step 13: clerk deals.delete FORBIDDEN =================
 	await clerk.reload();
 	await clerk.waitForTimeout(500);
 	const clerkDeleteResp = await trpcMutation(clerk, "deals.delete", {
@@ -471,7 +474,6 @@ async function main() {
 		`Response: ${JSON.stringify(clerkDeleteErr)}`,
 	);
 
-	// ================= Step 14: Janus chat surface + bridge =================
 	await clerk.goto(`${APP}/${SLUG}`);
 	const clerkNavAfter = await navTexts(clerk);
 	const clerkHasChat = clerkNavAfter.includes("Janus AI");
@@ -499,7 +501,6 @@ async function main() {
 		)}. Screenshot task15-14a-clerk-chat-entry.png`,
 	);
 
-	// ================= Cleanup =================
 	console.log("\n--- Cleanup ---");
 
 	await owner.goto(`${APP}/${SLUG}/settings/team?tab=groups`);
@@ -517,6 +518,7 @@ async function main() {
 
 	psql(`delete from estimate where id = '${estimateId}';`);
 	psql(`delete from photo where id = '${photoId}';`);
+	psql(`delete from job_cost where id = '${jobCostId}';`);
 	psql(`delete from deal where id = '${dealClerkId}';`);
 	psql(`delete from deal where id = '${dealOfficeId}';`);
 	for (const email of Object.values(EMAIL)) {
