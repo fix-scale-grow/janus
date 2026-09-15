@@ -54,9 +54,19 @@ export const OWNERS = [
 
 type SeedPerson = { firstName: string; lastName: string; title: string | null };
 
+const CONTACT_ROLES = {
+	homeowner: "Homeowner",
+	propertyManager: "Property manager",
+	insuranceAdjuster: "Insurance adjuster",
+	generalContractor: "General contractor",
+} as const;
+
+type ContactRole = (typeof CONTACT_ROLES)[keyof typeof CONTACT_ROLES];
+
 type SeedCustomer = {
 	key: string;
 	companyName: string | null;
+	role?: ContactRole;
 	emailDomain: (typeof DEMO_EMAIL_DOMAINS)[number];
 	areaCode: string;
 	street: string;
@@ -202,6 +212,7 @@ export const CUSTOMERS: readonly SeedCustomer[] = [
 	{
 		key: "hartley-builders",
 		companyName: "Hartley Builders",
+		role: CONTACT_ROLES.generalContractor,
 		emailDomain: "example.net",
 		areaCode: "816",
 		street: "1310 Fictional Dr",
@@ -666,8 +677,10 @@ const INSURANCE_STAGES: readonly SeedStageDef[] = [
 type SeededStage = {
 	id: string;
 	key: string;
+	seedKey: string;
 	outcome: StageOutcome;
 	pipelineId: string;
+	seedPipelineId: SeedDealDef["pipelineId"];
 };
 
 export type SeededPipelines = {
@@ -676,49 +689,114 @@ export type SeededPipelines = {
 	entryKeyByPipelineId: Record<string, string>;
 };
 
+const SEED_PIPELINES: readonly {
+	id: SeedDealDef["pipelineId"];
+	name: string;
+	position: number;
+	stages: readonly SeedStageDef[];
+}[] = [
+	{
+		id: "pipeline_seed_sales",
+		name: "Sales",
+		position: 0,
+		stages: SALES_STAGES,
+	},
+	{
+		id: "pipeline_seed_insurance",
+		name: "Insurance",
+		position: 1,
+		stages: INSURANCE_STAGES,
+	},
+];
+
+async function resolvePipelineId(
+	def: (typeof SEED_PIPELINES)[number],
+): Promise<string> {
+	const seeded = await db.pipeline.findUnique({
+		where: { id: def.id },
+		select: { id: true },
+	});
+	if (seeded) return seeded.id;
+
+	const sameName = await db.pipeline.findFirst({
+		where: { name: def.name, archivedAt: null },
+		orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+		select: { id: true },
+	});
+	if (sameName) return sameName.id;
+
+	const created = await db.pipeline.create({
+		data: { id: def.id, name: def.name, position: def.position },
+		select: { id: true },
+	});
+	return created.id;
+}
+
+async function resolveStage(
+	pipelineId: string,
+	def: SeedStageDef,
+): Promise<{ id: string; key: string; isEntry: boolean }> {
+	const select = { id: true, key: true, isEntry: true } as const;
+
+	const seeded = await db.stage.findUnique({ where: { id: def.id }, select });
+	if (seeded) return seeded;
+
+	const sameLabel = await db.stage.findFirst({
+		where: {
+			pipelineId,
+			archivedAt: null,
+			outcome: def.outcome,
+			label: { equals: def.label, mode: "insensitive" },
+		},
+		orderBy: { position: "asc" },
+		select,
+	});
+	if (sameLabel) return sameLabel;
+
+	const entry = await db.stage.findFirst({
+		where: { pipelineId, isEntry: true, archivedAt: null },
+		select: { id: true },
+	});
+
+	return db.stage.create({
+		data: {
+			id: def.id,
+			pipelineId,
+			key: def.key,
+			label: def.label,
+			color: def.color,
+			position: def.position,
+			outcome: def.outcome,
+			isEntry: def.isEntry && entry === null,
+		},
+		select,
+	});
+}
+
 export async function seedPipelines(): Promise<SeededPipelines> {
-	await db.pipeline.upsert({
-		where: { id: "pipeline_seed_sales" },
-		create: { id: "pipeline_seed_sales", name: "Sales", position: 0 },
-		update: {},
-	});
-
-	await db.pipeline.upsert({
-		where: { id: "pipeline_seed_insurance" },
-		create: { id: "pipeline_seed_insurance", name: "Insurance", position: 1 },
-		update: {},
-	});
-
 	const stages: SeededStage[] = [];
 	const entryKeyByPipelineId: Record<string, string> = {};
 
-	for (const [pipelineId, defs] of [
-		["pipeline_seed_sales", SALES_STAGES],
-		["pipeline_seed_insurance", INSURANCE_STAGES],
-	] as const) {
-		for (const def of defs) {
-			await db.stage.upsert({
-				where: { id: def.id },
-				create: {
-					id: def.id,
-					pipelineId,
-					key: def.key,
-					label: def.label,
-					color: def.color,
-					position: def.position,
-					outcome: def.outcome,
-					isEntry: def.isEntry,
-				},
-				update: {},
-			});
+	for (const pipeline of SEED_PIPELINES) {
+		const pipelineId = await resolvePipelineId(pipeline);
+
+		for (const def of pipeline.stages) {
+			const stage = await resolveStage(pipelineId, def);
 			stages.push({
-				id: def.id,
-				key: def.key,
+				id: stage.id,
+				key: stage.key,
+				seedKey: def.key,
 				outcome: def.outcome,
 				pipelineId,
+				seedPipelineId: pipeline.id,
 			});
-			if (def.isEntry) entryKeyByPipelineId[pipelineId] = def.key;
 		}
+
+		const entry = await db.stage.findFirst({
+			where: { pipelineId, isEntry: true, archivedAt: null },
+			select: { key: true },
+		});
+		if (entry) entryKeyByPipelineId[pipelineId] = entry.key;
 	}
 
 	return {
@@ -771,10 +849,11 @@ const EMAIL_SUBJECTS = [
 	"Material delivery window",
 ] as const;
 
-const CONTACT_ROLES = {
-	homeowner: "Homeowner",
-	company: "Decision maker",
-} as const;
+export function demoContactRole(companyName: string | null): ContactRole {
+	if (companyName === null) return CONTACT_ROLES.homeowner;
+	const customer = CUSTOMERS.find((entry) => entry.companyName === companyName);
+	return customer?.role ?? CONTACT_ROLES.propertyManager;
+}
 
 const TRANSLITERATIONS: Record<string, string> = {
 	ø: "o",
@@ -935,8 +1014,8 @@ export async function seedDeals(
 
 		const stage = allStages.find(
 			(candidate) =>
-				candidate.pipelineId === def.pipelineId &&
-				candidate.key === def.stageKey,
+				candidate.seedPipelineId === def.pipelineId &&
+				candidate.seedKey === def.stageKey,
 		);
 		if (!stage) {
 			throw new Error(`stage ${def.stageKey} missing in ${def.pipelineId}`);
@@ -980,9 +1059,7 @@ export async function seedDeals(
 			update: {},
 		});
 
-		const role = customer.companyName
-			? CONTACT_ROLES.company
-			: CONTACT_ROLES.homeowner;
+		const role = demoContactRole(customer.companyName);
 		const dealContactIds: string[] = [];
 		for (const contact of contacts.filter(
 			(entry) => entry.customer === def.customer,

@@ -200,12 +200,35 @@ const CLEANUP = {
 		"template",
 		"form",
 	],
+	steps: {
+		junkFieldLabels: ["Are you poor?", "Do you need credit?", "Consent?"],
+		duplicatePipelineName: "Insurance",
+		estimateTemplatePurpose: "ESTIMATE_SEND",
+		templateDiffPreviewChars: 160,
+		saasRoles: ["Champion", "Decision maker"],
+		retiredServices: [
+			{
+				name: "Architectural shingles installed (edited)",
+				keptName: "Architectural shingles installed",
+			},
+		],
+	},
 } as const;
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
 const renameLinked = args.has("--rename-linked");
 const renamePlaceholderUsers = args.has("--rename-placeholder-users");
+const steps = {
+	archiveJunkFields: args.has("--archive-junk-fields"),
+	archiveDuplicateInsurancePipeline: args.has(
+		"--archive-duplicate-insurance-pipeline",
+	),
+	resetGarbledEstimateTemplate: args.has("--reset-garbled-estimate-template"),
+	replaceSaasRoles: args.has("--replace-saas-roles"),
+	retireTestServices: args.has("--retire-test-services"),
+};
+const stepMode = Object.values(steps).some(Boolean);
 
 function urlDatabaseName(url: string): string {
 	try {
@@ -231,7 +254,8 @@ if (!allowed.includes(urlName)) {
 }
 
 const { db } = await import("../src/client");
-const { OWNERS, seedDemo, slug } = await import("../prisma/demo-data");
+const { DEMO_DEAL_ID_PREFIX, OWNERS, demoContactRole, seedDemo, slug } =
+	await import("../prisma/demo-data");
 const { ActivityType } = await import("../src/generated/prisma/enums");
 
 type Client = Omit<
@@ -1098,6 +1122,288 @@ async function execute(expected: Plan): Promise<void> {
 	);
 }
 
+type StepPlan = {
+	fields: { id: string; entity: string; label: string }[];
+	pipelines: { id: string; name: string; createdAt: string }[];
+	template: {
+		id: string;
+		name: string;
+		subject: string | null;
+		blocks: unknown;
+		changedBlocks: { index: number; saved: string; fallback: string }[];
+	} | null;
+	roles: { dealId: string; contactId: string; from: string; to: string }[];
+	services: { id: string; name: string; lineItems: number }[];
+};
+
+function canonical(value: unknown): string {
+	if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+	if (value !== null && typeof value === "object") {
+		const entries = Object.entries(value as { [key: string]: unknown })
+			.filter(([, entry]) => entry !== undefined)
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+		return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`).join(",")}}`;
+	}
+	return JSON.stringify(value) ?? "null";
+}
+
+function preview(value: unknown): string {
+	const text = value === undefined ? "(none)" : canonical(value);
+	const limit = CLEANUP.steps.templateDiffPreviewChars;
+	return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+async function junkFields(client: Client): Promise<StepPlan["fields"]> {
+	if (!steps.archiveJunkFields) return [];
+	return client.fieldDefinition.findMany({
+		where: {
+			label: { in: [...CLEANUP.steps.junkFieldLabels] },
+			archivedAt: null,
+		},
+		select: { id: true, entity: true, label: true },
+		orderBy: { id: "asc" },
+	});
+}
+
+async function duplicatePipelines(
+	client: Client,
+): Promise<StepPlan["pipelines"]> {
+	if (!steps.archiveDuplicateInsurancePipeline) return [];
+	const rows = await client.pipeline.findMany({
+		where: { name: CLEANUP.steps.duplicatePipelineName, archivedAt: null },
+		select: { id: true, name: true, createdAt: true },
+		orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+	});
+	if (rows.length < 2) return [];
+	const counted = await Promise.all(
+		rows.map(async (row) => ({
+			...row,
+			deals: await client.deal.count({
+				where: { stage: { pipelineId: row.id } },
+			}),
+		})),
+	);
+	const empties = counted.filter((row) => row.deals === 0);
+	const archive =
+		empties.length === counted.length ? empties.slice(1) : empties;
+	return archive.map((row) => ({
+		id: row.id,
+		name: row.name,
+		createdAt: row.createdAt.toISOString(),
+	}));
+}
+
+async function garbledTemplate(client: Client): Promise<StepPlan["template"]> {
+	if (!steps.resetGarbledEstimateTemplate) return null;
+	const { DEFAULT_TEMPLATES } = await import(
+		"../../../apps/api/src/templates/templates.config"
+	);
+	const purpose = CLEANUP.steps.estimateTemplatePurpose;
+	const fallback = DEFAULT_TEMPLATES[purpose];
+	const row = await client.template.findUnique({
+		where: { purpose },
+		select: { id: true, blocks: true },
+	});
+	if (!row || canonical(row.blocks) === canonical(fallback.blocks)) return null;
+	const saved: unknown[] = Array.isArray(row.blocks)
+		? row.blocks
+		: [row.blocks];
+	const defaults: unknown[] = fallback.blocks;
+	const length = Math.max(saved.length, defaults.length);
+	return {
+		id: row.id,
+		name: fallback.name,
+		subject: fallback.subject,
+		blocks: fallback.blocks,
+		changedBlocks: Array.from({ length }, (_, index) => index)
+			.filter((index) => canonical(saved[index]) !== canonical(defaults[index]))
+			.map((index) => ({
+				index,
+				saved: preview(saved[index]),
+				fallback: preview(defaults[index]),
+			})),
+	};
+}
+
+async function saasRoles(client: Client): Promise<StepPlan["roles"]> {
+	if (!steps.replaceSaasRoles) return [];
+	const rows = await client.dealContact.findMany({
+		where: {
+			role: { in: [...CLEANUP.steps.saasRoles] },
+			dealId: { startsWith: DEMO_DEAL_ID_PREFIX },
+		},
+		select: {
+			dealId: true,
+			contactId: true,
+			role: true,
+			contact: { select: { companyName: true } },
+		},
+		orderBy: [{ dealId: "asc" }, { contactId: "asc" }],
+	});
+	return rows.map((row) => ({
+		dealId: row.dealId,
+		contactId: row.contactId,
+		from: row.role ?? "",
+		to: demoContactRole(row.contact.companyName),
+	}));
+}
+
+async function testServices(client: Client): Promise<StepPlan["services"]> {
+	if (!steps.retireTestServices) return [];
+	const found: StepPlan["services"] = [];
+	for (const retired of CLEANUP.steps.retiredServices) {
+		const kept = await client.service.count({
+			where: { name: retired.keptName, active: true },
+		});
+		if (kept === 0) continue;
+		const rows = await client.service.findMany({
+			where: { name: retired.name, active: true },
+			select: { id: true, name: true, _count: { select: { lineItems: true } } },
+			orderBy: { id: "asc" },
+		});
+		found.push(
+			...rows.map((row) => ({
+				id: row.id,
+				name: row.name,
+				lineItems: row._count.lineItems,
+			})),
+		);
+	}
+	return found;
+}
+
+async function buildStepPlan(client: Client): Promise<StepPlan> {
+	return {
+		fields: await junkFields(client),
+		pipelines: await duplicatePipelines(client),
+		template: await garbledTemplate(client),
+		roles: await saasRoles(client),
+		services: await testServices(client),
+	};
+}
+
+function printStepPlan(plan: StepPlan): void {
+	if (steps.archiveJunkFields) {
+		console.log(`\nArchive custom fields: ${plan.fields.length}.`);
+		for (const row of plan.fields) {
+			console.log(`  archive field ${row.id}  ${row.entity}  "${row.label}"`);
+		}
+	}
+	if (steps.archiveDuplicateInsurancePipeline) {
+		console.log(
+			`\nArchive empty duplicate "${CLEANUP.steps.duplicatePipelineName}" pipelines: ${plan.pipelines.length}.`,
+		);
+		for (const row of plan.pipelines) {
+			console.log(
+				`  archive pipeline ${row.id}  "${row.name}"  created ${row.createdAt}, 0 deals`,
+			);
+		}
+	}
+	if (steps.resetGarbledEstimateTemplate) {
+		if (plan.template === null) {
+			console.log(
+				"\nEstimate email template: matches the default or is absent.",
+			);
+		} else {
+			console.log(
+				`\nReset estimate email template ${plan.template.id}: ${plan.template.changedBlocks.length} blocks differ from the default.`,
+			);
+			for (const block of plan.template.changedBlocks) {
+				console.log(`  block ${block.index}`);
+				console.log(`    saved:   ${block.saved}`);
+				console.log(`    default: ${block.fallback}`);
+			}
+		}
+	}
+	if (steps.replaceSaasRoles) {
+		console.log(
+			`\nReplace SaaS contact roles on demo deals: ${plan.roles.length}.`,
+		);
+		for (const row of plan.roles) {
+			console.log(
+				`  deal ${row.dealId} contact ${row.contactId}: "${row.from}" -> "${row.to}"`,
+			);
+		}
+	}
+	if (steps.retireTestServices) {
+		console.log(`\nDeactivate test services: ${plan.services.length}.`);
+		for (const row of plan.services) {
+			console.log(
+				`  deactivate service ${row.id}  "${row.name}"  (${row.lineItems} line items keep their own copy)`,
+			);
+		}
+	}
+}
+
+async function executeSteps(expected: StepPlan): Promise<void> {
+	await db.$transaction(
+		async (tx) => {
+			const current = await buildStepPlan(tx);
+			if (canonical(current) !== canonical(expected)) {
+				throw new Error(
+					"The data changed after the dry scan. Nothing written.",
+				);
+			}
+			const now = new Date();
+
+			await tx.fieldDefinition.updateMany({
+				where: { id: { in: current.fields.map((row) => row.id) } },
+				data: { archivedAt: now },
+			});
+			await tx.pipeline.updateMany({
+				where: { id: { in: current.pipelines.map((row) => row.id) } },
+				data: { archivedAt: now },
+			});
+			if (current.template) {
+				await tx.template.update({
+					where: { id: current.template.id },
+					data: {
+						name: current.template.name,
+						subject: current.template.subject,
+						blocks: current.template.blocks as never,
+						updatedById: null,
+					},
+				});
+			}
+			for (const row of current.roles) {
+				await tx.dealContact.update({
+					where: {
+						dealId_contactId: { dealId: row.dealId, contactId: row.contactId },
+					},
+					data: { role: row.to },
+				});
+			}
+			await tx.service.updateMany({
+				where: { id: { in: current.services.map((row) => row.id) } },
+				data: { active: false },
+			});
+		},
+		{ timeout: CLEANUP.transactionTimeoutMs },
+	);
+}
+
+async function runSteps(): Promise<void> {
+	const plan = await buildStepPlan(db);
+	printStepPlan(plan);
+
+	if (!apply) {
+		console.log("\nDry run. Nothing changed. Pass --apply to run it.");
+		return;
+	}
+
+	try {
+		await executeSteps(plan);
+	} catch (error) {
+		console.error(
+			"\nTransaction rolled back. None of the planned changes above were written.",
+		);
+		throw error;
+	}
+
+	console.log("\nApplied. Scan after apply:");
+	printStepPlan(await buildStepPlan(db));
+}
+
 function printCounts(
 	title: string,
 	counts: Record<CountedTable, number>,
@@ -1118,10 +1424,23 @@ async function main() {
 	const flags = [
 		renameLinked && "rename linked",
 		renamePlaceholderUsers && "rename placeholder users",
+		...Object.entries(steps)
+			.filter(([, on]) => on)
+			.map(([name]) => name),
 	].filter(Boolean);
 	console.log(
 		`Database ${urlName}. Mode: ${apply ? "APPLY" : "DRY RUN"}${flags.length ? `, ${flags.join(", ")}` : ""}.`,
 	);
+
+	if (stepMode) {
+		if (renameLinked || renamePlaceholderUsers) {
+			throw new Error(
+				"Step flags run on their own. Run the demo replacement flags separately.",
+			);
+		}
+		await runSteps();
+		return;
+	}
 
 	const before = await countAll();
 	printCounts("Before", before);
