@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { emptyScene } from "@crm/drawings";
 import { ConflictException } from "@nestjs/common";
 import { DrawingsService } from "../src/drawings/drawings.service";
@@ -8,6 +9,7 @@ const suffix = process.env.TEST_RUN_ID ?? "drawings-save-conflict-spec";
 const userId = `user-${suffix}`;
 
 const drawings = new DrawingsService(db);
+const ADMIN = adminPrincipal("test");
 
 async function clean() {
 	await db.drawing.deleteMany({ where: { title: { contains: suffix } } });
@@ -35,39 +37,52 @@ describe("saveScene optimistic lock", () => {
 		const drawing = await drawings.create(
 			{ title: `Locked ${suffix}`, background: "WHITEBOARD" },
 			userId,
+			ADMIN,
 		);
 
-		const first = await drawings.saveScene({
-			id: drawing.id,
-			scene: emptyScene(),
-			expectedSceneUpdatedAt: null,
-		});
+		const first = await drawings.saveScene(
+			{
+				id: drawing.id,
+				scene: emptyScene(),
+				expectedSceneUpdatedAt: null,
+			},
+			ADMIN,
+		);
 		expect(first.sceneUpdatedAt).toBeInstanceOf(Date);
 
-		const second = await drawings.saveScene({
-			id: drawing.id,
-			scene: emptyScene(),
-			expectedSceneUpdatedAt: first.sceneUpdatedAt,
-		});
+		const second = await drawings.saveScene(
+			{
+				id: drawing.id,
+				scene: emptyScene(),
+				expectedSceneUpdatedAt: first.sceneUpdatedAt,
+			},
+			ADMIN,
+		);
 		expect(second.sceneUpdatedAt?.getTime()).toBeGreaterThan(
 			first.sceneUpdatedAt?.getTime() ?? 0,
 		);
 
 		try {
-			await drawings.saveScene({
-				id: drawing.id,
-				scene: emptyScene(),
-				expectedSceneUpdatedAt: first.sceneUpdatedAt,
-			});
+			await drawings.saveScene(
+				{
+					id: drawing.id,
+					scene: emptyScene(),
+					expectedSceneUpdatedAt: first.sceneUpdatedAt,
+				},
+				ADMIN,
+			);
 			expect.unreachable("stale save must throw");
 		} catch (error) {
 			expect(error).toBeInstanceOf(ConflictException);
 		}
 
-		const unguarded = await drawings.saveScene({
-			id: drawing.id,
-			scene: emptyScene(),
-		});
+		const unguarded = await drawings.saveScene(
+			{
+				id: drawing.id,
+				scene: emptyScene(),
+			},
+			ADMIN,
+		);
 		expect(unguarded.sceneUpdatedAt).toBeInstanceOf(Date);
 	});
 });

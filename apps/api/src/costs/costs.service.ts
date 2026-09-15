@@ -1,4 +1,6 @@
 import { type Db, Prisma } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { dealScopeWhere, requiredDealChildWhere } from "@crm/db/access-scope";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDatabase } from "../database/database.constants";
 import { lineItemsTotalCents } from "../invoices/invoice-logic";
@@ -15,16 +17,20 @@ export class CostsService {
 		private readonly permissions: PermissionsService,
 	) {}
 
-	async list(input: { dealId: string }) {
+	async list(input: { dealId: string }, p: AccessPrincipal) {
+		await this.assertDealInScope(input.dealId, p);
+		const where: Prisma.JobCostWhereInput = {
+			AND: [{ dealId: input.dealId }, requiredDealChildWhere(p)],
+		};
 		const [rows, byCategory] = await Promise.all([
 			this.db.jobCost.findMany({
-				where: { dealId: input.dealId },
+				where,
 				orderBy: [{ date: "desc" }, { createdAt: "desc" }],
 				include: { createdBy: { select: { id: true, name: true } } },
 			}),
 			this.db.jobCost.groupBy({
 				by: ["category", "currency"],
-				where: { dealId: input.dealId },
+				where,
 				_sum: { amountCents: true },
 			}),
 		]);
@@ -49,20 +55,15 @@ export class CostsService {
 		};
 	}
 
-	async create(input: CostCreateInput, userId: string) {
-		const deal = await this.db.deal.findUnique({
-			where: { id: input.dealId },
-			select: { currency: true },
-		});
-		if (!deal) {
-			throw new NotFoundException(`No deal with id ${input.dealId}.`);
-		}
+	async create(input: CostCreateInput, userId: string, p: AccessPrincipal) {
+		const deal = await this.assertDealInScope(input.dealId, p);
 		return this.db.jobCost.create({
 			data: { ...input, currency: deal.currency, createdById: userId },
 		});
 	}
 
-	async update(input: CostUpdateInput) {
+	async update(input: CostUpdateInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		const { id, ...data } = input;
 		try {
 			return await this.db.jobCost.update({ where: { id }, data });
@@ -71,7 +72,8 @@ export class CostsService {
 		}
 	}
 
-	async remove(id: string) {
+	async remove(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		try {
 			return await this.db.jobCost.delete({
 				where: { id },
@@ -82,8 +84,9 @@ export class CostsService {
 		}
 	}
 
-	async profitForDeal(userId: string, dealId: string) {
+	async profitForDeal(userId: string, dealId: string, p: AccessPrincipal) {
 		await this.permissions.assertPermission(userId, PERMISSION_KEYS.profitView);
+		await this.assertDealInScope(dealId, p);
 		const [invoices, costs] = await Promise.all([
 			this.db.invoice.findMany({
 				where: { dealId, status: { in: [...INVOICES.revenueStatuses] } },
@@ -133,6 +136,25 @@ export class CostsService {
 				};
 			}),
 		};
+	}
+
+	private async assertDealInScope(dealId: string, p: AccessPrincipal) {
+		const deal = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
+			select: { id: true, currency: true },
+		});
+		if (!deal) {
+			throw new NotFoundException(`No deal with id ${dealId}.`);
+		}
+		return deal;
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.jobCost.findFirst({
+			where: { AND: [{ id }, requiredDealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No cost with id ${id}.`);
 	}
 
 	private translate(error: unknown, id: string): unknown {

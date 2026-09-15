@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { ProductionAdvanceService } from "../src/production/production-advance.service";
 import { ProjectsService } from "../src/projects/projects.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "projects-upcoming-spec";
 
 const service = new ProjectsService(db, new ProductionAdvanceService(db));
+const ADMIN = adminPrincipal("test");
 
 let userId: string;
 let dealId: string;
@@ -54,6 +56,7 @@ beforeAll(async () => {
 	const project = await service.create(
 		{ dealId, name: `Project ${suffix}`, startDate: new Date() },
 		userId,
+		ADMIN,
 	);
 	projectId = project.id;
 
@@ -61,40 +64,56 @@ beforeAll(async () => {
 	farOut.setUTCHours(0, 0, 0, 0);
 	farOut.setUTCDate(farOut.getUTCDate() + 30);
 
-	const tomorrowTask = await service.taskCreate({
-		projectId,
-		name: `Upcoming ${suffix}`,
-		startDay: tomorrow,
-		endDay: tomorrow,
-		crewId,
-	});
+	const tomorrowTask = await service.taskCreate(
+		{
+			projectId,
+			name: `Upcoming ${suffix}`,
+			startDay: tomorrow,
+			endDay: tomorrow,
+			crewId,
+		},
+		ADMIN,
+	);
 	tomorrowTaskId = tomorrowTask.id;
 
-	const doneTomorrowTask = await service.taskCreate({
-		projectId,
-		name: `Done ${suffix}`,
-		startDay: tomorrow,
-		endDay: tomorrow,
-	});
-	await service.taskUpdate({ id: doneTomorrowTask.id, status: "DONE" }, userId);
+	const doneTomorrowTask = await service.taskCreate(
+		{
+			projectId,
+			name: `Done ${suffix}`,
+			startDay: tomorrow,
+			endDay: tomorrow,
+		},
+		ADMIN,
+	);
+	await service.taskUpdate(
+		{ id: doneTomorrowTask.id, status: "DONE" },
+		userId,
+		ADMIN,
+	);
 
-	await service.taskCreate({
-		projectId,
-		name: `Far out ${suffix}`,
-		startDay: farOut,
-		endDay: farOut,
-	});
+	await service.taskCreate(
+		{
+			projectId,
+			name: `Far out ${suffix}`,
+			startDay: farOut,
+			endDay: farOut,
+		},
+		ADMIN,
+	);
 
 	const nextWeek = new Date();
 	nextWeek.setUTCHours(0, 0, 0, 0);
 	nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
 
-	const nextWeekTask = await service.taskCreate({
-		projectId,
-		name: `Next week ${suffix}`,
-		startDay: nextWeek,
-		endDay: nextWeek,
-	});
+	const nextWeekTask = await service.taskCreate(
+		{
+			projectId,
+			name: `Next week ${suffix}`,
+			startDay: nextWeek,
+			endDay: nextWeek,
+		},
+		ADMIN,
+	);
 	nextWeekTaskId = nextWeekTask.id;
 });
 
@@ -108,7 +127,7 @@ afterAll(async () => {
 
 describe("ProjectsService.upcomingTasks", () => {
 	it("returns only TODO/IN_PROGRESS tasks starting within the next 14 days", async () => {
-		const result = await service.upcomingTasks();
+		const result = await service.upcomingTasks(ADMIN);
 		const ids = result.tasks.map((task) => task.id);
 
 		expect(ids).toContain(tomorrowTaskId);
@@ -127,7 +146,7 @@ describe("ProjectsService.upcomingTasks", () => {
 	});
 
 	it("excludes DONE tasks and tasks starting beyond the window", async () => {
-		const result = await service.upcomingTasks();
+		const result = await service.upcomingTasks(ADMIN);
 		const names = result.tasks.map((task) => task.name);
 
 		expect(names).not.toContain(`Done ${suffix}`);
@@ -135,7 +154,7 @@ describe("ProjectsService.upcomingTasks", () => {
 	});
 
 	it("orders by startDay ascending", async () => {
-		const result = await service.upcomingTasks();
+		const result = await service.upcomingTasks(ADMIN);
 		const ids = result.tasks.map((task) => task.id);
 
 		expect(ids.indexOf(tomorrowTaskId)).toBeLessThan(

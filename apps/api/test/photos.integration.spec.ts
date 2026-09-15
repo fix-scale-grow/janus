@@ -4,12 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { savePhotoFiles } from "@crm/db/photo-files";
 import { PhotosService } from "../src/photos/photos.service";
 
 const suffix = process.env.TEST_RUN_ID ?? "photos-spec";
 
 const service = new PhotosService(db);
+const ADMIN = adminPrincipal("test");
 
 const JPEG_BYTES = Buffer.from([
 	0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
@@ -199,14 +201,14 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		const result = await service.list({ dealId });
+		const result = await service.list({ dealId }, ADMIN);
 
 		expect(result.total).toBe(2);
 		expect(result.rows.map((row) => row.id)).toEqual([newer.id, older.id]);
 	});
 
 	it("lists photos scoped to a contact", async () => {
-		const result = await service.list({ contactId });
+		const result = await service.list({ contactId }, ADMIN);
 
 		expect(result.total).toBe(1);
 		expect(result.rows[0]?.filename).toBe(`contact-${suffix}.jpg`);
@@ -215,11 +217,14 @@ describe("PhotosService", () => {
 	it("includes the deal's contacts' photos when asked", async () => {
 		await db.dealContact.create({ data: { dealId, contactId } });
 
-		const withContacts = await service.list({
-			dealId,
-			includeDealContacts: true,
-		});
-		const dealOnly = await service.list({ dealId });
+		const withContacts = await service.list(
+			{
+				dealId,
+				includeDealContacts: true,
+			},
+			ADMIN,
+		);
+		const dealOnly = await service.list({ dealId }, ADMIN);
 
 		expect(withContacts.total).toBe(3);
 		expect(
@@ -246,10 +251,10 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkEstimate({ estimateId, photoId: photo.id });
-		await service.linkEstimate({ estimateId, photoId: photo.id });
+		await service.linkEstimate({ estimateId, photoId: photo.id }, ADMIN);
+		await service.linkEstimate({ estimateId, photoId: photo.id }, ADMIN);
 
-		const links = await service.forEstimate(estimateId);
+		const links = await service.forEstimate(estimateId, ADMIN);
 
 		expect(links.length).toBe(1);
 		expect(links[0]?.sortOrder).toBe(0);
@@ -269,9 +274,9 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkEstimate({ estimateId, photoId: photo.id });
+		await service.linkEstimate({ estimateId, photoId: photo.id }, ADMIN);
 
-		const links = await service.forEstimate(estimateId);
+		const links = await service.forEstimate(estimateId, ADMIN);
 		const linked = links.find((link) => link.photoId === photo.id);
 
 		expect(linked?.sortOrder).toBe(1);
@@ -279,10 +284,13 @@ describe("PhotosService", () => {
 
 	it("rejects linking a missing photo", async () => {
 		await expectRejects(
-			service.linkEstimate({
-				estimateId,
-				photoId: "clnopeaaaaaaaaaaaaaaaa",
-			}),
+			service.linkEstimate(
+				{
+					estimateId,
+					photoId: "clnopeaaaaaaaaaaaaaaaa",
+				},
+				ADMIN,
+			),
 			/photo/i,
 		);
 	});
@@ -301,38 +309,47 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkEstimate({ estimateId, photoId: photo.id });
-		await service.setEstimatePdfFlag({
-			estimateId,
-			photoId: photo.id,
-			includeInPdf: true,
-		});
+		await service.linkEstimate({ estimateId, photoId: photo.id }, ADMIN);
+		await service.setEstimatePdfFlag(
+			{
+				estimateId,
+				photoId: photo.id,
+				includeInPdf: true,
+			},
+			ADMIN,
+		);
 
-		const links = await service.forEstimate(estimateId);
+		const links = await service.forEstimate(estimateId, ADMIN);
 		const linked = links.find((link) => link.photoId === photo.id);
 
 		expect(linked?.includeInPdf).toBe(true);
 	});
 
 	it("reorders with the exact set and rejects a partial set", async () => {
-		const before = await service.forEstimate(estimateId);
+		const before = await service.forEstimate(estimateId, ADMIN);
 		const ids = before.map((link) => link.photoId);
 		const reversed = [...ids].reverse();
 
-		await service.reorderEstimatePhotos({
-			estimateId,
-			photoIds: reversed,
-		});
+		await service.reorderEstimatePhotos(
+			{
+				estimateId,
+				photoIds: reversed,
+			},
+			ADMIN,
+		);
 
-		const after = await service.forEstimate(estimateId);
+		const after = await service.forEstimate(estimateId, ADMIN);
 
 		expect(after.map((link) => link.photoId)).toEqual(reversed);
 
 		await expectRejects(
-			service.reorderEstimatePhotos({
-				estimateId,
-				photoIds: reversed.slice(1),
-			}),
+			service.reorderEstimatePhotos(
+				{
+					estimateId,
+					photoIds: reversed.slice(1),
+				},
+				ADMIN,
+			),
 			/photo/i,
 		);
 	});
@@ -351,10 +368,10 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkEstimate({ estimateId, photoId: photo.id });
-		await service.unlinkEstimate({ estimateId, photoId: photo.id });
+		await service.linkEstimate({ estimateId, photoId: photo.id }, ADMIN);
+		await service.unlinkEstimate({ estimateId, photoId: photo.id }, ADMIN);
 
-		const links = await service.forEstimate(estimateId);
+		const links = await service.forEstimate(estimateId, ADMIN);
 		expect(links.some((link) => link.photoId === photo.id)).toBe(false);
 
 		const stillThere = await db.photo.findUnique({ where: { id: photo.id } });
@@ -375,10 +392,10 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkInvoice({ invoiceId, photoId: photo.id });
-		await service.linkInvoice({ invoiceId, photoId: photo.id });
+		await service.linkInvoice({ invoiceId, photoId: photo.id }, ADMIN);
+		await service.linkInvoice({ invoiceId, photoId: photo.id }, ADMIN);
 
-		const links = await service.forInvoice(invoiceId);
+		const links = await service.forInvoice(invoiceId, ADMIN);
 		const linked = links.filter((link) => link.photoId === photo.id);
 
 		expect(linked.length).toBe(1);
@@ -398,28 +415,34 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkInvoice({ invoiceId, photoId: photo.id });
-		await service.setInvoicePdfFlag({
-			invoiceId,
-			photoId: photo.id,
-			includeInPdf: true,
-		});
+		await service.linkInvoice({ invoiceId, photoId: photo.id }, ADMIN);
+		await service.setInvoicePdfFlag(
+			{
+				invoiceId,
+				photoId: photo.id,
+				includeInPdf: true,
+			},
+			ADMIN,
+		);
 
-		const links = await service.forInvoice(invoiceId);
+		const links = await service.forInvoice(invoiceId, ADMIN);
 		const linked = links.find((link) => link.photoId === photo.id);
 
 		expect(linked?.includeInPdf).toBe(true);
 	});
 
 	it("rejects an invoice reorder with a partial set", async () => {
-		const before = await service.forInvoice(invoiceId);
+		const before = await service.forInvoice(invoiceId, ADMIN);
 		const ids = before.map((link) => link.photoId);
 
 		await expectRejects(
-			service.reorderInvoicePhotos({
-				invoiceId,
-				photoIds: ids.slice(1),
-			}),
+			service.reorderInvoicePhotos(
+				{
+					invoiceId,
+					photoIds: ids.slice(1),
+				},
+				ADMIN,
+			),
 			/photo/i,
 		);
 	});
@@ -438,9 +461,9 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkProject({ projectId, photoId: photo.id });
+		await service.linkProject({ projectId, photoId: photo.id }, ADMIN);
 
-		const links = await service.forProject(projectId);
+		const links = await service.forProject(projectId, ADMIN);
 		const linked = links.find((link) => link.photoId === photo.id);
 
 		expect(linked?.stageLabel).toBe("BEFORE");
@@ -460,14 +483,17 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkProject({ projectId, photoId: photo.id });
-		await service.setProjectStage({
-			projectId,
-			photoId: photo.id,
-			stageLabel: "IN_PROGRESS",
-		});
+		await service.linkProject({ projectId, photoId: photo.id }, ADMIN);
+		await service.setProjectStage(
+			{
+				projectId,
+				photoId: photo.id,
+				stageLabel: "IN_PROGRESS",
+			},
+			ADMIN,
+		);
 
-		const links = await service.forProject(projectId);
+		const links = await service.forProject(projectId, ADMIN);
 		const linked = links.find((link) => link.photoId === photo.id);
 
 		expect(linked?.stageLabel).toBe("IN_PROGRESS");
@@ -487,10 +513,10 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkProject({ projectId, photoId: photo.id });
-		await service.unlinkProject({ projectId, photoId: photo.id });
+		await service.linkProject({ projectId, photoId: photo.id }, ADMIN);
+		await service.unlinkProject({ projectId, photoId: photo.id }, ADMIN);
 
-		const links = await service.forProject(projectId);
+		const links = await service.forProject(projectId, ADMIN);
 		expect(links.some((link) => link.photoId === photo.id)).toBe(false);
 
 		const stillThere = await db.photo.findUnique({ where: { id: photo.id } });
@@ -539,32 +565,44 @@ describe("PhotosService", () => {
 		await savePhotoFiles(flaggedSecond.id, JPEG_BYTES, JPEG_BYTES);
 		await savePhotoFiles(unflagged.id, JPEG_BYTES, JPEG_BYTES);
 
-		const existing = await service.forEstimate(estimateId);
+		const existing = await service.forEstimate(estimateId, ADMIN);
 		const existingIds = existing.map((link) => link.photoId);
 
-		await service.linkEstimate({ estimateId, photoId: flaggedSecond.id });
-		await service.linkEstimate({ estimateId, photoId: flaggedFirst.id });
-		await service.linkEstimate({ estimateId, photoId: unflagged.id });
+		await service.linkEstimate(
+			{ estimateId, photoId: flaggedSecond.id },
+			ADMIN,
+		);
+		await service.linkEstimate({ estimateId, photoId: flaggedFirst.id }, ADMIN);
+		await service.linkEstimate({ estimateId, photoId: unflagged.id }, ADMIN);
 
-		await service.reorderEstimatePhotos({
-			estimateId,
-			photoIds: [
-				flaggedSecond.id,
-				flaggedFirst.id,
-				unflagged.id,
-				...existingIds,
-			],
-		});
-		await service.setEstimatePdfFlag({
-			estimateId,
-			photoId: flaggedSecond.id,
-			includeInPdf: true,
-		});
-		await service.setEstimatePdfFlag({
-			estimateId,
-			photoId: flaggedFirst.id,
-			includeInPdf: true,
-		});
+		await service.reorderEstimatePhotos(
+			{
+				estimateId,
+				photoIds: [
+					flaggedSecond.id,
+					flaggedFirst.id,
+					unflagged.id,
+					...existingIds,
+				],
+			},
+			ADMIN,
+		);
+		await service.setEstimatePdfFlag(
+			{
+				estimateId,
+				photoId: flaggedSecond.id,
+				includeInPdf: true,
+			},
+			ADMIN,
+		);
+		await service.setEstimatePdfFlag(
+			{
+				estimateId,
+				photoId: flaggedFirst.id,
+				includeInPdf: true,
+			},
+			ADMIN,
+		);
 
 		const photos = await service.pdfPhotosForEstimate(estimateId);
 
@@ -590,12 +628,15 @@ describe("PhotosService", () => {
 			select: { id: true },
 		});
 
-		await service.linkInvoice({ invoiceId, photoId: missing.id });
-		await service.setInvoicePdfFlag({
-			invoiceId,
-			photoId: missing.id,
-			includeInPdf: true,
-		});
+		await service.linkInvoice({ invoiceId, photoId: missing.id }, ADMIN);
+		await service.setInvoicePdfFlag(
+			{
+				invoiceId,
+				photoId: missing.id,
+				includeInPdf: true,
+			},
+			ADMIN,
+		);
 
 		const photos = await service.pdfPhotosForInvoice(invoiceId);
 

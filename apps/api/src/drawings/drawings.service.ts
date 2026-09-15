@@ -1,4 +1,11 @@
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+	isUnscoped,
+} from "@crm/db/access-scope";
 import {
 	DRAWINGS,
 	emptyScene,
@@ -8,6 +15,7 @@ import {
 } from "@crm/drawings";
 import {
 	ConflictException,
+	ForbiddenException,
 	Injectable,
 	NotFoundException,
 	PayloadTooLargeException,
@@ -43,8 +51,10 @@ const LIST_SELECT = {
 export class DrawingsService {
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async list(input: DrawingListInput) {
-		const where = this.buildWhere(input);
+	async list(input: DrawingListInput, p: AccessPrincipal) {
+		const where: Prisma.DrawingWhereInput = {
+			AND: [this.buildWhere(input), dealChildWhere(p)],
+		};
 		const { skip, take } = paginate(input);
 
 		const [rows, total] = await Promise.all([
@@ -68,8 +78,10 @@ export class DrawingsService {
 		};
 	}
 
-	async byId(id: string) {
-		const row = await this.db.drawing.findUnique({ where: { id } });
+	async byId(id: string, p: AccessPrincipal) {
+		const row = await this.db.drawing.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
+		});
 
 		if (!row) {
 			throw new NotFoundException(`No drawing with id ${id}.`);
@@ -82,7 +94,15 @@ export class DrawingsService {
 		};
 	}
 
-	async create(input: DrawingCreateInput, userId: string) {
+	async create(input: DrawingCreateInput, userId: string, p: AccessPrincipal) {
+		if (input.dealId) {
+			await this.assertDealInScope(input.dealId, p);
+		} else {
+			this.assertDeallessCreateAllowed(p);
+		}
+		if (input.contactId) {
+			await this.assertContactInScope(input.contactId, p);
+		}
 		return this.db.drawing.create({
 			data: {
 				title: input.title ?? "Untitled drawing",
@@ -104,7 +124,8 @@ export class DrawingsService {
 		});
 	}
 
-	async saveScene(input: DrawingSaveSceneInput) {
+	async saveScene(input: DrawingSaveSceneInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		if (isSceneTooLarge(input.scene)) {
 			throw new PayloadTooLargeException(
 				`Scene exceeds the ${DRAWINGS.limits.maxSceneBytes} byte limit.`,
@@ -173,7 +194,8 @@ export class DrawingsService {
 		}
 	}
 
-	async rename(input: DrawingRenameInput) {
+	async rename(input: DrawingRenameInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.drawing.update({
 				where: { id: input.id },
@@ -185,16 +207,23 @@ export class DrawingsService {
 		}
 	}
 
-	async attach(input: DrawingAttachInput) {
+	async attach(input: DrawingAttachInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		const data: Prisma.DrawingUpdateInput = {};
 
 		if (input.dealId !== undefined) {
+			if (input.dealId !== null) {
+				await this.assertDealInScope(input.dealId, p);
+			}
 			data.deal =
 				input.dealId === null
 					? { disconnect: true }
 					: { connect: { id: input.dealId } };
 		}
 		if (input.contactId !== undefined) {
+			if (input.contactId !== null) {
+				await this.assertContactInScope(input.contactId, p);
+			}
 			data.contact =
 				input.contactId === null
 					? { disconnect: true }
@@ -212,7 +241,8 @@ export class DrawingsService {
 		}
 	}
 
-	async delete(id: string) {
+	async delete(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		try {
 			return await this.db.drawing.delete({
 				where: { id },
@@ -223,13 +253,13 @@ export class DrawingsService {
 		}
 	}
 
-	async folders() {
+	async folders(p: AccessPrincipal) {
 		const rows = await this.db.drawingFolder.findMany({
 			orderBy: { name: "asc" },
 			select: {
 				id: true,
 				name: true,
-				_count: { select: { drawings: true } },
+				_count: { select: { drawings: { where: dealChildWhere(p) } } },
 			},
 		});
 		return rows.map(({ _count, ...row }) => ({
@@ -272,7 +302,8 @@ export class DrawingsService {
 		}
 	}
 
-	async move(input: DrawingMoveInput) {
+	async move(input: DrawingMoveInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.drawing.update({
 				where: { id: input.id },
@@ -289,7 +320,8 @@ export class DrawingsService {
 		}
 	}
 
-	async versions(id: string) {
+	async versions(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		return this.db.drawingVersion.findMany({
 			where: { drawingId: id },
 			orderBy: { createdAt: "desc" },
@@ -297,7 +329,8 @@ export class DrawingsService {
 		});
 	}
 
-	async restoreVersion(input: DrawingRestoreVersionInput) {
+	async restoreVersion(input: DrawingRestoreVersionInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.$transaction(async (tx) => {
 				const version = await tx.drawingVersion.findUnique({
@@ -341,7 +374,8 @@ export class DrawingsService {
 		}
 	}
 
-	async setThumbnail(input: DrawingSetThumbnailInput) {
+	async setThumbnail(input: DrawingSetThumbnailInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		try {
 			return await this.db.drawing.update({
 				where: { id: input.id },
@@ -396,6 +430,45 @@ export class DrawingsService {
 		}
 
 		return where;
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.drawing.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No drawing with id ${id}.`);
+	}
+
+	private async assertDealInScope(
+		dealId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No deal with id ${dealId}.`);
+	}
+
+	private async assertContactInScope(
+		contactId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.contact.findFirst({
+			where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) {
+			throw new NotFoundException(`No contact with id ${contactId}.`);
+		}
+	}
+
+	private assertDeallessCreateAllowed(p: AccessPrincipal): void {
+		if (isUnscoped(p) || p.scope !== "ASSIGNED") return;
+		throw new ForbiddenException(
+			`Your group (${p.groupName}) can only create these on a job assigned to you. Ask an admin.`,
+		);
 	}
 
 	private translateFolder(error: unknown, id: string | null): unknown {

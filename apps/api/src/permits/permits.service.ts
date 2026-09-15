@@ -1,5 +1,7 @@
 import { DEFAULT_WORKSPACE_NAME, WORKSPACE_ID } from "@crm/auth";
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { dealScopeWhere, requiredDealChildWhere } from "@crm/db/access-scope";
 import {
 	buildJurisdictionMatchKey,
 	canTransition,
@@ -112,18 +114,25 @@ export class PermitsService {
 		}));
 	}
 
-	async listByDeal(input: PermitDealIdInput) {
+	async listByDeal(input: PermitDealIdInput, p: AccessPrincipal) {
 		return this.db.permit.findMany({
-			where: { dealId: input.dealId },
+			where: { AND: [{ dealId: input.dealId }, requiredDealChildWhere(p)] },
 			orderBy: { createdAt: "desc" },
 			include: { jurisdiction: true },
 		});
 	}
 
-	async list(input: PermitListInput) {
+	async list(input: PermitListInput, p: AccessPrincipal) {
 		const where: Prisma.PermitWhereInput = {
-			...(input.status ? { status: input.status } : {}),
-			...(input.jurisdictionId ? { jurisdictionId: input.jurisdictionId } : {}),
+			AND: [
+				{
+					...(input.status ? { status: input.status } : {}),
+					...(input.jurisdictionId
+						? { jurisdictionId: input.jurisdictionId }
+						: {}),
+				},
+				requiredDealChildWhere(p),
+			],
 		};
 		const skip = (input.page - 1) * PERMITS.list.pageSize;
 
@@ -154,9 +163,9 @@ export class PermitsService {
 		return { rows, total };
 	}
 
-	async byId(permitId: string) {
-		const permit = await this.db.permit.findUnique({
-			where: { id: permitId },
+	async byId(permitId: string, p: AccessPrincipal) {
+		const permit = await this.db.permit.findFirst({
+			where: { AND: [{ id: permitId }, requiredDealChildWhere(p)] },
 			include: {
 				jurisdiction: true,
 				documents: { orderBy: { sortOrder: "asc" } },
@@ -187,7 +196,8 @@ export class PermitsService {
 		};
 	}
 
-	async create(input: CreatePermitInput, userId: string) {
+	async create(input: CreatePermitInput, userId: string, p: AccessPrincipal) {
+		await this.assertDealInScope(input.dealId, p);
 		const playbook = await this.playbooks.findOrCreate({
 			jurisdictionId: input.jurisdictionId,
 			permitType: input.permitType,
@@ -260,7 +270,8 @@ export class PermitsService {
 		});
 	}
 
-	async setStatus(input: SetPermitStatusInput) {
+	async setStatus(input: SetPermitStatusInput, p: AccessPrincipal) {
+		await this.assertInScope(input.permitId, p);
 		return this.db.$transaction(async (tx) => {
 			const permit = await tx.permit.findUnique({
 				where: { id: input.permitId },
@@ -301,7 +312,8 @@ export class PermitsService {
 		});
 	}
 
-	async update(input: UpdatePermitInput) {
+	async update(input: UpdatePermitInput, p: AccessPrincipal) {
+		await this.assertInScope(input.permitId, p);
 		const data: Prisma.PermitUpdateInput = {};
 		if (input.permitNumber !== undefined) {
 			data.permitNumber = input.permitNumber;
@@ -322,7 +334,12 @@ export class PermitsService {
 		}
 	}
 
-	async setAnswer(input: SetPermitAnswerInput, userId: string) {
+	async setAnswer(
+		input: SetPermitAnswerInput,
+		userId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.permitId, p);
 		await this.assertTemplateKey(input.permitId, input.key);
 		await this.mutateAnswers(input.permitId, (answers) => ({
 			...answers,
@@ -334,10 +351,15 @@ export class PermitsService {
 				approvedAt: new Date(),
 			},
 		}));
-		return this.byId(input.permitId);
+		return this.byId(input.permitId, p);
 	}
 
-	async approveAnswer(input: ApprovePermitAnswerInput, userId: string) {
+	async approveAnswer(
+		input: ApprovePermitAnswerInput,
+		userId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.permitId, p);
 		await this.mutateAnswers(input.permitId, (answers) => {
 			const current = answers[input.key];
 			const value = input.value ?? current?.value ?? "";
@@ -352,10 +374,15 @@ export class PermitsService {
 				},
 			};
 		});
-		return this.byId(input.permitId);
+		return this.byId(input.permitId, p);
 	}
 
-	async approveAllReviewed(input: PermitIdInput, userId: string) {
+	async approveAllReviewed(
+		input: PermitIdInput,
+		userId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.permitId, p);
 		await this.mutateAnswers(input.permitId, (answers) => {
 			const updated: WorksheetAnswers = {};
 			for (const [key, answer] of Object.entries(answers)) {
@@ -371,18 +398,20 @@ export class PermitsService {
 			}
 			return updated;
 		});
-		return this.byId(input.permitId);
+		return this.byId(input.permitId, p);
 	}
 
-	async clearAnswer(input: ClearPermitAnswerInput) {
+	async clearAnswer(input: ClearPermitAnswerInput, p: AccessPrincipal) {
+		await this.assertInScope(input.permitId, p);
 		await this.mutateAnswers(input.permitId, (answers) => {
 			const { [input.key]: _removed, ...rest } = answers;
 			return rest;
 		});
-		return this.byId(input.permitId);
+		return this.byId(input.permitId, p);
 	}
 
-	async applyPrefills(input: PermitIdInput) {
+	async applyPrefills(input: PermitIdInput, p: AccessPrincipal) {
+		await this.assertInScope(input.permitId, p);
 		const permit = await this.db.permit.findUnique({
 			where: { id: input.permitId },
 			select: { dealId: true, playbookId: true },
@@ -390,7 +419,7 @@ export class PermitsService {
 		if (!permit) {
 			throw new NotFoundException(`No permit with id ${input.permitId}.`);
 		}
-		if (!permit.playbookId) return this.byId(input.permitId);
+		if (!permit.playbookId) return this.byId(input.permitId, p);
 
 		const playbook = await this.playbooks.byId(permit.playbookId);
 		const values = await this.prefill.resolve(permit.dealId);
@@ -414,7 +443,7 @@ export class PermitsService {
 			return updated;
 		});
 
-		return this.byId(input.permitId);
+		return this.byId(input.permitId, p);
 	}
 
 	async writeAgentAnswers(
@@ -450,7 +479,11 @@ export class PermitsService {
 		});
 	}
 
-	async attachChecklistDocument(input: AttachChecklistDocumentInput) {
+	async attachChecklistDocument(
+		input: AttachChecklistDocumentInput,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.permitId, p);
 		return this.db.$transaction(async (tx) => {
 			const existing = await tx.permitDocument.findUnique({
 				where: {
@@ -537,7 +570,8 @@ export class PermitsService {
 		}
 	}
 
-	async setInspection(input: SetInspectionInput) {
+	async setInspection(input: SetInspectionInput, p: AccessPrincipal) {
+		await this.assertInScope(input.permitId, p);
 		if (input.inspectionId) {
 			const existing = await this.db.permitInspection.findUnique({
 				where: { id: input.inspectionId },
@@ -577,7 +611,8 @@ export class PermitsService {
 		});
 	}
 
-	async deleteInspection(input: InspectionIdInput) {
+	async deleteInspection(input: InspectionIdInput, p: AccessPrincipal) {
+		await this.assertInScope(input.permitId, p);
 		const existing = await this.db.permitInspection.findUnique({
 			where: { id: input.inspectionId },
 			select: { permitId: true },
@@ -594,7 +629,12 @@ export class PermitsService {
 		return { id: input.inspectionId };
 	}
 
-	async dismissPrompt(input: PermitDealIdInput, userId: string) {
+	async dismissPrompt(
+		input: PermitDealIdInput,
+		userId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertDealInScope(input.dealId, p);
 		await this.db.permitPromptDismissal.upsert({
 			where: { dealId: input.dealId },
 			create: { dealId: input.dealId, userId },
@@ -603,7 +643,8 @@ export class PermitsService {
 		return { dealId: input.dealId };
 	}
 
-	async promptState(input: PermitDealIdInput) {
+	async promptState(input: PermitDealIdInput, p: AccessPrincipal) {
+		await this.assertDealInScope(input.dealId, p);
 		const settings = await readPermitSettings(this.db);
 		const deal = await this.db.deal.findUnique({
 			where: { id: input.dealId },
@@ -735,7 +776,9 @@ export class PermitsService {
 
 	async worksheetPdf(
 		input: PermitIdInput,
+		p: AccessPrincipal,
 	): Promise<{ filename: string; base64: string }> {
+		await this.assertInScope(input.permitId, p);
 		const permit = await this.db.permit.findUnique({
 			where: { id: input.permitId },
 			include: {
@@ -843,6 +886,28 @@ export class PermitsService {
 			filename: `${filenameStem}.pdf`,
 			base64: buffer.toString("base64"),
 		};
+	}
+
+	private async assertInScope(
+		permitId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.permit.findFirst({
+			where: { AND: [{ id: permitId }, requiredDealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No permit with id ${permitId}.`);
+	}
+
+	private async assertDealInScope(
+		dealId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.deal.findFirst({
+			where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No deal with id ${dealId}.`);
 	}
 
 	private filenameStem(value: string): string {

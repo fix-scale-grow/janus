@@ -1,8 +1,16 @@
 import { type Db, type Prisma, Prisma as PrismaNamespace } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+	isUnscoped,
+} from "@crm/db/access-scope";
 import { ProductionStage, ProjectTaskStatus } from "@crm/db/enums";
 import { readPermitSettings } from "@crm/db/settings";
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	NotFoundException,
 } from "@nestjs/common";
@@ -91,8 +99,10 @@ export class ProjectsService {
 		private readonly production: ProductionAdvanceService,
 	) {}
 
-	async list(input: ProjectListInput) {
-		const where = this.buildWhere(input);
+	async list(input: ProjectListInput, p: AccessPrincipal) {
+		const where: Prisma.ProjectWhereInput = {
+			AND: [this.buildWhere(input), dealChildWhere(p)],
+		};
 		const { skip, take } = paginate(input);
 
 		const [rows, total] = await Promise.all([
@@ -120,8 +130,8 @@ export class ProjectsService {
 		};
 	}
 
-	async calendarRange(input: ProjectCalendarInput) {
-		const rows = await this.loadCalendarRows(input);
+	async calendarRange(input: ProjectCalendarInput, p: AccessPrincipal) {
+		const rows = await this.loadCalendarRows(input, p);
 		const dealIds = [
 			...new Set(
 				rows
@@ -185,7 +195,10 @@ export class ProjectsService {
 		return byDeal;
 	}
 
-	private async loadCalendarRows(input: ProjectCalendarInput) {
+	private async loadCalendarRows(
+		input: ProjectCalendarInput,
+		p: AccessPrincipal,
+	) {
 		const rows = await this.db.project.findMany({
 			where: {
 				...(input.status ? { status: input.status } : {}),
@@ -203,6 +216,7 @@ export class ProjectsService {
 							{ tasks: { some: { endDay: { gte: input.from } } } },
 						],
 					},
+					dealChildWhere(p),
 				],
 			},
 			select: {
@@ -263,9 +277,9 @@ export class ProjectsService {
 			);
 	}
 
-	async byId(id: string) {
-		const row = await this.db.project.findUnique({
-			where: { id },
+	async byId(id: string, p: AccessPrincipal) {
+		const row = await this.db.project.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
 			include: {
 				...ANCHOR_SELECT,
 				tasks: {
@@ -285,11 +299,21 @@ export class ProjectsService {
 		return { ...row, deal: flattenDeal(row.deal) };
 	}
 
-	async create(input: ProjectCreateInput, userId: string) {
-		if (input.dealId) await this.ensureLinked("deal", input.dealId);
-		if (input.contactId) await this.ensureLinked("contact", input.contactId);
-		if (input.estimateId) await this.ensureLinked("estimate", input.estimateId);
-		if (input.invoiceId) await this.ensureLinked("invoice", input.invoiceId);
+	async create(input: ProjectCreateInput, userId: string, p: AccessPrincipal) {
+		if (input.dealId) {
+			await this.ensureLinked("deal", input.dealId, p);
+		} else {
+			this.assertDeallessCreateAllowed(p);
+		}
+		if (input.contactId) {
+			await this.ensureLinked("contact", input.contactId, p);
+		}
+		if (input.estimateId) {
+			await this.ensureLinked("estimate", input.estimateId, p);
+		}
+		if (input.invoiceId) {
+			await this.ensureLinked("invoice", input.invoiceId, p);
+		}
 
 		const project = await this.db.project.create({
 			data: {
@@ -314,19 +338,24 @@ export class ProjectsService {
 		return project;
 	}
 
-	async update(input: ProjectUpdateInput, actingUserId: string) {
+	async update(
+		input: ProjectUpdateInput,
+		actingUserId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertInScope(input.id, p);
 		const { id, ...data } = input;
 		if (typeof data.dealId === "string") {
-			await this.ensureLinked("deal", data.dealId);
+			await this.ensureLinked("deal", data.dealId, p);
 		}
 		if (typeof data.contactId === "string") {
-			await this.ensureLinked("contact", data.contactId);
+			await this.ensureLinked("contact", data.contactId, p);
 		}
 		if (typeof data.estimateId === "string") {
-			await this.ensureLinked("estimate", data.estimateId);
+			await this.ensureLinked("estimate", data.estimateId, p);
 		}
 		if (typeof data.invoiceId === "string") {
-			await this.ensureLinked("invoice", data.invoiceId);
+			await this.ensureLinked("invoice", data.invoiceId, p);
 		}
 		let project: Awaited<ReturnType<Db["project"]["update"]>>;
 		try {
@@ -350,22 +379,26 @@ export class ProjectsService {
 	private async ensureLinked(
 		model: "deal" | "contact" | "estimate" | "invoice",
 		id: string,
+		p: AccessPrincipal,
 	) {
 		const row =
 			model === "deal"
-				? await this.db.deal.findUnique({ where: { id }, select: { id: true } })
+				? await this.db.deal.findFirst({
+						where: { AND: [{ id }, dealScopeWhere(p)] },
+						select: { id: true },
+					})
 				: model === "contact"
-					? await this.db.contact.findUnique({
-							where: { id },
+					? await this.db.contact.findFirst({
+							where: { AND: [{ id }, contactScopeWhere(p)] },
 							select: { id: true },
 						})
 					: model === "estimate"
-						? await this.db.estimate.findUnique({
-								where: { id },
+						? await this.db.estimate.findFirst({
+								where: { AND: [{ id }, dealChildWhere(p)] },
 								select: { id: true },
 							})
-						: await this.db.invoice.findUnique({
-								where: { id },
+						: await this.db.invoice.findFirst({
+								where: { AND: [{ id }, dealChildWhere(p)] },
 								select: { id: true },
 							});
 		if (!row) {
@@ -373,7 +406,8 @@ export class ProjectsService {
 		}
 	}
 
-	async moveSchedule(input: ProjectMoveScheduleInput) {
+	async moveSchedule(input: ProjectMoveScheduleInput, p: AccessPrincipal) {
+		await this.assertInScope(input.id, p);
 		return this.db.$transaction(async (tx) => {
 			const project = await tx.project.findUnique({
 				where: { id: input.id },
@@ -405,7 +439,8 @@ export class ProjectsService {
 		});
 	}
 
-	async remove(id: string) {
+	async remove(id: string, p: AccessPrincipal) {
+		await this.assertInScope(id, p);
 		try {
 			return await this.db.project.delete({
 				where: { id },
@@ -416,7 +451,8 @@ export class ProjectsService {
 		}
 	}
 
-	async taskCreate(input: TaskCreateInput) {
+	async taskCreate(input: TaskCreateInput, p: AccessPrincipal) {
+		await this.assertInScope(input.projectId, p);
 		return this.db.$transaction(async (tx) => {
 			const count = await tx.projectTask.count({
 				where: { projectId: input.projectId },
@@ -448,7 +484,12 @@ export class ProjectsService {
 		});
 	}
 
-	async taskUpdate(input: TaskUpdateInput, actingUserId: string) {
+	async taskUpdate(
+		input: TaskUpdateInput,
+		actingUserId: string,
+		p: AccessPrincipal,
+	) {
+		await this.assertTaskInScope(input.id, p);
 		const { id, ...data } = input;
 		let task: Awaited<ReturnType<Db["projectTask"]["update"]>>;
 		try {
@@ -498,7 +539,8 @@ export class ProjectsService {
 		}
 	}
 
-	async taskRemove(id: string) {
+	async taskRemove(id: string, p: AccessPrincipal) {
+		await this.assertTaskInScope(id, p);
 		try {
 			return await this.db.projectTask.delete({
 				where: { id },
@@ -509,7 +551,8 @@ export class ProjectsService {
 		}
 	}
 
-	async taskMove(input: TaskMoveInput) {
+	async taskMove(input: TaskMoveInput, p: AccessPrincipal) {
+		await this.assertTaskInScope(input.id, p);
 		return this.db.$transaction(async (tx) => {
 			const task = await tx.projectTask.findUnique({
 				where: { id: input.id },
@@ -585,7 +628,7 @@ export class ProjectsService {
 		});
 	}
 
-	async upcomingTasks() {
+	async upcomingTasks(p: AccessPrincipal) {
 		const from = new Date();
 		from.setUTCHours(0, 0, 0, 0);
 		const to = new Date(from);
@@ -593,8 +636,13 @@ export class ProjectsService {
 
 		const rows = await this.db.projectTask.findMany({
 			where: {
-				startDay: { gte: from, lte: to },
-				status: { in: ["TODO", "IN_PROGRESS"] },
+				AND: [
+					{
+						startDay: { gte: from, lte: to },
+						status: { in: ["TODO", "IN_PROGRESS"] },
+					},
+					{ project: dealChildWhere(p) },
+				],
 			},
 			orderBy: [{ startDay: "asc" }, { sortOrder: "asc" }],
 			take: PROJECTS.upcoming.take,
@@ -624,6 +672,32 @@ export class ProjectsService {
 				dealName: row.project.deal?.name ?? null,
 			})),
 		};
+	}
+
+	private async assertInScope(id: string, p: AccessPrincipal): Promise<void> {
+		const found = await this.db.project.findFirst({
+			where: { AND: [{ id }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No project with id ${id}.`);
+	}
+
+	private async assertTaskInScope(
+		id: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.projectTask.findFirst({
+			where: { AND: [{ id }, { project: dealChildWhere(p) }] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException(`No task with id ${id}.`);
+	}
+
+	private assertDeallessCreateAllowed(p: AccessPrincipal): void {
+		if (isUnscoped(p) || p.scope !== "ASSIGNED") return;
+		throw new ForbiddenException(
+			`Your group (${p.groupName}) can only create these on a job assigned to you. Ask an admin.`,
+		);
 	}
 
 	private buildWhere(input: ProjectListInput): Prisma.ProjectWhereInput {

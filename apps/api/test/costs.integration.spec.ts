@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { CostsService } from "../src/costs/costs.service";
 import { PermissionsService } from "../src/permissions/permissions.service";
@@ -142,6 +143,7 @@ describe("CostsService", () => {
 				category: "MATERIALS",
 			},
 			adminUserId,
+			adminPrincipal("test"),
 		);
 
 		expect(cost.currency).toBe("USD");
@@ -161,6 +163,7 @@ describe("CostsService", () => {
 					category: "MATERIALS",
 				},
 				adminUserId,
+				adminPrincipal("test"),
 			);
 		} catch (error) {
 			thrownError = error;
@@ -189,6 +192,7 @@ describe("CostsService", () => {
 				category: "MATERIALS",
 			},
 			adminUserId,
+			adminPrincipal("test"),
 		);
 		await service.create(
 			{
@@ -198,9 +202,13 @@ describe("CostsService", () => {
 				category: "LABOR",
 			},
 			adminUserId,
+			adminPrincipal("test"),
 		);
 
-		const result = await service.list({ dealId: listDealId });
+		const result = await service.list(
+			{ dealId: listDealId },
+			adminPrincipal("test"),
+		);
 
 		expect(result.rows.length).toBe(2);
 		expect(result.totalsByCurrency).toEqual([
@@ -308,6 +316,7 @@ describe("CostsService", () => {
 				category: "MATERIALS",
 			},
 			adminUserId,
+			adminPrincipal("test"),
 		);
 
 		await permissions.grant(adminUserId, {
@@ -336,7 +345,11 @@ describe("CostsService", () => {
 				},
 			});
 			try {
-				await service.profitForDeal(forbiddenUser.id, dealId);
+				await service.profitForDeal(
+					forbiddenUser.id,
+					dealId,
+					adminPrincipal("test"),
+				);
 			} catch (error) {
 				thrownError = error;
 			}
@@ -344,7 +357,11 @@ describe("CostsService", () => {
 			await db.member.deleteMany({ where: { userId: forbiddenUser.id } });
 			await db.user.deleteMany({ where: { id: forbiddenUser.id } });
 
-			const result = await service.profitForDeal(memberUserId, dealId);
+			const result = await service.profitForDeal(
+				memberUserId,
+				dealId,
+				adminPrincipal("test"),
+			);
 
 			expect(result.byCurrency.length).toBe(1);
 			const usd = result.byCurrency[0];
@@ -367,7 +384,7 @@ describe("CostsService", () => {
 	it("profitForDeal throws ForbiddenException without a grant, then succeeds after one", async () => {
 		let thrownError: unknown;
 		try {
-			await service.profitForDeal(memberUserId, dealId);
+			await service.profitForDeal(memberUserId, dealId, adminPrincipal("test"));
 		} catch (error) {
 			thrownError = error;
 		}
@@ -381,7 +398,11 @@ describe("CostsService", () => {
 			},
 		});
 
-		const result = await service.profitForDeal(memberUserId, dealId);
+		const result = await service.profitForDeal(
+			memberUserId,
+			dealId,
+			adminPrincipal("test"),
+		);
 		expect(result.byCurrency).toBeDefined();
 
 		await db.userPermission.deleteMany({
@@ -418,6 +439,7 @@ describe("CostsService", () => {
 				category: "LABOR",
 			},
 			adminUserId,
+			adminPrincipal("test"),
 		);
 
 		await db.userPermission.create({
@@ -428,7 +450,11 @@ describe("CostsService", () => {
 			},
 		});
 
-		const result = await service.profitForDeal(memberUserId, secondDealId);
+		const result = await service.profitForDeal(
+			memberUserId,
+			secondDealId,
+			adminPrincipal("test"),
+		);
 
 		expect(result.byCurrency.length).toBe(1);
 		const eur = result.byCurrency[0];
@@ -462,6 +488,7 @@ describe("CostsService", () => {
 				category: "OTHER",
 			},
 			adminUserId,
+			adminPrincipal("test"),
 		);
 
 		await db.userPermission.create({
@@ -472,7 +499,11 @@ describe("CostsService", () => {
 			},
 		});
 
-		const result = await service.profitForDeal(memberUserId, zeroDealId);
+		const result = await service.profitForDeal(
+			memberUserId,
+			zeroDealId,
+			adminPrincipal("test"),
+		);
 		expect(result.byCurrency.length).toBe(1);
 		const zero = result.byCurrency[0];
 		if (!zero) throw new Error("expected a byCurrency entry");

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { DrawingsService } from "../src/drawings/drawings.service";
 
@@ -7,6 +8,7 @@ const suffix = process.env.TEST_RUN_ID ?? "drawings-folders-spec";
 const userId = `user-${suffix}`;
 
 const drawings = new DrawingsService(db);
+const ADMIN = adminPrincipal("test");
 
 async function clean() {
 	await db.drawing.deleteMany({ where: { title: { contains: suffix } } });
@@ -38,42 +40,53 @@ describe("drawing folders", () => {
 		const drawing = await drawings.create(
 			{ title: `Plan ${suffix}`, background: "WHITEBOARD" },
 			userId,
+			ADMIN,
 		);
 		const loose = await drawings.create(
 			{ title: `Loose ${suffix}`, background: "WHITEBOARD" },
 			userId,
+			ADMIN,
 		);
 
-		const moved = await drawings.move({
-			id: drawing.id,
-			folderId: folder.id,
-		});
+		const moved = await drawings.move(
+			{
+				id: drawing.id,
+				folderId: folder.id,
+			},
+			ADMIN,
+		);
 		expect(moved.folderId).toBe(folder.id);
 
-		const folders = await drawings.folders();
+		const folders = await drawings.folders(ADMIN);
 		const listed = folders.find((row) => row.id === folder.id);
 		expect(listed?.drawingCount).toBe(1);
 
-		const filtered = await drawings.list({
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 50,
-			attachment: "all",
-			folderId: folder.id,
-		});
+		const filtered = await drawings.list(
+			{
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 50,
+				attachment: "all",
+				folderId: folder.id,
+			},
+			ADMIN,
+		);
 		expect(filtered.rows.map((row) => row.id)).toEqual([drawing.id]);
 		expect(filtered.rows[0]?.folderId).toBe(folder.id);
 
-		const unfiltered = await drawings.list({
-			q: suffix,
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 50,
-			attachment: "all",
-		});
+		const unfiltered = await drawings.list(
+			{
+				q: suffix,
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 50,
+				attachment: "all",
+			},
+			ADMIN,
+		);
 		expect(unfiltered.rows.map((row) => row.id).sort()).toEqual(
 			[drawing.id, loose.id].sort(),
 		);
@@ -84,10 +97,13 @@ describe("drawing folders", () => {
 		});
 		expect(renamed.name).toBe(`Renamed ${suffix}`);
 
-		const removed = await drawings.move({ id: drawing.id, folderId: null });
+		const removed = await drawings.move(
+			{ id: drawing.id, folderId: null },
+			ADMIN,
+		);
 		expect(removed.folderId).toBeNull();
 
-		await drawings.move({ id: drawing.id, folderId: folder.id });
+		await drawings.move({ id: drawing.id, folderId: folder.id }, ADMIN);
 		await drawings.deleteFolder(folder.id);
 
 		const survivor = await db.drawing.findUniqueOrThrow({

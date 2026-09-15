@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import { WORKSPACE_ID } from "@crm/auth";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import type { ProductionStage } from "@crm/db/enums";
 import { canAutoAdvance } from "@crm/db/production-semantics";
 import { ProductionAdvanceService } from "../src/production/production-advance.service";
@@ -17,6 +18,7 @@ const suffix = process.env.TEST_RUN_ID ?? "production-spec";
 
 const production = new ProductionAdvanceService(db);
 const projects = new ProjectsService(db, production);
+const ADMIN = adminPrincipal("test");
 
 let userId: string;
 let wonStageId: string;
@@ -227,6 +229,7 @@ describe("project activity drives production", () => {
 				startDate: new Date(),
 			},
 			userId,
+			ADMIN,
 		);
 		expect(await productionStageOf(dealId)).toBe("SCHEDULED");
 	});
@@ -239,25 +242,36 @@ describe("project activity drives production", () => {
 				startDate: new Date(),
 			},
 			userId,
+			ADMIN,
 		);
-		const first = await projects.taskCreate({
-			projectId: project.id,
-			name: "Tear off",
-			endDay: null,
-		});
-		const second = await projects.taskCreate({
-			projectId: project.id,
-			name: "Install",
-			endDay: null,
-		});
+		const first = await projects.taskCreate(
+			{
+				projectId: project.id,
+				name: "Tear off",
+				endDay: null,
+			},
+			ADMIN,
+		);
+		const second = await projects.taskCreate(
+			{
+				projectId: project.id,
+				name: "Install",
+				endDay: null,
+			},
+			ADMIN,
+		);
 
-		await projects.taskUpdate({ id: first.id, status: "IN_PROGRESS" }, userId);
+		await projects.taskUpdate(
+			{ id: first.id, status: "IN_PROGRESS" },
+			userId,
+			ADMIN,
+		);
 		expect(await productionStageOf(dealId)).toBe("IN_PROGRESS");
 
-		await projects.taskUpdate({ id: first.id, status: "DONE" }, userId);
+		await projects.taskUpdate({ id: first.id, status: "DONE" }, userId, ADMIN);
 		expect(await productionStageOf(dealId)).toBe("IN_PROGRESS");
 
-		await projects.taskUpdate({ id: second.id, status: "DONE" }, userId);
+		await projects.taskUpdate({ id: second.id, status: "DONE" }, userId, ADMIN);
 		expect(await productionStageOf(dealId)).toBe("COMPLETE");
 	});
 });

@@ -23,6 +23,18 @@ export type AccessFixture = {
 	clerkContractId: string;
 	otherContractId: string;
 	otherDrawingId: string;
+	clerkDrawingId: string;
+	looseDrawingByClerkId: string;
+	looseDrawingByAdminId: string;
+	clerkProjectId: string;
+	otherProjectId: string;
+	clerkPhotoId: string;
+	otherPhotoId: string;
+	contactOnlyPhotoOnOtherContactId: string;
+	clerkPermitId: string;
+	otherPermitId: string;
+	clerkCostId: string;
+	otherCostId: string;
 	cleanup(): Promise<void>;
 };
 
@@ -189,6 +201,134 @@ export async function createAccessFixture(
 		},
 		select: { id: true },
 	});
+	const clerkDrawing = await db.drawing.create({
+		data: {
+			title: `Clerk drawing ${suffix}`,
+			scene: {},
+			dealId: clerkDeal.id,
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const looseDrawingByClerk = await db.drawing.create({
+		data: {
+			title: `Loose clerk drawing ${suffix}`,
+			scene: {},
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const looseDrawingByAdmin = await db.drawing.create({
+		data: {
+			title: `Loose admin drawing ${suffix}`,
+			scene: {},
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
+	const clerkProject = await db.project.create({
+		data: {
+			name: `Clerk project ${suffix}`,
+			startDate: new Date(),
+			dealId: clerkDeal.id,
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const otherProject = await db.project.create({
+		data: {
+			name: `Other project ${suffix}`,
+			startDate: new Date(),
+			dealId: otherDeal.id,
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
+	const clerkPhoto = await db.photo.create({
+		data: {
+			dealId: clerkDeal.id,
+			uploadedById: users.clerk.id,
+			filename: `clerk-photo-${suffix}.jpg`,
+			mimeType: "image/jpeg",
+			sizeBytes: 10,
+			width: 100,
+			height: 100,
+		},
+		select: { id: true },
+	});
+	const otherPhoto = await db.photo.create({
+		data: {
+			dealId: otherDeal.id,
+			uploadedById: users.admin.id,
+			filename: `other-photo-${suffix}.jpg`,
+			mimeType: "image/jpeg",
+			sizeBytes: 10,
+			width: 100,
+			height: 100,
+		},
+		select: { id: true },
+	});
+	const contactOnlyPhotoOnOtherContact = await db.photo.create({
+		data: {
+			contactId: otherContact.id,
+			uploadedById: users.admin.id,
+			filename: `other-contact-photo-${suffix}.jpg`,
+			mimeType: "image/jpeg",
+			sizeBytes: 10,
+			width: 100,
+			height: 100,
+		},
+		select: { id: true },
+	});
+	const jurisdiction = await db.jurisdiction.create({
+		data: {
+			name: `Access Fixture City ${suffix}`,
+			kind: "CITY",
+			state: "CO",
+			matchKey: `access-fixture-city-${suffix}`,
+		},
+		select: { id: true },
+	});
+	const clerkPermit = await db.permit.create({
+		data: {
+			dealId: clerkDeal.id,
+			jurisdictionId: jurisdiction.id,
+			permitType: "BUILDING",
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const otherPermit = await db.permit.create({
+		data: {
+			dealId: otherDeal.id,
+			jurisdictionId: jurisdiction.id,
+			permitType: "BUILDING",
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
+	const clerkCost = await db.jobCost.create({
+		data: {
+			dealId: clerkDeal.id,
+			date: new Date(),
+			amountCents: 100,
+			currency: "USD",
+			category: "MATERIALS",
+			createdById: users.clerk.id,
+		},
+		select: { id: true },
+	});
+	const otherCost = await db.jobCost.create({
+		data: {
+			dealId: otherDeal.id,
+			date: new Date(),
+			amountCents: 100,
+			currency: "USD",
+			category: "MATERIALS",
+			createdById: users.admin.id,
+		},
+		select: { id: true },
+	});
 	const resolve = async (id: string) => {
 		const p = await resolvePrincipal(db, id);
 		if (!p) throw new Error(`principal ${id} missing`);
@@ -214,8 +354,41 @@ export async function createAccessFixture(
 		clerkContractId: clerkContract.id,
 		otherContractId: otherContract.id,
 		otherDrawingId: otherDrawing.id,
+		clerkDrawingId: clerkDrawing.id,
+		looseDrawingByClerkId: looseDrawingByClerk.id,
+		looseDrawingByAdminId: looseDrawingByAdmin.id,
+		clerkProjectId: clerkProject.id,
+		otherProjectId: otherProject.id,
+		clerkPhotoId: clerkPhoto.id,
+		otherPhotoId: otherPhoto.id,
+		contactOnlyPhotoOnOtherContactId: contactOnlyPhotoOnOtherContact.id,
+		clerkPermitId: clerkPermit.id,
+		otherPermitId: otherPermit.id,
+		clerkCostId: clerkCost.id,
+		otherCostId: otherCost.id,
 		async cleanup() {
 			const userIds = Object.values(users).map((u) => u.id);
+			await db.jobCost.deleteMany({
+				where: { id: { in: [clerkCost.id, otherCost.id] } },
+			});
+			await db.permit.deleteMany({
+				where: { id: { in: [clerkPermit.id, otherPermit.id] } },
+			});
+			await db.jurisdiction.deleteMany({ where: { id: jurisdiction.id } });
+			await db.photo.deleteMany({
+				where: {
+					id: {
+						in: [
+							clerkPhoto.id,
+							otherPhoto.id,
+							contactOnlyPhotoOnOtherContact.id,
+						],
+					},
+				},
+			});
+			await db.project.deleteMany({
+				where: { id: { in: [clerkProject.id, otherProject.id] } },
+			});
 			await db.contract.deleteMany({
 				where: {
 					id: { in: [clerkContract.id, otherContract.id] },
@@ -225,7 +398,16 @@ export async function createAccessFixture(
 				where: { id: { in: [clerkInvoice.id, otherInvoice.id] } },
 			});
 			await db.drawing.deleteMany({
-				where: { id: otherDrawing.id },
+				where: {
+					id: {
+						in: [
+							otherDrawing.id,
+							clerkDrawing.id,
+							looseDrawingByClerk.id,
+							looseDrawingByAdmin.id,
+						],
+					},
+				},
 			});
 			await db.estimate.deleteMany({
 				where: {

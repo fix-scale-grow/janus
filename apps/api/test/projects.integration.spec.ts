@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { writePermitSettings } from "@crm/db/settings";
 import { NotFoundException } from "@nestjs/common";
 import { ProductionAdvanceService } from "../src/production/production-advance.service";
@@ -8,6 +9,7 @@ import { ProjectsService } from "../src/projects/projects.service";
 const suffix = process.env.TEST_RUN_ID ?? "projects-spec";
 
 const service = new ProjectsService(db, new ProductionAdvanceService(db));
+const ADMIN = adminPrincipal("test");
 
 let userId: string;
 let dealId: string;
@@ -56,9 +58,10 @@ describe("ProjectsService", () => {
 		const created = await service.create(
 			{ dealId, name: `Project ${suffix}`, startDate: new Date() },
 			userId,
+			ADMIN,
 		);
 
-		const found = await service.byId(created.id);
+		const found = await service.byId(created.id, ADMIN);
 
 		expect(found.id).toBe(created.id);
 		expect(found.name).toBe(`Project ${suffix}`);
@@ -69,29 +72,39 @@ describe("ProjectsService", () => {
 		const project = await service.create(
 			{ dealId, name: `Sort project ${suffix}`, startDate: new Date() },
 			userId,
+			ADMIN,
 		);
 
 		const startDay = new Date("2026-09-10T00:00:00.000Z");
 		const endDay = new Date("2026-09-11T00:00:00.000Z");
 
-		const first = await service.taskCreate({
-			projectId: project.id,
-			name: "First",
-			startDay,
-			endDay,
-		});
-		const second = await service.taskCreate({
-			projectId: project.id,
-			name: "Second",
-			startDay,
-			endDay,
-		});
-		const third = await service.taskCreate({
-			projectId: project.id,
-			name: "Third",
-			startDay,
-			endDay,
-		});
+		const first = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "First",
+				startDay,
+				endDay,
+			},
+			ADMIN,
+		);
+		const second = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Second",
+				startDay,
+				endDay,
+			},
+			ADMIN,
+		);
+		const third = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Third",
+				startDay,
+				endDay,
+			},
+			ADMIN,
+		);
 
 		expect(first.sortOrder).toBe(0);
 		expect(second.sortOrder).toBe(1);
@@ -102,30 +115,40 @@ describe("ProjectsService", () => {
 		const project = await service.create(
 			{ dealId, name: `Order project ${suffix}`, startDate: new Date() },
 			userId,
+			ADMIN,
 		);
 
 		const laterDay = new Date("2026-09-15T00:00:00.000Z");
 		const earlierDay = new Date("2026-09-08T00:00:00.000Z");
 
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Later",
-			startDay: laterDay,
-			endDay: laterDay,
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Earlier",
-			startDay: earlierDay,
-			endDay: earlierDay,
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Unscheduled",
-			endDay: null,
-		});
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Later",
+				startDay: laterDay,
+				endDay: laterDay,
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Earlier",
+				startDay: earlierDay,
+				endDay: earlierDay,
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Unscheduled",
+				endDay: null,
+			},
+			ADMIN,
+		);
 
-		const found = await service.byId(project.id);
+		const found = await service.byId(project.id, ADMIN);
 
 		expect(found.tasks.map((task) => task.name)).toEqual([
 			"Earlier",
@@ -139,38 +162,51 @@ describe("ProjectsService", () => {
 		const project = await service.create(
 			{ dealId, name: `Move project ${suffix}`, startDate: new Date() },
 			userId,
+			ADMIN,
 		);
 
 		const startDay = new Date("2026-09-11T00:00:00.000Z");
 		const otherStartDay = new Date("2026-09-12T00:00:00.000Z");
 
-		const task0 = await service.taskCreate({
-			projectId: project.id,
-			name: "Task 0",
-			startDay,
-			endDay: startDay,
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Task 1",
-			startDay,
-			endDay: startDay,
-		});
-		const task2 = await service.taskCreate({
-			projectId: project.id,
-			name: "Task 2",
-			startDay,
-			endDay: startDay,
-		});
+		const task0 = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Task 0",
+				startDay,
+				endDay: startDay,
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Task 1",
+				startDay,
+				endDay: startDay,
+			},
+			ADMIN,
+		);
+		const task2 = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Task 2",
+				startDay,
+				endDay: startDay,
+			},
+			ADMIN,
+		);
 
-		await service.taskMove({
-			id: task2.id,
-			startDay,
-			endDay: startDay,
-			sortOrder: 0,
-		});
+		await service.taskMove(
+			{
+				id: task2.id,
+				startDay,
+				endDay: startDay,
+				sortOrder: 0,
+			},
+			ADMIN,
+		);
 
-		const afterFirstMove = await service.byId(project.id);
+		const afterFirstMove = await service.byId(project.id, ADMIN);
 		const dayTasks = afterFirstMove.tasks
 			.filter((task) => task.startDay !== null)
 			.sort((a, b) => a.sortOrder - b.sortOrder);
@@ -182,14 +218,17 @@ describe("ProjectsService", () => {
 		]);
 		expect(dayTasks.map((task) => task.sortOrder)).toEqual([0, 1, 2]);
 
-		await service.taskMove({
-			id: task0.id,
-			startDay: otherStartDay,
-			endDay: otherStartDay,
-			sortOrder: 0,
-		});
+		await service.taskMove(
+			{
+				id: task0.id,
+				startDay: otherStartDay,
+				endDay: otherStartDay,
+				sortOrder: 0,
+			},
+			ADMIN,
+		);
 
-		const afterOtherDayMove = await service.byId(project.id);
+		const afterOtherDayMove = await service.byId(project.id, ADMIN);
 		const movedToOtherDay = afterOtherDayMove.tasks.find(
 			(task) => task.id === task0.id,
 		);
@@ -210,14 +249,17 @@ describe("ProjectsService", () => {
 		]);
 		expect(remainingOnFirstDay.map((task) => task.sortOrder)).toEqual([0, 1]);
 
-		await service.taskMove({
-			id: task0.id,
-			startDay: null,
-			endDay: null,
-			sortOrder: 0,
-		});
+		await service.taskMove(
+			{
+				id: task0.id,
+				startDay: null,
+				endDay: null,
+				sortOrder: 0,
+			},
+			ADMIN,
+		);
 
-		const afterUnscheduledMove = await service.byId(project.id);
+		const afterUnscheduledMove = await service.byId(project.id, ADMIN);
 		const unscheduled = afterUnscheduledMove.tasks.find(
 			(task) => task.id === task0.id,
 		);
@@ -230,46 +272,62 @@ describe("ProjectsService", () => {
 		const project = await service.create(
 			{ dealId, name: `Counts project ${suffix}`, startDate: new Date() },
 			userId,
+			ADMIN,
 		);
 
-		const task = await service.taskCreate({
-			projectId: project.id,
-			name: "Countable 1",
-			endDay: null,
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Countable 2",
-			endDay: null,
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Countable 3",
-			endDay: null,
-		});
+		const task = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Countable 1",
+				endDay: null,
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Countable 2",
+				endDay: null,
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Countable 3",
+				endDay: null,
+			},
+			ADMIN,
+		);
 
-		const listBefore = await service.list({
-			dealId,
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 25,
-		});
+		const listBefore = await service.list(
+			{
+				dealId,
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 25,
+			},
+			ADMIN,
+		);
 		const rowBefore = listBefore.rows.find((row) => row.id === project.id);
 
 		expect(rowBefore?.taskCounts).toEqual({ total: 3, done: 0 });
 
-		await service.taskUpdate({ id: task.id, status: "DONE" }, userId);
+		await service.taskUpdate({ id: task.id, status: "DONE" }, userId, ADMIN);
 
-		const listAfter = await service.list({
-			dealId,
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 25,
-		});
+		const listAfter = await service.list(
+			{
+				dealId,
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 25,
+			},
+			ADMIN,
+		);
 		const rowAfter = listAfter.rows.find((row) => row.id === project.id);
 
 		expect(rowAfter?.taskCounts).toEqual({ total: 3, done: 1 });
@@ -287,6 +345,7 @@ describe("ProjectsService", () => {
 				goalDate: new Date("2027-03-05T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const before = await service.create(
 			{
@@ -296,6 +355,7 @@ describe("ProjectsService", () => {
 				goalDate: new Date("2027-02-01T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const after = await service.create(
 			{
@@ -305,9 +365,10 @@ describe("ProjectsService", () => {
 				goalDate: new Date("2027-04-20T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const ids = rows.map((row) => row.id);
 
 		expect(ids).toContain(spanning.id);
@@ -330,21 +391,28 @@ describe("ProjectsService", () => {
 				startDate: new Date("2027-04-25T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Early",
-			startDay: new Date("2027-04-26T00:00:00.000Z"),
-			endDay: new Date("2027-04-28T00:00:00.000Z"),
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Late",
-			startDay: new Date("2027-05-02T00:00:00.000Z"),
-			endDay: new Date("2027-05-04T00:00:00.000Z"),
-		});
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Early",
+				startDay: new Date("2027-04-26T00:00:00.000Z"),
+				endDay: new Date("2027-04-28T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Late",
+				startDay: new Date("2027-05-02T00:00:00.000Z"),
+				endDay: new Date("2027-05-04T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.endDate).toEqual(new Date("2027-05-04T00:00:00.000Z"));
@@ -361,15 +429,19 @@ describe("ProjectsService", () => {
 				startDate: new Date("2027-06-01T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Done early",
-			startDay: new Date("2027-06-02T00:00:00.000Z"),
-			endDay: new Date("2027-06-03T00:00:00.000Z"),
-		});
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Done early",
+				startDay: new Date("2027-06-02T00:00:00.000Z"),
+				endDay: new Date("2027-06-03T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 
 		expect(rows.map((row) => row.id)).not.toContain(project.id);
 	});
@@ -385,9 +457,10 @@ describe("ProjectsService", () => {
 				startDate: new Date("2027-08-15T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.endDate).toEqual(new Date("2027-08-15T00:00:00.000Z"));
@@ -404,6 +477,7 @@ describe("ProjectsService", () => {
 				startDate: new Date("2027-09-10T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const held = await service.create(
 			{
@@ -412,10 +486,14 @@ describe("ProjectsService", () => {
 				startDate: new Date("2027-09-10T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
-		await service.update({ id: held.id, status: "ON_HOLD" }, userId);
+		await service.update({ id: held.id, status: "ON_HOLD" }, userId, ADMIN);
 
-		const rows = await service.calendarRange({ from, to, status: "ACTIVE" });
+		const rows = await service.calendarRange(
+			{ from, to, status: "ACTIVE" },
+			ADMIN,
+		);
 		const ids = rows.map((row) => row.id);
 
 		expect(ids).toContain(active.id);
@@ -434,9 +512,10 @@ describe("ProjectsService", () => {
 				goalDate: new Date("2027-10-05T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.endDate).toEqual(new Date("2027-10-20T00:00:00.000Z"));
@@ -453,21 +532,28 @@ describe("ProjectsService", () => {
 				startDate: new Date("2028-01-08T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
-		await service.taskCreate({
-			projectId: project.id,
-			name: "First job",
-			startDay: new Date("2028-01-15T00:00:00.000Z"),
-			endDay: new Date("2028-01-17T00:00:00.000Z"),
-		});
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Second job",
-			startDay: new Date("2028-01-25T00:00:00.000Z"),
-			endDay: new Date("2028-01-25T00:00:00.000Z"),
-		});
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "First job",
+				startDay: new Date("2028-01-15T00:00:00.000Z"),
+				endDay: new Date("2028-01-17T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Second job",
+				startDay: new Date("2028-01-25T00:00:00.000Z"),
+				endDay: new Date("2028-01-25T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.startDate).toEqual(new Date("2028-01-15T00:00:00.000Z"));
@@ -486,15 +572,19 @@ describe("ProjectsService", () => {
 				goalDate: new Date("2028-02-15T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Overrun",
-			startDay: new Date("2028-02-10T00:00:00.000Z"),
-			endDay: new Date("2028-02-20T00:00:00.000Z"),
-		});
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Overrun",
+				startDay: new Date("2028-02-10T00:00:00.000Z"),
+				endDay: new Date("2028-02-20T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.startDate).toEqual(new Date("2028-02-10T00:00:00.000Z"));
@@ -522,26 +612,33 @@ describe("ProjectsService", () => {
 				startDate: new Date("2028-03-10T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 
-		const found = await service.byId(project.id);
+		const found = await service.byId(project.id, ADMIN);
 		expect(found.deal?.contacts.map((row) => row.id)).toContain(contact.id);
 
-		const listed = await service.list({
-			dealId,
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 25,
-		});
+		const listed = await service.list(
+			{
+				dealId,
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 25,
+			},
+			ADMIN,
+		);
 		const listedRow = listed.rows.find((row) => row.id === project.id);
 		expect(listedRow?.deal?.contacts[0]?.firstName).toBe("Casey");
 
-		const calendar = await service.calendarRange({
-			from: new Date("2028-03-01T00:00:00.000Z"),
-			to: new Date("2028-03-31T00:00:00.000Z"),
-		});
+		const calendar = await service.calendarRange(
+			{
+				from: new Date("2028-03-01T00:00:00.000Z"),
+				to: new Date("2028-03-31T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
 		const calendarRow = calendar.find((row) => row.id === project.id);
 		expect(calendarRow?.deal?.contacts[0]?.lastName).toBe("Client");
 
@@ -558,18 +655,25 @@ describe("ProjectsService", () => {
 				goalDate: new Date("2028-04-10T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
-		const scheduled = await service.taskCreate({
-			projectId: project.id,
-			name: "Scheduled",
-			startDay: new Date("2028-04-03T00:00:00.000Z"),
-			endDay: new Date("2028-04-04T00:00:00.000Z"),
-		});
-		const unscheduled = await service.taskCreate({
-			projectId: project.id,
-			name: "Unscheduled",
-			endDay: null,
-		});
+		const scheduled = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Scheduled",
+				startDay: new Date("2028-04-03T00:00:00.000Z"),
+				endDay: new Date("2028-04-04T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
+		const unscheduled = await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Unscheduled",
+				endDay: null,
+			},
+			ADMIN,
+		);
 		const legacy = await db.projectTask.create({
 			data: {
 				projectId: project.id,
@@ -579,15 +683,18 @@ describe("ProjectsService", () => {
 			select: { id: true },
 		});
 
-		const moved = await service.moveSchedule({
-			id: project.id,
-			deltaDays: 3,
-		});
+		const moved = await service.moveSchedule(
+			{
+				id: project.id,
+				deltaDays: 3,
+			},
+			ADMIN,
+		);
 
 		expect(moved.startDate).toEqual(new Date("2028-04-04T00:00:00.000Z"));
 		expect(moved.goalDate).toEqual(new Date("2028-04-13T00:00:00.000Z"));
 
-		const after = await service.byId(project.id);
+		const after = await service.byId(project.id, ADMIN);
 		const movedTask = after.tasks.find((task) => task.id === scheduled.id);
 		expect(movedTask?.startDay).toEqual(new Date("2028-04-06T00:00:00.000Z"));
 		expect(movedTask?.endDay).toEqual(new Date("2028-04-07T00:00:00.000Z"));
@@ -609,17 +716,24 @@ describe("ProjectsService", () => {
 				startDate: new Date("2028-05-01T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 
-		const moved = await service.moveSchedule({
-			id: project.id,
-			deltaDays: -2,
-		});
+		const moved = await service.moveSchedule(
+			{
+				id: project.id,
+				deltaDays: -2,
+			},
+			ADMIN,
+		);
 		expect(moved.startDate).toEqual(new Date("2028-04-29T00:00:00.000Z"));
 		expect(moved.goalDate).toBeNull();
 
 		try {
-			await service.moveSchedule({ id: "missing-project", deltaDays: 1 });
+			await service.moveSchedule(
+				{ id: "missing-project", deltaDays: 1 },
+				ADMIN,
+			);
 			expect.unreachable("moveSchedule accepted an unknown project");
 		} catch (error) {
 			expect(error).toBeInstanceOf(NotFoundException);
@@ -633,10 +747,11 @@ describe("ProjectsService", () => {
 				startDate: new Date("2028-06-01T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		expect(project.dealId).toBeNull();
 
-		const found = await service.byId(project.id);
+		const found = await service.byId(project.id, ADMIN);
 		expect(found.deal).toBeNull();
 
 		const contact = await db.contact.create({
@@ -669,38 +784,46 @@ describe("ProjectsService", () => {
 				invoiceId: invoice.id,
 			},
 			userId,
+			ADMIN,
 		);
-		const linked = await service.byId(project.id);
+		const linked = await service.byId(project.id, ADMIN);
 		expect(linked.contact?.id).toBe(contact.id);
 		expect(linked.estimate?.title).toBe("Roof estimate");
 		expect(linked.invoice?.id).toBe(invoice.id);
 
-		const listed = await service.list({
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 100,
-		});
+		const listed = await service.list(
+			{
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 100,
+			},
+			ADMIN,
+		);
 		const listedRow = listed.rows.find((row) => row.id === project.id);
 		expect(listedRow?.deal).toBeNull();
 		expect(listedRow?.contact?.firstName).toBe("Solo");
 
-		const calendar = await service.calendarRange({
-			from: new Date("2028-06-01T00:00:00.000Z"),
-			to: new Date("2028-06-30T00:00:00.000Z"),
-		});
+		const calendar = await service.calendarRange(
+			{
+				from: new Date("2028-06-01T00:00:00.000Z"),
+				to: new Date("2028-06-30T00:00:00.000Z"),
+			},
+			ADMIN,
+		);
 		const calendarRow = calendar.find((row) => row.id === project.id);
 		expect(calendarRow?.contact?.firstName).toBe("Solo");
 
 		await db.estimate.delete({ where: { id: estimate.id } });
-		const afterEstimateDelete = await service.byId(project.id);
+		const afterEstimateDelete = await service.byId(project.id, ADMIN);
 		expect(afterEstimateDelete.estimate).toBeNull();
 
 		try {
 			await service.update(
 				{ id: project.id, invoiceId: "missing-invoice" },
 				userId,
+				ADMIN,
 			);
 			expect.unreachable("update accepted an unknown invoice");
 		} catch (error) {
@@ -710,8 +833,9 @@ describe("ProjectsService", () => {
 		await service.update(
 			{ id: project.id, contactId: null, invoiceId: null },
 			userId,
+			ADMIN,
 		);
-		const unlinked = await service.byId(project.id);
+		const unlinked = await service.byId(project.id, ADMIN);
 		expect(unlinked.contact).toBeNull();
 		expect(unlinked.invoice).toBeNull();
 
@@ -738,16 +862,20 @@ describe("ProjectsService", () => {
 				startDate: new Date(),
 			},
 			userId,
+			ADMIN,
 		);
-		await service.taskCreate({
-			projectId: project.id,
-			name: "Cascade task",
-			endDay: null,
-		});
+		await service.taskCreate(
+			{
+				projectId: project.id,
+				name: "Cascade task",
+				endDay: null,
+			},
+			ADMIN,
+		);
 
 		await db.deal.delete({ where: { id: secondDeal.id } });
 
-		const survivor = await service.byId(project.id);
+		const survivor = await service.byId(project.id, ADMIN);
 		expect(survivor.deal).toBeNull();
 		expect(survivor.tasks).toHaveLength(1);
 
@@ -803,6 +931,7 @@ describe("ProjectsService calendarRange inspections", () => {
 				startDate: new Date("2029-01-05T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const inspection = await db.permitInspection.create({
 			data: {
@@ -813,7 +942,7 @@ describe("ProjectsService calendarRange inspections", () => {
 			select: { id: true },
 		});
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 		const entry = found?.inspections.find((row) => row.id === inspection.id);
 
@@ -834,6 +963,7 @@ describe("ProjectsService calendarRange inspections", () => {
 				startDate: new Date("2029-02-05T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const inspection = await db.permitInspection.create({
 			data: {
@@ -844,7 +974,7 @@ describe("ProjectsService calendarRange inspections", () => {
 			select: { id: true },
 		});
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.inspections).toEqual([]);
@@ -862,6 +992,7 @@ describe("ProjectsService calendarRange inspections", () => {
 				startDate: new Date("2029-04-05T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const inspection = await db.permitInspection.create({
 			data: {
@@ -874,7 +1005,7 @@ describe("ProjectsService calendarRange inspections", () => {
 
 		await writePermitSettings(db, { permitsEnabled: false });
 		try {
-			const rows = await service.calendarRange({ from, to });
+			const rows = await service.calendarRange({ from, to }, ADMIN);
 			const found = rows.find((row) => row.id === project.id);
 			expect(found?.inspections).toEqual([]);
 		} finally {
@@ -893,6 +1024,7 @@ describe("ProjectsService calendarRange inspections", () => {
 				startDate: new Date("2029-05-05T00:00:00.000Z"),
 			},
 			userId,
+			ADMIN,
 		);
 		const inspection = await db.permitInspection.create({
 			data: {
@@ -903,7 +1035,7 @@ describe("ProjectsService calendarRange inspections", () => {
 			select: { id: true },
 		});
 
-		const rows = await service.calendarRange({ from, to });
+		const rows = await service.calendarRange({ from, to }, ADMIN);
 		const found = rows.find((row) => row.id === project.id);
 
 		expect(found?.deal).toBeNull();

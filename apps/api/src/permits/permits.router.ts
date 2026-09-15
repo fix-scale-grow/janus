@@ -10,7 +10,10 @@ import {
 import type { z } from "zod";
 import { access } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
-import type { AuthedTrpcContext } from "../trpc/context.types";
+import type {
+	AccessTrpcContext,
+	AuthedTrpcContext,
+} from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
 import {
 	approvePermitAnswerInput,
@@ -146,49 +149,67 @@ export class PermitsRouter {
 	}
 
 	@Query({ input: permitDealIdInput, meta: access("permits", "VIEW") })
-	async listByDeal(@Input() input: z.infer<typeof permitDealIdInput>) {
-		return this.permits.listByDeal(input);
+	async listByDeal(
+		@Input() input: z.infer<typeof permitDealIdInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.listByDeal(input, ctx.access);
 	}
 
 	@Query({ input: permitListInput, meta: access("permits", "VIEW") })
-	async list(@Input() input: z.infer<typeof permitListInput>) {
-		return this.permits.list(input);
+	async list(
+		@Input() input: z.infer<typeof permitListInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.list(input, ctx.access);
 	}
 
 	@Query({ input: permitIdInput, meta: access("permits", "VIEW") })
-	async byId(@Input("permitId") permitId: string) {
-		return this.permits.byId(permitId);
+	async byId(
+		@Input("permitId") permitId: string,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.byId(permitId, ctx.access);
 	}
 
 	@Mutation({ input: createPermitInput, meta: access("permits", "EDIT") })
 	async create(
 		@Input() input: z.infer<typeof createPermitInput>,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.permits.create(input, ctx.user.id);
+		return this.permits.create(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: setPermitStatusInput, meta: access("permits", "EDIT") })
-	async setStatus(@Input() input: z.infer<typeof setPermitStatusInput>) {
-		return this.permits.setStatus(input);
+	async setStatus(
+		@Input() input: z.infer<typeof setPermitStatusInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.setStatus(input, ctx.access);
 	}
 
 	@Mutation({ input: updatePermitInput, meta: access("permits", "EDIT") })
-	async update(@Input() input: z.infer<typeof updatePermitInput>) {
-		return this.permits.update(input);
+	async update(
+		@Input() input: z.infer<typeof updatePermitInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.update(input, ctx.access);
 	}
 
 	@Mutation({ input: setPermitAnswerInput, meta: access("permits", "EDIT") })
 	async setAnswer(
 		@Input() input: z.infer<typeof setPermitAnswerInput>,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.permits.setAnswer(input, ctx.user.id);
+		return this.permits.setAnswer(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: permitIdInput, meta: access("permits", "EDIT") })
-	async applyPrefills(@Input("permitId") permitId: string) {
-		return this.permits.applyPrefills({ permitId });
+	async applyPrefills(
+		@Input("permitId") permitId: string,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.applyPrefills({ permitId }, ctx.access);
 	}
 
 	@Mutation({
@@ -197,22 +218,29 @@ export class PermitsRouter {
 	})
 	async approveAnswer(
 		@Input() input: z.infer<typeof approvePermitAnswerInput>,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.permits.approveAnswer(input, ctx.user.id);
+		return this.permits.approveAnswer(input, ctx.user.id, ctx.access);
 	}
 
 	@Mutation({ input: permitIdInput, meta: access("permits", "EDIT") })
 	async approveAllReviewed(
 		@Input("permitId") permitId: string,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.permits.approveAllReviewed({ permitId }, ctx.user.id);
+		return this.permits.approveAllReviewed(
+			{ permitId },
+			ctx.user.id,
+			ctx.access,
+		);
 	}
 
 	@Mutation({ input: clearPermitAnswerInput, meta: access("permits", "EDIT") })
-	async clearAnswer(@Input() input: z.infer<typeof clearPermitAnswerInput>) {
-		return this.permits.clearAnswer(input);
+	async clearAnswer(
+		@Input() input: z.infer<typeof clearPermitAnswerInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.clearAnswer(input, ctx.access);
 	}
 
 	@Mutation({
@@ -221,8 +249,9 @@ export class PermitsRouter {
 	})
 	async attachChecklistDocument(
 		@Input() input: z.infer<typeof attachChecklistDocumentInput>,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.permits.attachChecklistDocument(input);
+		return this.permits.attachChecklistDocument(input, ctx.access);
 	}
 
 	@Query({ meta: access("permits", "VIEW") })
@@ -236,30 +265,42 @@ export class PermitsRouter {
 	}
 
 	@Mutation({ input: setInspectionInput, meta: access("permits", "EDIT") })
-	async setInspection(@Input() input: z.infer<typeof setInspectionInput>) {
-		return this.permits.setInspection(input);
+	async setInspection(
+		@Input() input: z.infer<typeof setInspectionInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.setInspection(input, ctx.access);
 	}
 
 	@Mutation({ input: inspectionIdInput, meta: access("permits", "DELETE") })
-	async deleteInspection(@Input() input: z.infer<typeof inspectionIdInput>) {
-		return this.permits.deleteInspection(input);
+	async deleteInspection(
+		@Input() input: z.infer<typeof inspectionIdInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.deleteInspection(input, ctx.access);
 	}
 
 	@Mutation({ input: permitDealIdInput, meta: access("permits", "EDIT") })
 	async dismissPrompt(
 		@Input() input: z.infer<typeof permitDealIdInput>,
-		@Ctx() ctx: AuthedTrpcContext,
+		@Ctx() ctx: AccessTrpcContext,
 	) {
-		return this.permits.dismissPrompt(input, ctx.user.id);
+		return this.permits.dismissPrompt(input, ctx.user.id, ctx.access);
 	}
 
 	@Query({ input: permitDealIdInput, meta: access("permits", "VIEW") })
-	async promptState(@Input() input: z.infer<typeof permitDealIdInput>) {
-		return this.permits.promptState(input);
+	async promptState(
+		@Input() input: z.infer<typeof permitDealIdInput>,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.promptState(input, ctx.access);
 	}
 
 	@Mutation({ input: permitIdInput, meta: access("permits", "EDIT") })
-	async worksheetPdf(@Input("permitId") permitId: string) {
-		return this.permits.worksheetPdf({ permitId });
+	async worksheetPdf(
+		@Input("permitId") permitId: string,
+		@Ctx() ctx: AccessTrpcContext,
+	) {
+		return this.permits.worksheetPdf({ permitId }, ctx.access);
 	}
 }

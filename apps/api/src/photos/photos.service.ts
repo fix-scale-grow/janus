@@ -1,4 +1,11 @@
 import { type Db, type Prisma } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import {
+	contactScopeWhere,
+	dealChildWhere,
+	dealScopeWhere,
+	isUnscoped,
+} from "@crm/db/access-scope";
 import { readPhotoFile } from "@crm/db/photo-files";
 import {
 	BadRequestException,
@@ -34,6 +41,16 @@ const PHOTO_SELECT = {
 	uploadedBy: { select: { id: true, name: true } },
 } as const satisfies Prisma.PhotoSelect;
 
+function photoScopeWhere(p: AccessPrincipal): Prisma.PhotoWhereInput {
+	if (isUnscoped(p)) return {};
+	return {
+		OR: [
+			{ deal: dealScopeWhere(p) },
+			{ dealId: null, contact: contactScopeWhere(p) },
+		],
+	};
+}
+
 function sameIdSet(linked: { photoId: string }[], ids: string[]): boolean {
 	const linkedIds = new Set(linked.map((row) => row.photoId));
 	const inputIds = new Set(ids);
@@ -53,8 +70,9 @@ export class PhotosService {
 
 	constructor(@InjectDatabase() private readonly db: Db) {}
 
-	async list(input: PhotoListInput) {
-		const where = await this.listFilter(input);
+	async list(input: PhotoListInput, p: AccessPrincipal) {
+		const filter = await this.listFilter(input);
+		const where: Prisma.PhotoWhereInput = { AND: [filter, photoScopeWhere(p)] };
 
 		const [rows, total] = await Promise.all([
 			this.db.photo.findMany({
@@ -91,7 +109,8 @@ export class PhotosService {
 		};
 	}
 
-	async forEstimate(estimateId: string) {
+	async forEstimate(estimateId: string, p: AccessPrincipal) {
+		await this.assertEstimateInScope(estimateId, p);
 		return this.db.estimatePhoto.findMany({
 			where: { estimateId },
 			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -105,14 +124,17 @@ export class PhotosService {
 		});
 	}
 
-	async linkEstimate(input: EstimateLinkInput): Promise<{ id: string }> {
+	async linkEstimate(
+		input: EstimateLinkInput,
+		p: AccessPrincipal,
+	): Promise<{ id: string }> {
 		const [estimate, photo] = await Promise.all([
-			this.db.estimate.findUnique({
-				where: { id: input.estimateId },
+			this.db.estimate.findFirst({
+				where: { AND: [{ id: input.estimateId }, dealChildWhere(p)] },
 				select: { id: true },
 			}),
-			this.db.photo.findUnique({
-				where: { id: input.photoId },
+			this.db.photo.findFirst({
+				where: { AND: [{ id: input.photoId }, photoScopeWhere(p)] },
 				select: { id: true },
 			}),
 		]);
@@ -143,20 +165,34 @@ export class PhotosService {
 		});
 	}
 
-	async unlinkEstimate(input: EstimateLinkInput): Promise<void> {
+	async unlinkEstimate(
+		input: EstimateLinkInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertEstimateInScope(input.estimateId, p);
+		await this.assertPhotoInScope(input.photoId, p);
 		await this.db.estimatePhoto.deleteMany({
 			where: { estimateId: input.estimateId, photoId: input.photoId },
 		});
 	}
 
-	async setEstimatePdfFlag(input: EstimatePdfFlagInput): Promise<void> {
+	async setEstimatePdfFlag(
+		input: EstimatePdfFlagInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertEstimateInScope(input.estimateId, p);
+		await this.assertPhotoInScope(input.photoId, p);
 		await this.db.estimatePhoto.updateMany({
 			where: { estimateId: input.estimateId, photoId: input.photoId },
 			data: { includeInPdf: input.includeInPdf },
 		});
 	}
 
-	async reorderEstimatePhotos(input: EstimateReorderInput): Promise<void> {
+	async reorderEstimatePhotos(
+		input: EstimateReorderInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertEstimateInScope(input.estimateId, p);
 		const linked = await this.db.estimatePhoto.findMany({
 			where: { estimateId: input.estimateId },
 			select: { photoId: true },
@@ -180,7 +216,8 @@ export class PhotosService {
 		);
 	}
 
-	async forInvoice(invoiceId: string) {
+	async forInvoice(invoiceId: string, p: AccessPrincipal) {
+		await this.assertInvoiceInScope(invoiceId, p);
 		return this.db.invoicePhoto.findMany({
 			where: { invoiceId },
 			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -194,14 +231,17 @@ export class PhotosService {
 		});
 	}
 
-	async linkInvoice(input: InvoiceLinkInput): Promise<{ id: string }> {
+	async linkInvoice(
+		input: InvoiceLinkInput,
+		p: AccessPrincipal,
+	): Promise<{ id: string }> {
 		const [invoice, photo] = await Promise.all([
-			this.db.invoice.findUnique({
-				where: { id: input.invoiceId },
+			this.db.invoice.findFirst({
+				where: { AND: [{ id: input.invoiceId }, dealChildWhere(p)] },
 				select: { id: true },
 			}),
-			this.db.photo.findUnique({
-				where: { id: input.photoId },
+			this.db.photo.findFirst({
+				where: { AND: [{ id: input.photoId }, photoScopeWhere(p)] },
 				select: { id: true },
 			}),
 		]);
@@ -232,20 +272,34 @@ export class PhotosService {
 		});
 	}
 
-	async unlinkInvoice(input: InvoiceLinkInput): Promise<void> {
+	async unlinkInvoice(
+		input: InvoiceLinkInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertInvoiceInScope(input.invoiceId, p);
+		await this.assertPhotoInScope(input.photoId, p);
 		await this.db.invoicePhoto.deleteMany({
 			where: { invoiceId: input.invoiceId, photoId: input.photoId },
 		});
 	}
 
-	async setInvoicePdfFlag(input: InvoicePdfFlagInput): Promise<void> {
+	async setInvoicePdfFlag(
+		input: InvoicePdfFlagInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertInvoiceInScope(input.invoiceId, p);
+		await this.assertPhotoInScope(input.photoId, p);
 		await this.db.invoicePhoto.updateMany({
 			where: { invoiceId: input.invoiceId, photoId: input.photoId },
 			data: { includeInPdf: input.includeInPdf },
 		});
 	}
 
-	async reorderInvoicePhotos(input: InvoiceReorderInput): Promise<void> {
+	async reorderInvoicePhotos(
+		input: InvoiceReorderInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertInvoiceInScope(input.invoiceId, p);
 		const linked = await this.db.invoicePhoto.findMany({
 			where: { invoiceId: input.invoiceId },
 			select: { photoId: true },
@@ -269,7 +323,8 @@ export class PhotosService {
 		);
 	}
 
-	async forProject(projectId: string) {
+	async forProject(projectId: string, p: AccessPrincipal) {
+		await this.assertProjectInScope(projectId, p);
 		return this.db.projectPhoto.findMany({
 			where: { projectId },
 			orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
@@ -283,14 +338,17 @@ export class PhotosService {
 		});
 	}
 
-	async linkProject(input: ProjectLinkInput): Promise<{ id: string }> {
+	async linkProject(
+		input: ProjectLinkInput,
+		p: AccessPrincipal,
+	): Promise<{ id: string }> {
 		const [project, photo] = await Promise.all([
-			this.db.project.findUnique({
-				where: { id: input.projectId },
+			this.db.project.findFirst({
+				where: { AND: [{ id: input.projectId }, dealChildWhere(p)] },
 				select: { id: true },
 			}),
-			this.db.photo.findUnique({
-				where: { id: input.photoId },
+			this.db.photo.findFirst({
+				where: { AND: [{ id: input.photoId }, photoScopeWhere(p)] },
 				select: { id: true },
 			}),
 		]);
@@ -321,13 +379,23 @@ export class PhotosService {
 		});
 	}
 
-	async unlinkProject(input: ProjectLinkInput): Promise<void> {
+	async unlinkProject(
+		input: ProjectLinkInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertProjectInScope(input.projectId, p);
+		await this.assertPhotoInScope(input.photoId, p);
 		await this.db.projectPhoto.deleteMany({
 			where: { projectId: input.projectId, photoId: input.photoId },
 		});
 	}
 
-	async setProjectStage(input: ProjectStageInput): Promise<void> {
+	async setProjectStage(
+		input: ProjectStageInput,
+		p: AccessPrincipal,
+	): Promise<void> {
+		await this.assertProjectInScope(input.projectId, p);
+		await this.assertPhotoInScope(input.photoId, p);
 		await this.db.projectPhoto.updateMany({
 			where: { projectId: input.projectId, photoId: input.photoId },
 			data: { stageLabel: input.stageLabel },
@@ -376,6 +444,50 @@ export class PhotosService {
 				error instanceof Error ? error.stack : undefined,
 			);
 		}
+	}
+
+	private async assertPhotoInScope(
+		photoId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.photo.findFirst({
+			where: { AND: [{ id: photoId }, photoScopeWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException("The photo was not found.");
+	}
+
+	private async assertEstimateInScope(
+		estimateId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.estimate.findFirst({
+			where: { AND: [{ id: estimateId }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException("The estimate was not found.");
+	}
+
+	private async assertInvoiceInScope(
+		invoiceId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.invoice.findFirst({
+			where: { AND: [{ id: invoiceId }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException("The invoice was not found.");
+	}
+
+	private async assertProjectInScope(
+		projectId: string,
+		p: AccessPrincipal,
+	): Promise<void> {
+		const found = await this.db.project.findFirst({
+			where: { AND: [{ id: projectId }, dealChildWhere(p)] },
+			select: { id: true },
+		});
+		if (!found) throw new NotFoundException("The project was not found.");
 	}
 
 	async pdfPhotosForEstimate(estimateId: string): Promise<PdfPhoto[]> {

@@ -3,6 +3,7 @@ import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { PERMIT_DISCLAIMER_VERSION } from "@crm/db/permits";
 import { acceptPermitDisclaimerSetting } from "@crm/db/settings";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
@@ -17,6 +18,7 @@ const suffix = process.env.TEST_RUN_ID ?? "permits-spec";
 const playbooks = new PlaybooksService(db);
 const prefill = new PermitPrefillService(db);
 const permits = new PermitsService(db, playbooks, prefill);
+const ADMIN = adminPrincipal("test");
 
 let userId: string;
 let dealId: string;
@@ -177,6 +179,7 @@ async function createPermit() {
 	return permits.create(
 		{ dealId, jurisdictionId, permitType: "ROOFING" },
 		userId,
+		ADMIN,
 	);
 }
 
@@ -184,7 +187,7 @@ describe("PermitsService.create", () => {
 	it("scaffolds checklist documents and inspections from the playbook", async () => {
 		const permit = await createPermit();
 
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		expect(found.documents).toHaveLength(2);
 		expect(found.documents[0]?.slotKey).toBe("site_plan");
 		expect(found.documents[0]?.label).toBe("Site plan");
@@ -247,8 +250,9 @@ describe("PermitsService.create", () => {
 		const permit = await permits.create(
 			{ dealId, jurisdictionId: jurisdiction.id, permitType: "MECHANICAL" },
 			userId,
+			ADMIN,
 		);
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		expect(found.documents[0]?.sourceVerified).toBe(true);
 		expect(found.inspections[0]?.sourceVerified).toBe(true);
 
@@ -307,8 +311,9 @@ describe("PermitsService.create", () => {
 		const permit = await permits.create(
 			{ dealId, jurisdictionId: jurisdiction.id, permitType: "PLUMBING" },
 			userId,
+			ADMIN,
 		);
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		expect(found.documents[0]?.lockerDocumentId).toBe(newer.id);
 		expect(found.documents[0]?.attachedAt).toBeInstanceOf(Date);
 
@@ -325,33 +330,45 @@ describe("PermitsService transitions", () => {
 	it("walks DRAFT through CLOSED, refusing CLOSED while an inspection is pending", async () => {
 		const permit = await createPermit();
 
-		await permits.setStatus({ permitId: permit.id, status: "READY_TO_SUBMIT" });
-		await permits.setStatus({ permitId: permit.id, status: "SUBMITTED" });
-		const submitted = await permits.byId(permit.id);
+		await permits.setStatus(
+			{ permitId: permit.id, status: "READY_TO_SUBMIT" },
+			ADMIN,
+		);
+		await permits.setStatus(
+			{ permitId: permit.id, status: "SUBMITTED" },
+			ADMIN,
+		);
+		const submitted = await permits.byId(permit.id, ADMIN);
 		expect(submitted.submittedAt).toBeInstanceOf(Date);
 
-		await permits.setStatus({ permitId: permit.id, status: "ISSUED" });
-		const issued = await permits.byId(permit.id);
+		await permits.setStatus({ permitId: permit.id, status: "ISSUED" }, ADMIN);
+		const issued = await permits.byId(permit.id, ADMIN);
 		expect(issued.issuedAt).toBeInstanceOf(Date);
 
-		await permits.setStatus({ permitId: permit.id, status: "INSPECTIONS" });
+		await permits.setStatus(
+			{ permitId: permit.id, status: "INSPECTIONS" },
+			ADMIN,
+		);
 
 		await expectRejects(
-			permits.setStatus({ permitId: permit.id, status: "CLOSED" }),
+			permits.setStatus({ permitId: permit.id, status: "CLOSED" }, ADMIN),
 			BadRequestException,
 		);
 
 		const inspection = issued.inspections[0];
 		if (!inspection) throw new Error("expected a scaffolded inspection");
-		await permits.setInspection({
-			permitId: permit.id,
-			inspectionId: inspection.id,
-			name: inspection.name,
-			result: "PASSED",
-		});
+		await permits.setInspection(
+			{
+				permitId: permit.id,
+				inspectionId: inspection.id,
+				name: inspection.name,
+				result: "PASSED",
+			},
+			ADMIN,
+		);
 
-		await permits.setStatus({ permitId: permit.id, status: "CLOSED" });
-		const closed = await permits.byId(permit.id);
+		await permits.setStatus({ permitId: permit.id, status: "CLOSED" }, ADMIN);
+		const closed = await permits.byId(permit.id, ADMIN);
 		expect(closed.status).toBe("CLOSED");
 		expect(closed.closedAt).toBeInstanceOf(Date);
 	});
@@ -370,14 +387,21 @@ describe("PermitsService transitions", () => {
 		const permit = await permits.create(
 			{ dealId, jurisdictionId: jurisdiction.id, permitType: "ELECTRICAL" },
 			userId,
+			ADMIN,
 		);
 
-		await permits.setStatus({ permitId: permit.id, status: "READY_TO_SUBMIT" });
-		await permits.setStatus({ permitId: permit.id, status: "SUBMITTED" });
-		await permits.setStatus({ permitId: permit.id, status: "ISSUED" });
-		await permits.setStatus({ permitId: permit.id, status: "CLOSED" });
+		await permits.setStatus(
+			{ permitId: permit.id, status: "READY_TO_SUBMIT" },
+			ADMIN,
+		);
+		await permits.setStatus(
+			{ permitId: permit.id, status: "SUBMITTED" },
+			ADMIN,
+		);
+		await permits.setStatus({ permitId: permit.id, status: "ISSUED" }, ADMIN);
+		await permits.setStatus({ permitId: permit.id, status: "CLOSED" }, ADMIN);
 
-		const closed = await permits.byId(permit.id);
+		const closed = await permits.byId(permit.id, ADMIN);
 		expect(closed.status).toBe("CLOSED");
 
 		await db.permit.deleteMany({ where: { id: permit.id } });
@@ -387,32 +411,41 @@ describe("PermitsService transitions", () => {
 
 	it("requires a reason to deny", async () => {
 		const permit = await createPermit();
-		await permits.setStatus({ permitId: permit.id, status: "READY_TO_SUBMIT" });
-		await permits.setStatus({ permitId: permit.id, status: "SUBMITTED" });
+		await permits.setStatus(
+			{ permitId: permit.id, status: "READY_TO_SUBMIT" },
+			ADMIN,
+		);
+		await permits.setStatus(
+			{ permitId: permit.id, status: "SUBMITTED" },
+			ADMIN,
+		);
 
 		await expectRejects(
-			permits.setStatus({ permitId: permit.id, status: "DENIED" }),
+			permits.setStatus({ permitId: permit.id, status: "DENIED" }, ADMIN),
 			BadRequestException,
 		);
 
-		await permits.setStatus({
-			permitId: permit.id,
-			status: "DENIED",
-			deniedReason: "Missing survey",
-		});
-		const denied = await permits.byId(permit.id);
+		await permits.setStatus(
+			{
+				permitId: permit.id,
+				status: "DENIED",
+				deniedReason: "Missing survey",
+			},
+			ADMIN,
+		);
+		const denied = await permits.byId(permit.id, ADMIN);
 		expect(denied.status).toBe("DENIED");
 		expect(denied.deniedReason).toBe("Missing survey");
 
-		await permits.setStatus({ permitId: permit.id, status: "DRAFT" });
-		const backToDraft = await permits.byId(permit.id);
+		await permits.setStatus({ permitId: permit.id, status: "DRAFT" }, ADMIN);
+		const backToDraft = await permits.byId(permit.id, ADMIN);
 		expect(backToDraft.status).toBe("DRAFT");
 	});
 
 	it("400s an illegal jump", async () => {
 		const permit = await createPermit();
 		await expectRejects(
-			permits.setStatus({ permitId: permit.id, status: "SUBMITTED" }),
+			permits.setStatus({ permitId: permit.id, status: "SUBMITTED" }, ADMIN),
 			BadRequestException,
 		);
 	});
@@ -425,9 +458,10 @@ describe("PermitsService worksheet approvals", () => {
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Manually typed" },
 			userId,
+			ADMIN,
 		);
 
-		const filled = await permits.applyPrefills({ permitId: permit.id });
+		const filled = await permits.applyPrefills({ permitId: permit.id }, ADMIN);
 
 		expect(filled.worksheetAnswers.job_name?.value).toBe("Manually typed");
 		expect(filled.worksheetAnswers.job_name?.state).toBe("APPROVED");
@@ -448,6 +482,7 @@ describe("PermitsService worksheet approvals", () => {
 			permits.setAnswer(
 				{ permitId: permit.id, key: "not_a_real_field", value: "sneaky" },
 				userId,
+				ADMIN,
 			),
 			BadRequestException,
 		);
@@ -455,14 +490,15 @@ describe("PermitsService worksheet approvals", () => {
 
 	it("approveAllReviewed stamps the caller on every NEEDS_REVIEW row", async () => {
 		const permit = await createPermit();
-		await permits.applyPrefills({ permitId: permit.id });
+		await permits.applyPrefills({ permitId: permit.id }, ADMIN);
 
-		const before = await permits.byId(permit.id);
+		const before = await permits.byId(permit.id, ADMIN);
 		expect(before.worksheetAnswers.owner_email?.state).toBe("NEEDS_REVIEW");
 
 		const approved = await permits.approveAllReviewed(
 			{ permitId: permit.id },
 			userId,
+			ADMIN,
 		);
 
 		for (const answer of Object.values(approved.worksheetAnswers)) {
@@ -478,6 +514,7 @@ describe("PermitsService worksheet approvals", () => {
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Locked by human" },
 			userId,
+			ADMIN,
 		);
 
 		await permits.writeAgentAnswers(permit.id, {
@@ -486,7 +523,7 @@ describe("PermitsService worksheet approvals", () => {
 			not_a_template_key: "ignored",
 		});
 
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		expect(found.worksheetAnswers.job_name?.value).toBe("Locked by human");
 		expect(found.worksheetAnswers.job_name?.state).toBe("APPROVED");
 		expect(found.worksheetAnswers.job_name?.origin).toBe("HUMAN");
@@ -504,32 +541,34 @@ describe("PermitsService worksheet approvals", () => {
 	it("worksheetStatus reports allApproved and requiredMissing", async () => {
 		const permit = await createPermit();
 
-		const empty = await permits.byId(permit.id);
+		const empty = await permits.byId(permit.id, ADMIN);
 		expect(empty.worksheetStatus.requiredMissing).toEqual(["job_name"]);
 		expect(empty.worksheetStatus.allApproved).toBe(true);
 
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Filled" },
 			userId,
+			ADMIN,
 		);
-		const filled = await permits.byId(permit.id);
+		const filled = await permits.byId(permit.id, ADMIN);
 		expect(filled.worksheetStatus.requiredMissing).toEqual([]);
 		expect(filled.worksheetStatus.allApproved).toBe(true);
 
-		await permits.applyPrefills({ permitId: permit.id });
-		const withReview = await permits.byId(permit.id);
+		await permits.applyPrefills({ permitId: permit.id }, ADMIN);
+		const withReview = await permits.byId(permit.id, ADMIN);
 		expect(withReview.worksheetStatus.allApproved).toBe(false);
 	});
 
 	it("neither blocks nor counts a NEEDS_REVIEW answer whose key was removed from the template", async () => {
 		const permit = await createPermit();
-		await permits.applyPrefills({ permitId: permit.id });
+		await permits.applyPrefills({ permitId: permit.id }, ADMIN);
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Filled job" },
 			userId,
+			ADMIN,
 		);
 
-		const withReview = await permits.byId(permit.id);
+		const withReview = await permits.byId(permit.id, ADMIN);
 		expect(withReview.worksheetStatus.needsReviewCount).toBeGreaterThan(0);
 
 		await playbooks.setWorksheetTemplate({
@@ -546,7 +585,7 @@ describe("PermitsService worksheet approvals", () => {
 		});
 
 		try {
-			const afterRemoval = await permits.byId(permit.id);
+			const afterRemoval = await permits.byId(permit.id, ADMIN);
 			expect(afterRemoval.worksheetStatus.needsReviewCount).toBe(0);
 			expect(afterRemoval.worksheetStatus.allApproved).toBe(true);
 			expect(afterRemoval.worksheetAnswers.owner_email?.state).toBe(
@@ -558,7 +597,7 @@ describe("PermitsService worksheet approvals", () => {
 				userId,
 				PERMIT_DISCLAIMER_VERSION,
 			);
-			const result = await permits.worksheetPdf({ permitId: permit.id });
+			const result = await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 			expect(result.base64.length).toBeGreaterThan(0);
 		} finally {
 			await resetDisclaimer();
@@ -595,7 +634,7 @@ describe("PermitsService worksheet approvals", () => {
 describe("PermitsService checklist", () => {
 	it("attaches and detaches a locker document reference", async () => {
 		const permit = await createPermit();
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		const slot = found.documents[0];
 		if (!slot) throw new Error("expected a scaffolded checklist slot");
 
@@ -609,19 +648,25 @@ describe("PermitsService checklist", () => {
 			},
 		});
 
-		const attached = await permits.attachChecklistDocument({
-			permitId: permit.id,
-			slotKey: slot.slotKey,
-			lockerDocumentId: locker.id,
-		});
+		const attached = await permits.attachChecklistDocument(
+			{
+				permitId: permit.id,
+				slotKey: slot.slotKey,
+				lockerDocumentId: locker.id,
+			},
+			ADMIN,
+		);
 		expect(attached.lockerDocumentId).toBe(locker.id);
 		expect(attached.attachedAt).toBeInstanceOf(Date);
 
-		const detached = await permits.attachChecklistDocument({
-			permitId: permit.id,
-			slotKey: slot.slotKey,
-			lockerDocumentId: null,
-		});
+		const detached = await permits.attachChecklistDocument(
+			{
+				permitId: permit.id,
+				slotKey: slot.slotKey,
+				lockerDocumentId: null,
+			},
+			ADMIN,
+		);
 		expect(detached.lockerDocumentId).toBeNull();
 		expect(detached.attachedAt).toBeNull();
 
@@ -630,16 +675,19 @@ describe("PermitsService checklist", () => {
 
 	it("404s an unknown lockerDocumentId, not a P2003", async () => {
 		const permit = await createPermit();
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		const slot = found.documents[0];
 		if (!slot) throw new Error("expected a scaffolded checklist slot");
 
 		await expectRejects(
-			permits.attachChecklistDocument({
-				permitId: permit.id,
-				slotKey: slot.slotKey,
-				lockerDocumentId: "not-a-real-locker-id",
-			}),
+			permits.attachChecklistDocument(
+				{
+					permitId: permit.id,
+					slotKey: slot.slotKey,
+					lockerDocumentId: "not-a-real-locker-id",
+				},
+				ADMIN,
+			),
 			NotFoundException,
 		);
 	});
@@ -647,18 +695,21 @@ describe("PermitsService checklist", () => {
 	it("404s an unknown checklist slot", async () => {
 		const permit = await createPermit();
 		await expectRejects(
-			permits.attachChecklistDocument({
-				permitId: permit.id,
-				slotKey: "not_a_slot",
-				lockerDocumentId: null,
-			}),
+			permits.attachChecklistDocument(
+				{
+					permitId: permit.id,
+					slotKey: "not_a_slot",
+					lockerDocumentId: null,
+				},
+				ADMIN,
+			),
 			NotFoundException,
 		);
 	});
 
 	it("deleting the locker row leaves the slot's lockerDocumentId null via SetNull", async () => {
 		const permit = await createPermit();
-		const found = await permits.byId(permit.id);
+		const found = await permits.byId(permit.id, ADMIN);
 		const slot = found.documents[0];
 		if (!slot) throw new Error("expected a scaffolded checklist slot");
 
@@ -672,17 +723,20 @@ describe("PermitsService checklist", () => {
 			},
 		});
 
-		const attached = await permits.attachChecklistDocument({
-			permitId: permit.id,
-			slotKey: slot.slotKey,
-			lockerDocumentId: locker.id,
-		});
+		const attached = await permits.attachChecklistDocument(
+			{
+				permitId: permit.id,
+				slotKey: slot.slotKey,
+				lockerDocumentId: locker.id,
+			},
+			ADMIN,
+		);
 		expect(attached.lockerDocumentId).toBe(locker.id);
 		expect(attached.attachedAt).toBeInstanceOf(Date);
 
 		await db.lockerDocument.delete({ where: { id: locker.id } });
 
-		const afterDelete = await permits.byId(permit.id);
+		const afterDelete = await permits.byId(permit.id, ADMIN);
 		const afterSlot = afterDelete.documents.find(
 			(doc) => doc.slotKey === slot.slotKey,
 		);
@@ -692,16 +746,19 @@ describe("PermitsService checklist", () => {
 	it("404s setInspection when the inspection does not belong to the given permit", async () => {
 		const permitA = await createPermit();
 		const permitB = await createPermit();
-		const foundA = await permits.byId(permitA.id);
+		const foundA = await permits.byId(permitA.id, ADMIN);
 		const inspection = foundA.inspections[0];
 		if (!inspection) throw new Error("expected a scaffolded inspection");
 
 		await expectRejects(
-			permits.setInspection({
-				permitId: permitB.id,
-				inspectionId: inspection.id,
-				name: "Hijacked",
-			}),
+			permits.setInspection(
+				{
+					permitId: permitB.id,
+					inspectionId: inspection.id,
+					name: "Hijacked",
+				},
+				ADMIN,
+			),
 			NotFoundException,
 		);
 	});
@@ -709,15 +766,18 @@ describe("PermitsService checklist", () => {
 	it("404s deleteInspection when the inspection does not belong to the given permit", async () => {
 		const permitA = await createPermit();
 		const permitB = await createPermit();
-		const foundA = await permits.byId(permitA.id);
+		const foundA = await permits.byId(permitA.id, ADMIN);
 		const inspection = foundA.inspections[0];
 		if (!inspection) throw new Error("expected a scaffolded inspection");
 
 		await expectRejects(
-			permits.deleteInspection({
-				permitId: permitB.id,
-				inspectionId: inspection.id,
-			}),
+			permits.deleteInspection(
+				{
+					permitId: permitB.id,
+					inspectionId: inspection.id,
+				},
+				ADMIN,
+			),
 			NotFoundException,
 		);
 	});
@@ -737,7 +797,7 @@ describe("PermitsService checklist", () => {
 
 describe("PermitsService.promptState", () => {
 	it("is deterministic: no permit, no dismissal, wrong trigger stage means show is false by default", async () => {
-		const state = await permits.promptState({ dealId });
+		const state = await permits.promptState({ dealId }, ADMIN);
 		expect(state.show).toBe(false);
 		expect(state.neededWhenVerified).toBeNull();
 	});
@@ -765,7 +825,10 @@ describe("PermitsService.promptState", () => {
 				value: "Before framing begins.",
 			});
 
-			const unverified = await permits.promptState({ dealId: promptDeal.id });
+			const unverified = await permits.promptState(
+				{ dealId: promptDeal.id },
+				ADMIN,
+			);
 			expect(unverified.neededWhen).toBe("Before framing begins.");
 			expect(unverified.neededWhenVerified).toBe(false);
 
@@ -774,7 +837,10 @@ describe("PermitsService.promptState", () => {
 				userId,
 			);
 
-			const verified = await permits.promptState({ dealId: promptDeal.id });
+			const verified = await permits.promptState(
+				{ dealId: promptDeal.id },
+				ADMIN,
+			);
 			expect(verified.neededWhenVerified).toBe(true);
 		} finally {
 			await playbooks.clearFact({ playbookId, factPath: "neededWhen" });
@@ -800,11 +866,11 @@ describe("PermitsService.worksheetPdf", () => {
 	it("blocks with the first NEEDS_REVIEW answer, naming the count", async () => {
 		await resetDisclaimer();
 		const permit = await createPermit();
-		await permits.applyPrefills({ permitId: permit.id });
+		await permits.applyPrefills({ permitId: permit.id }, ADMIN);
 
 		let caught: unknown;
 		try {
-			await permits.worksheetPdf({ permitId: permit.id });
+			await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 		} catch (error) {
 			caught = error;
 		}
@@ -821,7 +887,7 @@ describe("PermitsService.worksheetPdf", () => {
 
 		let caught: unknown;
 		try {
-			await permits.worksheetPdf({ permitId: permit.id });
+			await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 		} catch (error) {
 			caught = error;
 		}
@@ -838,11 +904,12 @@ describe("PermitsService.worksheetPdf", () => {
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Filled job" },
 			userId,
+			ADMIN,
 		);
 
 		let caught: unknown;
 		try {
-			await permits.worksheetPdf({ permitId: permit.id });
+			await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 		} catch (error) {
 			caught = error;
 		}
@@ -859,6 +926,7 @@ describe("PermitsService.worksheetPdf", () => {
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Filled job" },
 			userId,
+			ADMIN,
 		);
 		await db.appSetting.updateMany({
 			data: {
@@ -870,7 +938,7 @@ describe("PermitsService.worksheetPdf", () => {
 
 		let caught: unknown;
 		try {
-			await permits.worksheetPdf({ permitId: permit.id });
+			await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 		} catch (error) {
 			caught = error;
 		}
@@ -887,6 +955,7 @@ describe("PermitsService.worksheetPdf", () => {
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Filled job" },
 			userId,
+			ADMIN,
 		);
 		await acceptPermitDisclaimerSetting(db, userId, PERMIT_DISCLAIMER_VERSION);
 
@@ -896,7 +965,7 @@ describe("PermitsService.worksheetPdf", () => {
 		process.env.PERMITS_DATA_DIR = blockedPath;
 
 		try {
-			const result = await permits.worksheetPdf({ permitId: permit.id });
+			const result = await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 			expect(result.base64.length).toBeGreaterThan(0);
 		} finally {
 			if (previousDataDir === undefined) {
@@ -922,10 +991,11 @@ describe("PermitsService.worksheetPdf", () => {
 		await permits.setAnswer(
 			{ permitId: permit.id, key: "job_name", value: "Filled job" },
 			userId,
+			ADMIN,
 		);
 		await acceptPermitDisclaimerSetting(db, userId, PERMIT_DISCLAIMER_VERSION);
 
-		const result = await permits.worksheetPdf({ permitId: permit.id });
+		const result = await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 
 		expect(result.filename).toMatch(/^\d+-permit-worksheet\.pdf$/);
 		expect(result.base64.length).toBeGreaterThan(0);
@@ -941,7 +1011,7 @@ describe("PermitsService.worksheetPdf", () => {
 		expect(slot?.label).toBe("Application worksheet");
 		expect(slot?.attachedAt).toBeInstanceOf(Date);
 
-		const again = await permits.worksheetPdf({ permitId: permit.id });
+		const again = await permits.worksheetPdf({ permitId: permit.id }, ADMIN);
 		expect(again.filename).toBe(result.filename);
 		const stillOneSlot = await db.permitDocument.findMany({
 			where: { permitId: permit.id, slotKey: "worksheet" },

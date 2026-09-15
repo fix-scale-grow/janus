@@ -88,15 +88,18 @@ afterAll(clean);
 
 describe("a contact's Drawings tab", () => {
 	it("shows a drawing attached to the deal, not just the contact", async () => {
-		const result = await drawings.list({
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 25,
-			attachment: "all",
-			contactId,
-		});
+		const result = await drawings.list(
+			{
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 25,
+				attachment: "all",
+				contactId,
+			},
+			ADMIN,
+		);
 
 		expect(result.rows.map((row) => row.id)).toContain(drawingId);
 	});
@@ -111,15 +114,18 @@ describe("a contact's Drawings tab", () => {
 			select: { id: true },
 		});
 
-		const result = await drawings.list({
-			q: "",
-			sort: "",
-			dir: "asc",
-			page: 1,
-			pageSize: 25,
-			attachment: "all",
-			contactId: stranger.id,
-		});
+		const result = await drawings.list(
+			{
+				q: "",
+				sort: "",
+				dir: "asc",
+				page: 1,
+				pageSize: 25,
+				attachment: "all",
+				contactId: stranger.id,
+			},
+			ADMIN,
+		);
 
 		expect(result.rows.map((row) => row.id)).not.toContain(drawingId);
 	});
