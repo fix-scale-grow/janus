@@ -28,7 +28,7 @@ export default defineTool({
 		const answer = await ask(question, {
 			model: deep ? "sonar-pro" : "sonar",
 			system:
-				"You are researching for a B2B sales rep. Be specific and factual. " +
+				"You are researching for a sales rep at a roofing and home services contractor. Be specific and factual. " +
 				"State only what your sources support, prefer recent information, and " +
 				"say plainly when you do not know. Never speculate about a person.",
 		});

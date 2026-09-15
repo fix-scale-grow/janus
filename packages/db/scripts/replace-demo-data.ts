@@ -1,9 +1,6 @@
-import { DEMO_CURRENCY, OWNERS, seedDemo, slug } from "../prisma/demo-data";
-import { db } from "../src/client";
-import { ActivityType } from "../src/generated/prisma/enums";
-
 const CLEANUP = {
-	allowedDatabases: ["janus_shakeup_dev", "crm"],
+	allowedDatabases: ["janus_shakeup_dev", "crm", "janus_shakeup_scriptcheck"],
+	transactionTimeoutMs: 120_000,
 	legacyCompanies: [
 		{ name: "Stripe", domain: "stripe.com", deals: 2 },
 		{ name: "Linear", domain: "linear.app", deals: 1 },
@@ -21,6 +18,61 @@ const CLEANUP = {
 		{ name: "Mercury", domain: "mercury.com", deals: 1 },
 		{ name: "Attio", domain: "attio.com", deals: 2 },
 	],
+	legacyDealNameSuffixes: [" — Comp AI", " — expansion"],
+	legacyFirstNames: [
+		"Amara",
+		"Ben",
+		"Chidi",
+		"Dana",
+		"Elias",
+		"Farah",
+		"Gus",
+		"Hana",
+		"Ines",
+		"Jonas",
+		"Kofi",
+		"Lena",
+		"Mateo",
+		"Nadia",
+		"Omar",
+		"Pia",
+		"Quinn",
+		"Rosa",
+		"Sami",
+		"Tara",
+		"Ugo",
+		"Vera",
+		"Wes",
+		"Yuki",
+	],
+	legacyLastNames: [
+		"Adeyemi",
+		"Bergström",
+		"Chen",
+		"Dubois",
+		"Eriksen",
+		"Fontaine",
+		"Gupta",
+		"Haddad",
+		"Ivanova",
+		"Jensen",
+		"Kowalski",
+		"Lombardi",
+		"Moreau",
+		"Nakamura",
+		"Oyelaran",
+		"Petrov",
+		"Quintana",
+		"Rossi",
+		"Sørensen",
+		"Takahashi",
+	],
+	legacyUsers: [
+		{ id: "seed-ada-okafor", email: "ada@trycomp.ai" },
+		{ id: "seed-marcus-lindqvist", email: "marcus@trycomp.ai" },
+		{ id: "seed-priya-raman", email: "priya@trycomp.ai" },
+	],
+	legacyUserIdPrefix: "seed-",
 	legacyNoteBodies: [
 		"Ran through the SOC 2 timeline. They want evidence collection automated before the audit window opens.",
 		"Procurement wants a security questionnaire back before they will look at pricing.",
@@ -30,6 +82,7 @@ const CLEANUP = {
 		"Pushed the decision to after their board meeting.",
 	],
 	legacyActivitySubjects: [
+		"Stage changed",
 		"Discovery call",
 		"Technical deep dive",
 		"Pricing discussion",
@@ -51,25 +104,17 @@ const CLEANUP = {
 		"Intro to your implementation lead",
 	],
 	legacyRateProvider: "seed",
-	legacyDealNameSuffixes: [" — Comp AI", " — expansion"],
-	placeholderUserDomain: "trycomp.ai",
-	renamedContactRole: "Homeowner",
-	renamedDeals: [
-		{
-			name: "Lawson Roof Replacement",
-			description:
-				"4415 Briar Hill Rd, Overland Park, KS 66210. Full tear-off, 26 squares, architectural shingles in Pewter Gray.",
-		},
-		{
-			name: "Whitfield Storm Damage Repair",
-			description:
-				"812 E Park St, Olathe, KS 66061. Wind damage on the rear slope and a missing section of ridge cap.",
-		},
-		{
-			name: "Garrison Gutter Replacement",
-			description:
-				"2706 NE Vivion Rd, Kansas City, MO 64119. Seamless gutters and downspouts on the whole house.",
-		},
+	reportingCurrency: "USD",
+	renameEmailDomain: "example.com",
+	renamedDealNames: [
+		"Lawson Roof Replacement",
+		"Whitfield Storm Damage Repair",
+		"Garrison Gutter Replacement",
+		"Holloway Leak Repair",
+		"Pruitt Hail Damage Re-Roof",
+		"Mercer Skylight Flashing Repair",
+		"Tanner Full Tear-Off",
+		"Bishop Soffit and Fascia Repair",
 	],
 	renamedContacts: [
 		{ firstName: "Paul", lastName: "Lawson" },
@@ -79,6 +124,7 @@ const CLEANUP = {
 		{ firstName: "Wade", lastName: "Pruitt" },
 		{ firstName: "Irene", lastName: "Mercer" },
 		{ firstName: "Doug", lastName: "Tanner" },
+		{ firstName: "Ruth", lastName: "Bishop" },
 	],
 	counted: [
 		"deal",
@@ -97,7 +143,14 @@ const CLEANUP = {
 		"formSubmission",
 		"fieldValue",
 		"agentConversation",
+		"contactFact",
+		"contactBrief",
+		"calendarAttendee",
+		"agentTask",
+		"agentEvent",
+		"recentRecord",
 		"user",
+		"account",
 		"member",
 		"accessGroup",
 		"service",
@@ -107,15 +160,13 @@ const CLEANUP = {
 	],
 } as const;
 
-type CountedTable = (typeof CLEANUP.counted)[number];
-
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
 const includeLinked = args.has("--include-linked");
 const renameLinked = args.has("--rename-linked");
 const renamePlaceholderUsers = args.has("--rename-placeholder-users");
 
-function databaseName(url: string): string {
+function urlDatabaseName(url: string): string {
 	try {
 		return new URL(url).pathname.replace(/^\//, "");
 	} catch {
@@ -123,17 +174,43 @@ function databaseName(url: string): string {
 	}
 }
 
-const name = databaseName(process.env.DATABASE_URL ?? "");
 const allowed: readonly string[] = CLEANUP.allowedDatabases;
+const urlName = urlDatabaseName(process.env.DATABASE_URL ?? "");
 
-if (!allowed.includes(name)) {
+if (process.env.NODE_ENV === "test") {
+	console.error("Refusing to run with NODE_ENV=test.");
+	process.exit(1);
+}
+
+if (!allowed.includes(urlName)) {
 	console.error(
-		`Refusing to run against "${name}". Allowed: ${CLEANUP.allowedDatabases.join(", ")}.`,
+		`Refusing to run against "${urlName}". Allowed: ${CLEANUP.allowedDatabases.join(", ")}.`,
 	);
 	process.exit(1);
 }
 
-type Delegate = { count: (args?: object) => Promise<number> };
+const { db } = await import("../src/client");
+const { OWNERS, seedDemo, slug } = await import("../prisma/demo-data");
+const { ActivityType } = await import("../src/generated/prisma/enums");
+
+type Client = Omit<
+	typeof db,
+	"$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
+>;
+type CountedTable = (typeof CLEANUP.counted)[number];
+type Delegate = { count: () => Promise<number> };
+
+async function assertDatabase(): Promise<void> {
+	const rows = await db.$queryRaw<
+		{ current_database: string }[]
+	>`select current_database()`;
+	const actual = rows[0]?.current_database ?? "";
+	if (actual !== urlName || !allowed.includes(actual)) {
+		throw new Error(
+			`Connected database "${actual}" does not match "${urlName}" or is not allowed.`,
+		);
+	}
+}
 
 async function countAll(): Promise<Record<CountedTable, number>> {
 	const entries = await Promise.all(
@@ -154,31 +231,94 @@ function legacyDealIds(): string[] {
 	);
 }
 
-async function findLegacyContacts() {
-	const rows = await db.contact.findMany({
+function nth<T>(items: readonly T[], index: number): T {
+	const item = items[index % items.length];
+	if (item === undefined) throw new Error("empty rename list");
+	return item;
+}
+
+function round(index: number, length: number): string {
+	return index < length ? "" : String(Math.floor(index / length) + 1);
+}
+
+type Linked = { table: string; id: string; parents: string[]; label: string };
+
+type Plan = {
+	candidateDealIds: string[];
+	candidateContactIds: string[];
+	linked: Linked[];
+	deleteDealIds: string[];
+	deleteContactIds: string[];
+	keptDealIds: string[];
+	keptContactIds: string[];
+	legacyActivityIds: string[];
+	orphanNoteIds: string[];
+	rateIds: string[];
+	pointers: {
+		agentTaskIds: string[];
+		agentEventIds: string[];
+		recentRecordIds: string[];
+	};
+	dealRenames: {
+		id: string;
+		from: string;
+		to: string;
+		currency: string;
+		amount: string | null;
+	}[];
+	contactRenames: {
+		id: string;
+		from: string | null;
+		firstName: string;
+		lastName: string;
+		email: string;
+	}[];
+	moneyFixes: {
+		estimateIds: string[];
+		invoiceIds: string[];
+		jobCostIds: string[];
+	};
+	userRenames: { id: string; from: string; name: string; email: string }[];
+	accountUpdates: { id: string; accountId: string }[];
+	conflicts: string[];
+};
+
+async function findCandidateContacts(client: Client) {
+	const firstNames: readonly string[] = CLEANUP.legacyFirstNames;
+	const lastNames: readonly string[] = CLEANUP.legacyLastNames;
+	const rows = await client.contact.findMany({
 		where: {
 			companyName: { in: CLEANUP.legacyCompanies.map((c) => c.name) },
 		},
-		select: { id: true, email: true, companyName: true },
+		select: {
+			id: true,
+			email: true,
+			firstName: true,
+			lastName: true,
+			companyName: true,
+		},
+		orderBy: { id: "asc" },
 	});
 
 	return rows.filter((row) => {
 		const company = CLEANUP.legacyCompanies.find(
 			(c) => c.name === row.companyName,
 		);
+		if (!company || row.lastName === null) return false;
 		return (
-			company !== undefined &&
-			row.email?.toLowerCase().endsWith(`@${company.domain}`) === true
+			firstNames.includes(row.firstName) &&
+			lastNames.includes(row.lastName) &&
+			row.email ===
+				`${slug(row.firstName)}.${slug(row.lastName)}@${company.domain}`
 		);
 	});
 }
 
-type Linked = { table: string; id: string; parents: string[]; label: string };
-
-async function findLinked(
+async function scanLinked(
+	client: Client,
 	dealIds: string[],
 	contactIds: string[],
-): Promise<Linked[]> {
+): Promise<{ linked: Linked[]; legacyActivityIds: string[] }> {
 	const byDeal = { dealId: { in: dealIds } };
 	const byContact = { contactId: { in: contactIds } };
 	const either = { OR: [byDeal, byContact] };
@@ -209,69 +349,115 @@ async function findLinked(
 		threads,
 		events,
 		visitors,
+		facts,
+		briefs,
+		attendees,
+		dismissals,
+		dealLinks,
 		activities,
 	] = await Promise.all([
-		db.estimate.findMany({
+		client.estimate.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true, title: true },
+			orderBy: { id: "asc" },
 		}),
-		db.invoice.findMany({
+		client.invoice.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true, number: true },
+			orderBy: { id: "asc" },
 		}),
-		db.drawing.findMany({
+		client.drawing.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true, title: true },
+			orderBy: { id: "asc" },
 		}),
-		db.project.findMany({
+		client.project.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true, name: true },
+			orderBy: { id: "asc" },
 		}),
-		db.contract.findMany({
+		client.contract.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true, title: true },
+			orderBy: { id: "asc" },
 		}),
-		db.permit.findMany({
+		client.permit.findMany({
 			where: byDeal,
 			select: { id: true, dealId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.photo.findMany({
+		client.photo.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.jobCost.findMany({
+		client.jobCost.findMany({
 			where: byDeal,
 			select: { id: true, dealId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.formSubmission.findMany({
+		client.formSubmission.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.fieldValue.findMany({
+		client.fieldValue.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.agentConversation.findMany({
+		client.agentConversation.findMany({
 			where: either,
 			select: { id: true, dealId: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.emailThread.findMany({
+		client.emailThread.findMany({
 			where: byContact,
 			select: { id: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.calendarEvent.findMany({
+		client.calendarEvent.findMany({
 			where: byContact,
 			select: { id: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.trackedVisitor.findMany({
+		client.trackedVisitor.findMany({
 			where: byContact,
 			select: { id: true, contactId: true },
+			orderBy: { id: "asc" },
 		}),
-		db.activity.findMany({
+		client.contactFact.findMany({
+			where: byContact,
+			select: { id: true, contactId: true, field: true },
+			orderBy: { id: "asc" },
+		}),
+		client.contactBrief.findMany({
+			where: byContact,
+			select: { contactId: true },
+			orderBy: { contactId: "asc" },
+		}),
+		client.calendarAttendee.findMany({
+			where: byContact,
+			select: { id: true, contactId: true, email: true },
+			orderBy: { id: "asc" },
+		}),
+		client.permitPromptDismissal.findMany({
+			where: byDeal,
+			select: { id: true, dealId: true },
+			orderBy: { id: "asc" },
+		}),
+		client.dealContact.findMany({
 			where: {
-				...either,
-				type: { not: ActivityType.STAGE_CHANGE },
+				OR: [
+					{ dealId: { in: dealIds }, contactId: { notIn: contactIds } },
+					{ contactId: { in: contactIds }, dealId: { notIn: dealIds } },
+				],
 			},
+			select: { dealId: true, contactId: true },
+			orderBy: [{ dealId: "asc" }, { contactId: "asc" }],
+		}),
+		client.activity.findMany({
+			where: either,
 			select: {
 				id: true,
 				dealId: true,
@@ -279,73 +465,533 @@ async function findLinked(
 				type: true,
 				subject: true,
 				body: true,
+				createdById: true,
 			},
+			orderBy: { id: "asc" },
 		}),
 	]);
 
 	const subjects: readonly string[] = CLEANUP.legacyActivitySubjects;
 	const bodies: readonly string[] = CLEANUP.legacyNoteBodies;
-	const realActivities = activities.filter(
-		(row) =>
-			!(row.subject !== null && subjects.includes(row.subject)) &&
-			!(row.body !== null && bodies.includes(row.body)),
-	);
+	const seedUsers: readonly string[] = CLEANUP.legacyUsers.map((u) => u.id);
+	const isLegacy = (row: (typeof activities)[number]) =>
+		seedUsers.includes(row.createdById) &&
+		((row.subject !== null && subjects.includes(row.subject)) ||
+			(row.type === ActivityType.NOTE &&
+				row.body !== null &&
+				bodies.includes(row.body)));
 
-	const tag = <
-		T extends { id: string; dealId?: string | null; contactId?: string | null },
-	>(
+	const tag = <T extends { dealId?: string | null; contactId?: string | null }>(
 		table: string,
 		rows: T[],
+		id: (row: T) => string,
 		label: (row: T) => string,
 	): Linked[] =>
 		rows.map((row) => ({
 			table,
-			id: row.id,
+			id: id(row),
 			parents: parentsOf(row),
 			label: label(row),
 		}));
+	const byId = <T extends { id: string }>(row: T) => row.id;
 
-	return [
-		...tag("estimate", estimates, (r) => r.title ?? ""),
-		...tag("invoice", invoices, (r) => String(r.number ?? "")),
-		...tag("drawing", drawings, (r) => r.title),
-		...tag("project", projects, (r) => r.name),
-		...tag("contract", contracts, (r) => r.title ?? ""),
-		...tag("permit", permits, () => ""),
-		...tag("photo", photos, () => ""),
-		...tag("jobCost", jobCosts, () => ""),
-		...tag("formSubmission", submissions, () => ""),
-		...tag("fieldValue", fieldValues, () => ""),
-		...tag("agentConversation", conversations, () => ""),
-		...tag("emailThread", threads, () => ""),
-		...tag("calendarEvent", events, () => ""),
-		...tag("trackedVisitor", visitors, () => ""),
-		...tag("activity", realActivities, (r) => `${r.type} ${r.subject ?? ""}`),
+	const linked = [
+		...tag("estimate", estimates, byId, (r) => r.title ?? ""),
+		...tag("invoice", invoices, byId, (r) => String(r.number ?? "")),
+		...tag("drawing", drawings, byId, (r) => r.title),
+		...tag("project", projects, byId, (r) => r.name),
+		...tag("contract", contracts, byId, (r) => r.title ?? ""),
+		...tag("permit", permits, byId, () => ""),
+		...tag("photo", photos, byId, () => ""),
+		...tag("jobCost", jobCosts, byId, () => ""),
+		...tag("formSubmission", submissions, byId, () => ""),
+		...tag("fieldValue", fieldValues, byId, () => ""),
+		...tag("agentConversation", conversations, byId, () => ""),
+		...tag("emailThread", threads, byId, () => ""),
+		...tag("calendarEvent", events, byId, () => ""),
+		...tag("trackedVisitor", visitors, byId, () => ""),
+		...tag("contactFact", facts, byId, (r) => r.field),
+		...tag(
+			"contactBrief",
+			briefs,
+			(r) => r.contactId,
+			() => "",
+		),
+		...tag("calendarAttendee", attendees, byId, (r) => r.email),
+		...tag("permitPromptDismissal", dismissals, byId, () => ""),
+		...tag(
+			"dealContact",
+			dealLinks,
+			(r) => `${r.dealId}:${r.contactId}`,
+			(r) => `deal ${r.dealId} to contact ${r.contactId}`,
+		),
+		...tag(
+			"activity",
+			activities.filter((row) => !isLegacy(row)),
+			byId,
+			(r) => `${r.type} ${r.subject ?? ""} by ${r.createdById}`,
+		),
 	];
+
+	return {
+		linked,
+		legacyActivityIds: activities.filter(isLegacy).map((row) => row.id),
+	};
 }
 
-async function deleteLinked(linked: Linked[]): Promise<void> {
-	const ids = (table: string) =>
-		linked.filter((row) => row.table === table).map((row) => row.id);
-	const where = (table: string) => ({ where: { id: { in: ids(table) } } });
+async function buildPlan(client: Client): Promise<Plan> {
+	const candidateDeals = await client.deal.findMany({
+		where: {
+			id: { in: legacyDealIds() },
+			OR: CLEANUP.legacyDealNameSuffixes.map((suffix) => ({
+				name: { endsWith: suffix },
+			})),
+		},
+		select: { id: true, name: true, amount: true, currency: true },
+		orderBy: { id: "asc" },
+	});
+	const candidateContacts = await findCandidateContacts(client);
+	const candidateDealIds = candidateDeals.map((row) => row.id);
+	const candidateContactIds = candidateContacts.map((row) => row.id);
 
-	await db.$transaction([
-		db.contract.deleteMany(where("contract")),
-		db.project.deleteMany(where("project")),
-		db.invoice.deleteMany(where("invoice")),
-		db.estimate.deleteMany(where("estimate")),
-		db.drawing.deleteMany(where("drawing")),
-		db.permit.deleteMany(where("permit")),
-		db.photo.deleteMany(where("photo")),
-		db.jobCost.deleteMany(where("jobCost")),
-		db.formSubmission.deleteMany(where("formSubmission")),
-		db.fieldValue.deleteMany(where("fieldValue")),
-		db.agentConversation.deleteMany(where("agentConversation")),
-		db.emailThread.deleteMany(where("emailThread")),
-		db.calendarEvent.deleteMany(where("calendarEvent")),
-		db.trackedVisitor.deleteMany(where("trackedVisitor")),
-		db.activity.deleteMany(where("activity")),
+	const { linked, legacyActivityIds } = await scanLinked(
+		client,
+		candidateDealIds,
+		candidateContactIds,
+	);
+	const blocked = new Set(linked.flatMap((row) => row.parents));
+
+	const deleteDealIds = includeLinked
+		? candidateDealIds
+		: candidateDealIds.filter((id) => !blocked.has(`deal ${id}`));
+	const keptDealIds = candidateDealIds.filter(
+		(id) => !deleteDealIds.includes(id),
+	);
+	const keptDealContacts = await client.dealContact.findMany({
+		where: {
+			dealId: { in: keptDealIds },
+			contactId: { in: candidateContactIds },
+		},
+		select: { contactId: true },
+	});
+	for (const link of keptDealContacts) blocked.add(`contact ${link.contactId}`);
+	const deleteContactIds = includeLinked
+		? candidateContactIds
+		: candidateContactIds.filter((id) => !blocked.has(`contact ${id}`));
+	const keptContactIds = candidateContactIds.filter(
+		(id) => !deleteContactIds.includes(id),
+	);
+
+	const deletedLinked = includeLinked ? linked : [];
+	const deletedIdsOf = (table: string) =>
+		deletedLinked.filter((row) => row.table === table).map((row) => row.id);
+
+	const seedUserIds = CLEANUP.legacyUsers.map((u) => u.id);
+	const [orphanNotes, rates, agentTasks, agentEvents, recentRecords] =
+		await Promise.all([
+			client.activity.findMany({
+				where: {
+					dealId: null,
+					contactId: null,
+					type: ActivityType.NOTE,
+					createdById: { in: seedUserIds },
+					body: { in: [...CLEANUP.legacyNoteBodies] },
+				},
+				select: { id: true },
+				orderBy: { id: "asc" },
+			}),
+			client.exchangeRate.findMany({
+				where: {
+					provider: CLEANUP.legacyRateProvider,
+					quoteCurrency: { not: CLEANUP.reportingCurrency },
+				},
+				select: { id: true },
+				orderBy: { id: "asc" },
+			}),
+			client.agentTask.findMany({
+				where: {
+					OR: [
+						{ dealId: { in: candidateDealIds } },
+						{ contactId: { in: candidateContactIds } },
+						{ drawingId: { in: deletedIdsOf("drawing") } },
+					],
+				},
+				select: { id: true, dealId: true, contactId: true, drawingId: true },
+				orderBy: { id: "asc" },
+			}),
+			client.agentEvent.findMany({
+				where: { contactId: { in: candidateContactIds } },
+				select: { id: true, contactId: true },
+				orderBy: { id: "asc" },
+			}),
+			client.recentRecord.findMany({
+				where: {
+					OR: [
+						{ kind: "deal", recordId: { in: candidateDealIds } },
+						{ kind: "contact", recordId: { in: candidateContactIds } },
+						...(
+							["estimate", "invoice", "drawing", "project", "contract"] as const
+						).map((kind) => ({ kind, recordId: { in: deletedIdsOf(kind) } })),
+					],
+				},
+				select: { id: true, kind: true, recordId: true },
+				orderBy: { id: "asc" },
+			}),
+		]);
+
+	const deletedRecordIds = new Set([
+		...deleteDealIds,
+		...deleteContactIds,
+		...deletedLinked.map((row) => row.id),
 	]);
+	const pointsAtDeleted = (...ids: (string | null)[]) =>
+		ids.some((id) => id !== null && deletedRecordIds.has(id));
+
+	const dealRenames = renameLinked
+		? candidateDeals
+				.filter((deal) => keptDealIds.includes(deal.id))
+				.map((deal, index) => {
+					const base = nth(CLEANUP.renamedDealNames, index);
+					const extra = round(index, CLEANUP.renamedDealNames.length);
+					return {
+						id: deal.id,
+						from: deal.name,
+						to: extra ? `${base} ${extra}` : base,
+						currency: deal.currency,
+						amount: deal.amount === null ? null : deal.amount.toString(),
+					};
+				})
+		: [];
+	const contactRenames = renameLinked
+		? candidateContacts
+				.filter((contact) => keptContactIds.includes(contact.id))
+				.map((contact, index) => {
+					const target = nth(CLEANUP.renamedContacts, index);
+					const extra = round(index, CLEANUP.renamedContacts.length);
+					return {
+						id: contact.id,
+						from: contact.email,
+						firstName: target.firstName,
+						lastName: target.lastName,
+						email: `${slug(target.firstName)}.${slug(target.lastName)}${extra ? `.${extra}` : ""}@${CLEANUP.renameEmailDomain}`,
+					};
+				})
+		: [];
+
+	const renamedScope = {
+		OR: [
+			{ dealId: { in: dealRenames.map((row) => row.id) } },
+			{ contactId: { in: contactRenames.map((row) => row.id) } },
+		],
+	};
+	const nonUsd = { currency: { not: CLEANUP.reportingCurrency } };
+	const [estimates, invoices, jobCosts] = renameLinked
+		? await Promise.all([
+				client.estimate.findMany({
+					where: { AND: [renamedScope, nonUsd] },
+					select: { id: true },
+					orderBy: { id: "asc" },
+				}),
+				client.invoice.findMany({
+					where: { AND: [renamedScope, nonUsd] },
+					select: { id: true },
+					orderBy: { id: "asc" },
+				}),
+				client.jobCost.findMany({
+					where: {
+						dealId: { in: dealRenames.map((row) => row.id) },
+						...nonUsd,
+					},
+					select: { id: true },
+					orderBy: { id: "asc" },
+				}),
+			])
+		: [[], [], []];
+
+	const legacyUserEmails: readonly string[] = CLEANUP.legacyUsers.map(
+		(u) => u.email,
+	);
+	const placeholderUsers = renamePlaceholderUsers
+		? (
+				await client.user.findMany({
+					where: {
+						id: { startsWith: CLEANUP.legacyUserIdPrefix },
+						email: { in: [...legacyUserEmails] },
+					},
+					select: { id: true, email: true },
+					orderBy: { id: "asc" },
+				})
+			).filter((user) => legacyUserEmails.includes(user.email))
+		: [];
+	const userRenames = placeholderUsers.map((user, index) => {
+		const owner = nth(OWNERS, index);
+		return {
+			id: user.id,
+			from: user.email,
+			name: owner.name,
+			email: owner.email,
+		};
+	});
+	const accounts = await client.account.findMany({
+		where: { userId: { in: userRenames.map((row) => row.id) } },
+		select: { id: true, userId: true, accountId: true },
+		orderBy: { id: "asc" },
+	});
+	const accountUpdates = accounts.flatMap((account) => {
+		const user = userRenames.find((row) => row.id === account.userId);
+		return user && account.accountId === user.from
+			? [{ id: account.id, accountId: user.email }]
+			: [];
+	});
+
+	const [contactConflicts, userConflicts] = await Promise.all([
+		client.contact.findMany({
+			where: {
+				email: { in: contactRenames.map((row) => row.email) },
+				id: { notIn: contactRenames.map((row) => row.id) },
+			},
+			select: { email: true },
+		}),
+		client.user.findMany({
+			where: {
+				email: { in: userRenames.map((row) => row.email) },
+				id: { notIn: userRenames.map((row) => row.id) },
+			},
+			select: { email: true },
+		}),
+	]);
+
+	return {
+		candidateDealIds,
+		candidateContactIds,
+		linked,
+		deleteDealIds,
+		deleteContactIds,
+		keptDealIds,
+		keptContactIds,
+		legacyActivityIds,
+		orphanNoteIds: orphanNotes.map((row) => row.id),
+		rateIds: rates.map((row) => row.id),
+		pointers: {
+			agentTaskIds: agentTasks
+				.filter((row) =>
+					pointsAtDeleted(row.dealId, row.contactId, row.drawingId),
+				)
+				.map((row) => row.id),
+			agentEventIds: agentEvents
+				.filter((row) => pointsAtDeleted(row.contactId))
+				.map((row) => row.id),
+			recentRecordIds: recentRecords
+				.filter((row) => pointsAtDeleted(row.recordId))
+				.map((row) => row.id),
+		},
+		dealRenames,
+		contactRenames,
+		moneyFixes: {
+			estimateIds: estimates.map((row) => row.id),
+			invoiceIds: invoices.map((row) => row.id),
+			jobCostIds: jobCosts.map((row) => row.id),
+		},
+		userRenames,
+		accountUpdates,
+		conflicts: [
+			...contactConflicts.map((row) => `contact email ${row.email}`),
+			...userConflicts.map((row) => `user email ${row.email}`),
+		],
+	};
+}
+
+function printPlan(plan: Plan): void {
+	console.log(
+		`\nUpstream demo candidates: ${plan.candidateDealIds.length} deals, ${plan.candidateContactIds.length} contacts.`,
+	);
+
+	if (plan.linked.length > 0) {
+		console.log(
+			`\nRecords linked to demo deals or contacts (${plan.linked.length}). ${
+				includeLinked
+					? "They are deleted with --include-linked, except mail and calendar sync rows, which only lose the contact link."
+					: "Their parents are kept. Pass --include-linked to delete them."
+			}`,
+		);
+		for (const row of plan.linked) {
+			console.log(
+				`  ${row.table.padEnd(22)} ${row.id}  on ${row.parents.join(" + ")}  ${row.label}`,
+			);
+		}
+	}
+
+	console.log(
+		`\nDelete: ${plan.deleteDealIds.length} deals, ${plan.deleteContactIds.length} contacts, ` +
+			`${plan.legacyActivityIds.length} upstream seed activities on candidates, ` +
+			`${plan.orphanNoteIds.length} orphan seed notes, ${plan.rateIds.length} seeded exchange rates, ` +
+			`${plan.pointers.agentTaskIds.length} agent tasks, ${plan.pointers.agentEventIds.length} agent events, ` +
+			`${plan.pointers.recentRecordIds.length} recent records` +
+			`${includeLinked ? `, ${plan.linked.length} linked records` : ""}.`,
+	);
+	if (plan.keptDealIds.length > 0) {
+		console.log(`Kept deals: ${plan.keptDealIds.join(", ")}`);
+	}
+	if (plan.keptContactIds.length > 0) {
+		console.log(`Kept contacts: ${plan.keptContactIds.join(", ")}`);
+	}
+
+	if (renameLinked) {
+		console.log("\nRename linked demo records (description and title stay):");
+		for (const row of plan.dealRenames) {
+			console.log(
+				`  deal ${row.id}: "${row.from}" ${row.currency} -> "${row.to}" ${CLEANUP.reportingCurrency}`,
+			);
+		}
+		for (const row of plan.contactRenames) {
+			console.log(
+				`  contact ${row.id}: ${row.from} -> ${row.email}, no company`,
+			);
+		}
+		console.log(
+			`  USD normalization: ${plan.moneyFixes.estimateIds.length} estimates, ${plan.moneyFixes.invoiceIds.length} invoices, ${plan.moneyFixes.jobCostIds.length} job costs.`,
+		);
+	}
+
+	if (renamePlaceholderUsers) {
+		console.log("\nRename placeholder users:");
+		for (const row of plan.userRenames) {
+			console.log(
+				`  user ${row.id}: ${row.from} -> ${row.name} <${row.email}>`,
+			);
+		}
+		console.log(
+			`  Account rows keyed by the old email: ${plan.accountUpdates.length}.`,
+		);
+	}
+
+	if (plan.conflicts.length > 0) {
+		console.log(`\nConflicts: ${plan.conflicts.join(", ")}`);
+	}
+}
+
+function signature(plan: Plan): string {
+	return JSON.stringify(plan);
+}
+
+async function execute(expected: Plan): Promise<void> {
+	await db.$transaction(
+		async (tx) => {
+			const current = await buildPlan(tx);
+			if (signature(current) !== signature(expected)) {
+				throw new Error(
+					"The data changed after the dry scan. Nothing written.",
+				);
+			}
+			if (current.conflicts.length > 0) {
+				throw new Error(`Rename conflicts: ${current.conflicts.join(", ")}`);
+			}
+
+			const linkedIds = (table: string) =>
+				includeLinked
+					? current.linked
+							.filter((row) => row.table === table)
+							.map((row) => row.id)
+					: [];
+			const byIds = (table: string) => ({
+				where: { id: { in: linkedIds(table) } },
+			});
+
+			if (includeLinked) {
+				await tx.contract.deleteMany(byIds("contract"));
+				await tx.project.deleteMany(byIds("project"));
+				await tx.invoice.deleteMany(byIds("invoice"));
+				await tx.estimate.deleteMany(byIds("estimate"));
+				await tx.drawing.deleteMany(byIds("drawing"));
+				await tx.permit.deleteMany(byIds("permit"));
+				await tx.photo.deleteMany(byIds("photo"));
+				await tx.jobCost.deleteMany(byIds("jobCost"));
+				await tx.formSubmission.deleteMany(byIds("formSubmission"));
+				await tx.fieldValue.deleteMany(byIds("fieldValue"));
+				await tx.agentConversation.deleteMany(byIds("agentConversation"));
+				await tx.contactFact.deleteMany(byIds("contactFact"));
+				await tx.permitPromptDismissal.deleteMany(
+					byIds("permitPromptDismissal"),
+				);
+				await tx.activity.deleteMany(byIds("activity"));
+			}
+
+			await tx.activity.deleteMany({
+				where: {
+					id: { in: [...current.legacyActivityIds, ...current.orphanNoteIds] },
+				},
+			});
+			await tx.deal.deleteMany({
+				where: { id: { in: current.deleteDealIds } },
+			});
+			await tx.contact.deleteMany({
+				where: { id: { in: current.deleteContactIds } },
+			});
+			await tx.exchangeRate.deleteMany({
+				where: { id: { in: current.rateIds } },
+			});
+			await tx.agentTask.deleteMany({
+				where: { id: { in: current.pointers.agentTaskIds } },
+			});
+			await tx.agentEvent.deleteMany({
+				where: { id: { in: current.pointers.agentEventIds } },
+			});
+			await tx.recentRecord.deleteMany({
+				where: { id: { in: current.pointers.recentRecordIds } },
+			});
+
+			for (const row of current.dealRenames) {
+				await tx.deal.update({
+					where: { id: row.id },
+					data: {
+						name: row.to,
+						currency: CLEANUP.reportingCurrency,
+						baseCurrency: CLEANUP.reportingCurrency,
+						baseAmount: row.amount,
+						fxRate: null,
+						fxRateAt: null,
+					},
+				});
+			}
+			for (const row of current.contactRenames) {
+				await tx.contact.update({
+					where: { id: row.id },
+					data: {
+						firstName: row.firstName,
+						lastName: row.lastName,
+						email: row.email,
+						companyName: null,
+					},
+				});
+			}
+			const usd = { data: { currency: CLEANUP.reportingCurrency } };
+			await tx.estimate.updateMany({
+				where: { id: { in: current.moneyFixes.estimateIds } },
+				...usd,
+			});
+			await tx.invoice.updateMany({
+				where: { id: { in: current.moneyFixes.invoiceIds } },
+				...usd,
+			});
+			await tx.jobCost.updateMany({
+				where: { id: { in: current.moneyFixes.jobCostIds } },
+				...usd,
+			});
+			for (const row of current.userRenames) {
+				await tx.user.update({
+					where: { id: row.id },
+					data: { name: row.name, email: row.email },
+				});
+			}
+			for (const row of current.accountUpdates) {
+				await tx.account.update({
+					where: { id: row.id },
+					data: { accountId: row.accountId },
+				});
+			}
+		},
+		{ timeout: CLEANUP.transactionTimeoutMs },
+	);
 }
 
 function printCounts(
@@ -358,396 +1004,55 @@ function printCounts(
 		const delta = before ? counts[table] - before[table] : 0;
 		const suffix =
 			before && delta !== 0 ? ` (${delta > 0 ? "+" : ""}${delta})` : "";
-		console.log(`  ${table.padEnd(18)} ${counts[table]}${suffix}`);
+		console.log(`  ${table.padEnd(22)} ${counts[table]}${suffix}`);
 	}
-}
-
-function nth<T>(items: readonly T[], index: number): T {
-	const item = items[index % items.length];
-	if (item === undefined) throw new Error("empty rename list");
-	return item;
-}
-
-function round(index: number, length: number): string {
-	return index < length ? "" : String(Math.floor(index / length) + 1);
-}
-
-async function renameLinkedRecords(
-	keptDealIds: string[],
-	keptContactIds: string[],
-): Promise<void> {
-	const deals = await db.deal.findMany({
-		where: { id: { in: keptDealIds } },
-		select: { id: true, name: true, amount: true, currency: true },
-		orderBy: { id: "asc" },
-	});
-	const contacts = await db.contact.findMany({
-		where: { id: { in: keptContactIds } },
-		select: { id: true, email: true, companyName: true },
-		orderBy: { id: "asc" },
-	});
-	const dealIds = deals.map((deal) => deal.id);
-	const contactIds = contacts.map((contact) => contact.id);
-	const scope = {
-		OR: [{ dealId: { in: dealIds } }, { contactId: { in: contactIds } }],
-	};
-	const nonUsd = { currency: { not: DEMO_CURRENCY } };
-
-	const [estimates, invoices, jobCosts, activities] = await Promise.all([
-		db.estimate.findMany({
-			where: { AND: [scope, nonUsd] },
-			select: { id: true },
-		}),
-		db.invoice.findMany({
-			where: { AND: [scope, nonUsd] },
-			select: { id: true },
-		}),
-		db.jobCost.findMany({
-			where: { dealId: { in: dealIds }, ...nonUsd },
-			select: { id: true },
-		}),
-		db.activity.findMany({
-			where: scope,
-			select: { id: true, subject: true, body: true },
-		}),
-	]);
-	const subjects: readonly string[] = CLEANUP.legacyActivitySubjects;
-	const bodies: readonly string[] = CLEANUP.legacyNoteBodies;
-	const seededActivityIds = activities
-		.filter(
-			(row) =>
-				(row.subject !== null && subjects.includes(row.subject)) ||
-				(row.body !== null && bodies.includes(row.body)),
-		)
-		.map((row) => row.id);
-
-	const dealPlan = deals.map((deal, index) => {
-		const target = nth(CLEANUP.renamedDeals, index);
-		const extra = round(index, CLEANUP.renamedDeals.length);
-		return {
-			...deal,
-			nextName: extra ? `${target.name} ${extra}` : target.name,
-			description: target.description,
-		};
-	});
-	const contactPlan = contacts.map((contact, index) => {
-		const target = nth(CLEANUP.renamedContacts, index);
-		const extra = round(index, CLEANUP.renamedContacts.length);
-		return {
-			...contact,
-			firstName: target.firstName,
-			lastName: target.lastName,
-			nextEmail: `${slug(target.firstName)}.${slug(target.lastName)}${extra ? `.${extra}` : ""}@example.com`,
-		};
-	});
-
-	console.log("\nRename linked demo records:");
-	for (const deal of dealPlan) {
-		console.log(
-			`  deal ${deal.id}: "${deal.name}" ${deal.currency} -> "${deal.nextName}" ${DEMO_CURRENCY}`,
-		);
-	}
-	for (const contact of contactPlan) {
-		console.log(
-			`  contact ${contact.id}: ${contact.email} (${contact.companyName}) -> ${contact.nextEmail} (no company)`,
-		);
-	}
-	console.log(
-		`  USD normalization: ${estimates.length} estimates, ${invoices.length} invoices, ${jobCosts.length} job costs.`,
-	);
-	console.log(
-		`  Upstream seed activities on these records to delete: ${seededActivityIds.length}.`,
-	);
-
-	const taken = await db.contact.findMany({
-		where: {
-			email: { in: contactPlan.map((contact) => contact.nextEmail) },
-			id: { notIn: contactIds },
-		},
-		select: { email: true },
-	});
-	if (taken.length > 0) {
-		console.log(
-			`  Skipped. Target emails already exist: ${taken.map((row) => row.email).join(", ")}.`,
-		);
-		return;
-	}
-
-	if (!apply) return;
-
-	await db.$transaction([
-		...dealPlan.map((deal) =>
-			db.deal.update({
-				where: { id: deal.id },
-				data: {
-					name: deal.nextName,
-					description: deal.description,
-					currency: DEMO_CURRENCY,
-					baseCurrency: DEMO_CURRENCY,
-					baseAmount: deal.amount,
-					fxRate: null,
-					fxRateAt: null,
-				},
-			}),
-		),
-		...contactPlan.map((contact) =>
-			db.contact.update({
-				where: { id: contact.id },
-				data: {
-					firstName: contact.firstName,
-					lastName: contact.lastName,
-					email: contact.nextEmail,
-					companyName: null,
-					title: null,
-				},
-			}),
-		),
-		db.dealContact.updateMany({
-			where: { dealId: { in: dealIds } },
-			data: { role: CLEANUP.renamedContactRole },
-		}),
-		db.estimate.updateMany({
-			where: { id: { in: estimates.map((row) => row.id) } },
-			data: { currency: DEMO_CURRENCY },
-		}),
-		db.invoice.updateMany({
-			where: { id: { in: invoices.map((row) => row.id) } },
-			data: { currency: DEMO_CURRENCY },
-		}),
-		db.jobCost.updateMany({
-			where: { id: { in: jobCosts.map((row) => row.id) } },
-			data: { currency: DEMO_CURRENCY },
-		}),
-		db.activity.deleteMany({ where: { id: { in: seededActivityIds } } }),
-	]);
-	console.log("  Renamed.");
-}
-
-async function renamePlaceholderUserRows(): Promise<void> {
-	const users = await db.user.findMany({
-		where: { email: { endsWith: `@${CLEANUP.placeholderUserDomain}` } },
-		select: { id: true, name: true, email: true },
-		orderBy: { id: "asc" },
-	});
-	const accounts = await db.account.findMany({
-		where: { userId: { in: users.map((user) => user.id) } },
-		select: { id: true, userId: true, accountId: true, providerId: true },
-	});
-
-	const plan = users.map((user, index) => {
-		const owner = nth(OWNERS, index);
-		const extra = round(index, OWNERS.length);
-		const [local, domain] = owner.email.split("@");
-		return {
-			...user,
-			nextName: owner.name,
-			nextEmail: `${local}${extra ? `+${extra}` : ""}@${domain}`,
-		};
-	});
-
-	console.log("\nRename placeholder users:");
-	for (const user of plan) {
-		console.log(
-			`  user ${user.id}: ${user.name} <${user.email}> -> ${user.nextName} <${user.nextEmail}>`,
-		);
-	}
-	for (const account of accounts) {
-		console.log(
-			`  account ${account.id}: provider ${account.providerId}, accountId ${account.accountId}`,
-		);
-	}
-	console.log(`  Auth accounts on these users: ${accounts.length}.`);
-
-	const emailAccounts = accounts.filter((account) =>
-		plan.some(
-			(user) => user.id === account.userId && user.email === account.accountId,
-		),
-	);
-	const taken = await db.user.findMany({
-		where: {
-			email: { in: plan.map((user) => user.nextEmail) },
-			id: { notIn: users.map((user) => user.id) },
-		},
-		select: { email: true },
-	});
-	if (taken.length > 0) {
-		console.log(
-			`  Skipped. Target emails already exist: ${taken.map((row) => row.email).join(", ")}.`,
-		);
-		return;
-	}
-
-	if (!apply) return;
-
-	await db.$transaction([
-		...plan.map((user) =>
-			db.user.update({
-				where: { id: user.id },
-				data: { name: user.nextName, email: user.nextEmail },
-			}),
-		),
-		...emailAccounts.map((account) => {
-			const user = plan.find((row) => row.id === account.userId);
-			if (!user) throw new Error(`no user for account ${account.id}`);
-			return db.account.update({
-				where: { id: account.id },
-				data: { accountId: user.nextEmail },
-			});
-		}),
-	]);
-	console.log(
-		`  Renamed. ${emailAccounts.length} account rows keyed by email updated.`,
-	);
 }
 
 async function main() {
+	await assertDatabase();
+
+	const flags = [
+		includeLinked && "include linked",
+		renameLinked && "rename linked",
+		renamePlaceholderUsers && "rename placeholder users",
+	].filter(Boolean);
 	console.log(
-		`Database ${name}. Mode: ${apply ? "APPLY" : "DRY RUN"}${includeLinked ? ", include linked" : ""}.`,
+		`Database ${urlName}. Mode: ${apply ? "APPLY" : "DRY RUN"}${flags.length ? `, ${flags.join(", ")}` : ""}.`,
 	);
 
 	const before = await countAll();
 	printCounts("Before", before);
 
-	const candidateDealIds = (
-		await db.deal.findMany({
-			where: {
-				id: { in: legacyDealIds() },
-				OR: CLEANUP.legacyDealNameSuffixes.map((suffix) => ({
-					name: { endsWith: suffix },
-				})),
-			},
-			select: { id: true },
-		})
-	).map((row) => row.id);
-	const candidateContacts = await findLegacyContacts();
-	const candidateContactIds = candidateContacts.map((row) => row.id);
-
-	const linked = await findLinked(candidateDealIds, candidateContactIds);
-	const blocked = new Set(linked.flatMap((row) => row.parents));
-	const blockedDealLinks = await db.dealContact.findMany({
-		where: {
-			dealId: {
-				in: candidateDealIds.filter((id) => blocked.has(`deal ${id}`)),
-			},
-			contactId: { in: candidateContactIds },
-		},
-		select: { contactId: true },
-	});
-	for (const link of blockedDealLinks) blocked.add(`contact ${link.contactId}`);
-
-	console.log(
-		`\nUpstream demo records: ${candidateDealIds.length} deals, ${candidateContactIds.length} contacts.`,
-	);
-
-	if (linked.length > 0) {
-		console.log(
-			`\nRecords linked to demo deals or contacts (${linked.length}). ${
-				includeLinked
-					? "They are deleted with --include-linked."
-					: "Their parents are kept. Pass --include-linked to delete them."
-			}`,
-		);
-		for (const row of linked) {
-			console.log(
-				`  ${row.table.padEnd(18)} ${row.id}  on ${row.parents.join(" + ")}  ${row.label}`,
-			);
-		}
-	}
-
-	const dealIds = includeLinked
-		? candidateDealIds
-		: candidateDealIds.filter((id) => !blocked.has(`deal ${id}`));
-	const contactIds = includeLinked
-		? candidateContactIds
-		: candidateContactIds.filter((id) => !blocked.has(`contact ${id}`));
-
-	const orphanNotes = await db.activity.count({
-		where: {
-			dealId: null,
-			contactId: null,
-			type: ActivityType.NOTE,
-			body: { in: [...CLEANUP.legacyNoteBodies] },
-		},
-	});
-	const legacyRates = await db.exchangeRate.count({
-		where: {
-			provider: CLEANUP.legacyRateProvider,
-			quoteCurrency: { not: "USD" },
-		},
-	});
-
-	console.log(
-		`\nPlan: delete ${dealIds.length} deals, ${contactIds.length} contacts, ` +
-			`${orphanNotes} orphan demo notes, ${legacyRates} seeded exchange rates` +
-			`${includeLinked ? `, ${linked.length} linked records` : ""}. ` +
-			"Then insert the roofing demo data.",
-	);
-	const keptDeals = candidateDealIds.filter((id) => !dealIds.includes(id));
-	const keptContacts = candidateContacts.filter(
-		(row) => !contactIds.includes(row.id),
-	);
-	if (keptDeals.length > 0) console.log(`Kept deals: ${keptDeals.join(", ")}`);
-	if (keptContacts.length > 0) {
-		console.log(
-			`Kept contacts: ${keptContacts.map((row) => row.email).join(", ")}`,
-		);
-	}
-
-	if (apply) {
-		if (includeLinked) await deleteLinked(linked);
-		await removeAndReseed(dealIds, contactIds);
-	}
-
-	if (renameLinked) {
-		await renameLinkedRecords(
-			keptDeals,
-			keptContacts.map((row) => row.id),
-		);
-	}
-	if (renamePlaceholderUsers) await renamePlaceholderUserRows();
+	const plan = await buildPlan(db);
+	printPlan(plan);
 
 	if (!apply) {
 		console.log("\nDry run. Nothing changed. Pass --apply to run it.");
 		return;
 	}
 
-	printCounts("After", await countAll(), before);
-}
-
-async function removeAndReseed(
-	dealIds: string[],
-	contactIds: string[],
-): Promise<void> {
-	await db.$transaction([
-		db.deal.deleteMany({ where: { id: { in: dealIds } } }),
-		db.contact.deleteMany({ where: { id: { in: contactIds } } }),
-		db.activity.deleteMany({
-			where: {
-				dealId: null,
-				contactId: null,
-				type: ActivityType.NOTE,
-				body: { in: [...CLEANUP.legacyNoteBodies] },
-			},
-		}),
-		db.exchangeRate.deleteMany({
-			where: {
-				provider: CLEANUP.legacyRateProvider,
-				quoteCurrency: { not: "USD" },
-			},
-		}),
-	]);
+	try {
+		await execute(plan);
+	} catch (error) {
+		console.error(
+			"\nTransaction rolled back. None of the planned changes above were written.",
+		);
+		throw error;
+	}
 
 	const seeded = await seedDemo();
 	console.log(
 		`\nRoofing demo: ${seeded.contacts} contacts, ${seeded.deals} deals, ${seeded.activities} activities.`,
 	);
+
+	printCounts("After", await countAll(), before);
 }
 
-main()
-	.catch((error) => {
-		console.error(error);
-		process.exitCode = 1;
-	})
-	.finally(async () => {
-		await db.$disconnect();
-	});
+try {
+	await main();
+} catch (error) {
+	console.error(error);
+	process.exitCode = 1;
+} finally {
+	await db.$disconnect();
+}
