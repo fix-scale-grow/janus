@@ -106,6 +106,14 @@ describe("access tags", () => {
 		expect(wrong).toEqual([]);
 	});
 
+	test("fields coverage is admin only", () => {
+		const file = "fields/fields.router.ts";
+		const proc = procedures(file, readFileSync(join(SRC, file), "utf8")).find(
+			(found) => found.name === "coverage",
+		);
+		expect(proc?.meta).toContain("adminOnly()");
+	});
+
 	test("every @UseMiddlewares call with AuthMiddleware also carries AccessMiddleware", () => {
 		const missing: string[] = [];
 		for (const file of files) {

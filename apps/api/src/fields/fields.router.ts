@@ -29,7 +29,7 @@ export class FieldsRouter {
 		return this.fields.byKey(input.entity, input.key);
 	}
 
-	@Query({ input: fieldIdInput, meta: anyMember() })
+	@Query({ input: fieldIdInput, meta: adminOnly() })
 	async coverage(@Input("id") id: string) {
 		return this.fields.coverage(id);
 	}
