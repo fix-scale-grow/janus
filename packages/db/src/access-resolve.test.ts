@@ -10,7 +10,12 @@ const ids = {
 	plain: `plain-${suffix}`,
 	profit: `profit-${suffix}`,
 	late: `late-${suffix}`,
+	waiting: `waiting-${suffix}`,
 };
+
+async function clearSeedMarker() {
+	await db.appSetting.updateMany({ data: { accessGroupsSeededAt: null } });
+}
 
 async function member(userId: string, role: string) {
 	await db.user.create({
@@ -43,6 +48,7 @@ beforeAll(async () => {
 		data: { groupId: null },
 	});
 	await db.accessGroup.deleteMany({});
+	await clearSeedMarker();
 	await member(ids.owner, "owner");
 	await member(ids.plain, "member");
 	await member(ids.profit, "member");
@@ -56,7 +62,12 @@ afterAll(async () => {
 	await db.userPermission.deleteMany({ where: { userId: { in: users } } });
 	await db.member.deleteMany({ where: { userId: { in: users } } });
 	await db.user.deleteMany({ where: { id: { in: users } } });
+	await db.member.updateMany({
+		where: { groupId: { not: null } },
+		data: { groupId: null },
+	});
 	await db.accessGroup.deleteMany({});
+	await clearSeedMarker();
 });
 
 describe("resolvePrincipal", () => {
@@ -93,6 +104,53 @@ describe("resolvePrincipal", () => {
 		const late = await resolvePrincipal(db, ids.late);
 		expect(late?.groupId).toBeNull();
 		expect(late?.policy.areas.deals).toBe("HIDDEN");
+	});
+
+	test("seeding writes a permanent marker", async () => {
+		const row = await db.appSetting.findUnique({
+			where: { id: "app" },
+			select: { accessGroupsSeededAt: true },
+		});
+		expect(row?.accessGroupsSeededAt).toBeInstanceOf(Date);
+	});
+
+	test("deleting every group never reseeds or regroups waiting members", async () => {
+		await db.member.updateMany({
+			where: { groupId: { not: null } },
+			data: { groupId: null },
+		});
+		await db.accessGroup.deleteMany({});
+		await member(ids.waiting, "member");
+
+		await ensureAccessGroups(db);
+
+		expect(await db.accessGroup.count()).toBe(0);
+		const waiting = await resolvePrincipal(db, ids.waiting);
+		expect(waiting?.groupId).toBeNull();
+		expect(waiting?.policy.areas.deals).toBe("HIDDEN");
+	});
+
+	test("an install with groups but no marker gets the marker without reseeding", async () => {
+		await db.accessGroup.create({
+			data: {
+				name: `Existing ${suffix}`,
+				surface: "FULL",
+				scope: "OWN",
+				policy: { areas: {}, actions: [], money: [] },
+			},
+		});
+		await clearSeedMarker();
+
+		await ensureAccessGroups(db);
+
+		expect(await db.accessGroup.count()).toBe(1);
+		const row = await db.appSetting.findUnique({
+			where: { id: "app" },
+			select: { accessGroupsSeededAt: true },
+		});
+		expect(row?.accessGroupsSeededAt).toBeInstanceOf(Date);
+		const waiting = await resolvePrincipal(db, ids.waiting);
+		expect(waiting?.groupId).toBeNull();
 	});
 
 	test("non-member resolves null", async () => {

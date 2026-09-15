@@ -1630,6 +1630,8 @@ model AppSetting {
   permitDisclaimerAcceptedById String?
   permitDisclaimerAcceptedAt   DateTime?
 
+  accessGroupsSeededAt DateTime?
+
   updatedAt DateTime @updatedAt
 
   @@map("appSetting")

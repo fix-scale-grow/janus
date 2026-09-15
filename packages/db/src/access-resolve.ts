@@ -7,6 +7,7 @@ import {
 } from "./access-policy";
 import type { Db } from "./client";
 import type { Prisma } from "./generated/prisma/client";
+import { SETTINGS_ID } from "./settings";
 import { WORKSPACE_ID } from "./workspace";
 
 type Client = Db | Prisma.TransactionClient;
@@ -16,6 +17,17 @@ const LEGACY_PROFIT_KEY = "profit.view";
 export async function ensureAccessGroups(client: Db): Promise<void> {
 	await client.$transaction(async (tx) => {
 		await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('access_group_seed'))`;
+		const setting = await tx.appSetting.findUnique({
+			where: { id: SETTINGS_ID },
+			select: { accessGroupsSeededAt: true },
+		});
+		if (setting?.accessGroupsSeededAt) return;
+		const seededAt = new Date();
+		await tx.appSetting.upsert({
+			where: { id: SETTINGS_ID },
+			create: { id: SETTINGS_ID, accessGroupsSeededAt: seededAt },
+			update: { accessGroupsSeededAt: seededAt },
+		});
 		if ((await tx.accessGroup.count()) > 0) return;
 
 		const created = new Map<string, string>();
