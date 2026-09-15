@@ -38,6 +38,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { usePhotoUpload } from "@/components/photos/use-photo-upload";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -62,6 +63,9 @@ export function PhotoGrid({
 	contactId?: string;
 }) {
 	const trpc = useTRPC();
+	const { can } = useAccess();
+	const canEdit = can("photos", "EDIT");
+	const canDelete = can("photos", "DELETE");
 	const [dragging, setDragging] = useState(false);
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 	const fileInput = useRef<HTMLInputElement>(null);
@@ -83,41 +87,45 @@ export function PhotoGrid({
 
 	return (
 		<div className="flex flex-col gap-4">
-			<input
-				ref={fileInput}
-				type="file"
-				accept="image/*"
-				multiple
-				className="sr-only"
-				onChange={(event) => {
-					const files = Array.from(event.target.files ?? []);
-					event.target.value = "";
-					if (files.length > 0) void upload(files);
-				}}
-			/>
+			{canEdit ? (
+				<>
+					<input
+						ref={fileInput}
+						type="file"
+						accept="image/*"
+						multiple
+						className="sr-only"
+						onChange={(event) => {
+							const files = Array.from(event.target.files ?? []);
+							event.target.value = "";
+							if (files.length > 0) void upload(files);
+						}}
+					/>
 
-			<button
-				type="button"
-				disabled={uploading}
-				onClick={() => fileInput.current?.click()}
-				onDragOver={(event) => {
-					event.preventDefault();
-					setDragging(true);
-				}}
-				onDragLeave={() => setDragging(false)}
-				onDrop={(event) => {
-					event.preventDefault();
-					setDragging(false);
-					void upload(Array.from(event.dataTransfer.files));
-				}}
-				className={cn(
-					"flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-muted-foreground text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
-					dragging && "bg-muted/50",
-				)}
-			>
-				<Icon icon={Add} />
-				Drop images here, or tap to add photos
-			</button>
+					<button
+						type="button"
+						disabled={uploading}
+						onClick={() => fileInput.current?.click()}
+						onDragOver={(event) => {
+							event.preventDefault();
+							setDragging(true);
+						}}
+						onDragLeave={() => setDragging(false)}
+						onDrop={(event) => {
+							event.preventDefault();
+							setDragging(false);
+							void upload(Array.from(event.dataTransfer.files));
+						}}
+						className={cn(
+							"flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-muted-foreground text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
+							dragging && "bg-muted/50",
+						)}
+					>
+						<Icon icon={Add} />
+						Drop images here, or tap to add photos
+					</button>
+				</>
+			) : null}
 
 			{photos.isPending ? (
 				<div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -144,6 +152,7 @@ export function PhotoGrid({
 							key={row.id}
 							row={row}
 							onOpen={() => setLightboxIndex(index)}
+							canDelete={canDelete}
 						/>
 					))}
 				</div>
@@ -162,7 +171,15 @@ export function PhotoGrid({
 	);
 }
 
-function PhotoTile({ row, onOpen }: { row: PhotoRow; onOpen: () => void }) {
+function PhotoTile({
+	row,
+	onOpen,
+	canDelete,
+}: {
+	row: PhotoRow;
+	onOpen: () => void;
+	canDelete: boolean;
+}) {
 	const [deleting, setDeleting] = useState(false);
 	const url = thumbUrl(row.id);
 
@@ -183,32 +200,36 @@ function PhotoTile({ row, onOpen }: { row: PhotoRow; onOpen: () => void }) {
 				<span className="sr-only">Open {row.filename}</span>
 			</button>
 
-			<div className="absolute top-1.5 right-1.5 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button variant="outline" size="icon-xs">
-							<Icon icon={OverflowMenuVertical} />
-							<span className="sr-only">More actions for {row.filename}</span>
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" className="min-w-44">
-						<DropdownMenuItem
-							variant="destructive"
-							onSelect={() => setDeleting(true)}
-						>
-							<Icon icon={TrashCan} />
-							Delete
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
+			{canDelete ? (
+				<div className="absolute top-1.5 right-1.5 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="outline" size="icon-xs">
+								<Icon icon={OverflowMenuVertical} />
+								<span className="sr-only">More actions for {row.filename}</span>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="min-w-44">
+							<DropdownMenuItem
+								variant="destructive"
+								onSelect={() => setDeleting(true)}
+							>
+								<Icon icon={TrashCan} />
+								Delete
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
+			) : null}
 
-			<DeletePhotoDialog
-				photoId={row.id}
-				filename={row.filename}
-				open={deleting}
-				onOpenChange={setDeleting}
-			/>
+			{canDelete ? (
+				<DeletePhotoDialog
+					photoId={row.id}
+					filename={row.filename}
+					open={deleting}
+					onOpenChange={setDeleting}
+				/>
+			) : null}
 		</div>
 	);
 }

@@ -67,3 +67,23 @@ export async function readResearchGate(request: NextRequest): Promise<Gate> {
 
 	return key.configured ? "settled" : "required";
 }
+
+export type AccessGate = {
+	surface: "FULL" | "FIELD" | null;
+	isAdmin: boolean;
+};
+
+export async function readAccessGate(
+	request: NextRequest,
+): Promise<AccessGate> {
+	const mine = await read<{
+		surface?: "FULL" | "FIELD";
+		isAdmin?: boolean;
+	}>(request, "permissions.mine");
+
+	if (!mine || typeof mine.isAdmin !== "boolean" || !mine.surface) {
+		return { surface: null, isAdmin: false };
+	}
+
+	return { surface: mine.surface, isAdmin: mine.isAdmin };
+}

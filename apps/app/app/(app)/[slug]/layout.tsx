@@ -1,6 +1,7 @@
 import { notFound, unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { WaitingForGroup } from "@/components/access/waiting-for-group";
 import { AppHeader, AppHeaderFallback } from "@/components/app-header";
 import { AppIconRail, AppIconRailFallback } from "@/components/app-icon-rail";
 import { QuickSwitcher } from "@/components/crm/quick-switcher";
@@ -39,7 +40,9 @@ export default async function AppLayout({
 					<Suspense fallback={<AppIconRailFallback navLayout={navLayout} />}>
 						<AppRail navLayout={navLayout} permitsEnabled={permitsEnabled} />
 					</Suspense>
-					{children}
+					<Suspense fallback={null}>
+						<MainContent>{children}</MainContent>
+					</Suspense>
 				</div>
 
 				<Suspense fallback={null}>
@@ -52,6 +55,21 @@ export default async function AppLayout({
 			</div>
 		</MobileNavProvider>
 	);
+}
+
+async function MainContent({ children }: { children: React.ReactNode }) {
+	await connection();
+	const queryClient = getServerQueryClient();
+	const trpc = getServerTrpc();
+	const mine = await queryClient
+		.fetchQuery(trpc.permissions.mine.queryOptions())
+		.catch(() => undefined);
+
+	if (mine && mine.groupId === null && !mine.isAdmin) {
+		return <WaitingForGroup />;
+	}
+
+	return <>{children}</>;
 }
 
 async function AppRail({

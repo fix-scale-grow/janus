@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { visibleModules } from "@/lib/access-rules";
 import {
 	JANUS_LIVE_NAV,
 	type LiveNavItem,
@@ -55,23 +56,15 @@ function useVisibleItems(seed?: NavItemsSeed): LiveNavItem[] {
 		...trpc.permissions.mine.queryOptions(),
 		...(initialData ? { initialData } : {}),
 	});
-	const isAdmin = permissions.data?.isAdmin ?? false;
-	const money = permissions.data?.money;
 	const permitsEnabled = seed?.permitsEnabled ?? false;
+	const mine = permissions.data;
 
-	return useMemo(
-		() =>
-			applyPermitsGate(
-				JANUS_LIVE_NAV.filter(
-					(item) =>
-						!item.permission ||
-						isAdmin ||
-						(money?.includes(item.permission) ?? false),
-				),
-				permitsEnabled,
-			),
-		[isAdmin, money, permitsEnabled],
-	);
+	return useMemo(() => {
+		const gated = mine
+			? (visibleModules(JANUS_LIVE_NAV, mine) as LiveNavItem[])
+			: JANUS_LIVE_NAV;
+		return applyPermitsGate(gated, permitsEnabled);
+	}, [mine, permitsEnabled]);
 }
 
 function useNavOrder(seed?: NavItemsSeed): {

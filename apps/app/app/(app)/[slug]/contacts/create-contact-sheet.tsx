@@ -28,6 +28,7 @@ import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useSubmitGuard } from "@/lib/use-submit-guard";
@@ -44,6 +45,9 @@ function AddButton(props: ComponentProps<typeof Button>) {
 }
 
 export function CreateContactSheet() {
+	const { mine, can } = useAccess();
+	if (mine && !can("contacts", "EDIT")) return null;
+
 	return (
 		<Suspense fallback={<AddButton disabled />}>
 			<CreateContactForm />

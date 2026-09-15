@@ -22,6 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -45,6 +46,7 @@ export function NewProjectDialog({
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 } = {}) {
+	const { mine, can } = useAccess();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
@@ -84,6 +86,8 @@ export function NewProjectDialog({
 	);
 
 	const ready = name.trim() !== "" && startDate !== "";
+
+	if (mine && !can("projects", "EDIT")) return null;
 
 	return (
 		<Dialog

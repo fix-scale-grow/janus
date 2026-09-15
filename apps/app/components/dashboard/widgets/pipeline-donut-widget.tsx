@@ -93,6 +93,13 @@ export function PipelineDonutWidget() {
 			reportingCurrency,
 		);
 
+	const moneyMasked =
+		chartPipeline.stages.length > 0 &&
+		chartPipeline.stages.every((stage) => stage.valueCents === null);
+	const anyStageHasDeals = chartPipeline.stages.some(
+		(stage) => stage.count > 0,
+	);
+
 	const stageSlices = chartPipeline.stages.flatMap((stage) =>
 		(stage.valueCents ?? 0) > 0
 			? [
@@ -134,6 +141,38 @@ export function PipelineDonutWidget() {
 			<WidgetBoundary onRetry={refetchSummary}>
 				{chartError ? (
 					<WidgetError onRetry={() => void chartQuery.refetch()} />
+				) : moneyMasked && anyStageHasDeals ? (
+					<ul className="flex flex-col px-5 pb-1 md:px-6">
+						{chartPipeline.stages
+							.filter((stage) => stage.count > 0)
+							.map((stage) => (
+								<li key={stage.id} className="border-t first:border-t-0">
+									<Link
+										href={stageHref(
+											workspaceUrl,
+											{ key: stage.id },
+											chartPipeline.pipelineId,
+										)}
+										className="flex items-center gap-2.5 py-2 text-xs hover:underline"
+									>
+										<span
+											aria-hidden
+											className="size-1.5 shrink-0"
+											style={{ backgroundColor: stage.color }}
+										/>
+										<span className="min-w-0 flex-1 truncate">
+											{stage.label}
+										</span>
+										<span className="shrink-0 text-muted-foreground tabular-nums">
+											{stage.count}
+										</span>
+										<span className="w-14 shrink-0 text-right font-medium text-muted-foreground">
+											Hidden
+										</span>
+									</Link>
+								</li>
+							))}
+					</ul>
 				) : stageSlices.length > 0 ? (
 					<div className="flex flex-1 flex-col justify-between gap-1 pt-4">
 						<DonutStat

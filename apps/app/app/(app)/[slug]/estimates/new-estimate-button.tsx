@@ -6,6 +6,7 @@ import { Icon } from "@crm/ui/components/icon";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -19,6 +20,7 @@ export function NewEstimateButton({
 	contactId?: string;
 	size?: "default" | "sm";
 }) {
+	const { mine, can } = useAccess();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
@@ -33,6 +35,8 @@ export function NewEstimateButton({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+
+	if (mine && !can("estimates", "EDIT")) return null;
 
 	return (
 		<Button

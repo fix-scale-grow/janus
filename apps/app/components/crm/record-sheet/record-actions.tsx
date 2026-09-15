@@ -23,6 +23,7 @@ import { Icon } from "@crm/ui/components/icon";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import {
@@ -34,6 +35,11 @@ import {
 const NOUN: Record<RecordKind, string> = {
 	contact: "contact",
 	deal: "deal",
+};
+
+const AREA: Record<RecordKind, "contacts" | "deals"> = {
+	contact: "contacts",
+	deal: "deals",
 };
 
 function useDeleteRecord(record: RecordRef) {
@@ -71,6 +77,9 @@ export function RecordActions({
 }) {
 	const [confirming, setConfirming] = useState(false);
 	const remove = useDeleteRecord(record);
+	const { mine, can } = useAccess();
+
+	if (mine && !can(AREA[record.kind], "DELETE")) return null;
 
 	return (
 		<>

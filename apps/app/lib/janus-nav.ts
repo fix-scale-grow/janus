@@ -13,7 +13,7 @@ import Receipt from "@carbon/icons-react/es/Receipt";
 import Settings from "@carbon/icons-react/es/Settings";
 import Tools from "@carbon/icons-react/es/Tools";
 import UserMultiple from "@carbon/icons-react/es/UserMultiple";
-import type { MoneySwitch } from "@crm/db/access-config";
+import type { AccessArea } from "@crm/db/access-config";
 
 /**
  * Janus product IA — the single source of truth for the app shell navigation.
@@ -44,7 +44,7 @@ export type JanusModule = {
 	related?: string[];
 	/** v0-suite source route this module ports from (design contract). */
 	source?: string;
-	permission?: MoneySwitch;
+	area?: AccessArea;
 	children?: NavChild[];
 };
 
@@ -80,6 +80,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: UserMultiple,
 		source: "app/(app)/contacts",
+		area: "contacts",
 		children: [
 			{ id: "/contacts:new", title: "New contact", href: "/contacts?new=1" },
 			{ id: "/contacts:all", title: "All contacts", href: "/contacts" },
@@ -92,6 +93,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Partnership,
 		source: "app/(app)/sales",
+		area: "deals",
 	},
 	{
 		title: "Settings",
@@ -144,6 +146,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Tools,
 		source: "app/(app)/production",
+		area: "deals",
 	},
 	{
 		title: "Projects",
@@ -152,6 +155,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: EventSchedule,
 		source: "app/(app)/projects",
+		area: "projects",
 	},
 	{
 		title: "Reports",
@@ -160,6 +164,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: ChartColumn,
 		source: "app/(app)/reports",
+		area: "reports",
 	},
 	{
 		title: "Field",
@@ -176,6 +181,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: PenFountain,
 		source: "app/(app)/drawings",
+		area: "drawings",
 	},
 	{
 		title: "Estimates",
@@ -184,6 +190,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Receipt,
 		source: "app/(app)/estimates",
+		area: "estimates",
 	},
 	{
 		title: "Invoices",
@@ -192,6 +199,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: CurrencyDollar,
 		source: "app/(app)/invoices",
+		area: "invoices",
 	},
 	{
 		title: "Contracts",
@@ -200,6 +208,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: DocumentSigned,
 		source: "app/(app)/contracts",
+		area: "contracts",
 	},
 	{
 		title: "Permits",
@@ -208,6 +217,7 @@ export const JANUS_NAV: JanusModule[] = [
 		status: "live",
 		icon: Certificate,
 		source: "app/(app)/permits",
+		area: "permits",
 	},
 	// --- planned: ported in subsequent stages (see JANUS.md phases) ---
 	{

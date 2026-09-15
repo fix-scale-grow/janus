@@ -45,6 +45,7 @@ import {
 	DetailSheetSection,
 } from "@/components/detail-sheet";
 import { LocalDay } from "@/components/local-date-time";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -111,12 +112,15 @@ async function deleteReceipt(costId: string): Promise<void> {
 
 export function DealCosts({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
+	const { can } = useAccess();
 
 	const costs = useQuery(trpc.costs.list.queryOptions({ dealId }));
 	const permissions = useQuery(trpc.permissions.mine.queryOptions());
 	const canViewProfit = permissions.data
 		? permissions.data.isAdmin || permissions.data.money.includes("profit")
 		: false;
+	const canEdit = can("jobCosts", "EDIT");
+	const canDelete = can("jobCosts", "DELETE");
 
 	const profit = useQuery({
 		...trpc.costs.profitForDeal.queryOptions({ dealId }),
@@ -145,7 +149,7 @@ export function DealCosts({ dealId }: { dealId: string }) {
 			</DetailSheetSection>
 
 			<DetailSheetSection title="Costs">
-				<QuickAddCost dealId={dealId} />
+				{canEdit ? <QuickAddCost dealId={dealId} /> : null}
 
 				{rows.length === 0 ? (
 					<DetailSheetEmpty
@@ -156,7 +160,13 @@ export function DealCosts({ dealId }: { dealId: string }) {
 				) : (
 					<SimpleTable variant="panel" columns={COST_COLUMNS}>
 						{rows.map((row) => (
-							<CostRow key={row.id} row={row} dealId={dealId} />
+							<CostRow
+								key={row.id}
+								row={row}
+								dealId={dealId}
+								canEdit={canEdit}
+								canDelete={canDelete}
+							/>
 						))}
 					</SimpleTable>
 				)}
@@ -347,7 +357,17 @@ function QuickAddCost({ dealId }: { dealId: string }) {
 	);
 }
 
-function CostRow({ row, dealId }: { row: Cost; dealId: string }) {
+function CostRow({
+	row,
+	dealId,
+	canEdit,
+	canDelete,
+}: {
+	row: Cost;
+	dealId: string;
+	canEdit: boolean;
+	canDelete: boolean;
+}) {
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const fileInput = useRef<HTMLInputElement>(null);
@@ -430,48 +450,52 @@ function CostRow({ row, dealId }: { row: Cost; dealId: string }) {
 			</TableCell>
 			<TableCell className="px-3 py-2.5">
 				<div className="flex items-center justify-end gap-1">
-					<Popover open={editOpen} onOpenChange={setEditOpen}>
-						<PopoverTrigger asChild>
-							<Button variant="ghost" size="icon-xs" aria-label="Edit cost">
-								<Icon icon={Edit} />
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent align="end" className="w-72">
-							<EditCostForm
-								row={row}
-								dealId={dealId}
-								onDone={() => setEditOpen(false)}
-							/>
-						</PopoverContent>
-					</Popover>
+					{canEdit ? (
+						<Popover open={editOpen} onOpenChange={setEditOpen}>
+							<PopoverTrigger asChild>
+								<Button variant="ghost" size="icon-xs" aria-label="Edit cost">
+									<Icon icon={Edit} />
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent align="end" className="w-72">
+								<EditCostForm
+									row={row}
+									dealId={dealId}
+									onDone={() => setEditOpen(false)}
+								/>
+							</PopoverContent>
+						</Popover>
+					) : null}
 
-					<AlertDialog>
-						<AlertDialogTrigger asChild>
-							<Button variant="ghost" size="icon-xs" aria-label="Delete cost">
-								<Icon icon={TrashCan} />
-							</Button>
-						</AlertDialogTrigger>
-						<AlertDialogContent>
-							<AlertDialogHeader>
-								<AlertDialogTitle>Delete this cost?</AlertDialogTitle>
-								<AlertDialogDescription>
-									This cannot be undone.
-								</AlertDialogDescription>
-							</AlertDialogHeader>
-							<AlertDialogFooter>
-								<AlertDialogCancel>Cancel</AlertDialogCancel>
-								<AlertDialogAction
-									variant="destructive"
-									onClick={async () => {
-										if (row.receiptPath) await deleteReceipt(row.id);
-										remove.mutate({ id: row.id });
-									}}
-								>
-									Delete
-								</AlertDialogAction>
-							</AlertDialogFooter>
-						</AlertDialogContent>
-					</AlertDialog>
+					{canDelete ? (
+						<AlertDialog>
+							<AlertDialogTrigger asChild>
+								<Button variant="ghost" size="icon-xs" aria-label="Delete cost">
+									<Icon icon={TrashCan} />
+								</Button>
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete this cost?</AlertDialogTitle>
+									<AlertDialogDescription>
+										This cannot be undone.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogAction
+										variant="destructive"
+										onClick={async () => {
+											if (row.receiptPath) await deleteReceipt(row.id);
+											remove.mutate({ id: row.id });
+										}}
+									>
+										Delete
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+					) : null}
 				</div>
 			</TableCell>
 		</SimpleTableRow>

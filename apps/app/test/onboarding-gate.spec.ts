@@ -48,24 +48,35 @@ const researchKey = (configured: boolean) => ({
 	result: { data: { configured, hint: configured ? "••••9876" : null } },
 });
 
-/** Answers both gate procedures, counting the calls to each. */
+const access = (isAdmin: boolean) => ({
+	result: { data: { surface: "FULL", isAdmin } },
+});
+
+/** Answers all three gate procedures, counting the calls to each. */
 function setup({
 	onboarded = true,
 	canRename = true,
 	configured = true,
 	slug = SLUG,
+	isAdmin = true,
 }: {
 	onboarded?: boolean;
 	canRename?: boolean;
 	configured?: boolean;
 	slug?: string;
+	isAdmin?: boolean;
 } = {}) {
-	const calls = { workspace: 0, research: 0 };
+	const calls = { workspace: 0, research: 0, access: 0 };
 
 	stub(async (url) => {
 		if (url.includes("workspace.get")) {
 			calls.workspace += 1;
 			return json(workspace({ onboarded, canRename, slug }));
+		}
+
+		if (url.includes("permissions.mine")) {
+			calls.access += 1;
+			return json(access(isAdmin));
 		}
 
 		calls.research += 1;
@@ -231,11 +242,11 @@ describe("proxy", () => {
 		const first = await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]));
 
 		expect([...first.cookies.getAll()]).toHaveLength(0);
-		expect(calls).toEqual({ workspace: 1, research: 1 });
+		expect(calls).toEqual({ workspace: 1, research: 1, access: 1 });
 
 		await proxy(request(`/${SLUG}/contacts`, [SESSION_COOKIE]));
 
-		expect(calls).toEqual({ workspace: 2, research: 2 });
+		expect(calls).toEqual({ workspace: 2, research: 2, access: 2 });
 	});
 
 	it("notices when the answer changes underneath it", async () => {

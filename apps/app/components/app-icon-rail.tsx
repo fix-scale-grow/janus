@@ -282,7 +282,7 @@ export function AppIconRailFallback({
 			aria-busy="true"
 			className="hidden w-14 shrink-0 flex-col items-center gap-1 border-r py-3 md:flex [view-transition-name:app-rail]"
 		>
-			{JANUS_LIVE_NAV.filter((item) => !item.permission).map((item) => (
+			{JANUS_LIVE_NAV.map((item) => (
 				<Button
 					key={item.href}
 					variant="ghost"

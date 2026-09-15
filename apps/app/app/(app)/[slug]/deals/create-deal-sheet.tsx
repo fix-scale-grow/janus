@@ -36,6 +36,7 @@ import { parseAsBoolean, useQueryState } from "nuqs";
 import { type ComponentProps, Suspense, useId, useState } from "react";
 import { toast } from "sonner";
 import { useOpenRecord } from "@/components/crm/record-sheet/record-stack";
+import { useAccess } from "@/lib/access";
 import { groupStagesByPipeline } from "@/lib/stage-presentation";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -53,6 +54,9 @@ function AddButton(props: ComponentProps<typeof Button>) {
 }
 
 export function CreateDealSheet() {
+	const { mine, can } = useAccess();
+	if (mine && !can("deals", "EDIT")) return null;
+
 	return (
 		<Suspense fallback={<AddButton disabled />}>
 			<CreateDealForm />

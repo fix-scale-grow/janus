@@ -21,12 +21,28 @@ import type { SavedTableView } from "@/components/data-table/list-search-params"
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
+import { useAccess } from "@/lib/access";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { DealsBulkActions } from "./deals-bulk-actions";
 import { dealsSearchParams } from "./deals-search-params";
 
 type DealRow = RouterOutputs["deals"]["list"]["rows"][number];
+
+function DealAmountCell({ row }: { row: DealRow }) {
+	const { mine, money } = useAccess();
+	if (row.amountCents === null) {
+		if (mine && !money("prices")) {
+			return <span className="text-muted-foreground">Hidden</span>;
+		}
+		return <EmptyCellValue />;
+	}
+	return (
+		<span className="tabular-nums">
+			{formatMoney(row.amountCents, row.currency)}
+		</span>
+	);
+}
 
 const COLUMNS: DataTableColumn<DealRow>[] = [
 	{
@@ -70,14 +86,7 @@ const COLUMNS: DataTableColumn<DealRow>[] = [
 		align: "right",
 		width: "w-[12%]",
 		hideBelow: "sm",
-		cell: (row) =>
-			row.amountCents === null ? (
-				<EmptyCellValue />
-			) : (
-				<span className="tabular-nums">
-					{formatMoney(row.amountCents, row.currency)}
-				</span>
-			),
+		cell: (row) => <DealAmountCell row={row} />,
 	},
 	{
 		id: "owner",
@@ -221,10 +230,15 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 		},
 	];
 
+	const { mine, money } = useAccess();
 	const openValueCents = deals.data?.openValueCents;
 	const reportingCurrency = deals.data?.reportingCurrency;
 	const unconverted = deals.data?.unconverted;
 	const uncounted = unconverted?.count ?? 0;
+	const pricesHidden =
+		deals.data !== undefined && openValueCents === null && mine
+			? !money("prices")
+			: false;
 	const openPipelineCents = openValueCents ?? (uncounted > 0 ? 0 : null);
 
 	const fieldColumns = useFieldColumns<DealRow>("DEAL");
@@ -279,7 +293,12 @@ export function DealsTable({ savedState }: { savedState?: SavedTableView }) {
 			onRowClick={(row) => openRecord({ kind: "deal", id: row.id })}
 			empty="No deals match this view."
 			meta={
-				openPipelineCents === null ? undefined : (
+				pricesHidden ? (
+					<span>
+						{deals.data?.total ?? 0} deals ·{" "}
+						<span className="text-muted-foreground">Hidden</span> open pipeline
+					</span>
+				) : openPipelineCents === null ? undefined : (
 					<span>
 						{deals.data?.total ?? 0} deals ·{" "}
 						<span className="tabular-nums">

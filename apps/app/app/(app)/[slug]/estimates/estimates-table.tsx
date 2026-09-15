@@ -48,6 +48,7 @@ import type { SavedTableView } from "@/components/data-table/list-search-params"
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalRelativeTime } from "@/components/local-date-time";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -322,6 +323,9 @@ function EmbeddedEstimatesTable({
 
 function EstimateRowMenu({ row }: { row: EstimateRow }) {
 	const [deleting, setDeleting] = useState(false);
+	const { mine, can } = useAccess();
+
+	if (mine && !can("estimates", "DELETE")) return null;
 
 	return (
 		<>

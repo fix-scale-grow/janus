@@ -64,6 +64,7 @@ import {
 import { DealPermits } from "@/components/permits/deal-permits";
 import { PhotoGrid } from "@/components/photos/photo-grid";
 import { DealProjects } from "@/components/projects/deal-projects";
+import { useAccess } from "@/lib/access";
 import { dialHref, reachableContact } from "@/lib/dial";
 import { savingField } from "@/lib/pending-field";
 import { useCrmCache } from "@/lib/trpc/cache";
@@ -139,6 +140,7 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 
 export function DealSheet({ dealId }: { dealId: string }) {
 	const trpc = useTRPC();
+	const { mine, money } = useAccess();
 	const {
 		tab,
 		setTab,
@@ -266,7 +268,11 @@ export function DealSheet({ dealId }: { dealId: string }) {
 					<DetailSheetStats>
 						<DetailSheetStat label="Amount">
 							{deal.amountCents === null ? (
-								<EmptyCellValue />
+								mine && !money("prices") ? (
+									<span className="text-muted-foreground">Hidden</span>
+								) : (
+									<EmptyCellValue />
+								)
 							) : (
 								<span className="tabular-nums">
 									{formatMoney(deal.amountCents, dealCurrency(deal.currency))}

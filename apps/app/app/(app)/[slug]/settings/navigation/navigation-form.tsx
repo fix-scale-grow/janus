@@ -33,6 +33,7 @@ import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DEALS_MODULE_HREF } from "@/components/nav/use-nav-items";
+import { visibleModules } from "@/lib/access-rules";
 import {
 	JANUS_LIVE_NAV,
 	type LiveNavItem,
@@ -184,16 +185,10 @@ function NavMenuCard() {
 		);
 	};
 
-	const money = permissions.data?.money;
+	const mine = permissions.data;
 	const visible = useMemo(
-		() =>
-			JANUS_LIVE_NAV.filter(
-				(item) =>
-					!item.permission ||
-					permissions.data?.isAdmin ||
-					(money?.includes(item.permission) ?? false),
-			),
-		[permissions.data, money],
+		() => (mine ? (visibleModules(JANUS_LIVE_NAV, mine) as LiveNavItem[]) : []),
+		[mine],
 	);
 
 	const items = useMemo(

@@ -30,6 +30,7 @@ import { ListSearch } from "@/components/data-table/list-search";
 import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { useViewSync } from "@/components/data-table/use-view-sync";
+import { useAccess } from "@/lib/access";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
@@ -78,7 +79,11 @@ function LinkedTo({ row }: { row: ContractRow }) {
 }
 
 function ContractValue({ row }: { row: ContractRow }) {
+	const { mine, money } = useAccess();
 	if (row.valueCents === null || row.currency === null) {
+		if (mine && !money("prices")) {
+			return <span className="text-muted-foreground">Hidden</span>;
+		}
 		return <EmptyCellValue />;
 	}
 	return (

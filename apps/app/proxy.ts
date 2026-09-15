@@ -1,13 +1,16 @@
 import { AUTH_COOKIE_PREFIX } from "@crm/auth/cookies";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
+import { fieldRedirect } from "@/lib/access-rules";
 import { isMarketing } from "@/lib/env";
 import {
 	ONBOARDING_PATH,
 	RESEARCH_PATH,
+	readAccessGate,
 	readResearchGate,
 	readWorkspaceGate,
 } from "@/lib/onboarding";
+import { PATHNAME_HEADER } from "@/lib/pathname-header";
 import { workspaceUrl } from "@/lib/workspace-url";
 
 const LANDING_PATH = "/";
@@ -37,21 +40,26 @@ export async function proxy(request: NextRequest) {
 
 	if (isUngated(pathname)) return NextResponse.next();
 
-	// Both answers, every time, and concurrently — so the gate costs one round
-	// trip rather than two, and neither answer can be stale.
-	const [workspace, research] = await Promise.all([
+	const [workspace, research, access] = await Promise.all([
 		readWorkspaceGate(request),
 		readResearchGate(request),
+		readAccessGate(request),
 	]);
 
 	if (workspace.gate === "required") return sendTo(ONBOARDING_PATH, request);
-	if (research === "required") return sendTo(RESEARCH_PATH, request);
+	if (research === "required" && access.isAdmin) {
+		return sendTo(RESEARCH_PATH, request);
+	}
 
-	const settled = workspace.gate === "settled" && research === "settled";
+	const researchSettled = research === "settled" || !access.isAdmin;
+	const settled = workspace.gate === "settled" && researchSettled;
 
 	if (!settled || !workspace.slug) return NextResponse.next();
 
-	return sendTo(appPath(pathname, workspace.slug), request);
+	const target = appPath(pathname, workspace.slug);
+	const fieldTarget = fieldRedirect(access.surface, target, workspace.slug);
+
+	return sendTo(fieldTarget ?? target, request);
 }
 
 function appPath(pathname: string, slug: string): string {
@@ -91,12 +99,19 @@ function isSetup(pathname: string): boolean {
 }
 
 function sendTo(path: string, request: NextRequest): NextResponse {
-	if (request.nextUrl.pathname === path) return NextResponse.next();
+	if (request.nextUrl.pathname === path) return passThrough(request);
 
 	const url = new URL(path, request.nextUrl);
 	url.search = request.nextUrl.search;
 
 	return NextResponse.redirect(url);
+}
+
+function passThrough(request: NextRequest): NextResponse {
+	const headers = new Headers(request.headers);
+	headers.set(PATHNAME_HEADER, request.nextUrl.pathname);
+
+	return NextResponse.next({ request: { headers } });
 }
 
 export const config = {

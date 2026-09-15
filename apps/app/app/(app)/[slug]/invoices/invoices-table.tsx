@@ -49,6 +49,7 @@ import type { SavedTableView } from "@/components/data-table/list-search-params"
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { useViewSync } from "@/components/data-table/use-view-sync";
 import { LocalDay, LocalRelativeTime } from "@/components/local-date-time";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -369,6 +370,9 @@ function EmbeddedInvoicesTable({
 
 function InvoiceRowMenu({ row }: { row: InvoiceRow }) {
 	const [deleting, setDeleting] = useState(false);
+	const { mine, can } = useAccess();
+
+	if (mine && !can("invoices", "DELETE")) return null;
 
 	return (
 		<>

@@ -45,6 +45,7 @@ import { DealStageMenu } from "@/components/crm/stage-change";
 import type { SavedTableView } from "@/components/data-table/list-search-params";
 import { useTableQuery } from "@/components/data-table/use-table-query";
 import { LocalDay } from "@/components/local-date-time";
+import { useAccess } from "@/lib/access";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -398,6 +399,7 @@ function DealCardBody({
 	dragging?: boolean;
 }) {
 	const compact = density === "compact";
+	const { mine, money } = useAccess();
 	return (
 		<div
 			className={cn(
@@ -423,7 +425,9 @@ function DealCardBody({
 					</span>
 					<span className="shrink-0 text-sm tabular-nums text-muted-foreground">
 						{row.amountCents === null
-							? "—"
+							? mine && !money("prices")
+								? "Hidden"
+								: "—"
 							: formatMoney(row.amountCents, row.currency)}
 					</span>
 				</span>

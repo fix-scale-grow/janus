@@ -17,6 +17,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { toast } from "sonner";
+import { useAccess } from "@/lib/access";
 import { maptilerApiKey } from "@/lib/env";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
@@ -57,6 +58,7 @@ export function NewDrawingMenu({
 	contactId?: string;
 	size?: "default" | "sm";
 }) {
+	const { mine, can } = useAccess();
 	const trpc = useTRPC();
 	const cache = useCrmCache();
 	const router = useRouter();
@@ -84,6 +86,8 @@ export function NewDrawingMenu({
 		pendingTool.current = item.tool ?? null;
 		create.mutate({ background: item.background, dealId, contactId });
 	};
+
+	if (mine && !can("drawings", "EDIT")) return null;
 
 	return (
 		<DropdownMenu>
