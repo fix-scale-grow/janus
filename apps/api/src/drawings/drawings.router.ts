@@ -99,7 +99,7 @@ export class DrawingsRouter {
 		return this.drawings.renameFolder(input);
 	}
 
-	@Mutation({ input: drawingIdInput, meta: access("drawings", "DELETE") })
+	@Mutation({ input: drawingIdInput, meta: access("drawings", "EDIT") })
 	async deleteFolder(@Input("id") id: string) {
 		return this.drawings.deleteFolder(id);
 	}

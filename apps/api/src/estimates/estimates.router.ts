@@ -124,7 +124,7 @@ export class EstimatesRouter {
 
 	@Mutation({
 		input: estimateLineItemIdInput,
-		meta: access("estimates", "DELETE"),
+		meta: access("estimates", "EDIT"),
 	})
 	async removeLineItem(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
 		return this.estimates.removeLineItem(id, ctx.access);

@@ -123,7 +123,7 @@ export class ProjectsRouter {
 		return this.projects.taskMove(input, ctx.access);
 	}
 
-	@Mutation({ input: projectIdInput, meta: access("projects", "DELETE") })
+	@Mutation({ input: projectIdInput, meta: access("projects", "EDIT") })
 	async taskRemove(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
 		return this.projects.taskRemove(id, ctx.access);
 	}

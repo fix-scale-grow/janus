@@ -272,7 +272,7 @@ export class PermitsRouter {
 		return this.permits.setInspection(input, ctx.access);
 	}
 
-	@Mutation({ input: inspectionIdInput, meta: access("permits", "DELETE") })
+	@Mutation({ input: inspectionIdInput, meta: access("permits", "EDIT") })
 	async deleteInspection(
 		@Input() input: z.infer<typeof inspectionIdInput>,
 		@Ctx() ctx: AccessTrpcContext,

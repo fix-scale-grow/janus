@@ -115,7 +115,7 @@ export class InvoicesRouter {
 
 	@Mutation({
 		input: invoiceLineItemIdInput,
-		meta: access("invoices", "DELETE"),
+		meta: access("invoices", "EDIT"),
 	})
 	async removeLineItem(@Input("id") id: string, @Ctx() ctx: AccessTrpcContext) {
 		return this.invoices.removeLineItem(id, ctx.access);

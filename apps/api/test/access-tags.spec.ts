@@ -15,7 +15,15 @@ const PUBLIC_PROCEDURES = new Set([
 	"sso/sso.router.ts:signInOptions",
 ]);
 
-type Found = { file: string; name: string; tagged: boolean };
+const CHILD_REMOVALS_AT_EDIT = [
+	["estimates/estimates.router.ts", "removeLineItem", "estimates"],
+	["invoices/invoices.router.ts", "removeLineItem", "invoices"],
+	["projects/projects.router.ts", "taskRemove", "projects"],
+	["permits/permits.router.ts", "deleteInspection", "permits"],
+	["drawings/drawings.router.ts", "deleteFolder", "drawings"],
+] as const;
+
+type Found = { file: string; name: string; tagged: boolean; meta: string };
 
 const PROCEDURE_PATTERN =
 	/@(Query|Mutation)\(([\s\S]*?)\)\s*(?:@\w+\([^)]*\)\s*)*(?:async\s+)?(\w+)/g;
@@ -31,6 +39,7 @@ function procedures(file: string, source: string): Found[] {
 			file,
 			name: match[3] as string,
 			tagged: /meta\s*:/.test(match[2] as string),
+			meta: match[2] as string,
 		});
 	}
 	return out;
@@ -83,6 +92,18 @@ describe("access tags", () => {
 			}
 		}
 		expect(untagged).toEqual([]);
+	});
+
+	test("child-row removals need EDIT on their area, not DELETE", () => {
+		const wrong: string[] = [];
+		for (const [file, name, area] of CHILD_REMOVALS_AT_EDIT) {
+			const proc = procedures(file, readFileSync(join(SRC, file), "utf8")).find(
+				(found) => found.name === name,
+			);
+			const expected = `access("${area}", "EDIT")`;
+			if (!proc?.meta.includes(expected)) wrong.push(`${file}:${name}`);
+		}
+		expect(wrong).toEqual([]);
 	});
 
 	test("every @UseMiddlewares call with AuthMiddleware also carries AccessMiddleware", () => {
