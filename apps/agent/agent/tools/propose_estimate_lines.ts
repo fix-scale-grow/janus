@@ -4,7 +4,10 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { sessionPrincipal, targetsBlocked, writeGuard } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
-import { applyEstimateLines } from "../lib/estimate-writes";
+import {
+	applyEstimateLines,
+	archivedServiceRefusal,
+} from "../lib/estimate-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
 
 const ESTIMATE_LINES = {
@@ -54,8 +57,24 @@ const toolInput = z.object({
 	lines: z.array(line).min(1).max(ESTIMATE_LINES.limits.maxLines),
 });
 
-const blockedFor = (p: AccessPrincipal, input: z.infer<typeof toolInput>) =>
-	targetsBlocked(p, [{ kind: "estimate", id: input.estimateId, need: "EDIT" }]);
+const blockedFor = async (
+	p: AccessPrincipal,
+	input: z.infer<typeof toolInput>,
+) => {
+	const targetBlocked = await targetsBlocked(p, [
+		{ kind: "estimate", id: input.estimateId, need: "EDIT" },
+	]);
+	if (targetBlocked) return targetBlocked;
+
+	const serviceIds = [
+		...new Set(
+			input.lines.flatMap((entry) =>
+				entry.serviceId ? [entry.serviceId] : [],
+			),
+		),
+	];
+	return archivedServiceRefusal(serviceIds);
+};
 
 export default defineTool({
 	description:

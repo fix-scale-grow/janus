@@ -11,6 +11,20 @@ export type ApplyEstimateLinesResult =
 	| { applied: true; estimateId: string; lineItemIds: string[] }
 	| { applied: false; reason: string };
 
+export const ARCHIVED_SERVICE_REASON =
+	"That service is archived. Pick an active one.";
+
+export async function archivedServiceRefusal(
+	serviceIds: readonly string[],
+): Promise<string | null> {
+	if (serviceIds.length === 0) return null;
+	const archived = await db.service.findFirst({
+		where: { id: { in: [...serviceIds] }, active: false },
+		select: { id: true },
+	});
+	return archived ? ARCHIVED_SERVICE_REASON : null;
+}
+
 export async function applyEstimateLines(
 	estimateId: string,
 	lines: ProposedEstimateLine[],
@@ -39,6 +53,13 @@ export async function applyEstimateLines(
 			applied: false,
 			reason: `No service with id ${missingServiceId}.`,
 		};
+	}
+
+	const archivedServiceId = serviceIds.find(
+		(id) => !serviceById.get(id)?.active,
+	);
+	if (archivedServiceId) {
+		return { applied: false, reason: ARCHIVED_SERVICE_REASON };
 	}
 
 	const lineItemIds = await db.$transaction(async (tx) => {

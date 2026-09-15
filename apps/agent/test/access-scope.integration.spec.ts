@@ -12,6 +12,7 @@ import { fileDrawingCheckConversation } from "../agent/lib/drawing-conversation"
 import { listDrawings } from "../agent/lib/drawing-lookup";
 import { loadDrawingSummary } from "../agent/lib/drawing-summary";
 import { loadEstimateSummary } from "../agent/lib/estimate-summary";
+import { applyEstimateLines } from "../agent/lib/estimate-writes";
 import { listDeals, searchCrm } from "../agent/lib/lookup";
 import {
 	contactPreamble,
@@ -394,6 +395,108 @@ describe("agent tools refuse what the group cannot do", () => {
 				"Your group (Sales clerk) can't edit the price book. Ask an admin.",
 		});
 	});
+});
+
+async function withArchivedService(
+	run: (archivedServiceId: string) => Promise<void>,
+): Promise<void> {
+	const archived = await db.service.create({
+		data: {
+			name: `Archived service ${suffix}`,
+			unit: "PER_EACH",
+			unitPriceCents: 100,
+			active: false,
+		},
+		select: { id: true },
+	});
+	try {
+		await run(archived.id);
+	} finally {
+		await db.service.delete({ where: { id: archived.id } });
+	}
+}
+
+describe("archived services cannot be proposed onto an estimate", () => {
+	test("applyEstimateLines refuses an archived serviceId and creates nothing", () =>
+		withArchivedService(async (archivedServiceId) => {
+			const before = await db.estimateLineItem.count({
+				where: { estimateId: f.clerkEstimateId },
+			});
+			const result = await applyEstimateLines(f.clerkEstimateId, [
+				{
+					serviceId: archivedServiceId,
+					name: "Ridge vent",
+					unit: "PER_EACH",
+					quantity: 1,
+				},
+			]);
+			expect(result).toEqual({
+				applied: false,
+				reason: "That service is archived. Pick an active one.",
+			});
+			const after = await db.estimateLineItem.count({
+				where: { estimateId: f.clerkEstimateId },
+			});
+			expect(after).toBe(before);
+		}));
+
+	test("propose_estimate_lines refuses an archived serviceId at execute", () =>
+		withArchivedService(async (archivedServiceId) => {
+			const result = await run(
+				proposeEstimateLinesTool,
+				{
+					estimateId: f.clerkEstimateId,
+					estimateTitle: "Roof",
+					lines: [
+						{
+							serviceId: archivedServiceId,
+							name: "Ridge vent",
+							unit: "PER_EACH",
+							quantity: 1,
+							reason: "Missing from the takeoff.",
+							source: "missing",
+						},
+					],
+				},
+				userCtx(f.clerkId),
+			);
+			expect(result).toEqual({
+				applied: false,
+				reason: "That service is archived. Pick an active one.",
+			});
+		}));
+
+	test("propose_estimate_lines denies an archived serviceId before the card", () =>
+		withArchivedService(async (archivedServiceId) => {
+			const approval = proposeEstimateLinesTool.approval as (
+				c: never,
+			) => Promise<unknown>;
+			const input = {
+				estimateId: f.clerkEstimateId,
+				estimateTitle: "Roof",
+				lines: [
+					{
+						serviceId: archivedServiceId,
+						name: "Ridge vent",
+						unit: "PER_EACH",
+						quantity: 1,
+						reason: "Missing from the takeoff.",
+						source: "missing",
+					},
+				],
+			};
+			const decision = await approval({
+				session: userCtx(f.adminId).session,
+				toolName: "propose_estimate_lines",
+				toolInput: input,
+				approvedTools: [],
+				callId: "call-archived-service",
+			} as never);
+			expect(decision).toEqual({
+				type: "denied",
+				reason: "That service is archived. Pick an active one.",
+			});
+		}));
 });
 
 function hiding(
