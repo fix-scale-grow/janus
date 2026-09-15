@@ -106,6 +106,45 @@ const CLEANUP = {
 	legacyRateProvider: "seed",
 	reportingCurrency: "USD",
 	renameEmailDomain: "example.com",
+	legacyDealDescriptions: [
+		"Replacing a spreadsheet-and-Drive evidence process before their first SOC 2 audit. Security owns the decision, finance signs.",
+		"Expansion onto the platform team after the security org went live. Blocked on whether the current contract can be co-termed.",
+		"Inbound from a failed vendor renewal. They want automated evidence collection and one auditor-ready report.",
+		"Their enterprise deals keep stalling on security questionnaires. The buying trigger is the pipeline, not the audit.",
+		"Champion ran the evaluation themselves and wants the agent, not the checklist. Procurement is the long pole.",
+	],
+	legacyTitles: [
+		"Head of Security",
+		"CTO",
+		"VP Engineering",
+		"Compliance Manager",
+		"Head of Legal",
+		"Security Engineer",
+		"COO",
+		"IT Director",
+		"Head of Platform",
+		"Chief of Staff",
+	],
+	renamedDealJobs: [
+		"Roof Replacement",
+		"Storm Damage Repair",
+		"Gutter Replacement",
+		"Leak Repair",
+		"Hail Damage Re-Roof",
+		"Skylight Flashing Repair",
+		"Full Tear-Off",
+		"Soffit and Fascia Repair",
+	],
+	renamedDealDescriptions: [
+		"1500 Example Ave. Full tear-off, 26 squares, architectural shingles in Pewter Gray.",
+		"1510 Sample St. Wind damage on the rear slope and a missing section of ridge cap.",
+		"1520 Placeholder Ln. Seamless gutters and downspouts on the whole house.",
+		"1530 Demo Ct. Active leak at the chimney flashing. Ceiling stain in the upstairs bedroom.",
+		"1540 Fictional Dr. Hail hits on every slope. Homeowner filed the claim last week.",
+		"1550 Testing Way. Water around the skylight curb. Replace flashing and the curb cladding.",
+		"1560 Mockup Rd. Two layers of 3-tab to remove. New underlayment and ridge vent.",
+		"1570 Example Ave. Rotted fascia on the front elevation. Wants aluminum wrap.",
+	],
 	renamedDealNames: [
 		"Lawson Roof Replacement",
 		"Whitfield Storm Damage Repair",
@@ -265,6 +304,9 @@ type Plan = {
 		to: string;
 		currency: string;
 		amount: string | null;
+		nameFrom: string;
+		description: string | null;
+		keptDescription: string | null;
 	}[];
 	contactRenames: {
 		id: string;
@@ -272,6 +314,8 @@ type Plan = {
 		firstName: string;
 		lastName: string;
 		email: string;
+		clearTitle: boolean;
+		keptTitle: string | null;
 	}[];
 	moneyFixes: {
 		estimateIds: string[];
@@ -296,6 +340,7 @@ async function findCandidateContacts(client: Client) {
 			firstName: true,
 			lastName: true,
 			companyName: true,
+			title: true,
 		},
 		orderBy: { id: "asc" },
 	});
@@ -547,7 +592,13 @@ async function buildPlan(client: Client): Promise<Plan> {
 				name: { endsWith: suffix },
 			})),
 		},
-		select: { id: true, name: true, amount: true, currency: true },
+		select: {
+			id: true,
+			name: true,
+			amount: true,
+			currency: true,
+			description: true,
+		},
 		orderBy: { id: "asc" },
 	});
 	const candidateContacts = await findCandidateContacts(client);
@@ -647,33 +698,65 @@ async function buildPlan(client: Client): Promise<Plan> {
 	const pointsAtDeleted = (...ids: (string | null)[]) =>
 		ids.some((id) => id !== null && deletedRecordIds.has(id));
 
-	const dealRenames = renameLinked
-		? candidateDeals
-				.filter((deal) => keptDealIds.includes(deal.id))
-				.map((deal, index) => {
-					const base = nth(CLEANUP.renamedDealNames, index);
-					const extra = round(index, CLEANUP.renamedDealNames.length);
-					return {
-						id: deal.id,
-						from: deal.name,
-						to: extra ? `${base} ${extra}` : base,
-						currency: deal.currency,
-						amount: deal.amount === null ? null : deal.amount.toString(),
-					};
-				})
-		: [];
+	const legacyTitles: readonly string[] = CLEANUP.legacyTitles;
+	const legacyDescriptions: readonly string[] = CLEANUP.legacyDealDescriptions;
 	const contactRenames = renameLinked
 		? candidateContacts
 				.filter((contact) => keptContactIds.includes(contact.id))
 				.map((contact, index) => {
 					const target = nth(CLEANUP.renamedContacts, index);
 					const extra = round(index, CLEANUP.renamedContacts.length);
+					const clearTitle =
+						contact.title !== null && legacyTitles.includes(contact.title);
 					return {
 						id: contact.id,
 						from: contact.email,
 						firstName: target.firstName,
 						lastName: target.lastName,
 						email: `${slug(target.firstName)}.${slug(target.lastName)}${extra ? `.${extra}` : ""}@${CLEANUP.renameEmailDomain}`,
+						clearTitle,
+						keptTitle: clearTitle ? null : contact.title,
+					};
+				})
+		: [];
+	const primaryLinks = renameLinked
+		? await client.dealContact.findMany({
+				where: {
+					dealId: { in: keptDealIds },
+					contactId: { in: contactRenames.map((row) => row.id) },
+				},
+				select: { dealId: true, contactId: true },
+				orderBy: [{ createdAt: "asc" }, { contactId: "asc" }],
+			})
+		: [];
+	const dealRenames = renameLinked
+		? candidateDeals
+				.filter((deal) => keptDealIds.includes(deal.id))
+				.map((deal, index) => {
+					const link = primaryLinks.find((row) => row.dealId === deal.id);
+					const contact = contactRenames.find(
+						(row) => row.id === link?.contactId,
+					);
+					const fallback = nth(CLEANUP.renamedDealNames, index);
+					const extra = round(index, CLEANUP.renamedDealNames.length);
+					const replaceDescription =
+						deal.description !== null &&
+						legacyDescriptions.includes(deal.description);
+					return {
+						id: deal.id,
+						from: deal.name,
+						to: contact
+							? `${contact.lastName} ${nth(CLEANUP.renamedDealJobs, index)}`
+							: extra
+								? `${fallback} ${extra}`
+								: fallback,
+						currency: deal.currency,
+						amount: deal.amount === null ? null : deal.amount.toString(),
+						nameFrom: contact ? `contact ${contact.id}` : "fallback list",
+						description: replaceDescription
+							? nth(CLEANUP.renamedDealDescriptions, index)
+							: null,
+						keptDescription: replaceDescription ? null : deal.description,
 					};
 				})
 		: [];
@@ -837,15 +920,15 @@ function printPlan(plan: Plan): void {
 	}
 
 	if (renameLinked) {
-		console.log("\nRename linked demo records (description and title stay):");
+		console.log("\nRename linked demo records:");
 		for (const row of plan.dealRenames) {
 			console.log(
-				`  deal ${row.id}: "${row.from}" ${row.currency} -> "${row.to}" ${CLEANUP.reportingCurrency}`,
+				`  deal ${row.id}: "${row.from}" ${row.currency} -> "${row.to}" ${CLEANUP.reportingCurrency} (name from ${row.nameFrom}; description ${row.description === null ? `kept: ${JSON.stringify(row.keptDescription)}` : "replaced"})`,
 			);
 		}
 		for (const row of plan.contactRenames) {
 			console.log(
-				`  contact ${row.id}: ${row.from} -> ${row.email}, no company`,
+				`  contact ${row.id}: ${row.from} -> ${row.email}, no company, title ${row.clearTitle ? "cleared" : `kept: ${JSON.stringify(row.keptTitle)}`}`,
 			);
 		}
 		console.log(
@@ -945,6 +1028,9 @@ async function execute(expected: Plan): Promise<void> {
 					where: { id: row.id },
 					data: {
 						name: row.to,
+						...(row.description === null
+							? {}
+							: { description: row.description }),
 						currency: CLEANUP.reportingCurrency,
 						baseCurrency: CLEANUP.reportingCurrency,
 						baseAmount: row.amount,
@@ -961,6 +1047,7 @@ async function execute(expected: Plan): Promise<void> {
 						lastName: row.lastName,
 						email: row.email,
 						companyName: null,
+						...(row.clearTitle ? { title: null } : {}),
 					},
 				});
 			}
