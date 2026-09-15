@@ -8,7 +8,7 @@ import {
 	UseMiddlewares,
 } from "nestjs-trpc";
 import type { z } from "zod";
-import { adminOnly, anyMember } from "../access/access.meta";
+import { access, adminOnly, anyMember } from "../access/access.meta";
 import { AccessMiddleware } from "../access/access.middleware";
 import type { AuthedTrpcContext } from "../trpc/context.types";
 import { AuthMiddleware } from "../trpc/middlewares/auth.middleware";
@@ -39,7 +39,7 @@ export class SettingsRouter {
 		return this.settings.modelCatalog();
 	}
 
-	@Mutation({ input: setAgentModelInput, meta: anyMember() })
+	@Mutation({ input: setAgentModelInput, meta: adminOnly() })
 	async setAgentModel(@Input() input: z.infer<typeof setAgentModelInput>) {
 		return this.settings.setAgentModel(input.modelId);
 	}
@@ -49,7 +49,7 @@ export class SettingsRouter {
 		return this.settings.researchKey();
 	}
 
-	@Mutation({ input: setResearchKeyInput, meta: anyMember() })
+	@Mutation({ input: setResearchKeyInput, meta: adminOnly() })
 	async setResearchKey(@Input() input: z.infer<typeof setResearchKeyInput>) {
 		return this.settings.setResearchKey(input.apiKey);
 	}
@@ -110,7 +110,7 @@ export class SettingsRouter {
 		});
 	}
 
-	@Mutation({ meta: anyMember() })
+	@Mutation({ meta: access("permits", "EDIT") })
 	async acceptPermitDisclaimer(@Ctx() ctx: AuthedTrpcContext) {
 		return this.settings.acceptPermitDisclaimer(ctx.user.id);
 	}

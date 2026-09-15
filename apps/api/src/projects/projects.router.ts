@@ -108,10 +108,7 @@ export class ProjectsRouter {
 		return this.projects.taskMove(input);
 	}
 
-	@Mutation({
-		input: projectIdInput,
-		meta: access("projects", "DELETE", { field: true }),
-	})
+	@Mutation({ input: projectIdInput, meta: access("projects", "DELETE") })
 	async taskRemove(@Input("id") id: string) {
 		return this.projects.taskRemove(id);
 	}
