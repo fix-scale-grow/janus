@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { applyDrawingTags } from "../lib/drawing-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -34,6 +35,11 @@ export default defineTool({
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
+
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: "drawing", id: input.drawingId, need: "EDIT" },
+		]);
+		if (blocked) return { applied: false as const, reason: blocked };
 
 		return applyDrawingTags(
 			input.drawingId,

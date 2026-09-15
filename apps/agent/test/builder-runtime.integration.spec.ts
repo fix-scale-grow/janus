@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { persistBuilderInputRequest } from "../agent/lib/builder-input";
 import {
 	saveBuilderDraft,
@@ -7,6 +8,8 @@ import {
 } from "../agent/lib/builder-runtime";
 import { setBuilderConversationTitle } from "../agent/lib/conversation-title";
 import { builderToken } from "../agent/lib/custom-agent-dispatch";
+
+const admin = adminPrincipal("test-admin");
 
 const suffix = crypto.randomUUID();
 const userId = `builder-runtime-user-${suffix}`;
@@ -318,7 +321,7 @@ describe("builder persistence", () => {
 		};
 		const saves = await Promise.all(
 			Array.from({ length: 4 }, () =>
-				saveBuilderDraft(conversationId, userId, input),
+				saveBuilderDraft(conversationId, userId, input, admin),
 			),
 		);
 		const saved = saves.flatMap((save) => (save.saved ? [save] : []));
@@ -370,11 +373,16 @@ describe("builder persistence", () => {
 		};
 		const saves = await Promise.all(
 			Array.from({ length: 4 }, (_, index) =>
-				saveBuilderDraft(conversation.id, userId, {
-					...base,
-					name: `Concurrent draft ${index + 1}`,
-					instructions: `When manually triggered, prepare distinct CRM summary ${index + 1} without changing external systems.`,
-				}),
+				saveBuilderDraft(
+					conversation.id,
+					userId,
+					{
+						...base,
+						name: `Concurrent draft ${index + 1}`,
+						instructions: `When manually triggered, prepare distinct CRM summary ${index + 1} without changing external systems.`,
+					},
+					admin,
+				),
 			),
 		);
 		const saved = saves.flatMap((save) => (save.saved ? [save] : []));
@@ -398,42 +406,47 @@ describe("builder persistence", () => {
 		});
 		conversationIds.push(conversation.id);
 
-		const saved = await saveBuilderDraft(conversation.id, userId, {
-			name: "Deal lifecycle alerts",
-			description: "Report deal creation, opening, and closing.",
-			instructions:
-				"When a configured deal lifecycle event occurs, read the triggering deal, return one concise summary of the change, and stop without changing CRM records.",
-			triggers: [
-				{
-					type: "EVENT",
-					name: "Deal created",
-					summary: "Run when a deal is created.",
-					event: "deal.created",
-				},
-				{
-					type: "EVENT",
-					name: "Deal opened",
-					summary: "Run when a closed deal returns to the open pipeline.",
-					event: "deal.opened",
-				},
-				{
-					type: "EVENT",
-					name: "Deal closed",
-					summary: "Run when an open deal enters a closed stage.",
-					event: "deal.closed",
-				},
-			],
-			recordScope: "WORKSPACE",
-			resources: [],
-			actions: [
-				{
-					type: "run.summary",
-					provider: "crm",
-					summary: "Write a deal lifecycle summary.",
-				},
-			],
-			access: ["Read workspace CRM records"],
-		});
+		const saved = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			{
+				name: "Deal lifecycle alerts",
+				description: "Report deal creation, opening, and closing.",
+				instructions:
+					"When a configured deal lifecycle event occurs, read the triggering deal, return one concise summary of the change, and stop without changing CRM records.",
+				triggers: [
+					{
+						type: "EVENT",
+						name: "Deal created",
+						summary: "Run when a deal is created.",
+						event: "deal.created",
+					},
+					{
+						type: "EVENT",
+						name: "Deal opened",
+						summary: "Run when a closed deal returns to the open pipeline.",
+						event: "deal.opened",
+					},
+					{
+						type: "EVENT",
+						name: "Deal closed",
+						summary: "Run when an open deal enters a closed stage.",
+						event: "deal.closed",
+					},
+				],
+				recordScope: "WORKSPACE",
+				resources: [],
+				actions: [
+					{
+						type: "run.summary",
+						provider: "crm",
+						summary: "Write a deal lifecycle summary.",
+					},
+				],
+				access: ["Read workspace CRM records"],
+			},
+			admin,
+		);
 		if (!saved.saved) throw new Error("Lifecycle draft was not saved");
 
 		expect(
@@ -489,52 +502,72 @@ describe("builder persistence", () => {
 			access: ["Read approved CRM records"],
 		};
 
-		const unsupported = await saveBuilderDraft(conversation.id, userId, {
-			...base,
-			recordScope: "WORKSPACE",
-			resources: [
-				{ kind: "integration", id: "google:drive", label: "Google Drive" },
-			],
-		});
+		const unsupported = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			{
+				...base,
+				recordScope: "WORKSPACE",
+				resources: [
+					{ kind: "integration", id: "google:drive", label: "Google Drive" },
+				],
+			},
+			admin,
+		);
 		expect(unsupported).toMatchObject({
 			saved: false,
 			issues: ["Google Drive is not an available integration."],
 		});
 
-		const ambiguous = await saveBuilderDraft(conversation.id, userId, {
-			...base,
-			recordScope: "SELECTED",
-			resources: [],
-		});
+		const ambiguous = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			{
+				...base,
+				recordScope: "SELECTED",
+				resources: [],
+			},
+			admin,
+		);
 		expect(ambiguous).toMatchObject({
 			saved: false,
 			issues: ["Selected CRM scope needs at least one tagged record."],
 		});
 
-		const missingSummary = await saveBuilderDraft(conversation.id, userId, {
-			...base,
-			recordScope: "WORKSPACE",
-			resources: [],
-			actions: [
-				{
-					type: "crm.activity.create",
-					provider: "crm",
-					summary: "Write one note.",
-					activityTypes: ["NOTE"],
-				},
-			],
-		});
+		const missingSummary = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			{
+				...base,
+				recordScope: "WORKSPACE",
+				resources: [],
+				actions: [
+					{
+						type: "crm.activity.create",
+						provider: "crm",
+						summary: "Write one note.",
+						activityTypes: ["NOTE"],
+					},
+				],
+			},
+			admin,
+		);
 		expect(missingSummary).toMatchObject({
 			saved: false,
 			issues: ["An agent needs one run summary action."],
 		});
 
-		const duplicateActions = await saveBuilderDraft(conversation.id, userId, {
-			...base,
-			recordScope: "WORKSPACE",
-			resources: [],
-			actions: [...base.actions, ...base.actions],
-		});
+		const duplicateActions = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			{
+				...base,
+				recordScope: "WORKSPACE",
+				resources: [],
+				actions: [...base.actions, ...base.actions],
+			},
+			admin,
+		);
 		expect(duplicateActions).toMatchObject({
 			saved: false,
 			issues: ["The run.summary action is listed more than once."],
@@ -571,7 +604,12 @@ describe("builder persistence", () => {
 			],
 			access: ["Read workspace CRM records"],
 		};
-		const first = await saveBuilderDraft(conversation.id, userId, original);
+		const first = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			original,
+			admin,
+		);
 		if (!first.saved) throw new Error("Initial draft was not saved");
 
 		await db.$transaction([
@@ -601,7 +639,12 @@ describe("builder persistence", () => {
 			"agent/README.md",
 			`# ${revised.name}\n\n${revised.description}\n\n## Triggers\n\n- ${revised.triggers[0]?.summary}\n\n## Access\n\n- ${revised.access[0]}\n`,
 		);
-		const second = await saveBuilderDraft(conversation.id, userId, revised);
+		const second = await saveBuilderDraft(
+			conversation.id,
+			userId,
+			revised,
+			admin,
+		);
 		if (!second.saved) throw new Error("Revised draft was not saved");
 
 		const [definition, version, artifacts] = await Promise.all([

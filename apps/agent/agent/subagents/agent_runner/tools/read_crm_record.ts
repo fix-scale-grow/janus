@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../../../lib/access";
 import { readRunRecord } from "../../../lib/run-runtime";
 import { requireTeamAgentAttribute } from "../../../lib/session-purpose";
 
@@ -11,6 +12,14 @@ export default defineTool({
 		id: z.string().min(1),
 	}),
 	async execute(input, ctx) {
-		return readRunRecord(requireTeamAgentAttribute(ctx, "runId"), input);
+		const runId = requireTeamAgentAttribute(ctx, "runId");
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(
+			p,
+			input.kind === "contact" ? "contacts" : "deals",
+			"VIEW",
+		);
+		if (denied) return denied;
+		return readRunRecord(runId, input, p);
 	},
 });

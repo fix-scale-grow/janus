@@ -1,4 +1,5 @@
 import { defineTool } from "eve/tools";
+import { sessionPrincipal } from "../../../lib/access";
 import { saveBuilderDraft } from "../../../lib/builder-runtime";
 import { requireBuilderAttribute } from "../../../lib/session-purpose";
 import { builderDraftToolInput, draftInputFromTool } from "../lib/draft-input";
@@ -17,6 +18,7 @@ export default defineTool({
 			requireBuilderAttribute(ctx, "conversationId"),
 			requireBuilderAttribute(ctx, "userId"),
 			draftInputFromTool(input),
+			await sessionPrincipal(ctx),
 		);
 		markBuilderDraftSaveFinished(result.saved);
 		return result;

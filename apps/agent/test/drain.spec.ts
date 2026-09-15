@@ -121,6 +121,19 @@ describe("taskAuth", () => {
 		});
 	});
 
+	it("carries the estimate a drawing check was raised for, so the check runs as its creator", () => {
+		const auth = taskAuth(
+			task({
+				kind: "drawing-check",
+				drawingId: "drawing_1",
+				payload: { estimateId: "estimate_1" },
+			}),
+		);
+
+		expect(auth.attributes).toMatchObject({ estimateId: "estimate_1" });
+		expect(taskAuth(task()).attributes).not.toHaveProperty("estimateId");
+	});
+
 	it("omits the id of a record the task does not name", () => {
 		const auth = taskAuth(task({ contactId: null, dealId: "deal_1" }));
 

@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { loadEstimateSummary } from "../agent/lib/estimate-summary";
+
+const admin = adminPrincipal("test-admin");
 
 const suffix = process.env.TEST_RUN_ID ?? "estimate-summary-spec";
 const userId = `user-${suffix}`;
@@ -70,7 +73,7 @@ async function cleanup(): Promise<void> {
 
 describe("loadEstimateSummary", () => {
 	it("rounds each line item before summing, matching the API's totals", async () => {
-		const summary = await loadEstimateSummary(estimateId);
+		const summary = await loadEstimateSummary(estimateId, admin);
 
 		if (!summary.found) throw new Error("expected the fixture to be found");
 
@@ -84,7 +87,7 @@ describe("loadEstimateSummary", () => {
 	});
 
 	it("reports not found for an estimate that does not exist", async () => {
-		const summary = await loadEstimateSummary("no-such-estimate");
+		const summary = await loadEstimateSummary("no-such-estimate", admin);
 
 		expect(summary).toEqual({ found: false, reason: "No such estimate." });
 	});

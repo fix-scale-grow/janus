@@ -4,6 +4,8 @@ import {
 	PermitType,
 	Prisma as PrismaNamespace,
 } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { requiredDealChildWhere } from "@crm/db/access-scope";
 import {
 	buildJurisdictionMatchKey,
 	mergeDraftFacts,
@@ -499,9 +501,10 @@ export type PermitSummaryMiss = { found: false; reason: string };
 
 export async function loadPermitSummary(
 	permitId: string,
+	p: AccessPrincipal,
 ): Promise<PermitSummary | PermitSummaryMiss> {
-	const permit = await db.permit.findUnique({
-		where: { id: permitId },
+	const permit = await db.permit.findFirst({
+		where: { AND: [{ id: permitId }, requiredDealChildWhere(p)] },
 		include: {
 			deal: { select: { id: true, name: true } },
 			jurisdiction: {

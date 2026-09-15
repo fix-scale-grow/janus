@@ -1,5 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { db, type Prisma } from "@crm/db";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import { contactScopeWhere, dealScopeWhere } from "@crm/db/access-scope";
 import {
 	CRM_EVENT_CATALOG,
 	CRM_EVENT_TYPES,
@@ -8,6 +10,7 @@ import {
 import { readAgentModel } from "@crm/db/settings";
 import { WORKSPACE_ID } from "@crm/db/workspace";
 import { AGENT_ACTION_TYPES, actionDependency } from "./agent-actions";
+import { maskedAmount } from "./lookup";
 import { requestStaleSlackInventorySync } from "./slack-people";
 
 const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
@@ -125,7 +128,11 @@ export async function writeBuilderArtifact(
 	});
 }
 
-export async function builderContext(conversationId: string, userId: string) {
+export async function builderContext(
+	conversationId: string,
+	userId: string,
+	p: AccessPrincipal,
+) {
 	const conversation = await db.agentConversation.findFirst({
 		where: { id: conversationId, userId, kind: "BUILDER" },
 		select: {
@@ -176,7 +183,7 @@ export async function builderContext(conversationId: string, userId: string) {
 			type,
 			...CRM_EVENT_CATALOG[type],
 		})),
-		resources: await describeResources(resources),
+		resources: await describeResources(resources, p),
 		existingDraft: conversation.agent,
 		now: new Date().toISOString(),
 	};
@@ -186,6 +193,7 @@ export async function saveBuilderDraft(
 	conversationId: string,
 	userId: string,
 	input: DraftAgentInput,
+	p: AccessPrincipal,
 ) {
 	const conversation = await db.agentConversation.findFirst({
 		where: { id: conversationId, userId, kind: "BUILDER" },
@@ -203,7 +211,7 @@ export async function saveBuilderDraft(
 			resourcesOf(submission.message),
 		),
 	);
-	const validation = await validateDraft(userId, input, taggedResources);
+	const validation = await validateDraft(userId, input, taggedResources, p);
 	if (!validation.valid) {
 		return {
 			saved: false as const,
@@ -466,6 +474,7 @@ async function validateDraft(
 	userId: string,
 	input: DraftAgentInput,
 	taggedResources: BuilderResource[],
+	p: AccessPrincipal,
 ) {
 	const connections = await connectionStatus(userId);
 	const issues: string[] = [];
@@ -553,7 +562,7 @@ async function validateDraft(
 	}
 	issues.push(...actionIntegrationIssues(input.actions, input.resources));
 
-	const missingRecords = await missingResourceIds(input.resources);
+	const missingRecords = await missingResourceIds(input.resources, p);
 	issues.push(
 		...missingRecords.map(
 			(resource) => `${resource.label} is no longer in the CRM.`,
@@ -719,12 +728,17 @@ export function slackDestinationIssues(
 	return [];
 }
 
-async function describeResources(resources: BuilderResource[]) {
+async function describeResources(
+	resources: BuilderResource[],
+	p: AccessPrincipal,
+) {
 	return Promise.all(
 		resources.map(async (resource) => {
 			if (resource.kind === "contact") {
-				const row = await db.contact.findUnique({
-					where: { id: resource.id },
+				if (!allows(p, "contacts", "VIEW"))
+					return { ...resource, record: null };
+				const row = await db.contact.findFirst({
+					where: { AND: [{ id: resource.id }, contactScopeWhere(p)] },
 					select: {
 						id: true,
 						firstName: true,
@@ -737,8 +751,9 @@ async function describeResources(resources: BuilderResource[]) {
 				return { ...resource, record: row };
 			}
 			if (resource.kind === "deal") {
-				const row = await db.deal.findUnique({
-					where: { id: resource.id },
+				if (!allows(p, "deals", "VIEW")) return { ...resource, record: null };
+				const row = await db.deal.findFirst({
+					where: { AND: [{ id: resource.id }, dealScopeWhere(p)] },
 					select: {
 						id: true,
 						name: true,
@@ -753,7 +768,7 @@ async function describeResources(resources: BuilderResource[]) {
 						? {
 								...row,
 								stage: row.stage.label,
-								amount: row.amount === null ? null : Number(row.amount),
+								amount: maskedAmount(p, row.amount),
 							}
 						: null,
 				};
@@ -763,9 +778,13 @@ async function describeResources(resources: BuilderResource[]) {
 	);
 }
 
-async function missingResourceIds(resources: BuilderResource[]) {
+async function missingResourceIds(
+	resources: BuilderResource[],
+	p: AccessPrincipal,
+) {
 	const described = await describeResources(
 		resources.filter((resource) => resource.kind !== "integration"),
+		p,
 	);
 	return described.filter((resource) => !resource.record);
 }

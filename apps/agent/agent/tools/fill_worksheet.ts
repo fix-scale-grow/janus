@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { fillWorksheetAnswers } from "../lib/permit-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -30,6 +31,11 @@ export default defineTool({
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
+
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: "permit", id: input.permitId, need: "EDIT" },
+		]);
+		if (blocked) return { applied: false, reason: blocked };
 
 		const result = await fillWorksheetAnswers(input.permitId, input.answers);
 		if (!result.found) return { applied: false, reason: result.reason };

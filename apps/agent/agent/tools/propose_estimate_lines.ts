@@ -1,6 +1,7 @@
 import { ServiceUnit } from "@crm/db";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { applyEstimateLines } from "../lib/estimate-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -59,6 +60,11 @@ export default defineTool({
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
+
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: "estimate", id: input.estimateId, need: "EDIT" },
+		]);
+		if (blocked) return { applied: false as const, reason: blocked };
 
 		return applyEstimateLines(
 			input.estimateId,

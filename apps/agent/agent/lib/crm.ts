@@ -1,4 +1,7 @@
 import { db } from "@crm/db";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import { contactScopeWhere, dealScopeWhere } from "@crm/db/access-scope";
+import { maskedAmount } from "./lookup";
 import { isDerivedName } from "./names";
 import { fenceUntrusted } from "./untrusted";
 
@@ -14,12 +17,20 @@ export type WorkItem = {
 	};
 };
 
-export async function contactsNeedingWork(limit: number): Promise<WorkItem[]> {
+export async function contactsNeedingWork(
+	limit: number,
+	p: AccessPrincipal,
+): Promise<WorkItem[]> {
 	const rows = await db.contact.findMany({
 		where: {
-			OR: [
-				{ brief: { is: null } },
-				{ AND: [{ email: { not: null } }, { lastName: null }] },
+			AND: [
+				{
+					OR: [
+						{ brief: { is: null } },
+						{ AND: [{ email: { not: null } }, { lastName: null }] },
+					],
+				},
+				contactScopeWhere(p),
 			],
 		},
 		select: {
@@ -104,10 +115,12 @@ export async function readCrmHistory(
 		messagesPerThread?: number;
 		includeEmail?: boolean;
 		includeCalendar?: boolean;
-	} = {},
+	},
+	p: AccessPrincipal,
 ): Promise<CrmHistory | null> {
-	const contact = await db.contact.findUnique({
-		where: { id: contactId },
+	const seesDeals = allows(p, "deals", "VIEW");
+	const contact = await db.contact.findFirst({
+		where: { AND: [{ id: contactId }, contactScopeWhere(p)] },
 		select: {
 			id: true,
 			firstName: true,
@@ -116,6 +129,7 @@ export async function readCrmHistory(
 			title: true,
 			companyName: true,
 			deals: {
+				where: seesDeals ? { deal: dealScopeWhere(p) } : { dealId: { in: [] } },
 				orderBy: { deal: { lastActivityAt: "desc" } },
 				select: {
 					role: true,
@@ -216,7 +230,7 @@ export async function readCrmHistory(
 			name: fenceUntrusted("deal name", deal.name),
 			stage: deal.stage.label,
 			role,
-			amount: deal.amount === null ? null : Number(deal.amount),
+			amount: maskedAmount(p, deal.amount),
 			currency: deal.currency,
 			expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
 		})),

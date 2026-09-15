@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal } from "../lib/access";
 import { listPriceBook } from "../lib/price-book";
 
 export default defineTool({
@@ -14,8 +15,8 @@ export default defineTool({
 			.optional()
 			.describe("Narrow to one trade, e.g. 'roofing'. Defaults to all."),
 	}),
-	async execute({ trade }) {
-		const services = await listPriceBook(trade);
+	async execute({ trade }, ctx) {
+		const services = await listPriceBook(trade, await sessionPrincipal(ctx));
 
 		return {
 			services,

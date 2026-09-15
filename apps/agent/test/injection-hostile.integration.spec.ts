@@ -1,10 +1,26 @@
-import { afterAll, beforeAll, describe, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import {
+	type AccessFixture,
+	createAccessFixture,
+} from "@crm/db/access-fixture";
+import { type AccessPrincipal, adminPrincipal } from "@crm/db/access-policy";
 import { readDealHistory } from "../agent/lib/accounts";
 import { listDrawings } from "../agent/lib/drawing-lookup";
 import { loadDrawingSummary } from "../agent/lib/drawing-summary";
 import { loadEstimateSummary } from "../agent/lib/estimate-summary";
-import { assertFenced, HOSTILE_PAYLOADS } from "./injection-fixtures";
+import { listDeals, searchCrm } from "../agent/lib/lookup";
+import listDealsTool from "../agent/tools/list_deals";
+import readEstimateTool from "../agent/tools/read_estimate";
+import searchCrmTool from "../agent/tools/search_crm";
+import {
+	assertFenced,
+	HOSTILE_PAYLOADS,
+	LIST_EVERY_DEAL,
+	readOtherEstimate,
+} from "./injection-fixtures";
+
+const admin = adminPrincipal("test-admin");
 
 const suffix = process.env.TEST_RUN_ID ?? "injection-hostile-spec";
 const userId = `user-${suffix}`;
@@ -109,7 +125,7 @@ describe("read_drawing summary path holds hostile payloads inert", () => {
 				select: { id: true },
 			});
 
-			const summary = await loadDrawingSummary(drawing.id);
+			const summary = await loadDrawingSummary(drawing.id, admin);
 			if (!summary.found) throw new Error("expected the drawing to be found");
 
 			assertFenced(summary.title, text);
@@ -147,7 +163,7 @@ describe("read_estimate summary path holds hostile payloads inert", () => {
 				select: { id: true },
 			});
 
-			const summary = await loadEstimateSummary(estimate.id);
+			const summary = await loadEstimateSummary(estimate.id, admin);
 			if (!summary.found) throw new Error("expected the estimate to be found");
 
 			assertFenced(summary.title, text);
@@ -170,7 +186,7 @@ describe("list_drawings summary path holds hostile payloads inert", () => {
 				},
 			});
 
-			const result = await listDrawings({ query: title });
+			const result = await listDrawings({ query: title }, admin);
 			const row = result.drawings.find((entry) => entry.title.includes(text));
 			if (!row) throw new Error("expected the hostile row back");
 
@@ -193,11 +209,99 @@ describe("read_deal_history summary path holds hostile payloads inert", () => {
 				select: { id: true },
 			});
 
-			const history = await readDealHistory(hostileDeal.id);
+			const history = await readDealHistory(hostileDeal.id, {}, admin);
 			if (!history) throw new Error("expected the deal to be found");
 
 			assertFenced(history.deal.name, text);
 			assertFenced(history.deal.description ?? "", text);
 		});
 	}
+});
+
+describe("a sales clerk cannot talk Janus past their group", () => {
+	let f: AccessFixture;
+
+	beforeAll(async () => {
+		f = await createAccessFixture(`${suffix}-clerk`);
+	});
+
+	afterAll(async () => {
+		await f.cleanup();
+	});
+
+	function clerkCtx() {
+		return {
+			callId: "hostile-clerk",
+			session: {
+				auth: {
+					current: {
+						authenticator: "crm-app",
+						principalId: f.clerkId,
+						principalType: "user",
+						attributes: {},
+					},
+					initiator: null,
+				},
+			},
+		};
+	}
+
+	function noPrices(p: AccessPrincipal): AccessPrincipal {
+		return { ...p, policy: { ...p.policy, money: [] } };
+	}
+
+	async function execute(tool: { execute?: unknown }, input: unknown) {
+		const run = tool.execute as (i: unknown, c: unknown) => Promise<unknown>;
+		return run(input, clerkCtx());
+	}
+
+	it(`"${LIST_EVERY_DEAL}" through list_deals returns only the clerk's deals`, async () => {
+		const result = JSON.stringify(
+			await execute(listDealsTool, { status: "all", limit: 100 }),
+		);
+		expect(result).toContain(f.clerkDealId);
+		expect(result).not.toContain(f.otherDealId);
+	});
+
+	it(`"${LIST_EVERY_DEAL}" returns no amounts when prices are off`, async () => {
+		await db.deal.updateMany({
+			where: { id: { in: [f.clerkDealId, f.otherDealId] } },
+			data: { amount: 98_765 },
+		});
+		const listed = await listDeals(
+			{ status: "all", limit: 100 },
+			noPrices(f.clerk),
+		);
+		const searched = await searchCrm(
+			`${suffix}-clerk`,
+			{ limit: 25 },
+			noPrices(f.clerk),
+		);
+		const hostile = await searchCrm(
+			LIST_EVERY_DEAL,
+			{ limit: 25 },
+			noPrices(f.clerk),
+		);
+		const all = JSON.stringify({ listed, searched, hostile });
+		expect(all).not.toContain(f.otherDealId);
+		expect(listed.deals.every((deal) => deal.amount === null)).toBe(true);
+		expect(searched.deals.every((deal) => deal.amount === null)).toBe(true);
+		expect(all).not.toContain("98765");
+	});
+
+	it("search_crm with the hostile request leaves out other reps' records", async () => {
+		const result = JSON.stringify(
+			await execute(searchCrmTool, { query: `${suffix}-clerk`, limit: 25 }),
+		);
+		expect(result).not.toContain(f.otherDealId);
+		expect(result).not.toContain(f.otherContactId);
+	});
+
+	it("read estimate <otherEstimateId> is not found for the clerk", async () => {
+		const message = readOtherEstimate(f.otherEstimateId);
+		const estimateId = message.split(" ")[2]?.replace(/\.$/, "");
+		expect(estimateId).toBe(f.otherEstimateId);
+		const result = await execute(readEstimateTool, { estimateId });
+		expect(result).toEqual({ found: false, reason: "No such estimate." });
+	});
 });

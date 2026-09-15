@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal } from "../../../lib/access";
 import { builderContext } from "../../../lib/builder-runtime";
 import { requireBuilderAttribute } from "../../../lib/session-purpose";
 
@@ -11,6 +12,7 @@ export default defineTool({
 		return builderContext(
 			requireBuilderAttribute(ctx, "conversationId"),
 			requireBuilderAttribute(ctx, "userId"),
+			await sessionPrincipal(ctx),
 		);
 	},
 });

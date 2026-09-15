@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { ActivityType, db, EmailDirection } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { readDealHistory } from "../agent/lib/accounts";
+
+const admin = adminPrincipal("test-admin");
 
 async function salesStage(key: string): Promise<{ id: string; label: string }> {
 	return db.stage.findFirstOrThrow({
@@ -176,7 +179,7 @@ async function cleanup(): Promise<void> {
 
 describe("readDealHistory", () => {
 	it("reports the stage clock, not just the stage", async () => {
-		const history = await readDealHistory(dealId);
+		const history = await readDealHistory(dealId, {}, admin);
 
 		expect(history?.deal.stage).toBe(contractSentLabel);
 		expect(history?.deal.open).toBe(true);
@@ -184,7 +187,7 @@ describe("readDealHistory", () => {
 	});
 
 	it("returns every stage it moved through, oldest first", async () => {
-		const history = await readDealHistory(dealId);
+		const history = await readDealHistory(dealId, {}, admin);
 
 		expect(history?.stageHistory.map((change) => change.to)).toEqual([
 			qualifiedToBuyLabel,
@@ -193,7 +196,7 @@ describe("readDealHistory", () => {
 	});
 
 	it("names who is on it, with ids and roles", async () => {
-		const history = await readDealHistory(dealId);
+		const history = await readDealHistory(dealId, {}, admin);
 
 		expect(history?.people).toHaveLength(1);
 		const [person] = history?.people ?? [];
@@ -207,7 +210,7 @@ describe("readDealHistory", () => {
 	});
 
 	it("says the correspondence belongs to the people on it, not the deal", async () => {
-		const history = await readDealHistory(dealId);
+		const history = await readDealHistory(dealId, {}, admin);
 
 		expect(history?.threads).toHaveLength(1);
 		expect(history?.stats.theyReplied).toBe(true);
@@ -215,10 +218,14 @@ describe("readDealHistory", () => {
 	});
 
 	it("omits deal correspondence when connected sources are not approved", async () => {
-		const history = await readDealHistory(dealId, {
-			includeEmail: false,
-			includeCalendar: false,
-		});
+		const history = await readDealHistory(
+			dealId,
+			{
+				includeEmail: false,
+				includeCalendar: false,
+			},
+			admin,
+		);
 
 		expect(history?.threads).toEqual([]);
 		expect(history?.meetings).toEqual([]);
@@ -228,6 +235,6 @@ describe("readDealHistory", () => {
 	});
 
 	it("returns null for a deal that does not exist", async () => {
-		expect(await readDealHistory("nope")).toBeNull();
+		expect(await readDealHistory("nope", {}, admin)).toBeNull();
 	});
 });

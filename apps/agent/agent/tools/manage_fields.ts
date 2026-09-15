@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { AGENT_ACCESS, sessionPrincipal } from "../lib/access";
 import { isAutomated } from "../lib/approval";
 import { createField, updateFieldBrief } from "../lib/fields";
 
@@ -52,6 +53,13 @@ export default defineTool({
 			const reason =
 				"Not something to do unattended. A rep must ask for this in a conversation.";
 
+			return input.action === "create"
+				? { created: false as const, reason }
+				: { updated: false as const, reason };
+		}
+
+		if (!(await sessionPrincipal(ctx)).isAdmin) {
+			const reason = AGENT_ACCESS.adminOnlyFields;
 			return input.action === "create"
 				? { created: false as const, reason }
 				: { updated: false as const, reason };

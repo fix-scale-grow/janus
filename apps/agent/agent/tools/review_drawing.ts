@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import { reviewDrawing } from "../lib/drawing-review";
 
 export default defineTool({
@@ -9,7 +10,10 @@ export default defineTool({
 		drawingId: z.cuid(),
 		estimateId: z.cuid().optional(),
 	}),
-	async execute({ drawingId, estimateId }) {
-		return reviewDrawing(drawingId, estimateId);
+	async execute({ drawingId, estimateId }, ctx) {
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(p, "drawings", "VIEW");
+		if (denied) return denied;
+		return reviewDrawing(drawingId, estimateId, p);
 	},
 });

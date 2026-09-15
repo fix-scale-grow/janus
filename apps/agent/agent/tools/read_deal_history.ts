@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import { readDealHistory } from "../lib/accounts";
 
 export default defineTool({
@@ -15,8 +16,12 @@ export default defineTool({
 			.default(5)
 			.describe("How many recent threads to read."),
 	}),
-	async execute({ dealId, threads }) {
-		const history = await readDealHistory(dealId, { threads });
+	async execute({ dealId, threads }, ctx) {
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(p, "deals", "VIEW");
+		if (denied) return denied;
+
+		const history = await readDealHistory(dealId, { threads }, p);
 		if (!history) return { found: false as const, reason: "No such deal." };
 
 		return { found: true as const, ...history };

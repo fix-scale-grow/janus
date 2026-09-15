@@ -242,8 +242,15 @@ export function taskAuth(task: LeasedTask, base: AppAuth = APP_AUTH): AppAuth {
 			...(task.contactId ? { contactId: task.contactId } : {}),
 			...(task.dealId ? { dealId: task.dealId } : {}),
 			...(task.drawingId ? { drawingId: task.drawingId } : {}),
+			...drawingCheckAttributes(task),
 		},
 	};
+}
+
+function drawingCheckAttributes(task: LeasedTask): { estimateId?: string } {
+	if (task.kind !== "drawing-check") return {};
+	const parsed = parseDrawingCheckPayload(task.payload);
+	return parsed ? { estimateId: parsed.estimateId } : {};
 }
 
 export const DRAIN_TIMEOUT_MS = DISPATCH.sweep.timeoutMs;

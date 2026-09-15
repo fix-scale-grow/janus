@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import { readCrmHistory } from "../lib/crm";
 import { focusOn } from "../lib/focus";
 
@@ -16,11 +17,14 @@ export default defineTool({
 			.default(5)
 			.describe("How many recent threads to read."),
 	}),
-	async execute({ contactId, threads }) {
-		focusOn({ contactId });
+	async execute({ contactId, threads }, ctx) {
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(p, "contacts", "VIEW");
+		if (denied) return denied;
 
-		const history = await readCrmHistory(contactId, { threads });
+		const history = await readCrmHistory(contactId, { threads }, p);
 		if (!history) return { found: false as const, reason: "No such contact." };
+		focusOn({ contactId });
 
 		const evidence =
 			history.stats.emails === 0 && history.stats.meetings === 0

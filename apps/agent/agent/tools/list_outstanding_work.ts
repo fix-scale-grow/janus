@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import { contactsNeedingWork } from "../lib/crm";
 
 export default defineTool({
@@ -8,8 +9,11 @@ export default defineTool({
 	inputSchema: z.object({
 		limit: z.number().int().min(1).max(25).default(10),
 	}),
-	async execute({ limit }) {
-		const contacts = await contactsNeedingWork(limit);
+	async execute({ limit }, ctx) {
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(p, "contacts", "VIEW");
+		if (denied) return denied;
+		const contacts = await contactsNeedingWork(limit, p);
 		return { count: contacts.length, contacts };
 	},
 });

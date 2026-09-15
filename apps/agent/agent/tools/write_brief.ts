@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import type { Evidence, EvidenceKind } from "../lib/evidence";
 import { WEIGHTS } from "../lib/evidence";
 import { writeBrief } from "../lib/facts";
@@ -50,6 +51,10 @@ export default defineTool({
 	}),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: "contact", id: input.contactId, need: "EDIT" },
+		]);
+		if (blocked) return { written: false as const, reason: blocked };
 		focusOn({ contactId: input.contactId });
 
 		const narrative = input.narrative.trim();

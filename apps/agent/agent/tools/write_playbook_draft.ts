@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import {
 	draftPlaybookFacts,
 	jurisdictionInput,
@@ -19,6 +20,9 @@ export default defineTool({
 	}),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
+
+		const denied = refusal(await sessionPrincipal(ctx), "permits", "EDIT");
+		if (denied) return denied;
 
 		return writePlaybookDraft({
 			jurisdiction: input.jurisdiction,

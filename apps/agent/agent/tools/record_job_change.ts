@@ -1,6 +1,7 @@
 import { db } from "@crm/db";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { writeTimelineNote } from "../lib/crm";
 import { lastEmployerChange } from "../lib/facts";
@@ -18,6 +19,10 @@ export default defineTool({
 	),
 	async execute({ contactId }, ctx) {
 		assertResearchPurpose(ctx);
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: "contact", id: contactId, need: "EDIT" },
+		]);
+		if (blocked) return { raised: false as const, reason: blocked };
 		focusOn({ contactId });
 
 		const change = await lastEmployerChange(contactId);

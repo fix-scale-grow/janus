@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import {
 	jurisdictionInput,
 	loadPlaybookSummary,
@@ -14,7 +15,9 @@ export default defineTool({
 		permitType: permitTypeEnum,
 		typeLabel: z.string().trim().max(160).default(""),
 	}),
-	async execute({ jurisdiction, permitType, typeLabel }) {
+	async execute({ jurisdiction, permitType, typeLabel }, ctx) {
+		const denied = refusal(await sessionPrincipal(ctx), "permits", "VIEW");
+		if (denied) return denied;
 		return loadPlaybookSummary({ jurisdiction, permitType, typeLabel });
 	},
 });

@@ -1,6 +1,12 @@
 import { db } from "@crm/db";
 import { connection } from "next/server";
 import {
+	agentRecordsVisible,
+	JANUS_CHAT_UNAVAILABLE,
+	janusChatAllowed,
+	routePrincipal,
+} from "@/lib/access-route";
+import {
 	AGENT_URL,
 	bridgeConfigured,
 	mintBridgeToken,
@@ -20,6 +26,11 @@ async function handler(request: Request): Promise<Response> {
 	const session = await getSession();
 	if (!session) {
 		return Response.json({ error: "Not signed in." }, { status: 401 });
+	}
+
+	const principal = await routePrincipal(session.user.id);
+	if (!janusChatAllowed(principal)) {
+		return Response.json({ error: JANUS_CHAT_UNAVAILABLE }, { status: 403 });
 	}
 
 	const url = new URL(request.url);
@@ -88,6 +99,15 @@ async function handler(request: Request): Promise<Response> {
 		}
 	}
 
+	const record = {
+		contactId: cuid(contactId),
+		dealId: cuid(dealId),
+		drawingId: cuid(drawingId),
+	};
+	if (!(await agentRecordsVisible(principal, record))) {
+		return Response.json({ error: "Record not found." }, { status: 404 });
+	}
+
 	headers.set(
 		"authorization",
 		`Bearer ${await mintBridgeToken(
@@ -96,11 +116,7 @@ async function handler(request: Request): Promise<Response> {
 				email: session.user.email,
 				name: session.user.name,
 			},
-			{
-				contactId: cuid(contactId),
-				dealId: cuid(dealId),
-				drawingId: cuid(drawingId),
-			},
+			record,
 		)}`,
 	);
 

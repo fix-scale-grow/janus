@@ -279,6 +279,27 @@ egress:
 
 `skills/data-boundaries.md` is the agent's copy. Keep them in step.
 
+### Every tool runs under the caller's access group
+
+`lib/access.ts#sessionPrincipal` turns the session into an `AccessPrincipal`. Every
+CRM read ANDs the `@crm/db/access-scope` builder into its where and masks money
+through `@crm/db/access-money`; every write checks the area and the target's scope
+before the existing approval or unattended denial.
+
+- **A bridge session is the signed-in member.** A person who is not a member is
+  refused, and a session with no user principal is refused.
+- **A system-initiated unattended task runs as `janus-automation`**, an admin
+  principal. Those sessions are already write-locked.
+- **A drawing check runs as the estimate's creator.** `taskAuth` carries the
+  payload's `estimateId`; the check reads it back to find the person.
+- **A team-agent run runs as its initiator, or else the agent's creator.** Any
+  member can deploy an agent, so a scheduled run never gets admin reach.
+- **A section the group cannot view is left out**, not refused, in tools that read
+  several areas (`search_crm`, `read_crm_history`, `read_deal_history`,
+  `read_drawing`).
+- **The bridge route refuses Janus** to a non-member, a field-surface group and an
+  ungrouped non-admin, and 404s a tagged record outside the caller's scope.
+
 ## Sandbox
 
 `agent/sandbox/sandbox.ts`: `bash`, file tools, `/workspace`, **`deny-all` egress on

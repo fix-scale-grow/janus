@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../../../lib/access";
 import { createRunActivity } from "../../../lib/run-runtime";
 import { requireTeamAgentAttribute } from "../../../lib/session-purpose";
 
@@ -15,10 +16,11 @@ export default defineTool({
 		dueAt: z.string().nullish(),
 	}),
 	async execute(input, ctx) {
-		return createRunActivity(
-			requireTeamAgentAttribute(ctx, "runId"),
-			ctx.callId,
-			input,
-		);
+		const runId = requireTeamAgentAttribute(ctx, "runId");
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: input.targetKind, id: input.targetId, need: "EDIT" },
+		]);
+		if (blocked) throw new Error(blocked);
+		return createRunActivity(runId, ctx.callId, input);
 	},
 });

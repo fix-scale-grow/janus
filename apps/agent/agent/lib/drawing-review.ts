@@ -1,4 +1,6 @@
 import { db } from "@crm/db";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import { dealChildWhere } from "@crm/db/access-scope";
 import { parseDrawingScale, parseDrawingScene } from "@crm/drawings";
 import { summarizeScene } from "./drawing-summary";
 import { reviewTakeoff, type TakeoffReviewFacts } from "./takeoff-review";
@@ -13,15 +15,21 @@ export type DrawingReviewResult =
 
 export async function reviewDrawing(
 	drawingId: string,
-	estimateId?: string,
+	estimateId: string | undefined,
+	p: AccessPrincipal,
 ): Promise<DrawingReviewResult> {
-	const drawing = await db.drawing.findUnique({
-		where: { id: drawingId },
+	const estimateScope = allows(p, "estimates", "VIEW")
+		? dealChildWhere(p)
+		: { id: { in: [] } };
+	const drawing = await db.drawing.findFirst({
+		where: { AND: [{ id: drawingId }, dealChildWhere(p)] },
 		select: {
 			scene: true,
 			scale: true,
 			estimates: {
-				where: estimateId ? { id: estimateId } : undefined,
+				where: estimateId
+					? { AND: [{ id: estimateId }, estimateScope] }
+					: estimateScope,
 				orderBy: { createdAt: "desc" },
 				take: 1,
 				select: {

@@ -1,6 +1,7 @@
 import { serviceModifier } from "@crm/drawings";
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { priceBookRefusal, sessionPrincipal } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { applyServiceUpdate, SERVICE_WRITES } from "../lib/service-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -43,6 +44,9 @@ export default defineTool({
 	),
 	async execute(input, ctx) {
 		assertResearchPurpose(ctx);
+
+		const denied = priceBookRefusal(await sessionPrincipal(ctx));
+		if (denied) return denied;
 
 		return applyServiceUpdate(input.serviceId, input.current, input.changes);
 	},

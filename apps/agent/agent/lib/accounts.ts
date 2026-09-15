@@ -1,5 +1,8 @@
 import { ActivityType, db, EmailDirection } from "@crm/db";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import { dealScopeWhere } from "@crm/db/access-scope";
 import { isClosedStage } from "@crm/db/stage-semantics";
+import { maskedAmount } from "./lookup";
 import { fenceUntrusted } from "./untrusted";
 
 const BODY_LIMIT = 4000;
@@ -77,10 +80,12 @@ export async function readDealHistory(
 		messagesPerThread?: number;
 		includeEmail?: boolean;
 		includeCalendar?: boolean;
-	} = {},
+	},
+	p: AccessPrincipal,
 ): Promise<DealHistory | null> {
-	const deal = await db.deal.findUnique({
-		where: { id: dealId },
+	const seesContacts = allows(p, "contacts", "VIEW");
+	const deal = await db.deal.findFirst({
+		where: { AND: [{ id: dealId }, dealScopeWhere(p)] },
 		select: {
 			id: true,
 			name: true,
@@ -98,6 +103,7 @@ export async function readDealHistory(
 			createdAt: true,
 			owner: { select: { name: true, email: true } },
 			contacts: {
+				where: seesContacts ? {} : { contactId: { in: [] } },
 				select: {
 					role: true,
 					contact: {
@@ -207,7 +213,7 @@ export async function readDealHistory(
 			open: !isClosedStage(deal.stage),
 			daysInStage: daysSince(deal.stageChangedAt, now),
 			stageChangedAt: deal.stageChangedAt.toISOString(),
-			amount: deal.amount === null ? null : Number(deal.amount),
+			amount: maskedAmount(p, deal.amount),
 			currency: deal.currency,
 			expectedCloseDate: deal.expectedCloseDate?.toISOString() ?? null,
 			closedAt: deal.closedAt?.toISOString() ?? null,

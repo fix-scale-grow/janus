@@ -6,8 +6,10 @@ import {
 } from "@crm/db/access-fixture";
 import { noAccessPrincipal } from "@crm/db/access-policy";
 import {
+	agentRecordsVisible,
 	costVisible,
 	drawingVisible,
+	janusChatAllowed,
 	permitDocumentVisible,
 	photoVisible,
 } from "./access-route";
@@ -97,5 +99,44 @@ describe("permitDocumentVisible", () => {
 		);
 
 		await db.permitDocument.delete({ where: { id: document.id } });
+	});
+});
+
+describe("janusChatAllowed", () => {
+	test("an admin and a grouped office member may chat", () => {
+		expect(janusChatAllowed(f.admin)).toBe(true);
+		expect(janusChatAllowed(f.office)).toBe(true);
+		expect(janusChatAllowed(f.clerk)).toBe(true);
+	});
+
+	test("a field-surface group, an ungrouped member and a non-member may not", () => {
+		expect(janusChatAllowed(f.crew)).toBe(false);
+		expect(janusChatAllowed(noAccessPrincipal(f.clerkId))).toBe(false);
+		expect(janusChatAllowed(null)).toBe(false);
+	});
+});
+
+describe("agentRecordsVisible", () => {
+	test("a clerk may open Janus on their own records", async () => {
+		expect(
+			await agentRecordsVisible(f.clerk, {
+				contactId: f.clerkContactId,
+				dealId: f.clerkDealId,
+				drawingId: f.clerkDrawingId,
+			}),
+		).toBe(true);
+		expect(await agentRecordsVisible(f.clerk, {})).toBe(true);
+	});
+
+	test("a clerk may not open Janus on another rep's record", async () => {
+		expect(
+			await agentRecordsVisible(f.clerk, { contactId: f.otherContactId }),
+		).toBe(false);
+		expect(await agentRecordsVisible(f.clerk, { dealId: f.otherDealId })).toBe(
+			false,
+		);
+		expect(
+			await agentRecordsVisible(f.clerk, { drawingId: f.otherDrawingId }),
+		).toBe(false);
 	});
 });

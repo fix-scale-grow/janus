@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { listDrawings } from "../agent/lib/drawing-lookup";
+
+const admin = adminPrincipal("test-admin");
 
 const suffix = process.env.TEST_RUN_ID ?? "drawing-lookup-spec";
 const userId = `user-${suffix}`;
@@ -100,7 +103,7 @@ async function cleanup(): Promise<void> {
 
 describe("listDrawings", () => {
 	it("orders by most recently updated first", async () => {
-		const result = await listDrawings({ query: titlePrefix });
+		const result = await listDrawings({ query: titlePrefix }, admin);
 		const ids = result.drawings.map((row) => row.id);
 
 		expect(ids.indexOf(recentId)).toBeLessThan(ids.indexOf(attachedId));
@@ -108,7 +111,10 @@ describe("listDrawings", () => {
 	});
 
 	it("filters to drawings with no deal or contact", async () => {
-		const result = await listDrawings({ query: titlePrefix, attached: "none" });
+		const result = await listDrawings(
+			{ query: titlePrefix, attached: "none" },
+			admin,
+		);
 		const ids = result.drawings.map((row) => row.id);
 
 		expect(ids).toContain(orphanId);
@@ -117,7 +123,10 @@ describe("listDrawings", () => {
 	});
 
 	it("filters to drawings attached to a deal, and reports the deal id and name", async () => {
-		const result = await listDrawings({ query: titlePrefix, attached: "deal" });
+		const result = await listDrawings(
+			{ query: titlePrefix, attached: "deal" },
+			admin,
+		);
 		const row = result.drawings.find((entry) => entry.id === attachedId);
 
 		expect(result.drawings.map((entry) => entry.id)).toEqual([attachedId]);
@@ -126,16 +135,19 @@ describe("listDrawings", () => {
 	});
 
 	it("filters to drawings attached to a contact", async () => {
-		const result = await listDrawings({
-			query: titlePrefix,
-			attached: "contact",
-		});
+		const result = await listDrawings(
+			{
+				query: titlePrefix,
+				attached: "contact",
+			},
+			admin,
+		);
 
 		expect(result.drawings).toEqual([]);
 	});
 
 	it("respects the limit", async () => {
-		const result = await listDrawings({ query: titlePrefix, limit: 1 });
+		const result = await listDrawings({ query: titlePrefix, limit: 1 }, admin);
 
 		expect(result.drawings).toHaveLength(1);
 	});

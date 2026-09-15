@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ActivityType, db, type Prisma } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
 import type { AgentActionStatus, AgentTriggerType } from "@crm/db/enums";
 import { lockIdempotencyKey } from "@crm/db/idempotency";
 import { readDealHistory } from "./accounts";
@@ -117,12 +118,13 @@ export async function queryRunCrm(
 		kinds?: ("contact" | "deal")[];
 		limit: number;
 	},
+	p: AccessPrincipal,
 ) {
 	const run = await runContext(runId);
 	const scoped = run.allowedResources.filter(
 		(resource) => resource.kind !== "integration",
 	);
-	const result = await searchCrm(input.query, input);
+	const result = await searchCrm(input.query, input, p);
 	if (run.recordScope === "WORKSPACE") return result;
 
 	const allowed = new Set(
@@ -146,22 +148,19 @@ export async function readRunRecord(
 		kind: "contact" | "deal";
 		id: string;
 	},
+	p: AccessPrincipal,
 ) {
 	const run = await runContext(runId);
 	assertResourceAllowed(run.recordScope, run.allowedResources, input);
 	const sources = allowedHistorySources(run.allowedResources);
-
-	if (input.kind === "contact")
-		return readCrmHistory(input.id, {
-			threads: 10,
-			includeEmail: sources.gmail,
-			includeCalendar: sources.calendar,
-		});
-	return readDealHistory(input.id, {
+	const options = {
 		threads: 10,
 		includeEmail: sources.gmail,
 		includeCalendar: sources.calendar,
-	});
+	};
+
+	if (input.kind === "contact") return readCrmHistory(input.id, options, p);
+	return readDealHistory(input.id, options, p);
 }
 
 export async function createRunActivity(

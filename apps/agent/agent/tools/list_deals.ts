@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import { listDeals } from "../lib/lookup";
 
 export default defineTool({
@@ -20,10 +21,14 @@ export default defineTool({
 		limit: z.number().int().min(1).max(100).default(50),
 		cursor: z.string().optional(),
 	}),
-	async execute(input) {
-		return listDeals(input);
+	async execute(input, ctx) {
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(p, "deals", "VIEW");
+		if (denied) return denied;
+		return listDeals(input, p);
 	},
 	toModelOutput(output) {
+		if ("refused" in output) return { type: "json", value: output };
 		return {
 			type: "json",
 			value: {

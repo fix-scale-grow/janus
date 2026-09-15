@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { adminPrincipal } from "@crm/db/access-policy";
 import { listDeals, searchCrm } from "../agent/lib/lookup";
+
+const admin = adminPrincipal("test-admin");
 
 async function salesStage(key: string): Promise<{ id: string; label: string }> {
 	return db.stage.findFirstOrThrow({
@@ -109,13 +112,13 @@ async function cleanup(): Promise<void> {
 
 describe("searchCrm", () => {
 	it("finds the people at a company named in the query", async () => {
-		const result = await searchCrm(northwindName);
+		const result = await searchCrm(northwindName, {}, admin);
 
 		expect(result.contacts.map((hit) => hit.id)).toContain(paulaId);
 	});
 
 	it("returns both people behind an ambiguous surname", async () => {
-		const result = await searchCrm("Marchetti");
+		const result = await searchCrm("Marchetti", {}, admin);
 
 		expect(result.contacts.map((hit) => hit.id).sort()).toEqual(
 			[paulaId, peterId].sort(),
@@ -127,51 +130,58 @@ describe("searchCrm", () => {
 	});
 
 	it("finds a person by their address", async () => {
-		const result = await searchCrm(`paula.marchetti@${domain}`);
+		const result = await searchCrm(`paula.marchetti@${domain}`, {}, admin);
 
 		expect(result.contacts[0]?.id).toBe(paulaId);
 	});
 
 	it("finds a deal by name", async () => {
-		const result = await searchCrm(`Northwind renewal ${suffix}`);
+		const result = await searchCrm(`Northwind renewal ${suffix}`, {}, admin);
 
 		expect(result.deals[0]?.id).toBe(dealId);
 		expect(result.deals[0]?.amount).toBe(12_000);
 	});
 
 	it("narrows to the kinds asked for", async () => {
-		const result = await searchCrm(northwindName, {
-			kinds: ["contact"],
-		});
+		const result = await searchCrm(
+			northwindName,
+			{
+				kinds: ["contact"],
+			},
+			admin,
+		);
 
 		expect(result.deals).toHaveLength(0);
 		expect(result.contacts.length).toBeGreaterThan(0);
 	});
 
 	it("finds nothing rather than guessing", async () => {
-		const result = await searchCrm("zzyzxqqq");
+		const result = await searchCrm("zzyzxqqq", {}, admin);
 
 		expect(result.total).toBe(0);
 	});
 
 	it("ranks a whole-phrase match above rows sharing only one word", async () => {
-		const result = await searchCrm(`Paula Marchetti`);
+		const result = await searchCrm(`Paula Marchetti`, {}, admin);
 
 		expect(result.contacts[0]?.id).toBe(paulaId);
 	});
 
 	it("refuses a query too short to mean anything", async () => {
-		expect((await searchCrm("a")).total).toBe(0);
+		expect((await searchCrm("a", {}, admin)).total).toBe(0);
 	});
 });
 
 describe("listDeals", () => {
 	it("lists stale open deals across the pipeline", async () => {
-		const result = await listDeals({
-			status: "open",
-			inactiveForDays: 14,
-			now: new Date("2026-08-05T12:00:00.000Z"),
-		});
+		const result = await listDeals(
+			{
+				status: "open",
+				inactiveForDays: 14,
+				now: new Date("2026-08-05T12:00:00.000Z"),
+			},
+			admin,
+		);
 		const ids = result.deals.map((deal) => deal.id);
 
 		expect(ids).toContain(dealId);
@@ -185,15 +195,18 @@ describe("listDeals", () => {
 	});
 
 	it("paginates a broad deal sweep without repeating a row", async () => {
-		const first = await listDeals({ status: "all", limit: 1 });
+		const first = await listDeals({ status: "all", limit: 1 }, admin);
 		expect(first.hasMore).toBe(true);
 		expect(first.nextCursor).toBeTruthy();
 
-		const second = await listDeals({
-			status: "all",
-			limit: 1,
-			cursor: first.nextCursor ?? undefined,
-		});
+		const second = await listDeals(
+			{
+				status: "all",
+				limit: 1,
+				cursor: first.nextCursor ?? undefined,
+			},
+			admin,
+		);
 		expect(second.deals[0]?.id).not.toBe(first.deals[0]?.id);
 	});
 });

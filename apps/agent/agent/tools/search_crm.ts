@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal } from "../lib/access";
 import { searchCrm } from "../lib/lookup";
 
 export default defineTool({
@@ -16,8 +17,12 @@ export default defineTool({
 			.describe("Narrow the search. Defaults to both."),
 		limit: z.number().int().min(1).max(25).default(10),
 	}),
-	async execute({ query, kinds, limit }) {
-		const result = await searchCrm(query, { kinds, limit });
+	async execute({ query, kinds, limit }, ctx) {
+		const result = await searchCrm(
+			query,
+			{ kinds, limit },
+			await sessionPrincipal(ctx),
+		);
 
 		return {
 			...result,

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { db } from "@crm/db";
+import { WORKSPACE_ID } from "@crm/db/workspace";
 import fillWorksheetTool from "../agent/tools/fill_worksheet";
 
 const suffix = process.env.TEST_RUN_ID ?? "fill-worksheet-spec";
@@ -63,6 +64,25 @@ beforeAll(async () => {
 		select: { id: true },
 	});
 	userId = user.id;
+	await db.organization.upsert({
+		where: { id: WORKSPACE_ID },
+		update: {},
+		create: {
+			id: WORKSPACE_ID,
+			name: "Test",
+			slug: `ws-${suffix}`,
+			createdAt: new Date(),
+		},
+	});
+	await db.member.create({
+		data: {
+			id: `fill-worksheet-member-${suffix}`,
+			organizationId: WORKSPACE_ID,
+			userId,
+			role: "owner",
+			createdAt: new Date(),
+		},
+	});
 
 	const stage = await db.stage.findFirstOrThrow({
 		where: { key: "DEMO_BOOKED" },
@@ -122,6 +142,7 @@ afterAll(async () => {
 	await db.permitPlaybook.deleteMany({ where: { jurisdictionId } });
 	await db.jurisdiction.deleteMany({ where: { id: jurisdictionId } });
 	await db.deal.deleteMany({ where: { id: dealId } });
+	await db.member.deleteMany({ where: { userId } });
 	await db.user.deleteMany({ where: { id: userId } });
 });
 

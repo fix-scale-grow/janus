@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { AGENT_ACCESS, sessionPrincipal } from "../lib/access";
 import { sensitiveWrite } from "../lib/approval";
 import { archiveField } from "../lib/fields";
 
@@ -13,7 +14,9 @@ export default defineTool({
 	approval: sensitiveWrite(
 		"Say which field you would archive and let a rep do it from the Fields sheet.",
 	),
-	async execute(input) {
+	async execute(input, ctx) {
+		const p = await sessionPrincipal(ctx);
+		if (!p.isAdmin) return { refused: AGENT_ACCESS.adminOnlyFields };
 		return archiveField(input);
 	},
 });

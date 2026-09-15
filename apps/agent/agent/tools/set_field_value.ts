@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import { isAutomated } from "../lib/approval";
 import { writeField } from "../lib/fields";
 import { focusOn } from "../lib/focus";
@@ -27,6 +28,15 @@ export default defineTool({
 					"Not something to do unattended. A rep must ask for this in a conversation.",
 			};
 		}
+
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{
+				kind: entity === "CONTACT" ? "contact" : "deal",
+				id: recordId,
+				need: "EDIT",
+			},
+		]);
+		if (blocked) return { written: false as const, reason: blocked };
 
 		if (entity === "CONTACT") focusOn({ contactId: recordId });
 

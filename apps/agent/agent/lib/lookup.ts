@@ -1,4 +1,7 @@
-import { db, StageOutcome } from "@crm/db";
+import { db, type Prisma, StageOutcome } from "@crm/db";
+import { maskCents } from "@crm/db/access-money";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import { contactScopeWhere, dealScopeWhere } from "@crm/db/access-scope";
 import { normalise } from "./names";
 import { fenceUntrusted } from "./untrusted";
 
@@ -43,7 +46,7 @@ export type DealListOptions = {
 	now?: Date;
 };
 
-export async function listDeals(options: DealListOptions = {}) {
+export async function listDeals(options: DealListOptions, p: AccessPrincipal) {
 	const status = options.status ?? "open";
 	const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
 	const now = options.now ?? new Date();
@@ -62,19 +65,21 @@ export async function listDeals(options: DealListOptions = {}) {
 					? [StageOutcome.LOST, StageOutcome.DISQUALIFIED]
 					: null;
 
+	const base: Prisma.DealWhereInput = {
+		...(outcomes ? { stage: { outcome: { in: outcomes } } } : {}),
+		...(options.ownerId ? { ownerId: options.ownerId } : {}),
+		...(cutoff
+			? {
+					OR: [
+						{ lastActivityAt: { lte: cutoff } },
+						{ lastActivityAt: null, createdAt: { lte: cutoff } },
+					],
+				}
+			: {}),
+	};
+
 	const rows = await db.deal.findMany({
-		where: {
-			...(outcomes ? { stage: { outcome: { in: outcomes } } } : {}),
-			...(options.ownerId ? { ownerId: options.ownerId } : {}),
-			...(cutoff
-				? {
-						OR: [
-							{ lastActivityAt: { lte: cutoff } },
-							{ lastActivityAt: null, createdAt: { lte: cutoff } },
-						],
-					}
-				: {}),
-		},
+		where: { AND: [base, dealScopeWhere(p)] },
 		orderBy: [
 			{ lastActivityAt: { sort: "asc", nulls: "first" } },
 			{ createdAt: "asc" },
@@ -110,7 +115,7 @@ export async function listDeals(options: DealListOptions = {}) {
 				id: deal.id,
 				name: fenceUntrusted("deal name", deal.name),
 				stage: deal.stage.label,
-				amount: deal.amount === null ? null : Number(deal.amount),
+				amount: maskedAmount(p, deal.amount),
 				currency: deal.currency,
 				owner: deal.owner,
 				createdAt: deal.createdAt.toISOString(),
@@ -130,7 +135,8 @@ export async function listDeals(options: DealListOptions = {}) {
 
 export async function searchCrm(
 	query: string,
-	options: { kinds?: RecordKind[]; limit?: number } = {},
+	options: { kinds?: RecordKind[]; limit?: number },
+	p: AccessPrincipal,
 ): Promise<SearchResult> {
 	const term = query.trim();
 	const kinds = options.kinds ?? ["contact", "deal"];
@@ -140,13 +146,15 @@ export async function searchCrm(
 		return { query: term, contacts: [], deals: [], total: 0 };
 	}
 
-	const wants = (kind: RecordKind) => kinds.includes(kind);
+	const wants = (kind: RecordKind) =>
+		kinds.includes(kind) &&
+		allows(p, kind === "contact" ? "contacts" : "deals", "VIEW");
 	const email = term.includes("@") ? term.toLowerCase() : null;
 	const words = term.split(/\s+/).filter((word) => word.length >= 2);
 
 	const [contacts, deals] = await Promise.all([
-		wants("contact") ? searchContacts(term, words, email, limit) : [],
-		wants("deal") ? searchDeals(term, words, limit) : [],
+		wants("contact") ? searchContacts(term, words, email, limit, p) : [],
+		wants("deal") ? searchDeals(term, words, limit, p) : [],
 	]);
 
 	return {
@@ -162,6 +170,7 @@ async function searchContacts(
 	words: string[],
 	email: string | null,
 	limit: number,
+	p: AccessPrincipal,
 ): Promise<ContactHit[]> {
 	const contains = words.flatMap((word) => [
 		{ firstName: { contains: word, mode: "insensitive" as const } },
@@ -172,12 +181,17 @@ async function searchContacts(
 
 	const rows = await db.contact.findMany({
 		where: {
-			OR: [
-				...(email
-					? [{ email: { equals: email, mode: "insensitive" as const } }]
-					: []),
-				...contains,
-				{ companyName: { contains: term, mode: "insensitive" as const } },
+			AND: [
+				{
+					OR: [
+						...(email
+							? [{ email: { equals: email, mode: "insensitive" as const } }]
+							: []),
+						...contains,
+						{ companyName: { contains: term, mode: "insensitive" as const } },
+					],
+				},
+				contactScopeWhere(p),
 			],
 		},
 		orderBy: [{ lastActivityAt: "desc" }, { createdAt: "asc" }],
@@ -220,14 +234,20 @@ async function searchDeals(
 	term: string,
 	words: string[],
 	limit: number,
+	p: AccessPrincipal,
 ): Promise<DealHit[]> {
 	const rows = await db.deal.findMany({
 		where: {
-			OR: [
-				{ name: { contains: term, mode: "insensitive" } },
-				...words.map((word) => ({
-					name: { contains: word, mode: "insensitive" as const },
-				})),
+			AND: [
+				{
+					OR: [
+						{ name: { contains: term, mode: "insensitive" } },
+						...words.map((word) => ({
+							name: { contains: word, mode: "insensitive" as const },
+						})),
+					],
+				},
+				dealScopeWhere(p),
 			],
 		},
 		orderBy: [{ lastActivityAt: "desc" }, { createdAt: "desc" }],
@@ -249,13 +269,25 @@ async function searchDeals(
 				id: row.id,
 				name: fenceUntrusted("deal name", row.name),
 				stage: row.stage.label,
-				amount: row.amount === null ? null : Number(row.amount),
+				amount: maskedAmount(p, row.amount),
 				currency: row.currency,
 			},
 		}))
 		.sort((a, b) => b.score - a.score)
 		.slice(0, limit)
 		.map((row) => row.hit);
+}
+
+export function maskedAmount(
+	p: AccessPrincipal,
+	amount: Prisma.Decimal | null,
+): number | null {
+	return maskCents(
+		p,
+		"prices",
+		{ amount: amount === null ? null : Number(amount) },
+		["amount"],
+	).amount;
 }
 
 function score(term: string, fields: string[]): number {

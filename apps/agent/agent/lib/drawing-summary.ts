@@ -1,4 +1,7 @@
 import { db } from "@crm/db";
+import { maskLineItems } from "@crm/db/access-money";
+import { type AccessPrincipal, allows } from "@crm/db/access-policy";
+import { dealChildWhere } from "@crm/db/access-scope";
 import {
 	type DrawingScale,
 	type DrawingScene,
@@ -124,7 +127,7 @@ export type EstimateSummary = {
 	id: string;
 	title: string;
 	status: string;
-	totalCents: number;
+	totalCents: number | null;
 };
 
 const TIER_PRICE_FIELD = {
@@ -148,9 +151,11 @@ export type DrawingSummary = {
 
 export async function loadDrawingSummary(
 	drawingId: string,
+	p: AccessPrincipal,
 ): Promise<DrawingSummary | { found: false; reason: string }> {
-	const drawing = await db.drawing.findUnique({
-		where: { id: drawingId },
+	const seesEstimates = allows(p, "estimates", "VIEW");
+	const drawing = await db.drawing.findFirst({
+		where: { AND: [{ id: drawingId }, dealChildWhere(p)] },
 		select: {
 			title: true,
 			scene: true,
@@ -158,6 +163,7 @@ export async function loadDrawingSummary(
 			deal: { select: { id: true, name: true } },
 			contact: { select: { id: true, firstName: true, lastName: true } },
 			estimates: {
+				where: seesEstimates ? dealChildWhere(p) : { id: { in: [] } },
 				orderBy: { createdAt: "desc" },
 				select: {
 					id: true,
@@ -223,19 +229,24 @@ export async function loadDrawingSummary(
 		gridFt: scale?.gridFt ?? null,
 		shapes,
 		textElements,
-		estimates: drawing.estimates.map((estimate) => ({
-			id: estimate.id,
-			title: fenceUntrusted("estimate title", estimate.title),
-			status: estimate.status,
-			totalCents: estimate.lineItems.reduce(
-				(sum, item) =>
-					sum +
-					Math.round(
-						Number(item.quantity) *
-							item[TIER_PRICE_FIELD[estimate.selectedTier]],
-					),
-				0,
-			),
-		})),
+		estimates: maskLineItems(
+			p,
+			"prices",
+			drawing.estimates.map((estimate) => ({
+				id: estimate.id,
+				title: fenceUntrusted("estimate title", estimate.title),
+				status: estimate.status,
+				totalCents: estimate.lineItems.reduce(
+					(sum, item) =>
+						sum +
+						Math.round(
+							Number(item.quantity) *
+								item[TIER_PRICE_FIELD[estimate.selectedTier]],
+						),
+					0,
+				),
+			})),
+			["totalCents"],
+		),
 	};
 }

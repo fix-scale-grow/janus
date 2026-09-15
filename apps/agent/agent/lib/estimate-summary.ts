@@ -1,4 +1,7 @@
 import { db } from "@crm/db";
+import { maskCents, maskLineItems } from "@crm/db/access-money";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { dealChildWhere } from "@crm/db/access-scope";
 import { fenceUntrusted } from "./untrusted";
 
 export type EstimateLineItemSummary = {
@@ -6,15 +9,15 @@ export type EstimateLineItemSummary = {
 	name: string;
 	unit: string;
 	quantity: number;
-	priceGoodCents: number;
-	priceBetterCents: number;
-	priceBestCents: number;
+	priceGoodCents: number | null;
+	priceBetterCents: number | null;
+	priceBestCents: number | null;
 };
 
 export type EstimateTotals = {
-	goodCents: number;
-	betterCents: number;
-	bestCents: number;
+	goodCents: number | null;
+	betterCents: number | null;
+	bestCents: number | null;
 };
 
 export type EstimateSummary = {
@@ -34,9 +37,10 @@ export type EstimateSummary = {
 
 export async function loadEstimateSummary(
 	estimateId: string,
+	p: AccessPrincipal,
 ): Promise<EstimateSummary | { found: false; reason: string }> {
-	const estimate = await db.estimate.findUnique({
-		where: { id: estimateId },
+	const estimate = await db.estimate.findFirst({
+		where: { AND: [{ id: estimateId }, dealChildWhere(p)] },
 		select: {
 			id: true,
 			title: true,
@@ -64,7 +68,7 @@ export async function loadEstimateSummary(
 
 	if (!estimate) return { found: false, reason: "No such estimate." };
 
-	const totals: EstimateTotals = {
+	const totals = {
 		goodCents: 0,
 		betterCents: 0,
 		bestCents: 0,
@@ -97,15 +101,24 @@ export async function loadEstimateSummary(
 			? fenceUntrusted("contact name", contactName)
 			: null,
 		drawingId: estimate.drawingId,
-		lineItems: estimate.lineItems.map((item) => ({
-			id: item.id,
-			name: fenceUntrusted("line item name", item.name),
-			unit: item.unit,
-			quantity: Number(item.quantity),
-			priceGoodCents: item.priceGoodCents,
-			priceBetterCents: item.priceBetterCents,
-			priceBestCents: item.priceBestCents,
-		})),
-		totals,
+		lineItems: maskLineItems(
+			p,
+			"prices",
+			estimate.lineItems.map((item) => ({
+				id: item.id,
+				name: fenceUntrusted("line item name", item.name),
+				unit: item.unit,
+				quantity: Number(item.quantity),
+				priceGoodCents: item.priceGoodCents,
+				priceBetterCents: item.priceBetterCents,
+				priceBestCents: item.priceBestCents,
+			})),
+			["priceGoodCents", "priceBetterCents", "priceBestCents"],
+		),
+		totals: maskCents(p, "prices", totals, [
+			"goodCents",
+			"betterCents",
+			"bestCents",
+		]),
 	};
 }

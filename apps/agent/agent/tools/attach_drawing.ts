@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { sessionPrincipal, targetsBlocked } from "../lib/access";
 import { isAutomated } from "../lib/approval";
 import { attachDrawing } from "../lib/drawing-writes";
 import { assertResearchPurpose } from "../lib/session-purpose";
@@ -36,6 +37,15 @@ export default defineTool({
 					"Not something to do unattended. A rep must ask for this in a conversation.",
 			};
 		}
+
+		const blocked = await targetsBlocked(await sessionPrincipal(ctx), [
+			{ kind: "drawing", id: input.drawingId, need: "EDIT" },
+			...(input.dealId ? [{ kind: "deal" as const, id: input.dealId }] : []),
+			...(input.contactId
+				? [{ kind: "contact" as const, id: input.contactId }]
+				: []),
+		]);
+		if (blocked) return { attached: false as const, reason: blocked };
 
 		return attachDrawing(input);
 	},

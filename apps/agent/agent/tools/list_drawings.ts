@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { refusal, sessionPrincipal } from "../lib/access";
 import { DRAWING_LOOKUP, listDrawings } from "../lib/drawing-lookup";
 
 const LIST_DRAWINGS = {
@@ -32,7 +33,10 @@ export default defineTool({
 			.max(DRAWING_LOOKUP.limits.maxLimit)
 			.default(DRAWING_LOOKUP.limits.defaultLimit),
 	}),
-	async execute({ query, attached, limit }) {
-		return listDrawings({ query, attached, limit });
+	async execute({ query, attached, limit }, ctx) {
+		const p = await sessionPrincipal(ctx);
+		const denied = refusal(p, "drawings", "VIEW");
+		if (denied) return denied;
+		return listDrawings({ query, attached, limit }, p);
 	},
 });

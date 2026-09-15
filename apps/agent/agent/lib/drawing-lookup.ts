@@ -1,4 +1,6 @@
 import { db, type Prisma } from "@crm/db";
+import type { AccessPrincipal } from "@crm/db/access-policy";
+import { dealChildWhere } from "@crm/db/access-scope";
 import { fenceUntrusted } from "./untrusted";
 
 export const DRAWING_LOOKUP = {
@@ -32,7 +34,8 @@ export type DrawingListResult = {
 };
 
 export async function listDrawings(
-	options: DrawingListOptions = {},
+	options: DrawingListOptions,
+	p: AccessPrincipal,
 ): Promise<DrawingListResult> {
 	const limit = Math.min(
 		Math.max(options.limit ?? DRAWING_LOOKUP.limits.defaultLimit, 1),
@@ -50,7 +53,7 @@ export async function listDrawings(
 	};
 
 	const rows = await db.drawing.findMany({
-		where,
+		where: { AND: [where, dealChildWhere(p)] },
 		orderBy: { updatedAt: "desc" },
 		take: limit,
 		select: {
