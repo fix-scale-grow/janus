@@ -14,7 +14,13 @@ import { Button } from "@crm/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTRPC } from "@/lib/trpc/client";
-import { GroupBadge, GroupEditor, SCOPE_LABEL } from "./group-editor";
+import {
+	GroupBadge,
+	GroupEditor,
+	GroupPreview,
+	SCOPE_LABEL,
+} from "./group-editor";
+import type { GroupDraft } from "./group-editor-state";
 
 export function GroupsPanel() {
 	const trpc = useTRPC();
@@ -26,6 +32,7 @@ export function GroupsPanel() {
 	);
 	const [creatingNew, setCreatingNew] = useState(false);
 	const [dirty, setDirty] = useState(false);
+	const [previewDraft, setPreviewDraft] = useState<GroupDraft | null>(null);
 	const [pendingSwitch, setPendingSwitch] = useState<{
 		id: string | null;
 		asNew: boolean;
@@ -54,7 +61,7 @@ export function GroupsPanel() {
 	};
 
 	return (
-		<div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[230px_1fr]">
+		<div className="grid grid-cols-1 items-start gap-4 pb-24 lg:grid-cols-[230px_1fr_260px]">
 			<div className="flex flex-col gap-2">
 				{rows.map((row) => (
 					<button
@@ -85,20 +92,25 @@ export function GroupsPanel() {
 					group={selected}
 					key={creatingNew ? "new" : selected?.id}
 					onCancelNew={() => {
+						setDirty(false);
 						setCreatingNew(false);
 						setSelectedId(rows[0]?.id ?? null);
 					}}
 					onCreated={(id) => {
+						setDirty(false);
 						setCreatingNew(false);
 						setSelectedId(id);
 					}}
 					onDeleted={() => {
-						const next = rows.find((row) => row.id !== selectedId);
-						setSelectedId(next?.id ?? null);
+						setDirty(false);
+						setSelectedId(rows[0]?.id ?? null);
 					}}
 					onDirtyChange={setDirty}
+					onDraftChange={setPreviewDraft}
 				/>
 			) : null}
+
+			{previewDraft ? <GroupPreview draft={previewDraft} /> : null}
 
 			<AlertDialog
 				onOpenChange={(open) => {

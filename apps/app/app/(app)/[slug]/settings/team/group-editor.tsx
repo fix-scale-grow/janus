@@ -8,8 +8,20 @@ import type {
 } from "@crm/db/access-config";
 import { ACCESS } from "@crm/db/access-config";
 import type { AccessPolicy } from "@crm/db/access-policy";
+import { Alert, AlertDescription } from "@crm/ui/components/alert";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@crm/ui/components/alert-dialog";
 import { Badge } from "@crm/ui/components/badge";
-import { Button } from "@crm/ui/components/button";
+import { Button, buttonVariants } from "@crm/ui/components/button";
+import { Card, CardContent } from "@crm/ui/components/card";
 import { Checkbox } from "@crm/ui/components/checkbox";
 import {
 	Field,
@@ -36,11 +48,10 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@crm/ui/components/tooltip";
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useId, useReducer } from "react";
+import { cn } from "@crm/ui/lib/utils";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useId, useReducer, useState } from "react";
 import { toast } from "sonner";
-import { type MyAccess, visibleModules } from "@/lib/access-rules";
-import { JANUS_LIVE_NAV } from "@/lib/janus-nav";
 import { useCrmCache } from "@/lib/trpc/cache";
 import { useTRPC } from "@/lib/trpc/client";
 import type { RouterOutputs } from "@/lib/trpc/types";
@@ -125,19 +136,113 @@ export function draftFromRow(row: AccessGroupRow): GroupDraft {
 	};
 }
 
+function sameArray(a: readonly string[], b: readonly string[]): boolean {
+	if (a.length !== b.length) return false;
+	const sortedA = [...a].sort();
+	const sortedB = [...b].sort();
+	return sortedA.every((value, index) => value === sortedB[index]);
+}
+
 function sameDraft(a: GroupDraft, b: GroupDraft): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
+	if (a.name !== b.name) return false;
+	if (a.surface !== b.surface) return false;
+	if (a.scope !== b.scope) return false;
+	if (
+		ACCESS.areas.some((area) => a.policy.areas[area] !== b.policy.areas[area])
+	) {
+		return false;
+	}
+	if (!sameArray(a.policy.actions, b.policy.actions)) return false;
+	if (!sameArray(a.policy.money, b.policy.money)) return false;
+	return true;
+}
+
+function firstName(name: string): string {
+	return name.split(" ")[0] ?? name;
+}
+
+function DeleteGroupButton({
+	groupName,
+	memberCount,
+	pending,
+	onConfirm,
+}: {
+	groupName: string;
+	memberCount: number;
+	pending: boolean;
+	onConfirm: () => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const disabled = memberCount > 0 || pending;
+
+	return (
+		<>
+			{memberCount > 0 ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							aria-disabled
+							className={cn(
+								buttonVariants({ variant: "destructive", size: "sm" }),
+								"cursor-not-allowed opacity-50",
+							)}
+							type="button"
+						>
+							Delete group
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>
+						Move this group's people to another group first.
+					</TooltipContent>
+				</Tooltip>
+			) : (
+				<Button
+					disabled={disabled}
+					onClick={() => setOpen(true)}
+					size="sm"
+					variant="destructive"
+				>
+					Delete group
+				</Button>
+			)}
+
+			<AlertDialog onOpenChange={setOpen} open={open}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete {groupName}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This can't be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => {
+								onConfirm();
+								setOpen(false);
+							}}
+							variant="destructive"
+						>
+							Delete group
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
+	);
 }
 
 export function GroupEditor({
 	group,
 	onDirtyChange,
+	onDraftChange,
 	onCreated,
 	onDeleted,
 	onCancelNew,
 }: {
 	group: AccessGroupRow | null;
 	onDirtyChange: (dirty: boolean) => void;
+	onDraftChange: (draft: GroupDraft) => void;
 	onCreated: (id: string) => void;
 	onDeleted: () => void;
 	onCancelNew: () => void;
@@ -157,19 +262,19 @@ export function GroupEditor({
 		onDirtyChange(dirty);
 	}, [dirty, onDirtyChange]);
 
-	const memberCount = group?.memberCount ?? 0;
+	useEffect(() => {
+		onDraftChange(draft);
+	}, [draft, onDraftChange]);
 
-	const draftMine: MyAccess = {
-		isAdmin: false,
-		groupId: draft.id,
-		groupName: draft.name,
-		surface: draft.surface,
-		scope: draft.scope,
-		areas: draft.policy.areas,
-		actions: draft.policy.actions,
-		money: draft.policy.money,
-	};
-	const previewModules = visibleModules(JANUS_LIVE_NAV, draftMine);
+	const members = useQuery(
+		trpc.workspace.members.queryOptions({ pageSize: 100 }),
+	);
+	const memberNames = draft.id
+		? (members.data?.rows ?? [])
+				.filter((row) => row.groupId === draft.id)
+				.map((row) => firstName(row.name))
+		: [];
+	const memberCount = group?.memberCount ?? 0;
 
 	const create = useMutation(
 		trpc.accessGroups.create.mutationOptions({
@@ -240,27 +345,38 @@ export function GroupEditor({
 
 	return (
 		<div className="flex min-w-0 flex-col gap-6">
+			<div className="flex items-center justify-end">
+				{draft.id ? (
+					<DeleteGroupButton
+						groupName={draft.name}
+						memberCount={memberCount}
+						onConfirm={() => draft.id && remove.mutate({ id: draft.id })}
+						pending={pending}
+					/>
+				) : null}
+			</div>
+
 			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 				<Field>
 					<FieldLabel htmlFor={nameId}>Group name</FieldLabel>
 					<Input
 						id={nameId}
-						value={draft.name}
 						onChange={(event) =>
 							dispatch({ type: "setName", name: event.target.value })
 						}
+						value={draft.name}
 					/>
 				</Field>
 
 				<Field>
 					<FieldLabel htmlFor={scopeId}>Which records</FieldLabel>
 					<Select
-						value={draft.scope}
 						onValueChange={(value) =>
 							dispatch({ type: "setScope", scope: value as AccessScope })
 						}
+						value={draft.scope}
 					>
-						<SelectTrigger id={scopeId} className="w-full">
+						<SelectTrigger className="w-full" id={scopeId}>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -277,9 +393,7 @@ export function GroupEditor({
 			<Field>
 				<FieldTitle>Where they work</FieldTitle>
 				<ToggleGroup
-					type="single"
-					variant="outline"
-					value={draft.surface}
+					aria-label="Where they work"
 					onValueChange={(value) => {
 						if (value) {
 							dispatch({
@@ -288,7 +402,9 @@ export function GroupEditor({
 							});
 						}
 					}}
-					aria-label="Where they work"
+					type="single"
+					value={draft.surface}
+					variant="outline"
 				>
 					<ToggleGroupItem value="FULL">Full app</ToggleGroupItem>
 					<ToggleGroupItem value="FIELD">Field mode only</ToggleGroupItem>
@@ -306,11 +422,11 @@ export function GroupEditor({
 					Each level includes the ones before it.
 				</FieldDescription>
 				<SimpleTable
-					variant="panel"
 					columns={[
 						{ id: "area", header: "Area" },
 						{ id: "access", header: "Access" },
 					]}
+					variant="panel"
 				>
 					{ACCESS.areas.map((area) => {
 						const disallowed = ACCESS.viewOnlyAreas.includes(area);
@@ -319,10 +435,7 @@ export function GroupEditor({
 								<TableCell className="font-medium">{areaLabel(area)}</TableCell>
 								<TableCell>
 									<ToggleGroup
-										type="single"
-										variant="outline"
-										size="sm"
-										value={draft.policy.areas[area]}
+										aria-label={`${areaLabel(area)} access`}
 										onValueChange={(value) => {
 											if (value) {
 												dispatch({
@@ -332,15 +445,18 @@ export function GroupEditor({
 												});
 											}
 										}}
-										aria-label={`${areaLabel(area)} access`}
+										size="sm"
+										type="single"
+										value={draft.policy.areas[area]}
+										variant="outline"
 									>
 										{ACCESS.levels.map((level) => (
 											<ToggleGroupItem
-												key={level}
-												value={level}
 												disabled={
 													disallowed && (level === "EDIT" || level === "DELETE")
 												}
+												key={level}
+												value={level}
 											>
 												{LEVEL_LABEL[level]}
 											</ToggleGroupItem>
@@ -361,11 +477,11 @@ export function GroupEditor({
 				{ACCESS.actions.map((action) => {
 					const id = `action-${action}`;
 					return (
-						<FieldLabel key={action} htmlFor={id}>
+						<FieldLabel htmlFor={id} key={action}>
 							<Field orientation="horizontal">
 								<Checkbox
-									id={id}
 									checked={draft.policy.actions.includes(action)}
+									id={id}
 									onCheckedChange={() =>
 										dispatch({ type: "toggleAction", action })
 									}
@@ -388,11 +504,11 @@ export function GroupEditor({
 				{ACCESS.money.map((money) => {
 					const id = `money-${money}`;
 					return (
-						<FieldLabel key={money} htmlFor={id}>
+						<FieldLabel htmlFor={id} key={money}>
 							<Field orientation="horizontal">
 								<Checkbox
-									id={id}
 									checked={draft.policy.money.includes(money)}
+									id={id}
 									onCheckedChange={() =>
 										dispatch({ type: "toggleMoney", money })
 									}
@@ -408,71 +524,31 @@ export function GroupEditor({
 			</FieldGroup>
 
 			{field && draft.scope === "ALL" ? (
-				<div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-warning text-xs">
-					Field mode with All records shows every job on a tech's phone.
-					Assigned only is usual.
-				</div>
+				<Alert variant="warning">
+					<AlertDescription>
+						Field mode with All records shows every job on a tech's phone.
+						Assigned only is usual.
+					</AlertDescription>
+				</Alert>
 			) : null}
 
-			<div className="flex flex-col gap-2 rounded-lg border p-3">
-				<FieldTitle>What {draft.name || "this group"} sees</FieldTitle>
-				<ul className="flex flex-col gap-1 text-xs">
-					{previewModules.map((module) => (
-						<li className="text-foreground" key={module.href}>
-							{module.title}
-						</li>
-					))}
-				</ul>
-				<FieldDescription>
-					{draft.policy.money.includes("profit")
-						? "Profit visible."
-						: "Profit hidden."}{" "}
-					{draft.policy.money.includes("prices")
-						? "Prices visible."
-						: "Prices hidden."}
-				</FieldDescription>
-			</div>
-
 			<SaveBar
-				open
-				title={
-					dirty
-						? `Changes access for ${pluralize(memberCount, "person", "people")}`
-						: "No unsaved changes"
-				}
+				open={dirty}
+				title={`Changes access for ${pluralize(
+					memberNames.length,
+					"person",
+					"people",
+				)}: ${memberNames.length ? memberNames.join(", ") : "nobody yet"}`}
 			>
-				{draft.id ? (
-					memberCount > 0 ? (
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button disabled size="sm" variant="destructive">
-									Delete group
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>
-								Move this group's people to another group first.
-							</TooltipContent>
-						</Tooltip>
-					) : (
-						<Button
-							disabled={pending}
-							onClick={() => draft.id && remove.mutate({ id: draft.id })}
-							size="sm"
-							variant="destructive"
-						>
-							Delete group
-						</Button>
-					)
-				) : null}
 				<Button
-					disabled={pending || !dirty}
+					disabled={pending}
 					onClick={handleDiscard}
 					size="sm"
 					variant="outline"
 				>
 					Discard
 				</Button>
-				<Button disabled={pending || !dirty} onClick={handleSave} size="sm">
+				<Button disabled={pending} onClick={handleSave} size="sm">
 					Save
 				</Button>
 			</SaveBar>
@@ -485,6 +561,56 @@ export function GroupBadge({ surface }: { surface: AccessSurface }) {
 		<Badge variant={surface === "FIELD" ? "default" : "outline"}>
 			{surface === "FIELD" ? "Field" : "Full app"}
 		</Badge>
+	);
+}
+
+export function GroupPreview({ draft }: { draft: GroupDraft }) {
+	const field = draft.surface === "FIELD";
+
+	return (
+		<Card className="sticky top-4">
+			<CardContent className="flex flex-col gap-3 pt-6">
+				<FieldTitle>What {draft.name || "this group"} sees</FieldTitle>
+				{field ? (
+					<FieldDescription>
+						Only the Field screen. No Janus chat.
+					</FieldDescription>
+				) : (
+					<ul className="flex flex-col gap-1 text-xs">
+						{ACCESS.areas.map((area) => {
+							const level = draft.policy.areas[area];
+							const off = level === "HIDDEN";
+							return (
+								<li
+									className={
+										off
+											? "text-muted-foreground line-through"
+											: "text-foreground"
+									}
+									key={area}
+								>
+									{areaLabel(area)}
+									{off ? null : (
+										<span className="text-muted-foreground">
+											{" "}
+											· {LEVEL_LABEL[level]}
+										</span>
+									)}
+								</li>
+							);
+						})}
+					</ul>
+				)}
+				<FieldDescription>
+					{draft.policy.money.includes("profit")
+						? "Profit visible."
+						: "Profit hidden."}{" "}
+					{draft.policy.money.includes("prices")
+						? "Prices visible."
+						: "Prices hidden."}
+				</FieldDescription>
+			</CardContent>
+		</Card>
 	);
 }
 

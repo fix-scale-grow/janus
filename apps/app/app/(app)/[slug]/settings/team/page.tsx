@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
 	PageShell,
@@ -11,7 +12,11 @@ import {
 } from "@/components/page-shell";
 import { requireSession } from "@/lib/session";
 import { HydrateClient } from "@/lib/trpc/hydrate";
-import { getServerQueryClient, getServerTrpc } from "@/lib/trpc/server";
+import {
+	getServerQueryClient,
+	getServerTrpc,
+	getServerTrpcClient,
+} from "@/lib/trpc/server";
 import { CrewsTable } from "./crews-table";
 import { GroupsPanel } from "./groups-panel";
 import { membersSearchParams } from "./members-search-params";
@@ -23,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 export default function TeamSettingsPage({
+	params,
 	searchParams,
 }: PageProps<"/[slug]/settings/team">) {
 	return (
@@ -38,7 +44,7 @@ export default function TeamSettingsPage({
 
 			<PageShellContent className="min-h-0">
 				<Suspense fallback={<PageShellLoading />}>
-					<Team searchParams={searchParams} />
+					<Team params={params} searchParams={searchParams} />
 				</Suspense>
 			</PageShellContent>
 		</PageShell>
@@ -46,9 +52,16 @@ export default function TeamSettingsPage({
 }
 
 async function Team({
+	params,
 	searchParams,
-}: Pick<PageProps<"/[slug]/settings/team">, "searchParams">) {
+}: Pick<PageProps<"/[slug]/settings/team">, "params" | "searchParams">) {
 	await requireSession();
+
+	const { slug } = await params;
+
+	const client = getServerTrpcClient();
+	const mine = await client.permissions.mine.query();
+	if (!mine.isAdmin) redirect(`/${slug}`);
 
 	const values = await membersSearchParams.load(searchParams);
 
