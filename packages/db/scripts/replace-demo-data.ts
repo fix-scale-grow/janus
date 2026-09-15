@@ -1,6 +1,9 @@
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
+
 const CLEANUP = {
 	allowedDatabases: ["janus_shakeup_dev", "crm", "janus_shakeup_scriptcheck"],
-	transactionTimeoutMs: 120_000,
+	transactionTimeoutMs: 2 * MINUTE_MS,
 	legacyCompanies: [
 		{ name: "Stripe", domain: "stripe.com", deals: 2 },
 		{ name: "Linear", domain: "linear.app", deals: 1 },
@@ -201,7 +204,6 @@ const CLEANUP = {
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
-const includeLinked = args.has("--include-linked");
 const renameLinked = args.has("--rename-linked");
 const renamePlaceholderUsers = args.has("--rename-placeholder-users");
 
@@ -288,6 +290,9 @@ type Plan = {
 	linked: Linked[];
 	deleteDealIds: string[];
 	deleteContactIds: string[];
+	deleteDeals: { id: string; name: string }[];
+	deleteContacts: { id: string; name: string; email: string | null }[];
+	cascade: Record<string, number>;
 	keptDealIds: string[];
 	keptContactIds: string[];
 	legacyActivityIds: string[];
@@ -612,9 +617,9 @@ async function buildPlan(client: Client): Promise<Plan> {
 	);
 	const blocked = new Set(linked.flatMap((row) => row.parents));
 
-	const deleteDealIds = includeLinked
-		? candidateDealIds
-		: candidateDealIds.filter((id) => !blocked.has(`deal ${id}`));
+	const deleteDealIds = candidateDealIds.filter(
+		(id) => !blocked.has(`deal ${id}`),
+	);
 	const keptDealIds = candidateDealIds.filter(
 		(id) => !deleteDealIds.includes(id),
 	);
@@ -626,16 +631,55 @@ async function buildPlan(client: Client): Promise<Plan> {
 		select: { contactId: true },
 	});
 	for (const link of keptDealContacts) blocked.add(`contact ${link.contactId}`);
-	const deleteContactIds = includeLinked
-		? candidateContactIds
-		: candidateContactIds.filter((id) => !blocked.has(`contact ${id}`));
+	const deleteContactIds = candidateContactIds.filter(
+		(id) => !blocked.has(`contact ${id}`),
+	);
 	const keptContactIds = candidateContactIds.filter(
 		(id) => !deleteContactIds.includes(id),
 	);
 
-	const deletedLinked = includeLinked ? linked : [];
-	const deletedIdsOf = (table: string) =>
-		deletedLinked.filter((row) => row.table === table).map((row) => row.id);
+	const deleteDeals = candidateDeals
+		.filter((deal) => deleteDealIds.includes(deal.id))
+		.map((deal) => ({ id: deal.id, name: deal.name }));
+	const deleteContacts = candidateContacts
+		.filter((contact) => deleteContactIds.includes(contact.id))
+		.map((contact) => ({
+			id: contact.id,
+			name: [contact.firstName, contact.lastName].filter(Boolean).join(" "),
+			email: contact.email,
+		}));
+	const onDeal = { dealId: { in: deleteDealIds } };
+	const onContact = { contactId: { in: deleteContactIds } };
+	const onEither = { OR: [onDeal, onContact] };
+	const cascadeEntries = await Promise.all([
+		client.dealContact
+			.count({ where: onEither })
+			.then((n) => ["dealContact", n] as const),
+		client.activity
+			.count({ where: onEither })
+			.then((n) => ["activity", n] as const),
+		client.photo.count({ where: onEither }).then((n) => ["photo", n] as const),
+		client.fieldValue
+			.count({ where: onEither })
+			.then((n) => ["fieldValue", n] as const),
+		client.agentConversation
+			.count({ where: onEither })
+			.then((n) => ["agentConversation", n] as const),
+		client.contactFact
+			.count({ where: onContact })
+			.then((n) => ["contactFact", n] as const),
+		client.contactBrief
+			.count({ where: onContact })
+			.then((n) => ["contactBrief", n] as const),
+		client.jobCost
+			.count({ where: onDeal })
+			.then((n) => ["jobCost", n] as const),
+		client.permit.count({ where: onDeal }).then((n) => ["permit", n] as const),
+		client.permitPromptDismissal
+			.count({ where: onDeal })
+			.then((n) => ["permitPromptDismissal", n] as const),
+	]);
+	const cascade = Object.fromEntries(cascadeEntries);
 
 	const seedUserIds = CLEANUP.legacyUsers.map((u) => u.id);
 	const [orphanNotes, rates, agentTasks, agentEvents, recentRecords] =
@@ -664,7 +708,6 @@ async function buildPlan(client: Client): Promise<Plan> {
 					OR: [
 						{ dealId: { in: candidateDealIds } },
 						{ contactId: { in: candidateContactIds } },
-						{ drawingId: { in: deletedIdsOf("drawing") } },
 					],
 				},
 				select: { id: true, dealId: true, contactId: true, drawingId: true },
@@ -680,9 +723,6 @@ async function buildPlan(client: Client): Promise<Plan> {
 					OR: [
 						{ kind: "deal", recordId: { in: candidateDealIds } },
 						{ kind: "contact", recordId: { in: candidateContactIds } },
-						...(
-							["estimate", "invoice", "drawing", "project", "contract"] as const
-						).map((kind) => ({ kind, recordId: { in: deletedIdsOf(kind) } })),
 					],
 				},
 				select: { id: true, kind: true, recordId: true },
@@ -690,11 +730,7 @@ async function buildPlan(client: Client): Promise<Plan> {
 			}),
 		]);
 
-	const deletedRecordIds = new Set([
-		...deleteDealIds,
-		...deleteContactIds,
-		...deletedLinked.map((row) => row.id),
-	]);
+	const deletedRecordIds = new Set([...deleteDealIds, ...deleteContactIds]);
 	const pointsAtDeleted = (...ids: (string | null)[]) =>
 		ids.some((id) => id !== null && deletedRecordIds.has(id));
 
@@ -850,6 +886,9 @@ async function buildPlan(client: Client): Promise<Plan> {
 		linked,
 		deleteDealIds,
 		deleteContactIds,
+		deleteDeals,
+		deleteContacts,
+		cascade,
 		keptDealIds,
 		keptContactIds,
 		legacyActivityIds,
@@ -891,11 +930,7 @@ function printPlan(plan: Plan): void {
 
 	if (plan.linked.length > 0) {
 		console.log(
-			`\nRecords linked to demo deals or contacts (${plan.linked.length}). ${
-				includeLinked
-					? "They are deleted with --include-linked, except mail and calendar sync rows, which only lose the contact link."
-					: "Their parents are kept. Pass --include-linked to delete them."
-			}`,
+			`\nRecords linked to demo deals or contacts (${plan.linked.length}). They and their parents are kept.`,
 		);
 		for (const row of plan.linked) {
 			console.log(
@@ -909,9 +944,20 @@ function printPlan(plan: Plan): void {
 			`${plan.legacyActivityIds.length} upstream seed activities on candidates, ` +
 			`${plan.orphanNoteIds.length} orphan seed notes, ${plan.rateIds.length} seeded exchange rates, ` +
 			`${plan.pointers.agentTaskIds.length} agent tasks, ${plan.pointers.agentEventIds.length} agent events, ` +
-			`${plan.pointers.recentRecordIds.length} recent records` +
-			`${includeLinked ? `, ${plan.linked.length} linked records` : ""}.`,
+			`${plan.pointers.recentRecordIds.length} recent records.`,
 	);
+	for (const deal of plan.deleteDeals) {
+		console.log(`  delete deal ${deal.id}  "${deal.name}"`);
+	}
+	for (const contact of plan.deleteContacts) {
+		console.log(
+			`  delete contact ${contact.id}  ${contact.name} <${contact.email ?? ""}>`,
+		);
+	}
+	console.log("Cascade children deleted with them:");
+	for (const [table, count] of Object.entries(plan.cascade)) {
+		console.log(`  ${table.padEnd(22)} ${count}`);
+	}
 	if (plan.keptDealIds.length > 0) {
 		console.log(`Kept deals: ${plan.keptDealIds.join(", ")}`);
 	}
@@ -968,35 +1014,6 @@ async function execute(expected: Plan): Promise<void> {
 			}
 			if (current.conflicts.length > 0) {
 				throw new Error(`Rename conflicts: ${current.conflicts.join(", ")}`);
-			}
-
-			const linkedIds = (table: string) =>
-				includeLinked
-					? current.linked
-							.filter((row) => row.table === table)
-							.map((row) => row.id)
-					: [];
-			const byIds = (table: string) => ({
-				where: { id: { in: linkedIds(table) } },
-			});
-
-			if (includeLinked) {
-				await tx.contract.deleteMany(byIds("contract"));
-				await tx.project.deleteMany(byIds("project"));
-				await tx.invoice.deleteMany(byIds("invoice"));
-				await tx.estimate.deleteMany(byIds("estimate"));
-				await tx.drawing.deleteMany(byIds("drawing"));
-				await tx.permit.deleteMany(byIds("permit"));
-				await tx.photo.deleteMany(byIds("photo"));
-				await tx.jobCost.deleteMany(byIds("jobCost"));
-				await tx.formSubmission.deleteMany(byIds("formSubmission"));
-				await tx.fieldValue.deleteMany(byIds("fieldValue"));
-				await tx.agentConversation.deleteMany(byIds("agentConversation"));
-				await tx.contactFact.deleteMany(byIds("contactFact"));
-				await tx.permitPromptDismissal.deleteMany(
-					byIds("permitPromptDismissal"),
-				);
-				await tx.activity.deleteMany(byIds("activity"));
 			}
 
 			await tx.activity.deleteMany({
@@ -1099,7 +1116,6 @@ async function main() {
 	await assertDatabase();
 
 	const flags = [
-		includeLinked && "include linked",
 		renameLinked && "rename linked",
 		renamePlaceholderUsers && "rename placeholder users",
 	].filter(Boolean);
