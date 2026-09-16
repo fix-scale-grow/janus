@@ -234,10 +234,12 @@ const stepMode = Object.values(steps).some(Boolean);
 const USAGE = [
 	"Usage: bun scripts/replace-demo-data.ts [flags] [--apply]",
 	"Dry run by default. Run in this order, each dry run first, then --apply:",
-	"  1. (no flags)                               replace the upstream SaaS demo with the roofing demo",
-	"  2. --rename-linked                          rename demo records that hold real test work",
-	"  3. --rename-placeholder-users               rename the placeholder seed users",
-	"  4. data fix steps, alone or together, after 1 to 3:",
+	"  1. (no flags)                                     replace the upstream SaaS demo with the roofing demo",
+	"  2. --rename-linked --rename-placeholder-users     REQUIRED on an existing install, run together: rename",
+	"                                                     demo records that hold real test work and the placeholder",
+	"                                                     seed users. Four kept demo deals are GBP/CAD. Skip this",
+	"                                                     and the USD-only UI renders them with a dollar sign.",
+	"  3. data fix steps, alone or together, after 1 and 2:",
 	"     --archive-junk-fields",
 	"     --archive-duplicate-insurance-pipeline",
 	"     --reset-garbled-estimate-template",
@@ -702,7 +704,9 @@ async function buildPlan(client: Client): Promise<Plan> {
 			.count({ where: onEither })
 			.then((n) => ["dealContact", n] as const),
 		client.activity
-			.count({ where: onEither })
+			.count({
+				where: { AND: [onEither, { id: { notIn: legacyActivityIds } }] },
+			})
 			.then((n) => ["activity", n] as const),
 		client.photo.count({ where: onEither }).then((n) => ["photo", n] as const),
 		client.fieldValue
@@ -1540,6 +1544,14 @@ async function main() {
 	);
 
 	printCounts("After", await countAll(), before);
+
+	if (!renameLinked && !renamePlaceholderUsers) {
+		console.log(
+			"\nNext, required on an existing install: run with --rename-linked --rename-placeholder-users " +
+				"(dry run first, then --apply). Until then, kept demo deals in GBP/CAD render with a dollar sign " +
+				"in the USD-only UI.",
+		);
+	}
 }
 
 try {
