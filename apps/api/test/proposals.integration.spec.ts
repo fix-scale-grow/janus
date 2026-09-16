@@ -70,6 +70,40 @@ beforeAll(async () => {
 		},
 	});
 
+	await db.template.deleteMany({
+		where: { purpose: { in: ["PROPOSAL_SEND", "PROPOSAL_BODY"] } },
+	});
+	await db.template.create({
+		data: {
+			purpose: "PROPOSAL_SEND",
+			type: "EMAIL",
+			name: "Proposal email",
+			subject: "Your proposal from {{business.name}}",
+			blocks: [
+				{ kind: "heading", text: "Your proposal is ready" },
+				{
+					kind: "text",
+					html: "Hi {{contact.first_name}}, your proposal from {{business.name}} is ready to review.",
+				},
+			],
+		},
+	});
+	await db.template.create({
+		data: {
+			purpose: "PROPOSAL_BODY",
+			type: "CONTRACT",
+			name: "Standard proposal",
+			subject: null,
+			blocks: [
+				{ kind: "heading", text: "Prepared for {{contact.full_name}}" },
+				{
+					kind: "text",
+					html: "Thank you for the opportunity to earn your business.",
+				},
+			],
+		},
+	});
+
 	const user = await db.user.create({
 		data: {
 			id: `proposals-user-${suffix}`,
@@ -103,6 +137,9 @@ afterAll(async () => {
 	});
 	await db.contact.deleteMany({ where: { id: contactId } });
 	await db.user.deleteMany({ where: { id: userId } });
+	await db.template.deleteMany({
+		where: { purpose: { in: ["PROPOSAL_SEND", "PROPOSAL_BODY"] } },
+	});
 });
 
 beforeEach(async () => {
