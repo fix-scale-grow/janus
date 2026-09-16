@@ -2,7 +2,7 @@ const SECOND_MS = 1000;
 const MINUTE_MS = 60 * SECOND_MS;
 
 const CLEANUP = {
-	allowedDatabases: ["janus_shakeup_dev", "crm", "janus_shakeup_scriptcheck"],
+	allowedDatabases: ["janus_shakeup_dev", "janus_shakeup_scriptcheck"],
 	transactionTimeoutMs: 2 * MINUTE_MS,
 	legacyCompanies: [
 		{ name: "Stripe", domain: "stripe.com", deals: 2 },
