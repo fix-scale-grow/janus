@@ -32,8 +32,18 @@ function scanBlocks(blocks: TemplateBlocks, tokens: Set<string>): void {
 			case "columns":
 				for (const column of block.columns) scanBlocks(column, tokens);
 				break;
-			default:
+			case "divider":
+			case "spacer":
+			case "logo":
+			case "signature":
+			case "pageBreak":
 				break;
+			default: {
+				const unscanned: never = block;
+				throw new Error(
+					`A template block nobody scans for merge fields: ${JSON.stringify(unscanned)}`,
+				);
+			}
 		}
 	}
 }

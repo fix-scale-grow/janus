@@ -25,6 +25,26 @@ describe("APP_URL", () => {
 		expect(validated.APP_URL).toBe("https://crm.example.com");
 	});
 
+	it("refuses an APP_URL that is not a URL", () => {
+		expect(() =>
+			validateEnv({
+				...BASE,
+				NODE_ENV: "development",
+				APP_URL: "crm.example.com",
+			}),
+		).toThrow(/APP_URL/);
+	});
+
+	it("takes a comma-separated list of origins", () => {
+		const validated = validateEnv({
+			...BASE,
+			NODE_ENV: "production",
+			APP_URL: "https://crm.example.com, https://app.example.com",
+		});
+
+		expect(validated.APP_URL).toContain("app.example.com");
+	});
+
 	it("keeps the localhost default in development", () => {
 		const validated = validateEnv({ ...BASE, NODE_ENV: "development" });
 

@@ -205,6 +205,40 @@ describe("ProposalsService", () => {
 		);
 	});
 
+	it("refuses to send a proposal whose body has an empty merge field", async () => {
+		const created = await service.createFromEstimate(
+			estimateId,
+			userId,
+			adminPrincipal("test"),
+		);
+		await db.proposal.update({
+			where: { id: created.id },
+			data: {
+				body: [
+					{
+						kind: "text",
+						html: "For the property at {{deal.address}}, covering the work.",
+					},
+				],
+			},
+		});
+
+		let message = "";
+		try {
+			await service.send({ id: created.id }, "Kyle", adminPrincipal("test"));
+		} catch (error) {
+			message = error instanceof Error ? error.message : String(error);
+		}
+		expect(message).toContain("Job address");
+
+		const untouched = await db.proposal.findUnique({
+			where: { id: created.id },
+			select: { status: true, viewToken: true },
+		});
+		expect(untouched?.status).toBe("DRAFT");
+		expect(untouched?.viewToken).toBeNull();
+	});
+
 	it("hides drafts from the public view", async () => {
 		await service.createFromEstimate(
 			estimateId,

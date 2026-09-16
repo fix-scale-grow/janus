@@ -8,7 +8,9 @@ import {
 	Max,
 	Min,
 	MinLength,
+	registerDecorator,
 	ValidateIf,
+	type ValidationOptions,
 	validateSync,
 } from "class-validator";
 
@@ -21,6 +23,35 @@ export enum NodeEnv {
 export enum MailTransport {
 	Smtp = "smtp",
 	File = "file",
+}
+
+function IsOriginList(options?: ValidationOptions) {
+	return (object: object, propertyName: string) => {
+		registerDecorator({
+			name: "isOriginList",
+			target: object.constructor,
+			propertyName,
+			options,
+			validator: {
+				validate(value: unknown) {
+					if (typeof value !== "string") return false;
+					const origins = value
+						.split(",")
+						.map((origin) => origin.trim())
+						.filter(Boolean);
+					if (origins.length === 0) return false;
+					return origins.every((origin) => {
+						try {
+							const url = new URL(origin);
+							return url.protocol === "http:" || url.protocol === "https:";
+						} catch {
+							return false;
+						}
+					});
+				},
+			},
+		});
+	};
 }
 
 export class EnvironmentVariables {
@@ -94,6 +125,10 @@ export class EnvironmentVariables {
 	@MinLength(1, {
 		message:
 			"APP_URL is required in production. It is the address the app is served from, and every link in an email or a PDF is built from it.",
+	})
+	@IsOriginList({
+		message:
+			"APP_URL must be a full URL with a scheme, like https://crm.example.com. Comma-separate more than one origin.",
 	})
 	APP_URL?: string;
 

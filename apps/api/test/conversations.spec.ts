@@ -23,6 +23,17 @@ const memberId = `conversation-member-${suffix}`;
 let contactId: string;
 let service: ConversationsService;
 
+async function ageSubmissions(conversationId: string): Promise<void> {
+	await db.agentConversationSubmission.updateMany({
+		where: { conversationId },
+		data: {
+			createdAt: new Date(
+				Date.now() - CONVERSATIONS.builder.pendingTimeoutMs - 1000,
+			),
+		},
+	});
+}
+
 async function refusal(promise: Promise<unknown>): Promise<unknown> {
 	return promise.then(
 		() => null,
@@ -728,18 +739,74 @@ describe("ConversationsService", () => {
 		expect(waiting.submissions[0]?.status).toBe("PENDING");
 		expect(waiting.agentReachable).toBe(false);
 
-		await db.agentConversationSubmission.updateMany({
-			where: { conversationId: conversation.id },
-			data: {
-				createdAt: new Date(
-					Date.now() - CONVERSATIONS.builder.pendingTimeoutMs - 1000,
-				),
-			},
-		});
+		await ageSubmissions(conversation.id);
 
 		const timedOut = await service.builderById(conversation.id, userId);
 		expect(timedOut.submissions[0]?.status).toBe("FAILED");
 		expect(timedOut.submissions[0]?.errorMessage).toBe(AGENT_UNREACHABLE);
+	});
+
+	it("keeps a submission the agent re-queued for another attempt", async () => {
+		const conversation = await service.createBuilder(
+			{
+				clientRequestId: crypto.randomUUID(),
+				commandType: "CHAT",
+				message: "Retry me",
+				resources: [],
+				attachments: [],
+			},
+			userId,
+		);
+
+		await ageSubmissions(conversation.id);
+		await db.agentConversationSubmission.updateMany({
+			where: { conversationId: conversation.id },
+			data: { attemptCount: 1, sentAt: new Date(Date.now() - 120_000) },
+		});
+
+		const detail = await service.builderById(conversation.id, userId);
+		expect(detail.submissions[0]?.status).toBe("PENDING");
+	});
+
+	it("keeps a submission queued behind a running turn", async () => {
+		const conversation = await service.createBuilder(
+			{
+				clientRequestId: crypto.randomUUID(),
+				commandType: "CHAT",
+				message: "First question",
+				resources: [],
+				attachments: [],
+			},
+			userId,
+		);
+		await service.submitBuilder(
+			{
+				id: conversation.id,
+				clientRequestId: crypto.randomUUID(),
+				commandType: "CHAT",
+				message: "Second question",
+				resources: [],
+				attachments: [],
+			},
+			userId,
+		);
+
+		await ageSubmissions(conversation.id);
+		const [first] = await db.agentConversationSubmission.findMany({
+			where: { conversationId: conversation.id },
+			orderBy: { createdAt: "asc" },
+			select: { id: true },
+		});
+		await db.agentConversationSubmission.update({
+			where: { id: first?.id ?? "" },
+			data: { status: "SENDING", attemptCount: 1, sentAt: new Date() },
+		});
+
+		const detail = await service.builderById(conversation.id, userId);
+		expect(detail.submissions.map((row) => row.status).sort()).toEqual([
+			"PENDING",
+			"SENDING",
+		]);
 	});
 
 	it("persists attachment bytes once and returns lightweight transcript metadata", async () => {

@@ -263,7 +263,13 @@ export class ConversationsService {
 
 	async builderById(id: string, userId: string) {
 		await this.assertWorkspaceMember(userId);
-		await this.failStalePendingSubmissions(id);
+		await this.failStalePendingSubmissions(id).catch((error: unknown) => {
+			this.logger.warn({
+				message: "The stale submission check did not run",
+				conversationId: id,
+				reason: error instanceof Error ? error.message : String(error),
+			});
+		});
 		const row = await this.db.agentConversation.findFirst({
 			where: { id, userId, kind: "BUILDER" },
 			select: {
@@ -451,7 +457,7 @@ export class ConversationsService {
 				select: { id: true },
 			});
 
-			void this.dispatchOrFail(conversation.id);
+			this.queueBuilderDispatch(conversation.id);
 			return conversation;
 		} catch (error) {
 			if (!isUniqueConstraint(error)) throw error;
@@ -461,25 +467,14 @@ export class ConversationsService {
 		}
 	}
 
-	private async dispatchOrFail(conversationId: string): Promise<void> {
-		if (!this.agent) return;
-		const delivered = await this.agent.builderConversationDelivered();
-		if (delivered) return;
-
-		const failed = await this.db.agentConversationSubmission.updateMany({
-			where: { conversationId, status: "PENDING" },
-			data: {
-				status: "FAILED",
-				errorCode: AGENT_UNREACHABLE_CODE,
-				errorMessage: AGENT_UNREACHABLE,
-			},
-		});
-
-		if (failed.count > 0) {
+	private queueBuilderDispatch(conversationId: string): void {
+		try {
+			this.agent?.builderConversationQueued();
+		} catch (error) {
 			this.logger.warn({
-				message: "No agent took the message, so the chat says so",
+				message: "The builder dispatch poke could not be sent",
 				conversationId,
-				count: failed.count,
+				reason: error instanceof Error ? error.message : String(error),
 			});
 		}
 	}
@@ -491,12 +486,36 @@ export class ConversationsService {
 			Date.now() - CONVERSATIONS.builder.pendingTimeoutMs,
 		);
 
-		const stale = await this.db.agentConversationSubmission.updateMany({
+		const waiting = await this.db.agentConversationSubmission.findFirst({
 			where: {
 				conversationId,
 				status: "PENDING",
+				attemptCount: 0,
+				sentAt: null,
 				createdAt: { lt: cutoff },
 			},
+			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+			select: { id: true },
+		});
+		if (!waiting) return;
+
+		const conversation = await this.db.agentConversation.findFirst({
+			where: { id: conversationId, kind: "BUILDER" },
+			select: { sessionId: true, continuationToken: true },
+		});
+		if (!conversation) return;
+		if (conversation.sessionId && !conversation.continuationToken) return;
+
+		const running = await this.db.agentConversationSubmission.findFirst({
+			where: { conversationId, status: "SENDING" },
+			select: { id: true },
+		});
+		if (running) return;
+
+		if (await this.agentAnswers()) return;
+
+		const failed = await this.db.agentConversationSubmission.updateMany({
+			where: { id: waiting.id, status: "PENDING", attemptCount: 0 },
 			data: {
 				status: "FAILED",
 				errorCode: AGENT_UNREACHABLE_CODE,
@@ -504,12 +523,21 @@ export class ConversationsService {
 			},
 		});
 
-		if (stale.count > 0) {
+		if (failed.count > 0) {
 			this.logger.warn({
-				message: "A builder submission timed out before the agent took it",
+				message: "No agent answered, so the chat says the message failed",
 				conversationId,
-				count: stale.count,
+				submissionId: waiting.id,
 			});
+		}
+	}
+
+	private async agentAnswers(): Promise<boolean> {
+		if (!this.agent) return false;
+		try {
+			return await this.agent.builderConversationDelivered();
+		} catch {
+			return false;
 		}
 	}
 
@@ -563,7 +591,7 @@ export class ConversationsService {
 				return created;
 			});
 
-			void this.dispatchOrFail(input.id);
+			this.queueBuilderDispatch(input.id);
 			return submission;
 		} catch (error) {
 			if (!isUniqueConstraint(error)) throw error;
@@ -673,7 +701,7 @@ export class ConversationsService {
 				return created;
 			});
 
-			void this.dispatchOrFail(input.id);
+			this.queueBuilderDispatch(input.id);
 			return submission;
 		} catch (error) {
 			if (!isUniqueConstraint(error)) throw error;

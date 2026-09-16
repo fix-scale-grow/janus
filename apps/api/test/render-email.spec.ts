@@ -225,23 +225,27 @@ describe("renderEmailHtml", () => {
 		expect(html).toContain('href="https://crm.example.com/sign/abc123"');
 	});
 
-	it("keeps the page inside a narrow screen in both modes", () => {
-		const document = renderEmailHtml(
+	it("fits a document to the screen it is read on", () => {
+		const { html } = renderEmailHtml(
 			[{ kind: "text", html: "A long contract paragraph." }],
 			CONTEXT,
 			"document",
-		).html;
-		const email = renderEmailHtml(
+		);
+
+		expect(html).toContain("max-width:640px");
+		expect(html).toContain("width:100%");
+		expect(html).not.toContain('style="width:640px');
+		expect(html).not.toContain('width="640"');
+	});
+
+	it("keeps the fixed 600px table Outlook needs for an email", () => {
+		const { html } = renderEmailHtml(
 			[{ kind: "text", html: "A long email paragraph." }],
 			CONTEXT,
-		).html;
+		);
 
-		expect(document).toContain("max-width:640px");
-		expect(document).toContain("width:100%");
-		expect(document).not.toContain('style="width:640px');
-		expect(email).toContain("max-width:600px");
-		expect(email).toContain("width:100%");
-		expect(email).not.toContain('style="width:600px');
+		expect(html).toContain('width="600"');
+		expect(html).toContain("width:600px;max-width:600px");
 	});
 
 	it("renders a plain white 640px page in document mode, with no grey email shell", () => {

@@ -285,7 +285,12 @@ export class ProposalsService {
 		const blocks = parseTemplateBlocks(template.blocks);
 
 		const registry = await this.templates.mergeRegistry();
-		const tokens = collectTokens(template.subject ?? "", blocks);
+		const tokens = [
+			...new Set([
+				...collectTokens(template.subject ?? "", blocks),
+				...collectTokens("", parseTemplateBlocks(proposal.body)),
+			]),
+		];
 		assertMergeComplete("proposal", missingMerges(tokens, context, registry));
 
 		const subject =
