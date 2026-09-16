@@ -263,6 +263,15 @@ export class ConversationsService {
 
 	async builderById(id: string, userId: string) {
 		await this.assertWorkspaceMember(userId);
+
+		const owned = await this.db.agentConversation.findFirst({
+			where: { id, userId, kind: "BUILDER" },
+			select: { id: true },
+		});
+		if (!owned) {
+			throw new NotFoundException(`No builder conversation with id ${id}.`);
+		}
+
 		await this.failStalePendingSubmissions(id).catch((error: unknown) => {
 			this.logger.warn({
 				message: "The stale submission check did not run",
@@ -270,6 +279,7 @@ export class ConversationsService {
 				reason: error instanceof Error ? error.message : String(error),
 			});
 		});
+
 		const row = await this.db.agentConversation.findFirst({
 			where: { id, userId, kind: "BUILDER" },
 			select: {

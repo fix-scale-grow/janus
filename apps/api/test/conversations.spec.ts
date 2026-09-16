@@ -4,6 +4,7 @@ import { db } from "@crm/db";
 import { adminPrincipal, noAccessPrincipal } from "@crm/db/access-policy";
 import { workspaceSlug } from "@crm/db/workspace";
 import { NotFoundException } from "@nestjs/common";
+import type { AgentTriggerService } from "../src/agent/agent-trigger.service";
 import {
 	AGENT_UNREACHABLE,
 	CONVERSATIONS,
@@ -19,9 +20,24 @@ const suffix = process.env.TEST_RUN_ID ?? "conversations-spec";
 const email = `conversation.subject.${suffix}@example.test`;
 const userId = `user-${suffix}`;
 const memberId = `conversation-member-${suffix}`;
+const strangerId = `stranger-${suffix}`;
+const strangerMemberId = `stranger-member-${suffix}`;
 
 let contactId: string;
 let service: ConversationsService;
+let watched: ConversationsService;
+
+const agentCalls: string[] = [];
+const watchfulAgent = {
+	canReachAgent: () => true,
+	builderConversationQueued: () => {
+		agentCalls.push("queued");
+	},
+	builderConversationDelivered: async () => {
+		agentCalls.push("probe");
+		return false;
+	},
+} as unknown as AgentTriggerService;
 
 async function ageSubmissions(conversationId: string): Promise<void> {
 	await db.agentConversationSubmission.updateMany({
@@ -100,9 +116,29 @@ beforeAll(async () => {
 	contactId = contact.id;
 
 	service = new ConversationsService(db);
+	watched = new ConversationsService(db, watchfulAgent);
+
+	await db.user.create({
+		data: {
+			id: strangerId,
+			name: "Other Rep",
+			email: `${strangerId}@example.test`,
+		},
+	});
+	await db.member.create({
+		data: {
+			id: strangerMemberId,
+			organizationId: WORKSPACE_ID,
+			userId: strangerId,
+			role: "member",
+			createdAt: new Date(),
+		},
+	});
 });
 
 afterAll(async () => {
+	await db.member.deleteMany({ where: { id: strangerMemberId } });
+	await db.user.deleteMany({ where: { id: strangerId } });
 	await db.agentEvent.deleteMany({
 		where: {
 			OR: [
@@ -744,6 +780,40 @@ describe("ConversationsService", () => {
 		const timedOut = await service.builderById(conversation.id, userId);
 		expect(timedOut.submissions[0]?.status).toBe("FAILED");
 		expect(timedOut.submissions[0]?.errorMessage).toBe(AGENT_UNREACHABLE);
+	});
+
+	it("runs no stale check for a member who does not own the chat", async () => {
+		const conversation = await service.createBuilder(
+			{
+				clientRequestId: crypto.randomUUID(),
+				commandType: "CHAT",
+				message: "Private question",
+				resources: [],
+				attachments: [],
+			},
+			userId,
+		);
+		await ageSubmissions(conversation.id);
+		agentCalls.length = 0;
+
+		let refused: unknown;
+		try {
+			await watched.builderById(conversation.id, strangerId);
+		} catch (error) {
+			refused = error;
+		}
+
+		expect(refused).toBeInstanceOf(NotFoundException);
+		expect(agentCalls).toEqual([]);
+		const untouched = await db.agentConversationSubmission.findFirst({
+			where: { conversationId: conversation.id },
+			select: { status: true },
+		});
+		expect(untouched?.status).toBe("PENDING");
+
+		const owner = await watched.builderById(conversation.id, userId);
+		expect(agentCalls).toEqual(["probe"]);
+		expect(owner.submissions[0]?.status).toBe("FAILED");
 	});
 
 	it("keeps a submission the agent re-queued for another attempt", async () => {
