@@ -145,7 +145,7 @@ describe("assertMergeComplete", () => {
 
 		expect(caught).toBeInstanceOf(BadRequestException);
 		expect((caught as BadRequestException).message).toBe(
-			"No longer exists — remove from the template: Roof type, Old field",
+			"No longer exists. Remove from the template: Roof type, Old field",
 		);
 	});
 
