@@ -11,7 +11,7 @@ const CONFIG: PublicFormConfig = {
 	name: "Get a quote",
 	intro: "Tell us about your roof.",
 	buttonLabel: "Send",
-	confirmation: "Thanks — we'll be in touch shortly.",
+	confirmation: "Thanks. We'll be in touch shortly.",
 	brandColor: "#1a73e8",
 	fields: [
 		{ id: "f1", type: "TEXT", label: "Name", required: true },
@@ -403,7 +403,7 @@ describe("the form embed submits", () => {
 				(node) => node.className === "jf-err",
 			).map((node) => node.textContent);
 
-			expect(errorTexts).toContain("Something went wrong — please try again.");
+			expect(errorTexts).toContain("Something went wrong. Please try again.");
 		} finally {
 			globalThis.fetch = original;
 		}

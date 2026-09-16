@@ -70,7 +70,7 @@ type CrewColor = (typeof CREW_COLORS)[number];
 const COLUMNS: SimpleTableColumn[] = [
 	{
 		id: "color",
-		header: <span className="sr-only">Colour</span>,
+		header: <span className="sr-only">Color</span>,
 		width: "w-10",
 	},
 	{ id: "name", header: "Name" },
@@ -264,7 +264,7 @@ export function CrewsTable() {
 							<TableCell className={CELL}>
 								<CrewColorDot
 									color={row.color}
-									label={`Change ${row.name}'s colour`}
+									label={`Change ${row.name}'s color`}
 									onSelect={(color) => update.mutate({ id: row.id, color })}
 								/>
 							</TableCell>
@@ -285,7 +285,9 @@ export function CrewsTable() {
 							<TableCell className={CELL}>
 								{row.archived ? (
 									<Badge variant="outline">Archived</Badge>
-								) : null}
+								) : (
+									<Badge variant="outline">Active</Badge>
+								)}
 							</TableCell>
 							<TableCell className={cn(CELL, "text-right")}>
 								<div className="flex items-center justify-end gap-1">
@@ -337,7 +339,7 @@ export function CrewsTable() {
 			<div className="flex items-center gap-2 rounded-lg border bg-card p-3">
 				<CrewColorDot
 					color={selectedColor}
-					label="Choose colour"
+					label="Choose color"
 					onSelect={setNewColor}
 				/>
 				<Input

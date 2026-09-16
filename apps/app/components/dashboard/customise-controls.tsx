@@ -56,7 +56,7 @@ export function CustomiseControls() {
 		return (
 			<Button variant="outline" size="sm" onClick={customise}>
 				<Icon icon={Edit} />
-				Customise
+				Customize
 			</Button>
 		);
 	}

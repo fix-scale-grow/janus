@@ -92,16 +92,16 @@ type Draft = {
 };
 
 const TYPE_HINTS: Record<string, string> = {
-	TEXT: "Text — a short line",
-	LONG_TEXT: "Long text — a paragraph",
+	TEXT: "Text: a short line",
+	LONG_TEXT: "Long text: a paragraph",
 	NUMBER: "Number",
 	DATE: "Date",
-	CHECKBOX: "Checkbox — yes or no",
-	SELECT: "Select — one of a fixed list",
+	CHECKBOX: "Checkbox: yes or no",
+	SELECT: "Select: one of a fixed list",
 	URL: "URL",
 	EMAIL: "Email",
 	PHONE: "Phone",
-	USER: "User — someone in the workspace",
+	USER: "User: someone in the workspace",
 };
 
 function optionId(option: { id?: string }, index: number): string {

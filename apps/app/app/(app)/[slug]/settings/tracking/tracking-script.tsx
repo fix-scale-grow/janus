@@ -173,7 +173,7 @@ export function TrackingScript() {
 							<ol className="flex list-decimal flex-col gap-1 pl-4 text-muted-foreground text-xs/relaxed">
 								<li>In Tag Manager, add a new Custom HTML tag.</li>
 								<li>
-									Paste this snippet — not the one above — as the tag's HTML.
+									Paste this snippet, not the one above, as the tag's HTML.
 								</li>
 								<li>
 									Trigger it on All Pages, then publish the container. Keep{" "}

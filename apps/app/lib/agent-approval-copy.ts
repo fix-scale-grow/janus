@@ -188,8 +188,8 @@ function drawingTagsOutcome(
 	output: Record<string, unknown> | null,
 ): string | null {
 	if (!isDrawingTagsOutput(output)) return null;
-	if (!output.applied) return `Not applied — ${output.reason}`;
-	return `Applied — ${plural((output.matched ?? []).length, "shape")} tagged`;
+	if (!output.applied) return `Not applied: ${output.reason}`;
+	return `Applied: ${plural((output.matched ?? []).length, "shape")} tagged`;
 }
 
 type EstimateLinesOutput = AppliedOutput & { lineItemIds?: string[] };
@@ -204,8 +204,8 @@ function estimateLinesOutcome(
 	output: Record<string, unknown> | null,
 ): string | null {
 	if (!isEstimateLinesOutput(output)) return null;
-	if (!output.applied) return `Not applied — ${output.reason}`;
-	return `Applied — ${plural((output.lineItemIds ?? []).length, "line")} added`;
+	if (!output.applied) return `Not applied: ${output.reason}`;
+	return `Applied: ${plural((output.lineItemIds ?? []).length, "line")} added`;
 }
 
 type ServiceUpdateOutput = AppliedOutput & { diff?: unknown[] };
@@ -220,8 +220,8 @@ function serviceUpdateOutcome(
 	output: Record<string, unknown> | null,
 ): string | null {
 	if (!isServiceUpdateOutput(output)) return null;
-	if (!output.applied) return `Not applied — ${output.reason}`;
-	return `Applied — ${plural((output.diff ?? []).length, "field")} updated`;
+	if (!output.applied) return `Not applied: ${output.reason}`;
+	return `Applied: ${plural((output.diff ?? []).length, "field")} updated`;
 }
 
 type FillWorksheetInput = { permitId: string; answers: Record<string, string> };
@@ -249,23 +249,23 @@ function fillWorksheetOutcome(
 	output: Record<string, unknown> | null,
 ): string | null {
 	if (!isFillWorksheetOutput(output)) return null;
-	if (!output.applied) return `Not applied — ${output.reason}`;
+	if (!output.applied) return `Not applied: ${output.reason}`;
 	const count = (output.filled ?? []).length;
 	const verb = count === 1 ? "awaits" : "await";
-	return `Applied — ${plural(count, "field")} ${verb} your review`;
+	return `Applied: ${plural(count, "field")} ${verb} your review`;
 }
 
 function genericOutcome(output: Record<string, unknown> | null): string | null {
 	if (output === null) return null;
 	if (output.applied === false) {
 		return typeof output.reason === "string"
-			? `Not applied — ${output.reason}`
+			? `Not applied: ${output.reason}`
 			: "Not applied";
 	}
 	if (output.applied === true || output.written === true) return "Applied";
 	if (output.stored === false || output.written === false) {
 		return typeof output.reason === "string"
-			? `Not applied — ${output.reason}`
+			? `Not applied: ${output.reason}`
 			: "Not applied";
 	}
 	return null;
@@ -472,7 +472,7 @@ function flattenRows(value: unknown, prefix = "", depth = 0): ApprovalRow[] {
 		return entries.flatMap(([key, entry]) =>
 			flattenRows(
 				entry,
-				prefix ? `${prefix} — ${humanise(key)}` : humanise(key),
+				prefix ? `${prefix}: ${humanise(key)}` : humanise(key),
 				depth + 1,
 			),
 		);

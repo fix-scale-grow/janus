@@ -411,7 +411,7 @@ function ProductionStatus({ deal }: { deal: Deal }) {
 				<ProductionStageMenu dealId={deal.id} stage={deal.productionStage} />
 				{deal.productionStage ? null : (
 					<span className="text-sm text-muted-foreground">
-						Not on the production board yet — set a stage to schedule the job.
+						Not on the production board yet. Set a stage to schedule the job.
 					</span>
 				)}
 			</div>

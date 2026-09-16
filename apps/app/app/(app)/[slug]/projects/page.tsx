@@ -33,7 +33,7 @@ export default function ProjectsPage({
 				<PageShellHeading>
 					<PageShellTitle>Projects</PageShellTitle>
 					<PageShellDescription>
-						Every job site, organised by days, pointed at a goal.
+						Every job site, organized by days, pointed at a goal.
 					</PageShellDescription>
 				</PageShellHeading>
 				<PageShellActions>

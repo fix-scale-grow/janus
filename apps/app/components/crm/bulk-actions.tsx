@@ -47,7 +47,7 @@ export function reportBulk(
 		toast.error(
 			`${done(result.succeeded)} ${result.failed} ${
 				result.failed === 1 ? "was" : "were"
-			} left alone${result.message ? ` — ${result.message}` : "."}`,
+			} left alone${result.message ? `: ${result.message}` : "."}`,
 		);
 		return;
 	}

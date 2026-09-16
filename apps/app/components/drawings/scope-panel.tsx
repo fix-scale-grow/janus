@@ -155,12 +155,9 @@ function ScopeServiceField(props: {
 					))}
 				</SelectContent>
 			</Select>
-			{!service && (
-				<span className="text-muted-foreground text-xs">no service</span>
-			)}
 			{service && mismatched && (
 				<span className="text-destructive text-xs">
-					won't price — unit mismatch
+					won't price: unit mismatch
 				</span>
 			)}
 		</div>

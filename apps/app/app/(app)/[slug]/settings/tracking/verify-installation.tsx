@@ -209,11 +209,11 @@ function Outcome({ result, siteId }: { result: Result; siteId: string }) {
 				It answered in {result.responseMs} ms. Site ID {siteId} matched, and
 				this domain is {result.allowed ? "on" : "not on"} the allow list.
 				{result.container
-					? " The tag is not in the HTML, so it only runs once Tag Manager fires it — a page view is the proof."
+					? " The tag is not in the HTML, so it only runs once Tag Manager fires it. A page view is the proof."
 					: ""}
 				{result.pageView
 					? " A page view arrived in the last five minutes."
-					: " No page view has arrived yet — open the page in a browser to send one."}
+					: " No page view has arrived yet. Open the page in a browser to send one."}
 			</AlertDescription>
 		</Alert>
 	);

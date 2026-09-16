@@ -247,7 +247,7 @@ function DeleteFolderDialog({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete {folder?.name}?</AlertDialogTitle>
 					<AlertDialogDescription>
-						The drawings inside stay — they go back to All drawings.
+						The drawings inside stay. They go back to All drawings.
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 

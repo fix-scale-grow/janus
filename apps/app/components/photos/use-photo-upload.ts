@@ -32,7 +32,7 @@ export function usePhotoUpload({
 			for (const file of files) {
 				const processed = await processPhotoFile(file);
 				if (!processed) {
-					toast.error(`${file.name} isn't a supported image — use JPEG.`);
+					toast.error(`${file.name} isn't a supported image. Use JPEG.`);
 					continue;
 				}
 

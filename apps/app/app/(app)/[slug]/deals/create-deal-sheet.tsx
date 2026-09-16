@@ -203,7 +203,7 @@ function CreateDealForm() {
 								</SelectContent>
 							</Select>
 							<FieldDescription>
-								A new deal is an open deal — close it from the pipeline once
+								A new deal is an open deal. Close it from the pipeline once
 								there is an outcome to record.
 							</FieldDescription>
 						</Field>

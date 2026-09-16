@@ -346,8 +346,8 @@ export function MicrosoftConnection({
 										{required
 											? "You will be signed out, and you cannot use the CRM again until you grant access."
 											: "New email stops arriving. Everything already synced stays, and you can connect Microsoft again from this page."}{" "}
-										Microsoft has no way for us to withdraw the consent itself —
-										remove this app from your Microsoft account to do that.
+										Microsoft has no way for us to withdraw the consent itself.
+										Remove this app from your Microsoft account to do that.
 									</AlertDialogDescription>
 								</AlertDialogHeader>
 

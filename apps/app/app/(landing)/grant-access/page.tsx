@@ -13,13 +13,13 @@ export const instant = false;
 
 const DESCRIPTION: Record<string, string> = {
 	google:
-		"This CRM reads your Gmail and Calendar so meetings and email threads show up on the right contact. It is read-only — nothing is ever sent on your behalf.",
+		"This CRM reads your Gmail and Calendar so meetings and email threads show up on the right contact. It is read-only: nothing is ever sent on your behalf.",
 	microsoft:
-		"This CRM reads your Outlook mail so email threads show up on the right contact. It is read-only — nothing is ever sent on your behalf.",
+		"This CRM reads your Outlook mail so email threads show up on the right contact. It is read-only: nothing is ever sent on your behalf.",
 };
 
 const BOTH =
-	"This CRM reads your mail and calendar so meetings and email threads show up on the right contact. It is read-only — nothing is ever sent on your behalf.";
+	"This CRM reads your mail and calendar so meetings and email threads show up on the right contact. It is read-only: nothing is ever sent on your behalf.";
 
 export default async function GrantAccessPage() {
 	const { user } = await requireSession();

@@ -49,7 +49,7 @@ const EMPTY_STATES: Record<
 	notes: {
 		title: "No notes",
 		description:
-			"Notes are what you write down for the next person to read — what they care about, who else is involved, what you promised.",
+			"Notes are what you write down for the next person to read: what they care about, who else is involved, what you promised.",
 	},
 	email: {
 		title: "No email",

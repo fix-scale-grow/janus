@@ -415,7 +415,7 @@ export function EstimateBuilder({
 									onClick={() => resync.mutate({ id: estimateId })}
 								>
 									{data.drawingStale
-										? "Drawing changed — re-sync"
+										? "Drawing changed: re-sync"
 										: "Re-sync from drawing"}
 								</Button>
 							) : null}

@@ -159,7 +159,7 @@ export function SsoTable() {
 			total={providers.data?.total ?? 0}
 			getRowId={(row) => row.providerId}
 			loading={providers.isFetching}
-			empty="No identity provider yet — everyone signs in with Google."
+			empty="No identity provider yet. Everyone signs in with Google."
 		/>
 	);
 }

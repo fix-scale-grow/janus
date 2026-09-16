@@ -29,7 +29,7 @@ export const formCreateInput = z.object({
 		.trim()
 		.min(1)
 		.max(2000)
-		.default("Thanks — we'll be in touch shortly."),
+		.default("Thanks. We'll be in touch shortly."),
 	createLead: z.boolean().default(true),
 	notifyEmails: z.string().trim().max(2000).nullable().optional(),
 	fields: z.array(formFieldInput).min(1).max(FORMS.field.maxFields),

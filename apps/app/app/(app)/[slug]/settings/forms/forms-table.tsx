@@ -7,7 +7,6 @@ import { Button } from "@crm/ui/components/button";
 import {
 	Card,
 	CardAction,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@crm/ui/components/card";
@@ -45,8 +44,6 @@ import {
 	NEW_FORM,
 	NEW_FORM_EMAIL_LABEL,
 	NEW_FORM_NAME,
-	PAGE_DESCRIPTION,
-	PAGE_TITLE,
 	RETRY,
 	submissionCountNote,
 } from "./forms-copy";
@@ -102,8 +99,7 @@ export function FormsSettings() {
 		return (
 			<Card>
 				<CardHeader>
-					<CardTitle>{PAGE_TITLE}</CardTitle>
-					<CardDescription>{PAGE_DESCRIPTION}</CardDescription>
+					<CardTitle>All forms</CardTitle>
 				</CardHeader>
 				<CardTableEmpty>
 					<Spinner data-icon="inline-start" />
@@ -148,8 +144,7 @@ export function FormsSettings() {
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>{PAGE_TITLE}</CardTitle>
-				<CardDescription>{PAGE_DESCRIPTION}</CardDescription>
+				<CardTitle>All forms</CardTitle>
 				<CardAction>
 					<Button size="sm" disabled={create.isPending} onClick={createForm}>
 						<Icon icon={Add} data-icon="inline-start" />

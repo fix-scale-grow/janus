@@ -138,7 +138,7 @@ export function pipelineBoardMeta(pipeline: {
 }): WidgetMeta & { instanceOf: "pipeline-board"; pipelineId: string } {
 	return {
 		id: `${PIPELINE_BOARD_PREFIX}${pipeline.id}`,
-		title: `${pipeline.name} — mini board`,
+		title: `${pipeline.name} mini board`,
 		description: "Top deals per stage",
 		minW: 5,
 		minH: 6,

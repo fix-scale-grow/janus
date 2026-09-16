@@ -416,7 +416,7 @@ function BlockStyleControls({
 			{colorable(block) ? (
 				<label
 					className="relative ml-1 flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full border"
-					aria-label="Block colour"
+					aria-label="Block color"
 					style={color ? { backgroundColor: color } : undefined}
 				>
 					{color ? null : (
@@ -437,7 +437,7 @@ function BlockStyleControls({
 				<Button
 					variant="ghost"
 					size="icon-xs"
-					aria-label="Clear colour"
+					aria-label="Clear color"
 					onClick={() => {
 						const next = withColor(block, undefined);
 						if (next) onBlock(next);

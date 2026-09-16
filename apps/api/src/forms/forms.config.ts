@@ -16,6 +16,6 @@ export const POSSIBLE_SPAM_NOTE =
 	"Possible spam: this form came in faster than a person fills one in.";
 
 export const RATE_LIMITED_REASON =
-	"Too many submissions right now — try again in a minute.";
+	"Too many submissions right now. Try again in a minute.";
 
 export const BOT_SUPPRESSED_CONFIRMATION = { ok: true } as const;

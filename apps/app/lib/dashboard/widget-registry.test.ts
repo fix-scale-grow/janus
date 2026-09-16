@@ -37,7 +37,7 @@ test("pipelineBoardMeta builds an instance meta", async () => {
 	const { pipelineBoardMeta } = await import("./widget-registry-meta");
 	const meta = pipelineBoardMeta({ id: "p1", name: "Sales" });
 	expect(meta.id).toBe("pipeline-board:p1");
-	expect(meta.title).toBe("Sales — mini board");
+	expect(meta.title).toBe("Sales mini board");
 	expect(meta.description).toBe("Top deals per stage");
 	expect(meta.minW).toBe(5);
 	expect(meta.minH).toBe(6);

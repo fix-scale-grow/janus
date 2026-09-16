@@ -53,7 +53,7 @@ export const CONTACT_FIELD_NONE = "Don't save";
 export const CONTACT_FIELD_PLACEHOLDER = "Choose a contact field";
 
 export const NEED_ONE_EMAIL =
-	"A form needs exactly one email field — it's the dedupe key.";
+	"A form needs exactly one email field: it's the dedupe key.";
 export const NEED_LABELS = "Every field needs a label.";
 export const TOO_MANY_FIELDS = "A form can have at most 30 fields.";
 
@@ -81,7 +81,7 @@ export const HOSTED_LINK_LABEL = "Or share the hosted link";
 export const COPY = "Copy";
 export const OPEN = "Open";
 export const TEST_IT_NOTE =
-	"Submit the form yourself once — the answer becomes a real contact, so use an address you can delete later.";
+	"Submit the form yourself once. The answer becomes a real contact, so use an address you can delete later.";
 
 export const POSSIBLE_SPAM = "Possible spam";
 

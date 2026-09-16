@@ -96,9 +96,7 @@ export function AgentModel() {
 
 	const effectiveName = effective?.name ?? effectiveId;
 
-	const currentLabel = selectedId
-		? effectiveName
-		: `Default — ${effectiveName}`;
+	const currentLabel = selectedId ? effectiveName : `Default: ${effectiveName}`;
 
 	const choose = (id: string) => {
 		setOpen(false);
@@ -142,7 +140,7 @@ export function AgentModel() {
 										data-checked={current === FOLLOW_DEFAULT}
 										onSelect={() => choose(FOLLOW_DEFAULT)}
 									>
-										Default — {defaultModel?.name ?? defaultId}
+										Default: {defaultModel?.name ?? defaultId}
 									</CommandItem>
 								</CommandGroup>
 

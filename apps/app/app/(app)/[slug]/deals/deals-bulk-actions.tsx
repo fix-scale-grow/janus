@@ -235,7 +235,7 @@ export function DealsBulkActions({
 					open={confirming}
 					onOpenChange={setConfirming}
 					title={`Delete ${deals(ids.length)}?`}
-					description="Everything filed against them — activity, notes, the amounts in your pipeline — goes too. This cannot be undone."
+					description="Everything filed against them (activity, notes, the amounts in your pipeline) goes too. This cannot be undone."
 					onConfirm={() => remove.mutate({ ids })}
 				/>
 			) : null}

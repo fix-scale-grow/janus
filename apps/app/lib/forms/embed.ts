@@ -147,17 +147,17 @@ formEl.addEventListener("submit",function(ev){
     box.appendChild(done);
     return}
    var errs=res&&res.errors;
-   if(!errs){text(formErr,"Something went wrong — please try again.");return}
+   if(!errs){text(formErr,"Something went wrong. Please try again.");return}
    for(var k2=0;k2<fieldsInfo.length;k2++){
     var fi=fieldsInfo[k2];
     if(errs[fi.id])text(fi.err,errs[fi.id])}
    if(errs._form)text(formErr,errs._form)
   }).catch(function(){
    submitBtn.disabled=false;
-   text(formErr,"Something went wrong — please try again.")})
+   text(formErr,"Something went wrong. Please try again.")})
  }catch(e){
   submitBtn.disabled=false;
-  text(formErr,"Something went wrong — please try again.")}
+  text(formErr,"Something went wrong. Please try again.")}
 });
 }catch(e){}
 }

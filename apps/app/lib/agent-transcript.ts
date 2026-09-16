@@ -320,7 +320,7 @@ export function describe(part: EveMessagePart): string {
 	const verb = VERBS[tool] ?? humanise(tool);
 	const reason = output(part)?.reason;
 
-	return typeof reason === "string" ? `${verb} — ${reason}` : verb;
+	return typeof reason === "string" ? `${verb}: ${reason}` : verb;
 }
 
 export function outcomeTone(part: EveMessagePart): Tone {

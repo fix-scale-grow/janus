@@ -19,7 +19,7 @@ const COPY: Record<AgentRecordKind, RecordCopy> = {
 		field: "contactId",
 		title: "Ask about this person",
 		blurb:
-			"Every step is shown as it happens — including the leads it throws away.",
+			"Every step is shown as it happens, including the leads it throws away.",
 		placeholder: "Are they still there?",
 		suggestions: [
 			"Who is this person?",
@@ -56,7 +56,7 @@ const COPY: Record<AgentRecordKind, RecordCopy> = {
 	workspace: {
 		title: "Ask Janus",
 		blurb:
-			"It can read your pipelines, deals, drawings and estimates — ask it anything about the business.",
+			"It can read your pipelines, deals, drawings and estimates. Ask it anything about the business.",
 		placeholder: "Which deals stalled this week?",
 		suggestions: [
 			"Which deals stalled this week?",

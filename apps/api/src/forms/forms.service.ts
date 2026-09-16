@@ -272,7 +272,7 @@ export class FormsService {
 
 		if (submissions > 0) {
 			throw new BadRequestException(
-				"This form has submissions — it can be turned off instead of removed.",
+				"This form has submissions. It can be turned off instead of removed.",
 			);
 		}
 
@@ -625,7 +625,7 @@ ${answersBody(answers)}`
 
 		const deal = await this.deals.create(
 			{
-				name: contactName ? `${form.name} — ${contactName}` : form.name,
+				name: contactName ? `${form.name}: ${contactName}` : form.name,
 				ownerId,
 			},
 			adminPrincipal("system"),
@@ -805,7 +805,7 @@ function requireExactlyOneEmailField(fields: FormFieldInput[]): void {
 
 	if (emailFields.length !== 1) {
 		throw new BadRequestException(
-			"A form needs exactly one email field — it's the dedupe key.",
+			"A form needs exactly one email field: it's the dedupe key.",
 		);
 	}
 }

@@ -232,7 +232,7 @@ export class PipelinesService {
 
 			if (data.isEntry === true && stage.pipeline.archivedAt) {
 				throw new BadRequestException(
-					"That pipeline is archived — restore it before changing its entry stage.",
+					"That pipeline is archived. Restore it before changing its entry stage.",
 				);
 			}
 
@@ -247,7 +247,7 @@ export class PipelinesService {
 
 				if (dealsOnStage > 0) {
 					throw new BadRequestException(
-						"This stage still holds deals — move them before changing what the stage means.",
+						"This stage still holds deals. Move them before changing what the stage means.",
 					);
 				}
 
@@ -337,7 +337,7 @@ export class PipelinesService {
 
 		if (referenced > 0) {
 			throw new ConflictException(
-				"This stage still holds deals — archive it instead.",
+				"This stage still holds deals. Archive it instead.",
 			);
 		}
 
@@ -451,7 +451,7 @@ export class PipelinesService {
 			error.code === "P2003"
 		) {
 			return new ConflictException(
-				"This stage still holds deals — archive it instead.",
+				"This stage still holds deals. Archive it instead.",
 			);
 		}
 

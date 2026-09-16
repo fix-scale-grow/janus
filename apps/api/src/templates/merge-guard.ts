@@ -95,7 +95,7 @@ export function assertMergeComplete(
 
 	if (unknownLabels.length > 0) {
 		throw new BadRequestException(
-			`No longer exists — remove from the template: ${unknownLabels.join(", ")}`,
+			`No longer exists. Remove from the template: ${unknownLabels.join(", ")}`,
 		);
 	}
 

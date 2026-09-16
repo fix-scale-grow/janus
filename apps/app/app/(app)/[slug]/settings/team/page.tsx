@@ -86,8 +86,8 @@ async function Team({
 						<div className="flex flex-col gap-1">
 							<h2 className="font-semibold text-base">Crews</h2>
 							<p className="text-muted-foreground text-sm">
-								Name your crews and give each a colour. Tasks on the project
-								calendar take their crew's colour.
+								Name your crews and give each a color. Tasks on the project
+								calendar take their crew's color.
 							</p>
 						</div>
 						<CrewsTable />

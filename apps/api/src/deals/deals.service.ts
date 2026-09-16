@@ -105,10 +105,10 @@ const STAGE_VALIDATE_SELECT = {
 } as const;
 
 const STAGE_NO_LONGER_EXISTS =
-	"That stage no longer exists — pick a current one.";
+	"That stage no longer exists. Pick a current one.";
 
 const CLOSED_REASON_REQUIRED =
-	"Say why it was lost — a closed-lost deal with no reason teaches nobody anything.";
+	"Say why it was lost. A closed-lost deal with no reason teaches nobody anything.";
 
 type StageFacetMeta = {
 	id: string;
@@ -687,7 +687,7 @@ export class DealsService {
 		}
 		if (!isWonStage(deal.stage)) {
 			throw new BadRequestException(
-				"Only won jobs move through production — win the deal first.",
+				"Only won jobs move through production. Win the deal first.",
 			);
 		}
 		if (deal.productionStage === input.stage) {
@@ -863,7 +863,7 @@ export class DealsService {
 
 		if (requiresReason(stage) && !closedReason) {
 			throw new BadRequestException(
-				"Say why they were lost — a closed-lost deal with no reason teaches nobody anything.",
+				"Say why they were lost. A closed-lost deal with no reason teaches nobody anything.",
 			);
 		}
 

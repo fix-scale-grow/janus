@@ -174,7 +174,7 @@ export function ContactSheet({ contactId }: { contactId: string }) {
 						<RecordActions
 							record={{ kind: "contact", id: contact.id }}
 							name={contactName(contact)}
-							consequence={`Their notes, agent conversations and everything the agent found go too.${contact.email ? ` The sync will not bring ${contact.email} back — only adding them yourself will.` : ""}`}
+							consequence={`Their notes, agent conversations and everything the agent found go too.${contact.email ? ` The sync will not bring ${contact.email} back. Only adding them yourself will.` : ""}`}
 						/>
 					</>
 				) : null

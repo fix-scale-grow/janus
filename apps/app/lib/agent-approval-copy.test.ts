@@ -33,10 +33,10 @@ describe("generic approval copy fallback", () => {
 		const rendered = JSON.stringify(sections);
 		expect(rendered).not.toContain("{\\");
 		expect(sections[0]?.rows).toEqual([
-			{ label: "Fields 1 — Name", value: "Email" },
-			{ label: "Fields 1 — Type", value: "email" },
-			{ label: "Fields 2 — Name", value: "Phone" },
-			{ label: "Fields 2 — Type", value: "tel" },
+			{ label: "Fields 1: Name", value: "Email" },
+			{ label: "Fields 1: Type", value: "email" },
+			{ label: "Fields 2: Name", value: "Phone" },
+			{ label: "Fields 2: Type", value: "tel" },
 			{ label: "Tags", value: "vip, referral" },
 		]);
 	});
@@ -219,7 +219,7 @@ describe("approval outcome lines", () => {
 				matched: ["s1", "s2", "s3"],
 				unmatched: [],
 			}),
-		).toBe("Applied — 3 shapes tagged");
+		).toBe("Applied: 3 shapes tagged");
 	});
 
 	it("phrases a drawing tags failure with the reason", () => {
@@ -230,7 +230,7 @@ describe("approval outcome lines", () => {
 				reason: "None of the proposed tags matched a shape on this drawing.",
 			}),
 		).toBe(
-			"Not applied — None of the proposed tags matched a shape on this drawing.",
+			"Not applied: None of the proposed tags matched a shape on this drawing.",
 		);
 	});
 
@@ -242,7 +242,7 @@ describe("approval outcome lines", () => {
 				estimateId: "estimate1",
 				lineItemIds: ["li1"],
 			}),
-		).toBe("Applied — 1 line added");
+		).toBe("Applied: 1 line added");
 	});
 
 	it("phrases a service update success from the execute result", () => {
@@ -253,7 +253,7 @@ describe("approval outcome lines", () => {
 				serviceId: "service1",
 				diff: [{ field: "unitPriceCents", from: 45000, to: 47500 }],
 			}),
-		).toBe("Applied — 1 field updated");
+		).toBe("Applied: 1 field updated");
 	});
 
 	it("falls back to a generic Approved when the output is unreadable", () => {
@@ -267,7 +267,7 @@ describe("approval outcome lines", () => {
 		expect(copy.outcome?.({ applied: true })).toBe("Applied");
 		expect(
 			copy.outcome?.({ applied: false, reason: "Charge already refunded." }),
-		).toBe("Not applied — Charge already refunded.");
+		).toBe("Not applied: Charge already refunded.");
 		expect(copy.outcome?.(null)).toBeNull();
 	});
 });
@@ -296,7 +296,7 @@ describe("fill_worksheet approval copy", () => {
 				permitId: "permit1",
 				dealId: "deal1",
 			}),
-		).toBe("Applied — 2 fields await your review");
+		).toBe("Applied: 2 fields await your review");
 	});
 
 	it("uses singular agreement for a single field", () => {
@@ -309,13 +309,13 @@ describe("fill_worksheet approval copy", () => {
 				permitId: "permit1",
 				dealId: "deal1",
 			}),
-		).toBe("Applied — 1 field awaits your review");
+		).toBe("Applied: 1 field awaits your review");
 	});
 
 	it("phrases a fill_worksheet failure with the reason", () => {
 		const copy = approvalCopyFor("fill_worksheet");
 		expect(copy.outcome?.({ applied: false, reason: "No such permit." })).toBe(
-			"Not applied — No such permit.",
+			"Not applied: No such permit.",
 		);
 	});
 });
@@ -388,7 +388,7 @@ describe("generic approval copy fallback bounds", () => {
 		});
 
 		expect(sections[0]?.rows).toEqual([
-			{ label: "A — B — C — D", value: "{1 fields}" },
+			{ label: "A: B: C: D", value: "{1 fields}" },
 		]);
 	});
 
@@ -399,7 +399,7 @@ describe("generic approval copy fallback bounds", () => {
 		const rows = sections[0]?.rows ?? [];
 
 		expect(rows).toHaveLength(40);
-		expect(rows[0]).toEqual({ label: "Items 1 — Id", value: "0" });
+		expect(rows[0]).toEqual({ label: "Items 1: Id", value: "0" });
 		expect(rows.at(-1)).toEqual({
 			label: "…",
 			value: "961 more not shown",

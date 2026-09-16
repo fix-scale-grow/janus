@@ -61,4 +61,4 @@ export function deleteStageTitle(label: string): string {
 }
 
 export const DELETE_STAGE_BODY =
-	"This removes the stage for good. If any deal ever used it, delete is refused — archive it instead.";
+	"This removes the stage for good. If any deal ever used it, delete is refused. Archive it instead.";

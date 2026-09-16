@@ -25,7 +25,7 @@ export default function FieldPage() {
 				<PageShellHeading>
 					<PageShellTitle>Field</PageShellTitle>
 					<PageShellDescription>
-						Today&apos;s active jobs — call the customer, open the job.
+						Today&apos;s active jobs. Call the customer, open the job.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>

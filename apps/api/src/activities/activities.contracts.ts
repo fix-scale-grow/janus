@@ -54,7 +54,7 @@ export const activityCreateInput = z
 	.refine(
 		(input) => input.type !== ActivityType.TASK || Boolean(input.subject),
 		{
-			message: "A task needs a subject — it is the thing to do.",
+			message: "A task needs a subject: it is the thing to do.",
 			path: ["subject"],
 		},
 	);

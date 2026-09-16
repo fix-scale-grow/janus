@@ -68,10 +68,10 @@ export function isMarkingMode(mode: ToolMode): boolean {
 
 export function hintFor(mode: ToolMode): string | null {
 	if (mode === "area") {
-		return "Click to place points — click the first point to close the area";
+		return "Click to place points, then click the first point to close the area";
 	}
 	if (mode === "line") {
-		return "Click to place points — double-click or press Enter to finish";
+		return "Click to place points, then double-click or press Enter to finish";
 	}
 	if (mode === "pin") return "Click the drawing to drop a pin";
 	if (mode === "scale") return "Click a straight line to calibrate";
