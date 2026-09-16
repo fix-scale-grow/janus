@@ -157,7 +157,7 @@ function ScopeServiceField(props: {
 			</Select>
 			{service && mismatched && (
 				<span className="text-destructive text-xs">
-					won't price: unit mismatch
+					won't price until the units match
 				</span>
 			)}
 		</div>

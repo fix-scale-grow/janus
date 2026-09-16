@@ -842,7 +842,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 							onClick={() => window.location.reload()}
 							variant="destructive"
 						>
-							Changed elsewhere: reload
+							Reload for the latest version
 						</Button>
 					) : (
 						<Tooltip>

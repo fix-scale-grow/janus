@@ -114,7 +114,7 @@ export class BackfillService implements OnModuleInit {
 
 		const research = await this.agent.backfill({
 			kind: "identify",
-			reason: "This contact was never researched.",
+			reason: "Backfill — this contact was never researched",
 			contactIds: researchRows.map((row) => row.id),
 		});
 

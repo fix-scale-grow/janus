@@ -25,7 +25,7 @@ export default function FieldsSettingsPage() {
 				<PageShellHeading>
 					<PageShellTitle>Fields</PageShellTitle>
 					<PageShellDescription>
-						The details Janus keeps on every contact and job, yours to define.
+						The details Janus keeps on every contact and job. Yours to define.
 					</PageShellDescription>
 				</PageShellHeading>
 			</PageShellHeader>
