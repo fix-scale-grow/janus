@@ -435,7 +435,7 @@ export function InvoiceDetail({
 									<h2 className="font-medium text-sm text-muted-foreground">
 										{areaLabel}
 									</h2>
-									<SimpleTable columns={COLUMNS} className="min-w-[40rem]">
+									<SimpleTable columns={COLUMNS} className="min-w-2xl">
 										{items.map((item) => (
 											<InvoiceLineRow
 												key={item.id}

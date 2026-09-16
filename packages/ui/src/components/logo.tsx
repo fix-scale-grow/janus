@@ -13,6 +13,7 @@ const Logo = ({ src, alt, className, ...props }: LogoProps) => {
 	const imgRef = useRef<HTMLImageElement>(null);
 
 	useEffect(() => {
+		setFailed(false);
 		const img = imgRef.current;
 		if (img?.complete && img.naturalWidth === 0) {
 			setFailed(true);
